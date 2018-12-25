@@ -1,0 +1,15 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: nginx-keyvault
+spec:
+  containers:
+  - image: nginx
+    name: nginx-keyvault
+    volumeMounts:
+    - name: keyvault01
+      mountPath: "/mnt/keyvault"
+  volumes:
+  - name: keyvault01
+    persistentVolumeClaim:
+      claimName: pvc-keyvault
