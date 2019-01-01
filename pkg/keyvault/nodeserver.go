@@ -20,22 +20,16 @@ import (
 	//"fmt"
 	"io/ioutil"
 	"os"
-	"path"
-	"strconv"
-	//"runtime"
-	//"strings"
 
 	"github.com/ritazh/keyvault-csi-driver/pkg/csi-common"
 	"github.com/container-storage-interface/spec/lib/go/csi/v0"
 	"github.com/golang/glog"
-	"github.com/pkg/errors"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"golang.org/x/net/context"
 	"k8s.io/kubernetes/pkg/util/mount"
-	//volumeutil "k8s.io/kubernetes/pkg/volume/util"
 )
 
 type nodeServer struct {
@@ -44,11 +38,6 @@ type nodeServer struct {
 const (
 	permission os.FileMode = 0644
 )
-
-// type object struct {
-// 	objectType   string
-// 	name         string
-// }
 
 func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
 	// Check arguments
@@ -96,52 +85,17 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	glog.V(2).Infof("target %v\nfstype %v\n\nreadonly %v\nvolumeId %v\nattributes %v\nmountflags %v\n",
 		targetPath, fsType, readOnly, volumeID, attrib, mountFlags)
 
-	// var keyvaultName string
-	// var objects []object
-
 	secrets := req.GetNodePublishSecrets()
 	glog.V(2).Infof("secret %v\n", secrets)
-	// TODO: Get KV
 	options := []string{}
 	if readOnly {
 		options = append(options, "ro")
 	}
-	// mountOptions := []string{}
-	// mountOptions = volumeutil.JoinMountOptions(mountFlags, options)
-	// path := "/tmp/" + volumeID
-	// if err := mounter.Mount(path, targetPath, "", mountOptions); err != nil {
-	// 	glog.Errorf("keyvault-csi-driver NodePublishVolume failed: %v", err)
-	// 	return nil, err
-	// }
-
-	keyvaultName := attrib["keyvaultname"]
-	keyvaultObjectName := attrib["keyvaultobjectname"]
-	keyvaultObjectType := attrib["keyvaultobjecttype"]
-	keyvaultObjectVersion := attrib["keyvaultobjectversion"]
-	usePodIdentity, _ := strconv.ParseBool(attrib["usepodidentity"])
-	resourceGroup := attrib["resourcegroup"]
-	subscriptionId := attrib["subscriptionid"]
-	tenantId := attrib["tenantid"]
-
-	var clientId, clientSecret string
-
-	if !usePodIdentity {
-		glog.V(0).Infoln("using pod identity to access keyvault")
-		clientId, clientSecret, err = GetCredential(secrets)
-		if err != nil {
-			return nil, err
-		}
-	}
 	
-	content, err := GetKeyVaultObjectContent(ctx, keyvaultName, keyvaultObjectType, keyvaultObjectName, keyvaultObjectVersion, usePodIdentity, resourceGroup, subscriptionId, tenantId, clientId, clientSecret)
+	err = MountKeyVaultObjectContent(ctx, attrib, secrets, targetPath, permission)
 	if err != nil {
 		return nil, err
 	}
-	objectContent := []byte(content)
-	if err := ioutil.WriteFile(path.Join(targetPath, keyvaultObjectName), objectContent, permission); err != nil {
-		return nil, errors.Wrapf(err, "KeyVault failed to write %s at %s", keyvaultObjectName, targetPath)
-	}
-	glog.V(0).Infof("KeyVault wrote %s at %s",keyvaultObjectName, targetPath)
 
 	return &csi.NodePublishVolumeResponse{}, nil
 }

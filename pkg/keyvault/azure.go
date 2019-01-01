@@ -21,9 +21,13 @@ import (
 	"encoding/json"
 	"regexp"
 	"net/http"
+	"os"
+	"path"
 	"io/ioutil"
 	"strings"
+	"strconv"
 	"golang.org/x/net/context"
+	yaml "gopkg.in/yaml.v2"
 
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest"
@@ -65,6 +69,34 @@ func AuthGrantType() OAuthGrantType {
 	return OAuthGrantTypeServicePrincipal
 }
 
+type Property struct {
+	// the name of the Azure Key Vault instance
+	KeyvaultName string `json:"keyvaultName" yaml:"keyvaultName"`
+	// the name of the Azure Key Vault objects
+	Objects string `json:"objects" yaml:"objects"`
+	// the resourcegroup of the Azure Key Vault
+	ResourceGroup string `json:"resourceGroup" yaml:"resourceGroup"`
+	// subscriptionId to azure
+	SubscriptionId string `json:"subscriptionId" yaml:"subscriptionId"`
+	// tenantID in AAD
+	TenantId string `json:"tenantId" yaml:"tenantId"`
+	// POD AAD Identity flag
+	UsePodIdentity bool `json:"usePodIdentity" yaml:"usePodIdentity"`
+}
+
+type KeyVaultObject struct {
+	// the name of the Azure Key Vault objects
+	ObjectName string `json:"objectName" yaml:"objectName"`
+	// the version of the Azure Key Vault objects
+	ObjectVersion string `json:"objectVersion" yaml:"objectVersion"`
+	// the type of the Azure Key Vault objects
+	ObjectType string `json:"objectType" yaml:"objectType"`
+}
+
+type StringArray struct {
+	Array []string `json:"array" yaml:"array"`
+} 
+
 // ParseAzureEnvironment returns azure environment by name
 func ParseAzureEnvironment(cloudName string) (*azure.Environment, error) {
 	var env azure.Environment
@@ -94,8 +126,6 @@ func GetKeyvaultToken(grantType OAuthGrantType, cloudName string, tenantId strin
 	}
 	authorizer = autorest.NewBearerAuthorizer(servicePrincipalToken)
 	return authorizer, nil
-	
-
 }
 
 func initializeKvClient(cloudName string, tenantId string, usePodIdentity bool, aADClientSecret string, aADClientID string, podname string, podns string) (*kv.BaseClient, error) {
@@ -173,7 +203,6 @@ func GetManagementToken(grantType OAuthGrantType, cloudName string, tenantId str
 	}
 	authorizer = autorest.NewBearerAuthorizer(servicePrincipalToken)
 	return authorizer, nil
-
 }
 
 // GetServicePrincipalToken creates a new service principal token based on the configuration
@@ -249,7 +278,67 @@ func GetServicePrincipalToken(tenantId string, env *azure.Environment, resource 
 
 	return nil, fmt.Errorf("No credentials provided for AAD application %s", aADClientID)
 }
+// MountKeyVaultObjectContent mounts content of the keyvault object to target path
+func MountKeyVaultObjectContent(ctx context.Context, attrib map[string]string, secrets map[string]string, targetPath string, permission os.FileMode) (err error) {
 
+	keyvaultName := attrib["keyvaultName"]
+	usePodIdentity, err := strconv.ParseBool(attrib["usePodIdentity"])
+	if err != nil {
+		fmt.Printf("cannot parse usePodIdentity")
+		return err
+	}
+	resourceGroup := attrib["resourceGroup"]
+	subscriptionId := attrib["subscriptionId"]
+	tenantId := attrib["tenantId"]
+
+	keyVaultObjects := []KeyVaultObject{}
+	objectsStrings := attrib["objects"]
+	fmt.Printf("objectsStrings: [%s]", objectsStrings)
+
+	var objects StringArray
+	err = yaml.Unmarshal([]byte(objectsStrings), &objects)
+	if err != nil {
+		fmt.Printf("unmarshall failed for objects")
+		return err
+	}
+	fmt.Printf("objects: [%v]", objects.Array)
+	for _, object := range objects.Array {
+		fmt.Printf("unmarshal object: [%s]", object)
+		var keyVaultObject KeyVaultObject
+		err = yaml.Unmarshal([]byte(object), &keyVaultObject)
+		if err != nil {
+			fmt.Printf("unmarshall failed for keyVaultObjects at index")
+			return err
+		}
+		keyVaultObjects = append(keyVaultObjects, keyVaultObject)
+	}
+	
+	fmt.Printf("unmarshalled property: %v", keyVaultObjects)
+	fmt.Printf("keyVaultObjects len: %d", len(keyVaultObjects))
+
+	var clientId, clientSecret string
+
+	if !usePodIdentity {
+		glog.V(0).Infoln("using pod identity to access keyvault")
+		clientId, clientSecret, err = GetCredential(secrets)
+		if err != nil {
+			return err
+		}
+	}
+	for _, keyVaultObject := range keyVaultObjects {
+		content, err := GetKeyVaultObjectContent(ctx, keyvaultName, keyVaultObject.ObjectType, keyVaultObject.ObjectName, keyVaultObject.ObjectVersion, usePodIdentity, resourceGroup, subscriptionId, tenantId, clientId, clientSecret)
+		if err != nil {
+			return err
+		}
+		objectContent := []byte(content)
+		if err := ioutil.WriteFile(path.Join(targetPath, keyVaultObject.ObjectName), objectContent, permission); err != nil {
+			return errors.Wrapf(err, "KeyVault failed to write %s at %s", keyVaultObject.ObjectName, targetPath)
+		}
+		glog.V(0).Infof("KeyVault wrote %s at %s",keyVaultObject.ObjectName, targetPath)
+	}
+	
+	return nil
+}
 // GetKeyVaultObjectContent get content of the keyvault object
 func GetKeyVaultObjectContent(ctx context.Context, keyvaultName string, objectType string, objectName string, objectVersion string, usePodIdentity bool, resourceGroup string, subscriptionId string, tenantId string, clientId string, clientSecret string) (content string, err error) {
 	// TODO: support pod identity
