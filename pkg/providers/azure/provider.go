@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package keyvault
+package azure
 
 import (
 	"fmt"
@@ -69,19 +69,19 @@ func AuthGrantType() OAuthGrantType {
 	return OAuthGrantTypeServicePrincipal
 }
 
-type Property struct {
+type AzureProvider struct {
 	// the name of the Azure Key Vault instance
-	KeyvaultName string `json:"keyvaultName" yaml:"keyvaultName"`
-	// the name of the Azure Key Vault objects
-	Objects string `json:"objects" yaml:"objects"`
+	KeyvaultName string
+	// the name of the Azure Key Vault objects, since attributes can only be strings, this will be mapped to StringArray, which is an array of KeyVaultObject
+	Objects []KeyVaultObject
 	// the resourcegroup of the Azure Key Vault
-	ResourceGroup string `json:"resourceGroup" yaml:"resourceGroup"`
+	ResourceGroup string
 	// subscriptionId to azure
-	SubscriptionId string `json:"subscriptionId" yaml:"subscriptionId"`
+	SubscriptionId string
 	// tenantID in AAD
-	TenantId string `json:"tenantId" yaml:"tenantId"`
+	TenantId string
 	// POD AAD Identity flag
-	UsePodIdentity bool `json:"usePodIdentity" yaml:"usePodIdentity"`
+	UsePodIdentity bool
 }
 
 type KeyVaultObject struct {
@@ -95,7 +95,14 @@ type KeyVaultObject struct {
 
 type StringArray struct {
 	Array []string `json:"array" yaml:"array"`
-} 
+}
+
+// NewProvider creates a new ACIProvider.
+func NewAzureProvider() (*AzureProvider, error) {
+	glog.V(2).Infof("NewAzureProvider")
+	var p AzureProvider
+	return &p, nil
+}
 
 // ParseAzureEnvironment returns azure environment by name
 func ParseAzureEnvironment(cloudName string) (*azure.Environment, error) {
@@ -109,8 +116,7 @@ func ParseAzureEnvironment(cloudName string) (*azure.Environment, error) {
 	return &env, err
 }
 
-func GetKeyvaultToken(grantType OAuthGrantType, cloudName string, tenantId string, usePodIdentity bool, aADClientSecret string, aADClientID string, podname string, podns string) (authorizer autorest.Authorizer, err error) {
-	
+func (p *AzureProvider) GetKeyvaultToken(grantType OAuthGrantType, cloudName string, aADClientSecret string, aADClientID string, podname string, podns string) (authorizer autorest.Authorizer, err error) {
 	env, err := ParseAzureEnvironment(cloudName)
 	if err != nil {
 		return nil, err
@@ -120,7 +126,7 @@ func GetKeyvaultToken(grantType OAuthGrantType, cloudName string, tenantId strin
 	if '/' == kvEndPoint[len(kvEndPoint)-1] {
 		kvEndPoint = kvEndPoint[:len(kvEndPoint)-1]
 	}
-	servicePrincipalToken, err := GetServicePrincipalToken(tenantId, env, kvEndPoint, usePodIdentity, aADClientSecret, aADClientID, podname, podns)
+	servicePrincipalToken, err := p.GetServicePrincipalToken(env, kvEndPoint, aADClientSecret, aADClientID, podname, podns)
 	if err != nil {
 		return nil, err
 	}
@@ -128,9 +134,9 @@ func GetKeyvaultToken(grantType OAuthGrantType, cloudName string, tenantId strin
 	return authorizer, nil
 }
 
-func initializeKvClient(cloudName string, tenantId string, usePodIdentity bool, aADClientSecret string, aADClientID string, podname string, podns string) (*kv.BaseClient, error) {
+func (p *AzureProvider) initializeKvClient(cloudName string, aADClientSecret string, aADClientID string, podname string, podns string) (*kv.BaseClient, error) {
 	kvClient := kv.New()
-	token, err := GetKeyvaultToken(AuthGrantType(), cloudName, tenantId, usePodIdentity, aADClientSecret, aADClientID, podname, podns)
+	token, err := p.GetKeyvaultToken(AuthGrantType(), cloudName, aADClientSecret, aADClientID, podname, podns)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get key vault token")
 	}
@@ -164,16 +170,14 @@ func GetCredential(secrets map[string]string) (string, string, error) {
 	return clientId, clientSecret, nil
 }
 
-func getVaultURL(ctx context.Context, cloudName string, vaultName string, resourceGroup string, subscriptionId string, tenantId string, usePodIdentity bool, aADClientSecret string, aADClientID string, podName string, podns string) (vaultUrl *string, err error) {
-	glog.V(2).Infof("subscriptionID: %s", subscriptionId)
-	glog.V(2).Infof("vaultName: %s", vaultName)
-	glog.V(2).Infof("resourceGroup: %s", resourceGroup)
+func (p *AzureProvider) getVaultURL(ctx context.Context, cloudName string, aADClientSecret string, aADClientID string, podName string, podns string) (vaultUrl *string, err error) {
+	glog.V(5).Infof("subscriptionID: %s", p.SubscriptionId)
+	glog.V(5).Infof("vaultName: %s", p.KeyvaultName)
+	glog.V(5).Infof("resourceGroup: %s", p.ResourceGroup)
 
-	vaultsClient := kvmgmt.NewVaultsClient(subscriptionId)
-	token, tokenErr := GetManagementToken(AuthGrantType(),
+	vaultsClient := kvmgmt.NewVaultsClient(p.SubscriptionId)
+	token, tokenErr := p.GetManagementToken(AuthGrantType(),
 		cloudName,
-		tenantId,
-		usePodIdentity,
 		aADClientSecret,
 		aADClientID,
 		podName,
@@ -182,14 +186,14 @@ func getVaultURL(ctx context.Context, cloudName string, vaultName string, resour
 		return nil, errors.Wrapf(err, "failed to get management token")
 	}
 	vaultsClient.Authorizer = token
-	vault, err := vaultsClient.Get(ctx, resourceGroup, vaultName)
+	vault, err := vaultsClient.Get(ctx, p.ResourceGroup, p.KeyvaultName)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get vault %s", vaultName)
+		return nil, errors.Wrapf(err, "failed to get vault %s", p.KeyvaultName)
 	}
 	return vault.Properties.VaultURI, nil
 }
 
-func GetManagementToken(grantType OAuthGrantType, cloudName string, tenantId string, usePodIdentity bool, aADClientSecret string, aADClientID string, podname string, podns string) (authorizer autorest.Authorizer, err error) {
+func (p *AzureProvider) GetManagementToken(grantType OAuthGrantType, cloudName string, aADClientSecret string, aADClientID string, podname string, podns string) (authorizer autorest.Authorizer, err error) {
 	
 	env, err := ParseAzureEnvironment(cloudName)
 	if err != nil {
@@ -197,7 +201,7 @@ func GetManagementToken(grantType OAuthGrantType, cloudName string, tenantId str
 	}
 
 	rmEndPoint := env.ResourceManagerEndpoint
-	servicePrincipalToken, err := GetServicePrincipalToken(tenantId, env, rmEndPoint, usePodIdentity, aADClientSecret, aADClientID, podname, podns)
+	servicePrincipalToken, err := p.GetServicePrincipalToken(env, rmEndPoint, aADClientSecret, aADClientID, podname, podns)
 	if err != nil {
 		return nil, err
 	}
@@ -206,8 +210,8 @@ func GetManagementToken(grantType OAuthGrantType, cloudName string, tenantId str
 }
 
 // GetServicePrincipalToken creates a new service principal token based on the configuration
-func GetServicePrincipalToken(tenantId string, env *azure.Environment, resource string, usePodIdentity bool, aADClientSecret string, aADClientID string, podname string, podns string) (*adal.ServicePrincipalToken, error) {
-	oauthConfig, err := adal.NewOAuthConfig(env.ActiveDirectoryEndpoint, tenantId)
+func (p *AzureProvider) GetServicePrincipalToken(env *azure.Environment, resource string, aADClientSecret string, aADClientID string, podname string, podns string) (*adal.ServicePrincipalToken, error) {
+	oauthConfig, err := adal.NewOAuthConfig(env.ActiveDirectoryEndpoint, p.TenantId)
 	if err != nil {
 		return nil, fmt.Errorf("creating the OAuth config: %v", err)
 	}
@@ -217,7 +221,7 @@ func GetServicePrincipalToken(tenantId string, env *azure.Environment, resource 
 	// The NMI server identifies the pod based on the `podns` and `podname` in the request header and then queries k8s (through MIC) for a matching azure identity.  
 	// Then nmi makes an adal request to get a token for the resource in the request, returns the `token` and the `clientid` as a reponse to the CSI request.
 
-	if usePodIdentity {
+	if p.UsePodIdentity {
 		glog.V(0).Infoln("azure: using pod identity to retrieve token")
 		
 		endpoint := fmt.Sprintf("%s?resource=%s", nmiendpoint, resource)
@@ -279,8 +283,7 @@ func GetServicePrincipalToken(tenantId string, env *azure.Environment, resource 
 	return nil, fmt.Errorf("No credentials provided for AAD application %s", aADClientID)
 }
 // MountKeyVaultObjectContent mounts content of the keyvault object to target path
-func MountKeyVaultObjectContent(ctx context.Context, attrib map[string]string, secrets map[string]string, targetPath string, permission os.FileMode) (err error) {
-
+func (p *AzureProvider) MountKeyVaultObjectContent(ctx context.Context, attrib map[string]string, secrets map[string]string, targetPath string, permission os.FileMode) (err error) {
 	keyvaultName := attrib["keyvaultName"]
 	usePodIdentity, err := strconv.ParseBool(attrib["usePodIdentity"])
 	if err != nil {
@@ -325,8 +328,14 @@ func MountKeyVaultObjectContent(ctx context.Context, attrib map[string]string, s
 			return err
 		}
 	}
+	p.KeyvaultName = keyvaultName
+	p.UsePodIdentity = usePodIdentity
+	p.ResourceGroup = resourceGroup
+	p.SubscriptionId = subscriptionId
+	p.TenantId = tenantId
+
 	for _, keyVaultObject := range keyVaultObjects {
-		content, err := GetKeyVaultObjectContent(ctx, keyvaultName, keyVaultObject.ObjectType, keyVaultObject.ObjectName, keyVaultObject.ObjectVersion, usePodIdentity, resourceGroup, subscriptionId, tenantId, clientId, clientSecret)
+		content, err := p.GetKeyVaultObjectContent(ctx, keyVaultObject.ObjectType, keyVaultObject.ObjectName, keyVaultObject.ObjectVersion, clientId, clientSecret)
 		if err != nil {
 			return err
 		}
@@ -340,15 +349,15 @@ func MountKeyVaultObjectContent(ctx context.Context, attrib map[string]string, s
 	return nil
 }
 // GetKeyVaultObjectContent get content of the keyvault object
-func GetKeyVaultObjectContent(ctx context.Context, keyvaultName string, objectType string, objectName string, objectVersion string, usePodIdentity bool, resourceGroup string, subscriptionId string, tenantId string, clientId string, clientSecret string) (content string, err error) {
+func (p *AzureProvider) GetKeyVaultObjectContent(ctx context.Context, objectType string, objectName string, objectVersion string, clientId string, clientSecret string) (content string, err error) {
 	// TODO: support pod identity
 
-	vaultUrl, err := getVaultURL(ctx, "", keyvaultName, resourceGroup, subscriptionId, tenantId, usePodIdentity, clientSecret, clientId, "", "")
+	vaultUrl, err := p.getVaultURL(ctx, "", clientSecret, clientId, "", "")
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get vault")
 	}
 
-	kvClient, err := initializeKvClient("", tenantId, usePodIdentity, clientSecret, clientId, "", "")
+	kvClient, err := p.initializeKvClient("", clientSecret, clientId, "", "")
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get keyvaultClient")
 	}

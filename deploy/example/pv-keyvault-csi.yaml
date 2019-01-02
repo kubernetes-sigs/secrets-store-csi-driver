@@ -13,6 +13,7 @@ spec:
     readOnly: true
     volumeHandle: kv
     volumeAttributes:
+      providerName: "azure"
       usePodIdentity: "false"         # [OPTIONAL] default to "false" if empty
       keyvaultName: ""                # name of the KeyVault
       objects:  |

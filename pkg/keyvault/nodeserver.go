@@ -22,6 +22,8 @@ import (
 	"os"
 
 	"github.com/ritazh/keyvault-csi-driver/pkg/csi-common"
+	"github.com/ritazh/keyvault-csi-driver/pkg/providers"
+	"github.com/ritazh/keyvault-csi-driver/pkg/providers/register"
 	"github.com/container-storage-interface/spec/lib/go/csi/v0"
 	"github.com/golang/glog"
 
@@ -91,8 +93,14 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if readOnly {
 		options = append(options, "ro")
 	}
-	
-	err = MountKeyVaultObjectContent(ctx, attrib, secrets, targetPath, permission)
+	providerName := attrib["providerName"]
+	var provider providers.Provider
+	initConfig := register.InitConfig{}
+	provider, err = register.GetProvider(providerName, initConfig)
+	if err != nil {
+		glog.V(2).Infof("Error initializing provider\n")
+	}
+	err = provider.MountKeyVaultObjectContent(ctx, attrib, secrets, targetPath, permission)
 	if err != nil {
 		return nil, err
 	}
