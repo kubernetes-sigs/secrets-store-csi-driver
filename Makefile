@@ -14,7 +14,7 @@
 
 REGISTRY_NAME=ritazh
 IMAGE_NAME=keyvault-csi
-IMAGE_VERSION=latest#v0.0.1
+IMAGE_VERSION=v0.0.1
 IMAGE_TAG=$(REGISTRY_NAME)/$(IMAGE_NAME):$(IMAGE_VERSION)
 IMAGE_TAG_LATEST=$(REGISTRY_NAME)/$(IMAGE_NAME):latest
 REV=$(shell git describe --long --tags --dirty)

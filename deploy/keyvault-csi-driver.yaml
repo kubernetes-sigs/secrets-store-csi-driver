@@ -15,7 +15,7 @@ spec:
       hostNetwork: true
       containers:
         - name: driver-registrar
-          image: quay.io/k8scsi/driver-registrar:v0.4.1
+          image: gcr.io/gke-release/csi-driver-registrar:v1.0.1-gke.0
           args:
             - --v=5
             - --csi-address=/csi/csi.sock
@@ -33,14 +33,14 @@ spec:
           - mountPath: /registration
             name: registration-dir
         - name: keyvault
-          image: ritazh/keyvault-csi:latest
+          image: ritazh/keyvault-csi:v0.0.1
           args:
             - "--v=5"
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
           env:
             - name: AZURE_CREDENTIAL_FILE
-              value: "/etc/kubernetes/azure.json"	
+              value: "/etc/kubernetes/azure.json"
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
             - name: KUBE_NODE_NAME
@@ -72,7 +72,7 @@ spec:
             type: DirectoryOrCreate
           name: mountpoint-dir
         - hostPath:
-            path: /var/lib/kubelet/plugins
+            path: /var/lib/kubelet/plugins_registry
             type: Directory
           name: registration-dir
         - hostPath:
