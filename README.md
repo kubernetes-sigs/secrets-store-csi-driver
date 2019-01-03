@@ -61,7 +61,7 @@ csi-keyvault-zrjt2         2/2     Running   0          4m
 
 1. Select a provider from the [list of supported providers](#providers)
 
-2. Follow specific steps for the selected provider to update required fields in the [deployment yaml of a pv](deploy/example/pv-keyvault-csi.yaml)
+2. To create a Keyvault CSI volume, follow [specific deployment steps](#providers) for the selected provider to update all the required fields in [this deployment yaml](deploy/example/pv-keyvault-csi.yaml).
 
 ```yaml
 csi:
@@ -70,7 +70,7 @@ csi:
   volumeHandle: kv
   volumeAttributes:
     providerName: "azure"
-      ...
+    ...
 ```
 3. Deploy your PersistentVolume (CSI Volume)
 
@@ -78,7 +78,7 @@ csi:
 kubectl apply -f deploy/example/pv-keyvault-csi.yaml
 ```
 
-4. Deploy a static pvc pointing to your pv
+4. Deploy a static pvc pointing to your persistentvolume
 
 ```bash
 kubectl apply -f deploy/example/pvc-keyvault-csi-static.yaml
