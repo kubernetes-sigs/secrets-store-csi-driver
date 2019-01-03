@@ -21,7 +21,7 @@ import (
 	// "strings"
 
 	"github.com/ritazh/keyvault-csi-driver/pkg/csi-common"
-	"github.com/container-storage-interface/spec/lib/go/csi/v0"
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/glog"
 )
 
@@ -49,18 +49,7 @@ type keyvaultVolume struct {
 	VolPath string `json:"volPath"`
 }
 
-type keyvaultSnapshot struct {
-	Name      string              `json:"name"`
-	Id        string              `json:"id"`
-	VolID     string              `json:"volID"`
-	Path      string              `json:"path"`
-	CreateAt  int64               `json:"createAt"`
-	SizeBytes int64               `json:"sizeBytes"`
-	Status    *csi.SnapshotStatus `json:"status"`
-}
-
 var keyvaultVolumes map[string]keyvaultVolume
-var keyvaultVolumeSnapshots map[string]keyvaultSnapshot
 
 var (
 	keyvaultDriver *keyvault
@@ -69,7 +58,6 @@ var (
 
 func init() {
 	keyvaultVolumes = map[string]keyvaultVolume{}
-	keyvaultVolumeSnapshots = map[string]keyvaultSnapshot{}
 }
 
 func GetKeyvaultDriver() *keyvault {
@@ -98,10 +86,6 @@ func (k *keyvault) Run(driverName, nodeID, endpoint string) {
 	k.driver.AddVolumeCapabilityAccessModes([]csi.VolumeCapability_AccessMode_Mode{
 		csi.VolumeCapability_AccessMode_SINGLE_NODE_READER_ONLY,
 		csi.VolumeCapability_AccessMode_MULTI_NODE_READER_ONLY,
-	})
-
-	k.driver.AddNodeServiceCapabilities([]csi.NodeServiceCapability_RPC_Type{
-		csi.NodeServiceCapability_RPC_UNKNOWN,
 	})
 
 	k.ns = NewNodeServer(k.driver)

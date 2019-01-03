@@ -23,7 +23,7 @@
 
 [[constraint]]
   name = "github.com/container-storage-interface/spec"
-  version = "0.3.0"
+  version = "1.0.0-rc2"
 
 [[constraint]]
   branch = "master"
@@ -43,7 +43,7 @@
 
 [[constraint]]
   name = "k8s.io/kubernetes"
-  version = "1.13.0"
+  version = "v1.13.0"
 
 [[override]]
   version = "kubernetes-1.13.0"

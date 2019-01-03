@@ -24,7 +24,7 @@ import (
 	"github.com/ritazh/keyvault-csi-driver/pkg/csi-common"
 	"github.com/ritazh/keyvault-csi-driver/pkg/providers"
 	"github.com/ritazh/keyvault-csi-driver/pkg/providers/register"
-	"github.com/container-storage-interface/spec/lib/go/csi/v0"
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/glog"
 
 	"google.golang.org/grpc/codes"
@@ -52,7 +52,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if len(req.GetTargetPath()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Target path missing in request")
 	}
-	if req.GetVolumeAttributes() == nil || len(req.GetVolumeAttributes()) == 0 {
+	if req.GetVolumeContext() == nil || len(req.GetVolumeContext()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume attributes missing in request")
 	}
 
@@ -81,13 +81,13 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 	readOnly := req.GetReadonly()
 	volumeID := req.GetVolumeId()
-	attrib := req.GetVolumeAttributes()
+	attrib := req.GetVolumeContext()
 	mountFlags := req.GetVolumeCapability().GetMount().GetMountFlags()
 
 	glog.V(2).Infof("target %v\nfstype %v\n\nreadonly %v\nvolumeId %v\nattributes %v\nmountflags %v\n",
 		targetPath, fsType, readOnly, volumeID, attrib, mountFlags)
 
-	secrets := req.GetNodePublishSecrets()
+	secrets := req.GetSecrets()
 	glog.V(2).Infof("secret %v\n", secrets)
 	options := []string{}
 	if readOnly {

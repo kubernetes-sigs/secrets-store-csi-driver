@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright 2017 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,11 +18,12 @@ package csicommon
 
 import (
 	"fmt"
+
 	"github.com/golang/glog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/container-storage-interface/spec/lib/go/csi/v0"
+	"github.com/container-storage-interface/spec/lib/go/csi"
 )
 
 type CSIDriver struct {
@@ -31,7 +32,6 @@ type CSIDriver struct {
 	version string
 	cap     []*csi.ControllerServiceCapability
 	vc      []*csi.VolumeCapability_AccessMode
-	nscap 	[]*csi.NodeServiceCapability
 }
 
 // Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
@@ -48,8 +48,8 @@ func NewCSIDriver(name string, v string, nodeID string) *CSIDriver {
 	}
 	// TODO version format and validation
 	if len(v) == 0 {
-		glog.Errorf("Version argument missing, now skip it")
-		//return nil
+		glog.Errorf("Version argument missing")
+		return nil
 	}
 
 	driver := CSIDriver{
@@ -86,17 +86,6 @@ func (d *CSIDriver) AddControllerServiceCapabilities(cl []csi.ControllerServiceC
 
 	return
 }
-
-func (d *CSIDriver) AddNodeServiceCapabilities(nl []csi.NodeServiceCapability_RPC_Type) error {
-	var nsc []*csi.NodeServiceCapability
-	for _, n := range nl {
-			glog.V(2).Infof("Enabling node service capability: %v", n.String())
-			nsc = append(nsc, NewNodeServiceCapability(n))
-	}
-	d.nscap = nsc
-	return nil
-}
-
 
 func (d *CSIDriver) AddVolumeCapabilityAccessModes(vc []csi.VolumeCapability_AccessMode_Mode) []*csi.VolumeCapability_AccessMode {
 	var vca []*csi.VolumeCapability_AccessMode
