@@ -32,7 +32,7 @@ The diagram below illustrates how Keyvault CSI Volume works.
 
 ## Usage ##
 
-Deploy a Kubernetes cluster and make sure it's reachable.
+Deploy a Kubernetes cluster v1.13.0+ and make sure it's reachable.
 
 ### Install the Key Vault CSI Driver ###
 

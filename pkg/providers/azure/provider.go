@@ -222,7 +222,7 @@ func (p *AzureProvider) GetServicePrincipalToken(env *azure.Environment, resourc
 	// Then nmi makes an adal request to get a token for the resource in the request, returns the `token` and the `clientid` as a reponse to the CSI request.
 
 	if p.UsePodIdentity {
-		glog.V(0).Infoln("azure: using pod identity to retrieve token")
+		glog.V(0).Infof("azure: using pod identity to retrieve token")
 		
 		endpoint := fmt.Sprintf("%s?resource=%s", nmiendpoint, resource)
 		client := &http.Client{}
@@ -272,7 +272,7 @@ func (p *AzureProvider) GetServicePrincipalToken(env *azure.Environment, resourc
 	}
 	// When CSI driver is using a Service Principal clientid + client secret to retrieve token for resource
 	if len(aADClientSecret) > 0 {
-		glog.V(2).Infoln("azure: using client_id+client_secret to retrieve access token")
+		glog.V(2).Infof("azure: using client_id+client_secret to retrieve access token")
 		return adal.NewServicePrincipalToken(
 			*oauthConfig,
 			aADClientID,
@@ -285,48 +285,71 @@ func (p *AzureProvider) GetServicePrincipalToken(env *azure.Environment, resourc
 // MountKeyVaultObjectContent mounts content of the keyvault object to target path
 func (p *AzureProvider) MountKeyVaultObjectContent(ctx context.Context, attrib map[string]string, secrets map[string]string, targetPath string, permission os.FileMode) (err error) {
 	keyvaultName := attrib["keyvaultName"]
-	usePodIdentity, err := strconv.ParseBool(attrib["usePodIdentity"])
-	if err != nil {
-		fmt.Printf("cannot parse usePodIdentity")
-		return err
-	}
+	usePodIdentityStr := attrib["usePodIdentity"]
 	resourceGroup := attrib["resourceGroup"]
 	subscriptionId := attrib["subscriptionId"]
 	tenantId := attrib["tenantId"]
 
-	keyVaultObjects := []KeyVaultObject{}
+	if keyvaultName == "" {
+		return fmt.Errorf("keyvaultName is not set")
+	}
+	if resourceGroup == "" {
+		return fmt.Errorf("resourceGroup is not set")
+	}
+	if subscriptionId == "" {
+		return fmt.Errorf("subscriptionId is not set")
+	}
+	if tenantId == "" {
+		return fmt.Errorf("tenantId is not set")
+	}
+	// defaults
+	usePodIdentity := false
+	if usePodIdentityStr != "" {
+		usePodIdentity, err = strconv.ParseBool(usePodIdentityStr)
+		if err != nil {
+			return fmt.Errorf("unable to parse usePodIdentity")
+		}
+	}
+	var clientId, clientSecret string
+	if !usePodIdentity {
+		glog.V(0).Infof("not using pod identity to access keyvault")
+		clientId, clientSecret, err = GetCredential(secrets)
+		if err != nil {
+			glog.V(0).Infof("missing client credential to access keyvault")
+			return err
+		}
+	} else {
+		glog.V(0).Infof("using pod identity to access keyvault")
+	}
 	objectsStrings := attrib["objects"]
-	fmt.Printf("objectsStrings: [%s]", objectsStrings)
+	if objectsStrings == "" {
+		return fmt.Errorf("objects is not set")
+	}
+	glog.V(5).Infof("objects: %s", objectsStrings)
 
 	var objects StringArray
 	err = yaml.Unmarshal([]byte(objectsStrings), &objects)
 	if err != nil {
-		fmt.Printf("unmarshall failed for objects")
+		glog.V(0).Infof("unmarshal failed for objects")
 		return err
 	}
-	fmt.Printf("objects: [%v]", objects.Array)
-	for _, object := range objects.Array {
-		fmt.Printf("unmarshal object: [%s]", object)
+	glog.V(5).Infof("objects array: %v", objects.Array)
+	keyVaultObjects := []KeyVaultObject{}
+	for i, object := range objects.Array {
 		var keyVaultObject KeyVaultObject
 		err = yaml.Unmarshal([]byte(object), &keyVaultObject)
 		if err != nil {
-			fmt.Printf("unmarshall failed for keyVaultObjects at index")
+			glog.V(0).Infof("unmarshal failed for keyVaultObjects at index %d", i)
 			return err
 		}
 		keyVaultObjects = append(keyVaultObjects, keyVaultObject)
 	}
 	
-	fmt.Printf("unmarshalled property: %v", keyVaultObjects)
-	fmt.Printf("keyVaultObjects len: %d", len(keyVaultObjects))
+	glog.V(5).Infof("unmarshaled keyVaultObjects: %v", keyVaultObjects)
+	glog.V(0).Infof("keyVaultObjects len: %d", len(keyVaultObjects))
 
-	var clientId, clientSecret string
-
-	if !usePodIdentity {
-		glog.V(0).Infoln("using pod identity to access keyvault")
-		clientId, clientSecret, err = GetCredential(secrets)
-		if err != nil {
-			return err
-		}
+	if len(keyVaultObjects) == 0 {
+		return fmt.Errorf("objects array is empty")
 	}
 	p.KeyvaultName = keyvaultName
 	p.UsePodIdentity = usePodIdentity
@@ -341,9 +364,9 @@ func (p *AzureProvider) MountKeyVaultObjectContent(ctx context.Context, attrib m
 		}
 		objectContent := []byte(content)
 		if err := ioutil.WriteFile(path.Join(targetPath, keyVaultObject.ObjectName), objectContent, permission); err != nil {
-			return errors.Wrapf(err, "KeyVault failed to write %s at %s", keyVaultObject.ObjectName, targetPath)
+			return errors.Wrapf(err, "Keyvault csi driver failed to mount %s at %s", keyVaultObject.ObjectName, targetPath)
 		}
-		glog.V(0).Infof("KeyVault wrote %s at %s",keyVaultObject.ObjectName, targetPath)
+		glog.V(0).Infof("Keyvault csi driver mounted %s",keyVaultObject.ObjectName)
 	}
 	
 	return nil

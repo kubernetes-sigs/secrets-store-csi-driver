@@ -1,0 +1,27 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: nginx-keyvault-deployment
+  labels:
+    app: nginx-keyvault
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx-keyvault
+  template:
+    metadata:
+      labels:
+        app: nginx-keyvault
+    spec:
+      containers:
+      - image: nginx
+        name: nginx-keyvault
+        volumeMounts:
+        - name: keyvault01
+          mountPath: "/mnt/keyvault" 
+          readOnly: true
+      volumes:
+      - name: keyvault01
+        persistentVolumeClaim:
+          claimName: pvc-keyvault

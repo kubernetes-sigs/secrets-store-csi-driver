@@ -25,18 +25,6 @@ import (
 	"github.com/golang/glog"
 )
 
-const (
-	accountName     = "accountname"
-	seperator       = "#"
-	fileMode        = "file_mode"
-	dirMode         = "dir_mode"
-	gid             = "gid"
-	vers            = "vers"
-	defaultFileMode = "0777"
-	defaultDirMode  = "0777"
-	defaultVers     = "3.0"
-)
-
 type keyvault struct {
 	driver   *csicommon.CSIDriver
 	ns       *nodeServer
@@ -53,7 +41,7 @@ var keyvaultVolumes map[string]keyvaultVolume
 
 var (
 	keyvaultDriver *keyvault
-	vendorVersion   = "0.0.1"
+	vendorVersion   = "0.0.2"
 )
 
 func init() {
@@ -81,7 +69,8 @@ func (k *keyvault) Run(driverName, nodeID, endpoint string) {
 	}
 	k.driver.AddControllerServiceCapabilities(
 		[]csi.ControllerServiceCapability_RPC_Type{
-			csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+			csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
+			csi.ControllerServiceCapability_RPC_PUBLISH_READONLY,
 		})
 	k.driver.AddVolumeCapabilityAccessModes([]csi.VolumeCapability_AccessMode_Mode{
 		csi.VolumeCapability_AccessMode_SINGLE_NODE_READER_ONLY,
