@@ -17,7 +17,7 @@ limitations under the License.
 package keyvault
 
 import (
-	//"fmt"
+	"fmt"
 	"io/ioutil"
 	"os"
 
@@ -76,29 +76,23 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		}
 		notMnt = true
 	}
-
-	fsType := req.GetVolumeCapability().GetMount().GetFsType()
-
-	readOnly := req.GetReadonly()
 	volumeID := req.GetVolumeId()
 	attrib := req.GetVolumeContext()
 	mountFlags := req.GetVolumeCapability().GetMount().GetMountFlags()
 
-	glog.V(2).Infof("target %v\nfstype %v\n\nreadonly %v\nvolumeId %v\nattributes %v\nmountflags %v\n",
-		targetPath, fsType, readOnly, volumeID, attrib, mountFlags)
+	glog.V(5).Infof("target %v\nvolumeId %v\nattributes %v\nmountflags %v\n",
+		targetPath, volumeID, attrib, mountFlags)
 
 	secrets := req.GetSecrets()
-	glog.V(2).Infof("secret %v\n", secrets)
-	options := []string{}
-	if readOnly {
-		options = append(options, "ro")
-	}
 	providerName := attrib["providerName"]
+	if providerName == "" {
+		return nil, fmt.Errorf("providerName is not set")
+	}
 	var provider providers.Provider
 	initConfig := register.InitConfig{}
 	provider, err = register.GetProvider(providerName, initConfig)
 	if err != nil {
-		glog.V(2).Infof("Error initializing provider\n")
+		glog.V(2).Infof("Error initializing provider")
 	}
 	err = provider.MountKeyVaultObjectContent(ctx, attrib, secrets, targetPath, permission)
 	if err != nil {

@@ -9,6 +9,7 @@ spec:
     volumeMounts:
     - name: keyvault01
       mountPath: "/mnt/keyvault"
+      readOnly: true
   volumes:
   - name: keyvault01
     persistentVolumeClaim:
