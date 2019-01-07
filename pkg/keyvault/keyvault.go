@@ -69,7 +69,6 @@ func (k *keyvault) Run(driverName, nodeID, endpoint string) {
 	}
 	k.driver.AddControllerServiceCapabilities(
 		[]csi.ControllerServiceCapability_RPC_Type{
-			csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
 			csi.ControllerServiceCapability_RPC_PUBLISH_READONLY,
 		})
 	k.driver.AddVolumeCapabilityAccessModes([]csi.VolumeCapability_AccessMode_Mode{
