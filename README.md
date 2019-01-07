@@ -14,6 +14,7 @@ The Key Vault CSI driver `keyvault.csi.k8s.com` allows Kubernetes to mount multi
 #### Table of Contents
 
 * [How It Works](#how-it-works)
+* [Demo](#demo)
 * [Usage](#usage)
 * [Providers](#providers)
     + [Azure Key Vault Provider](#azure-key-vault-provider)
@@ -29,6 +30,10 @@ The Key Vault CSI driver `keyvault.csi.k8s.com` allows Kubernetes to mount multi
 The diagram below illustrates how Keyvault CSI Volume works.
 
 ![diagram](img/diagram.png)
+
+## Demo
+
+![Keyvault CSI Driver Demo](img/demo.gif "Keyvault CSI Driver Azure Key Vault Provider Demo")
 
 ## Usage ##
 
