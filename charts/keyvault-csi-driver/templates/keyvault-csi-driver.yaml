@@ -1,0 +1,92 @@
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: {{ template "kv.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+{{ include "kv.labels" . | indent 2 }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ template "kv.name" . }}
+  template:
+    metadata:
+{{ include "kv.labels" . | indent 6 }}
+    spec:
+      serviceAccountName: csi-driver-registrar
+      hostNetwork: true
+      containers:
+        - name: driver-registrar
+          image: gcr.io/gke-release/csi-driver-registrar:v1.0.1-gke.0
+          args:
+            - --v=5
+            - --csi-address=/csi/csi.sock
+            - --kubelet-registration-path=/var/lib/kubelet/plugins/csi-keyvault/csi.sock
+          env:
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          imagePullPolicy: Always
+          volumeMounts:
+          - mountPath: /csi
+            name: socket-dir
+          - mountPath: /registration
+            name: registration-dir
+        - name: keyvault
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          args:
+            - "--v=5"
+            - "--endpoint=$(CSI_ENDPOINT)"
+            - "--nodeid=$(KUBE_NODE_NAME)"
+          env:
+{{- if eq .Values.provider "azure" }}
+            - name: AZURE_CREDENTIAL_FILE
+              value: "/etc/kubernetes/azure.json"
+{{- end }}
+            - name: CSI_ENDPOINT
+              value: unix:///csi/csi.sock
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+            - mountPath: /var/lib/kubelet/pods
+              mountPropagation: Bidirectional
+              name: mountpoint-dir
+{{- if eq .Values.provider "azure" }}
+            - mountPath: /etc/kubernetes/
+              name: azure-cred
+            - mountPath: /var/lib/waagent/ManagedIdentity-Settings
+              readOnly: true
+              name: msi
+{{- end }}
+      volumes:
+        - hostPath:
+            path: /var/lib/kubelet/plugins/csi-keyvault
+            type: DirectoryOrCreate
+          name: socket-dir
+        - hostPath:
+            path: /var/lib/kubelet/pods
+            type: DirectoryOrCreate
+          name: mountpoint-dir
+        - hostPath:
+            path: /var/lib/kubelet/plugins_registry
+            type: Directory
+          name: registration-dir
+{{- if eq .Values.provider "azure" }}
+        - hostPath:
+            path: /etc/kubernetes/
+            type: Directory
+          name: azure-cred
+        - hostPath:
+            path: /var/lib/waagent/ManagedIdentity-Settings
+            type: FileOrCreate
+          name: msi
+{{- end }}

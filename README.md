@@ -35,11 +35,90 @@ The diagram below illustrates how Keyvault CSI Volume works.
 
 ![Keyvault CSI Driver Demo](img/demo.gif "Keyvault CSI Driver Azure Key Vault Provider Demo")
 
-## Usage ##
+## Usage
 
 Deploy a Kubernetes cluster v1.13.0+ and make sure it's reachable.
 
-### Install the Key Vault CSI Driver ###
+### Install the Key Vault CSI Driver
+
+#### Using Helm Chart
+
+Make sure you already have helm CLI installed.
+
+```bash
+$ cd charts/keyvault-csi-driver
+$ helm install . -n csi-keyvault --namespace dev
+```
+
+Expected output:
+```console
+NAME:   csi-keyvault
+LAST DEPLOYED: Mon Jan  7 18:39:41 2019
+NAMESPACE: dev
+STATUS: DEPLOYED
+
+RESOURCES:
+==> v1/RoleBinding
+NAME                   AGE
+csi-attacher-role-cfg  1s
+
+==> v1/DaemonSet
+csi-keyvault-keyvault-csi-driver  1s
+
+==> v1/StatefulSet
+csi-keyvault-attacher  1s
+
+==> v1/Pod(related)
+
+NAME                                    READY  STATUS             RESTARTS  AGE
+csi-keyvault-attacher-0                 0/1    ContainerCreating  0         1s
+csi-keyvault-keyvault-csi-driver-9crwj  0/2    ContainerCreating  0         1s
+csi-keyvault-keyvault-csi-driver-pcbtg  0/2    ContainerCreating  0         1s
+
+==> v1beta1/CustomResourceDefinition
+
+NAME                           AGE
+csidrivers.csi.storage.k8s.io  1s
+
+==> v1/ClusterRole
+driver-registrar-runner   1s
+external-attacher-runner  1s
+
+==> v1/ClusterRoleBinding
+csi-driver-registrar-role  1s
+csi-attacher-role          1s
+
+==> v1/Role
+external-attacher-cfg  1s
+
+==> v1/ServiceAccount
+csi-driver-registrar  1s
+csi-attacher          1s
+
+==> v1/Service
+csi-keyvault-attacher  1s
+
+
+NOTES:
+The Keyvault CSI Driver is getting deployed to your cluster.
+
+To verify that Keyvault CSI Driver has started, run:
+
+  kubectl --namespace=dev get pods -l "app=keyvault-csi-driver"
+
+Now you can follow these steps https://github.com/ritazh/keyvault-csi-driver#use-the-key-vault-csi-driver
+to create a PersistentVolume, a static PVC, and a deployment using the PVC.
+
+$ kubectl --namespace=dev get pods -l "app=keyvault-csi-driver"
+NAME                                     READY     STATUS    RESTARTS   AGE
+csi-keyvault-attacher-0                  1/1       Running   0          43s
+csi-keyvault-keyvault-csi-driver-9crwj   2/2       Running   0          43s
+csi-keyvault-keyvault-csi-driver-pcbtg   2/2       Running   0          43s
+
+```
+
+<details>
+<summary><strong>[ALTERNATIVE DEPLOYMENT OPTION] Using Deployment Yamls</strong></summary>
 
 ```bash
 kubectl apply -f deploy/crd-csi-driver-registry.yaml
@@ -62,7 +141,9 @@ csi-keyvault-attacher-0    1/1     Running   0          6m
 csi-keyvault-qp9r8         2/2     Running   0          4m
 csi-keyvault-zrjt2         2/2     Running   0          4m
 ```
-### Use the Key Vault CSI Driver ###
+</details>
+
+### Use the Key Vault CSI Driver
 
 1. Select a provider from the [list of supported providers](#providers)
 
