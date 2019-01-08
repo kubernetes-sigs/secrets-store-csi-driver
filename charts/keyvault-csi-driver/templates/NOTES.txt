@@ -1,0 +1,8 @@
+The Keyvault CSI Driver is getting deployed to your cluster.
+
+To verify that Keyvault CSI Driver has started, run:
+
+  kubectl --namespace={{ .Release.Namespace }} get pods -l "app={{ template "kv.name" . }}"
+
+Now you can follow these steps https://github.com/ritazh/keyvault-csi-driver#use-the-key-vault-csi-driver
+to create a PersistentVolume, a static PVC, and a deployment using the PVC.
