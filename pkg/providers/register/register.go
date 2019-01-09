@@ -9,7 +9,7 @@ var providerInits = make(map[string]initFunc)
 
 // InitConfig is the config passed to initialize a registered provider.
 type InitConfig struct {
-	Name      string
+	Name string
 }
 
 type initFunc func(InitConfig) (providers.Provider, error)

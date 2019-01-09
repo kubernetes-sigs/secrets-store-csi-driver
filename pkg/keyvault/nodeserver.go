@@ -21,11 +21,11 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/golang/glog"
 	"github.com/ritazh/keyvault-csi-driver/pkg/csi-common"
 	"github.com/ritazh/keyvault-csi-driver/pkg/providers"
 	"github.com/ritazh/keyvault-csi-driver/pkg/providers/register"
-	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/golang/glog"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -37,6 +37,7 @@ import (
 type nodeServer struct {
 	*csicommon.DefaultNodeServer
 }
+
 const (
 	permission os.FileMode = 0644
 )
@@ -74,7 +75,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			glog.Errorf("keyvault - Unmount directory %s failed with %v", targetPath, err)
 			return nil, err
 		}
-		notMnt = true
 	}
 	volumeID := req.GetVolumeId()
 	attrib := req.GetVolumeContext()

@@ -1,0 +1,16 @@
+run:
+  deadline: 1m
+  skip-dirs:
+  skip-files:
+
+linters:
+  disable-all: true
+  enable:
+    - gofmt
+    - goimports
+    - gosimple
+    - golint
+    - govet
+    - ineffassign
+    - misspell
+    - unused

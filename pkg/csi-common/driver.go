@@ -83,8 +83,6 @@ func (d *CSIDriver) AddControllerServiceCapabilities(cl []csi.ControllerServiceC
 	}
 
 	d.cap = csc
-
-	return
 }
 
 func (d *CSIDriver) AddVolumeCapabilityAccessModes(vc []csi.VolumeCapability_AccessMode_Mode) []*csi.VolumeCapability_AccessMode {

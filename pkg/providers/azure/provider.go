@@ -17,26 +17,27 @@ limitations under the License.
 package azure
 
 import (
-	"fmt"
 	"encoding/json"
-	"regexp"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
-	"io/ioutil"
-	"strings"
+	"regexp"
 	"strconv"
+	"strings"
+
 	"golang.org/x/net/context"
 	yaml "gopkg.in/yaml.v2"
 
-	"github.com/Azure/go-autorest/autorest/azure"
-	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/adal"
 	kv "github.com/Azure/azure-sdk-for-go/services/keyvault/2016-10-01/keyvault"
 	kvmgmt "github.com/Azure/azure-sdk-for-go/services/keyvault/mgmt/2016-10-01/keyvault"
+	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/adal"
+	"github.com/Azure/go-autorest/autorest/azure"
 
-	"github.com/pkg/errors"
 	"github.com/golang/glog"
+	"github.com/pkg/errors"
 )
 
 // Type of Azure Key Vault objects
@@ -52,16 +53,18 @@ const (
 	// OAuthGrantTypeDeviceFlow for device-auth flow
 	OAuthGrantTypeDeviceFlow
 	// Pod Identity nmiendpoint
-	nmiendpoint         = "http://localhost:2579/host/token/"
+	nmiendpoint = "http://localhost:2579/host/token/"
 	// Pod Identity podnameheader
-	podnameheader       = "podname"
+	podnameheader = "podname"
 	// Pod Identity podnsheader
-	podnsheader         = "podns"
+	podnsheader = "podns"
 )
+
 type NMIResponse struct {
-    Token adal.Token `json:"token"`
-    ClientID string `json:"clientid"`
+	Token    adal.Token `json:"token"`
+	ClientID string     `json:"clientid"`
 }
+
 // OAuthGrantType specifies which grant type to use.
 type OAuthGrantType int
 
@@ -69,7 +72,7 @@ func AuthGrantType() OAuthGrantType {
 	return OAuthGrantTypeServicePrincipal
 }
 
-type AzureProvider struct {
+type Provider struct {
 	// the name of the Azure Key Vault instance
 	KeyvaultName string
 	// the name of the Azure Key Vault objects, since attributes can only be strings, this will be mapped to StringArray, which is an array of KeyVaultObject
@@ -77,9 +80,9 @@ type AzureProvider struct {
 	// the resourcegroup of the Azure Key Vault
 	ResourceGroup string
 	// subscriptionId to azure
-	SubscriptionId string
+	SubscriptionID string
 	// tenantID in AAD
-	TenantId string
+	TenantID string
 	// POD AAD Identity flag
 	UsePodIdentity bool
 }
@@ -97,10 +100,10 @@ type StringArray struct {
 	Array []string `json:"array" yaml:"array"`
 }
 
-// NewProvider creates a new ACIProvider.
-func NewAzureProvider() (*AzureProvider, error) {
+// NewProvider creates a new Azure Key Vault Provider.
+func NewProvider() (*Provider, error) {
 	glog.V(2).Infof("NewAzureProvider")
-	var p AzureProvider
+	var p Provider
 	return &p, nil
 }
 
@@ -116,7 +119,7 @@ func ParseAzureEnvironment(cloudName string) (*azure.Environment, error) {
 	return &env, err
 }
 
-func (p *AzureProvider) GetKeyvaultToken(grantType OAuthGrantType, cloudName string, aADClientSecret string, aADClientID string, podname string, podns string) (authorizer autorest.Authorizer, err error) {
+func (p *Provider) GetKeyvaultToken(grantType OAuthGrantType, cloudName string, aADClientSecret string, aADClientID string, podname string, podns string) (authorizer autorest.Authorizer, err error) {
 	env, err := ParseAzureEnvironment(cloudName)
 	if err != nil {
 		return nil, err
@@ -134,7 +137,7 @@ func (p *AzureProvider) GetKeyvaultToken(grantType OAuthGrantType, cloudName str
 	return authorizer, nil
 }
 
-func (p *AzureProvider) initializeKvClient(cloudName string, aADClientSecret string, aADClientID string, podname string, podns string) (*kv.BaseClient, error) {
+func (p *Provider) initializeKvClient(cloudName string, aADClientSecret string, aADClientID string, podname string, podns string) (*kv.BaseClient, error) {
 	kvClient := kv.New()
 	token, err := p.GetKeyvaultToken(AuthGrantType(), cloudName, aADClientSecret, aADClientID, podname, podns)
 	if err != nil {
@@ -150,32 +153,32 @@ func GetCredential(secrets map[string]string) (string, string, error) {
 		return "", "", fmt.Errorf("unexpected: getCredential secrets is nil")
 	}
 
-	var clientId, clientSecret string
+	var clientID, clientSecret string
 	for k, v := range secrets {
 		switch strings.ToLower(k) {
 		case "clientid":
-			clientId = v
+			clientID = v
 		case "clientsecret":
 			clientSecret = v
 		}
 	}
 
-	if clientId == "" {
+	if clientID == "" {
 		return "", "", fmt.Errorf("could not find clientid in secrets(%v)", secrets)
 	}
 	if clientSecret == "" {
 		return "", "", fmt.Errorf("could not find clientsecret in secrets(%v)", secrets)
 	}
 
-	return clientId, clientSecret, nil
+	return clientID, clientSecret, nil
 }
 
-func (p *AzureProvider) getVaultURL(ctx context.Context, cloudName string, aADClientSecret string, aADClientID string, podName string, podns string) (vaultUrl *string, err error) {
-	glog.V(5).Infof("subscriptionID: %s", p.SubscriptionId)
+func (p *Provider) getVaultURL(ctx context.Context, cloudName string, aADClientSecret string, aADClientID string, podName string, podns string) (vaultURL *string, err error) {
+	glog.V(5).Infof("subscriptionID: %s", p.SubscriptionID)
 	glog.V(5).Infof("vaultName: %s", p.KeyvaultName)
 	glog.V(5).Infof("resourceGroup: %s", p.ResourceGroup)
 
-	vaultsClient := kvmgmt.NewVaultsClient(p.SubscriptionId)
+	vaultsClient := kvmgmt.NewVaultsClient(p.SubscriptionID)
 	token, tokenErr := p.GetManagementToken(AuthGrantType(),
 		cloudName,
 		aADClientSecret,
@@ -193,8 +196,8 @@ func (p *AzureProvider) getVaultURL(ctx context.Context, cloudName string, aADCl
 	return vault.Properties.VaultURI, nil
 }
 
-func (p *AzureProvider) GetManagementToken(grantType OAuthGrantType, cloudName string, aADClientSecret string, aADClientID string, podname string, podns string) (authorizer autorest.Authorizer, err error) {
-	
+func (p *Provider) GetManagementToken(grantType OAuthGrantType, cloudName string, aADClientSecret string, aADClientID string, podname string, podns string) (authorizer autorest.Authorizer, err error) {
+
 	env, err := ParseAzureEnvironment(cloudName)
 	if err != nil {
 		return nil, err
@@ -210,20 +213,20 @@ func (p *AzureProvider) GetManagementToken(grantType OAuthGrantType, cloudName s
 }
 
 // GetServicePrincipalToken creates a new service principal token based on the configuration
-func (p *AzureProvider) GetServicePrincipalToken(env *azure.Environment, resource string, aADClientSecret string, aADClientID string, podname string, podns string) (*adal.ServicePrincipalToken, error) {
-	oauthConfig, err := adal.NewOAuthConfig(env.ActiveDirectoryEndpoint, p.TenantId)
+func (p *Provider) GetServicePrincipalToken(env *azure.Environment, resource string, aADClientSecret string, aADClientID string, podname string, podns string) (*adal.ServicePrincipalToken, error) {
+	oauthConfig, err := adal.NewOAuthConfig(env.ActiveDirectoryEndpoint, p.TenantID)
 	if err != nil {
 		return nil, fmt.Errorf("creating the OAuth config: %v", err)
 	}
 
-	// For usepodidentity mode, the CSI driver makes an authorization request to fetch token for a resource from the NMI host endpoint (http://127.0.0.1:2579/host/token/). 
-	// The request includes the pod namespace `podns` and the pod name `podname` in the request header and the resource endpoint of the resource requesting the token. 
-	// The NMI server identifies the pod based on the `podns` and `podname` in the request header and then queries k8s (through MIC) for a matching azure identity.  
-	// Then nmi makes an adal request to get a token for the resource in the request, returns the `token` and the `clientid` as a reponse to the CSI request.
+	// For usepodidentity mode, the CSI driver makes an authorization request to fetch token for a resource from the NMI host endpoint (http://127.0.0.1:2579/host/token/).
+	// The request includes the pod namespace `podns` and the pod name `podname` in the request header and the resource endpoint of the resource requesting the token.
+	// The NMI server identifies the pod based on the `podns` and `podname` in the request header and then queries k8s (through MIC) for a matching azure identity.
+	// Then nmi makes an adal request to get a token for the resource in the request, returns the `token` and the `clientid` as a response to the CSI request.
 
 	if p.UsePodIdentity {
 		glog.V(0).Infof("azure: using pod identity to retrieve token")
-		
+
 		endpoint := fmt.Sprintf("%s?resource=%s", nmiendpoint, resource)
 		client := &http.Client{}
 		req, err := http.NewRequest("GET", endpoint, nil)
@@ -248,10 +251,10 @@ func (p *AzureProvider) GetServicePrincipalToken(env *azure.Environment, resourc
 			if err != nil {
 				return nil, err
 			}
-			
-			r, _ := regexp.Compile("^(\\S{4})(\\S|\\s)*(\\S{4})$")
-			fmt.Printf("\n accesstoken: %s\n", r.ReplaceAllString(nmiResp.Token.AccessToken, "$1##### REDACTED #####$3"))
-			fmt.Printf("\n clientid: %s\n", r.ReplaceAllString(nmiResp.ClientID, "$1##### REDACTED #####$3"))
+
+			r, _ := regexp.Compile(`^(S{4})(S|s)*(S{4})$`)
+			glog.V(0).Infof("accesstoken: %s", r.ReplaceAllString(nmiResp.Token.AccessToken, "$1##### REDACTED #####$3"))
+			glog.V(0).Infof("clientid: %s", r.ReplaceAllString(nmiResp.ClientID, "$1##### REDACTED #####$3"))
 
 			token := nmiResp.Token
 			clientID := nmiResp.ClientID
@@ -259,14 +262,14 @@ func (p *AzureProvider) GetServicePrincipalToken(env *azure.Environment, resourc
 			if &token == nil || clientID == "" {
 				return nil, fmt.Errorf("nmi did not return expected values in response: token and clientid")
 			}
-		
+
 			spt, err := adal.NewServicePrincipalTokenFromManualToken(*oauthConfig, clientID, resource, token, nil)
 			if err != nil {
 				return nil, err
 			}
 			return spt, nil
 		}
-		
+
 		err = fmt.Errorf("nmi response failed with status code: %d", resp.StatusCode)
 		return nil, err
 	}
@@ -282,13 +285,14 @@ func (p *AzureProvider) GetServicePrincipalToken(env *azure.Environment, resourc
 
 	return nil, fmt.Errorf("No credentials provided for AAD application %s", aADClientID)
 }
+
 // MountKeyVaultObjectContent mounts content of the keyvault object to target path
-func (p *AzureProvider) MountKeyVaultObjectContent(ctx context.Context, attrib map[string]string, secrets map[string]string, targetPath string, permission os.FileMode) (err error) {
+func (p *Provider) MountKeyVaultObjectContent(ctx context.Context, attrib map[string]string, secrets map[string]string, targetPath string, permission os.FileMode) (err error) {
 	keyvaultName := attrib["keyvaultName"]
 	usePodIdentityStr := attrib["usePodIdentity"]
 	resourceGroup := attrib["resourceGroup"]
-	subscriptionId := attrib["subscriptionId"]
-	tenantId := attrib["tenantId"]
+	subscriptionID := attrib["subscriptionId"]
+	tenantID := attrib["tenantId"]
 
 	if keyvaultName == "" {
 		return fmt.Errorf("keyvaultName is not set")
@@ -296,10 +300,10 @@ func (p *AzureProvider) MountKeyVaultObjectContent(ctx context.Context, attrib m
 	if resourceGroup == "" {
 		return fmt.Errorf("resourceGroup is not set")
 	}
-	if subscriptionId == "" {
+	if subscriptionID == "" {
 		return fmt.Errorf("subscriptionId is not set")
 	}
-	if tenantId == "" {
+	if tenantID == "" {
 		return fmt.Errorf("tenantId is not set")
 	}
 	// defaults
@@ -310,10 +314,10 @@ func (p *AzureProvider) MountKeyVaultObjectContent(ctx context.Context, attrib m
 			return fmt.Errorf("unable to parse usePodIdentity")
 		}
 	}
-	var clientId, clientSecret string
+	var clientID, clientSecret string
 	if !usePodIdentity {
 		glog.V(0).Infof("not using pod identity to access keyvault")
-		clientId, clientSecret, err = GetCredential(secrets)
+		clientID, clientSecret, err = GetCredential(secrets)
 		if err != nil {
 			glog.V(0).Infof("missing client credential to access keyvault")
 			return err
@@ -344,7 +348,7 @@ func (p *AzureProvider) MountKeyVaultObjectContent(ctx context.Context, attrib m
 		}
 		keyVaultObjects = append(keyVaultObjects, keyVaultObject)
 	}
-	
+
 	glog.V(5).Infof("unmarshaled keyVaultObjects: %v", keyVaultObjects)
 	glog.V(0).Infof("keyVaultObjects len: %d", len(keyVaultObjects))
 
@@ -354,11 +358,11 @@ func (p *AzureProvider) MountKeyVaultObjectContent(ctx context.Context, attrib m
 	p.KeyvaultName = keyvaultName
 	p.UsePodIdentity = usePodIdentity
 	p.ResourceGroup = resourceGroup
-	p.SubscriptionId = subscriptionId
-	p.TenantId = tenantId
+	p.SubscriptionID = subscriptionID
+	p.TenantID = tenantID
 
 	for _, keyVaultObject := range keyVaultObjects {
-		content, err := p.GetKeyVaultObjectContent(ctx, keyVaultObject.ObjectType, keyVaultObject.ObjectName, keyVaultObject.ObjectVersion, clientId, clientSecret)
+		content, err := p.GetKeyVaultObjectContent(ctx, keyVaultObject.ObjectType, keyVaultObject.ObjectName, keyVaultObject.ObjectVersion, clientID, clientSecret)
 		if err != nil {
 			return err
 		}
@@ -366,48 +370,50 @@ func (p *AzureProvider) MountKeyVaultObjectContent(ctx context.Context, attrib m
 		if err := ioutil.WriteFile(path.Join(targetPath, keyVaultObject.ObjectName), objectContent, permission); err != nil {
 			return errors.Wrapf(err, "Keyvault csi driver failed to mount %s at %s", keyVaultObject.ObjectName, targetPath)
 		}
-		glog.V(0).Infof("Keyvault csi driver mounted %s",keyVaultObject.ObjectName)
+		glog.V(0).Infof("Keyvault csi driver mounted %s", keyVaultObject.ObjectName)
+		glog.V(5).Infof("Mount point: %s", targetPath)
 	}
-	
+
 	return nil
 }
+
 // GetKeyVaultObjectContent get content of the keyvault object
-func (p *AzureProvider) GetKeyVaultObjectContent(ctx context.Context, objectType string, objectName string, objectVersion string, clientId string, clientSecret string) (content string, err error) {
+func (p *Provider) GetKeyVaultObjectContent(ctx context.Context, objectType string, objectName string, objectVersion string, clientID string, clientSecret string) (content string, err error) {
 	// TODO: support pod identity
 
-	vaultUrl, err := p.getVaultURL(ctx, "", clientSecret, clientId, "", "")
+	vaultURL, err := p.getVaultURL(ctx, "", clientSecret, clientID, "", "")
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get vault")
 	}
 
-	kvClient, err := p.initializeKvClient("", clientSecret, clientId, "", "")
+	kvClient, err := p.initializeKvClient("", clientSecret, clientID, "", "")
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get keyvaultClient")
 	}
 
 	switch objectType {
 	case VaultObjectTypeSecret:
-		secret, err := kvClient.GetSecret(ctx, *vaultUrl, objectName, objectVersion)
+		secret, err := kvClient.GetSecret(ctx, *vaultURL, objectName, objectVersion)
 		if err != nil {
 			return "", wrapObjectTypeError(err, objectType, objectName, objectVersion)
 		}
 		return *secret.Value, nil
 	case VaultObjectTypeKey:
-		keybundle, err := kvClient.GetKey(ctx, *vaultUrl, objectName, objectVersion)
+		keybundle, err := kvClient.GetKey(ctx, *vaultURL, objectName, objectVersion)
 		if err != nil {
 			return "", wrapObjectTypeError(err, objectType, objectName, objectVersion)
 		}
 		// NOTE: we are writing the RSA modulus content of the key
 		return *keybundle.Key.N, nil
 	case VaultObjectTypeCertificate:
-		certbundle, err := kvClient.GetCertificate(ctx, *vaultUrl, objectName, objectVersion)
+		certbundle, err := kvClient.GetCertificate(ctx, *vaultURL, objectName, objectVersion)
 		if err != nil {
 			return "", wrapObjectTypeError(err, objectType, objectName, objectVersion)
 		}
 		return string(*certbundle.Cer), nil
 	default:
 		err := errors.Errorf("Invalid vaultObjectTypes. Should be secret, key, or cert")
-		return "", wrapObjectTypeError(err, objectType, objectName, objectVersion)	
+		return "", wrapObjectTypeError(err, objectType, objectName, objectVersion)
 	}
 }
 
