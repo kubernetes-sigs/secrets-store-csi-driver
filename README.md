@@ -4,6 +4,8 @@ Key Vault CSI driver for Kubernetes secrets - Integrates Key Management Systems 
 
 The Key Vault CSI driver `keyvault.csi.k8s.com` allows Kubernetes to mount multiple secrets, keys, and certs stored in Key Management Systems into their pods as a volume. Once the Volume is attached, the data in it is mounted into the container's file system. 
 
+[![CircleCI](https://circleci.com/gh/ritazh/keyvault-csi-driver/tree/master.svg?style=svg)](https://circleci.com/gh/ritazh/keyvault-csi-driver/tree/master)
+
 ## Features
 
 - Mounts secrets/keys/certs to pod using a CSI volume
