@@ -17,17 +17,14 @@ limitations under the License.
 package keyvault
 
 import (
-	// "fmt"
-	// "strings"
-
-	"github.com/ritazh/keyvault-csi-driver/pkg/csi-common"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/glog"
+	"github.com/ritazh/keyvault-csi-driver/pkg/csi-common"
 )
 
-type keyvault struct {
-	driver   *csicommon.CSIDriver
-	ns       *nodeServer
+type Keyvault struct {
+	driver *csicommon.CSIDriver
+	ns     *nodeServer
 }
 
 type keyvaultVolume struct {
@@ -40,25 +37,24 @@ type keyvaultVolume struct {
 var keyvaultVolumes map[string]keyvaultVolume
 
 var (
-	keyvaultDriver *keyvault
-	vendorVersion   = "0.0.2"
+	vendorVersion = "0.0.2"
 )
 
 func init() {
 	keyvaultVolumes = map[string]keyvaultVolume{}
 }
 
-func GetKeyvaultDriver() *keyvault {
-	return &keyvault{}
+func GetKeyvaultDriver() *Keyvault {
+	return &Keyvault{}
 }
 
-func NewNodeServer(d *csicommon.CSIDriver) *nodeServer {
+func newNodeServer(d *csicommon.CSIDriver) *nodeServer {
 	return &nodeServer{
 		DefaultNodeServer: csicommon.NewDefaultNodeServer(d),
 	}
 }
 
-func (k *keyvault) Run(driverName, nodeID, endpoint string) {
+func (k *Keyvault) Run(driverName, nodeID, endpoint string) {
 	glog.Infof("Driver: %v ", driverName)
 	glog.Infof("Version: %s", vendorVersion)
 
@@ -76,7 +72,7 @@ func (k *keyvault) Run(driverName, nodeID, endpoint string) {
 		csi.VolumeCapability_AccessMode_MULTI_NODE_READER_ONLY,
 	})
 
-	k.ns = NewNodeServer(k.driver)
+	k.ns = newNodeServer(k.driver)
 
 	s := csicommon.NewNonBlockingGRPCServer()
 	s.Start(endpoint, csicommon.NewDefaultIdentityServer(k.driver), csicommon.NewDefaultControllerServer(k.driver), k.ns)

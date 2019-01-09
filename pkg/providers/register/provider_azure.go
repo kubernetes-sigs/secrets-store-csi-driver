@@ -3,7 +3,6 @@
 package register
 
 import (
-
 	"github.com/ritazh/keyvault-csi-driver/pkg/providers"
 	"github.com/ritazh/keyvault-csi-driver/pkg/providers/azure"
 )
@@ -13,5 +12,5 @@ func init() {
 }
 
 func initAzure(cfg InitConfig) (providers.Provider, error) {
-	return azure.NewAzureProvider()
+	return azure.NewProvider()
 }

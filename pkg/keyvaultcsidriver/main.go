@@ -20,11 +20,16 @@ import (
 	"flag"
 	"os"
 
+	"github.com/golang/glog"
+
 	"github.com/ritazh/keyvault-csi-driver/pkg/keyvault"
 )
 
 func init() {
-	flag.Set("logtostderr", "true")
+	err := flag.Set("logtostderr", "true")
+	if err != nil {
+		glog.Fatalf("Failed to set flag: %v", err)
+	}
 }
 
 var (
