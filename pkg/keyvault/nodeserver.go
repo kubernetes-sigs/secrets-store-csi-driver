@@ -43,6 +43,7 @@ const (
 )
 
 func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
+	glog.V(0).Infof("NodeUnpublishVolume")
 	// Check arguments
 	if req.GetVolumeCapability() == nil {
 		return nil, status.Error(codes.InvalidArgument, "Volume capability missing in request")
@@ -94,15 +95,26 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if err != nil {
 		glog.V(2).Infof("Error initializing provider")
 	}
+	// to ensure mount bind works, we need to mount before writing content to it
+	err = mounter.Mount("/tmp", targetPath, "", []string{"bind"})
+	if err != nil {
+		glog.V(0).Infof("mount err: %v", err)
+		return nil, err
+	}
 	err = provider.MountKeyVaultObjectContent(ctx, attrib, secrets, targetPath, permission)
 	if err != nil {
 		return nil, err
 	}
-
+	notMnt, err = mount.New("").IsLikelyNotMountPoint(targetPath)
+	if err != nil {
+		glog.V(0).Infof("Error checking IsLikelyNotMountPoint: %v", err)
+	}
+	glog.V(5).Infof("after MountKeyVaultObjectContent, notMnt: %v", notMnt)
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
 func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
+	glog.V(0).Infof("NodeUnpublishVolume")
 	// Check arguments
 	if len(req.GetVolumeId()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
@@ -118,13 +130,13 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	glog.V(4).Infof("keyvault: volume %s/%s has been unmounted.", targetPath, volumeID)
+	glog.V(4).Infof("keyvault: targetPath %s volumeID %s has been unmounted.", targetPath, volumeID)
 
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 
 func (ns *nodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
-
+	glog.V(0).Infof("NodeStageVolume")
 	// Check arguments
 	if len(req.GetVolumeId()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
@@ -137,7 +149,7 @@ func (ns *nodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 }
 
 func (ns *nodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
-
+	glog.V(0).Infof("NodeUnstageVolume")
 	// Check arguments
 	if len(req.GetVolumeId()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
