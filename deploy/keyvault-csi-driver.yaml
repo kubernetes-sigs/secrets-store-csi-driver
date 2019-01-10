@@ -33,7 +33,7 @@ spec:
           - mountPath: /registration
             name: registration-dir
         - name: keyvault
-          image: ritazh/keyvault-csi:v0.0.2
+          image: ritazh/keyvault-csi:v0.0.3
           args:
             - "--v=5"
             - "--endpoint=$(CSI_ENDPOINT)"

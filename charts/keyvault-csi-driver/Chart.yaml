@@ -1,6 +1,6 @@
 name: keyvault-csi-driver
 version: 0.0.1
-appVersion: 0.0.2
+appVersion: 0.0.3
 description: A Helm chart to install the Keyvault CSI Driver inside a Kubernetes cluster.
 icon: https://github.com/kubernetes/kubernetes/blob/master/logo/logo.png
 sources:
