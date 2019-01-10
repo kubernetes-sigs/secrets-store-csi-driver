@@ -1,6 +1,6 @@
 image:
   repository: ritazh/keyvault-csi
-  tag: v0.0.2
+  tag: v0.0.3
   pullPolicy: Always
 
 ## `provider` should be one of azure, etc...

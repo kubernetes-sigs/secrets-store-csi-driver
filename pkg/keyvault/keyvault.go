@@ -37,7 +37,7 @@ type keyvaultVolume struct {
 var keyvaultVolumes map[string]keyvaultVolume
 
 var (
-	vendorVersion = "0.0.2"
+	vendorVersion = "0.0.3"
 )
 
 func init() {
