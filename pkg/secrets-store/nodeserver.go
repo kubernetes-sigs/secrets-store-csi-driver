@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package keyvault
+package secretsstore
 
 import (
 	"fmt"
@@ -22,10 +22,10 @@ import (
 	"os"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/deislabs/secrets-store-csi-driver/pkg/csi-common"
+	"github.com/deislabs/secrets-store-csi-driver/pkg/providers"
+	"github.com/deislabs/secrets-store-csi-driver/pkg/providers/register"
 	"github.com/golang/glog"
-	"github.com/ritazh/keyvault-csi-driver/pkg/csi-common"
-	"github.com/ritazh/keyvault-csi-driver/pkg/providers"
-	"github.com/ritazh/keyvault-csi-driver/pkg/providers/register"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -67,13 +67,13 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if !notMnt {
 		// testing original mount point, make sure the mount link is valid
 		if _, err := ioutil.ReadDir(targetPath); err == nil {
-			glog.V(2).Infof("keyvault - already mounted to target %s", targetPath)
+			glog.V(2).Infof("secrets-store - already mounted to target %s", targetPath)
 			return &csi.NodePublishVolumeResponse{}, nil
 		}
 		// todo: mount link is invalid, now unmount and remount later (built-in functionality)
-		glog.Warningf("keyvault - ReadDir %s failed with %v, unmount this directory", targetPath, err)
+		glog.Warningf("secrets-store - ReadDir %s failed with %v, unmount this directory", targetPath, err)
 		if err := mounter.Unmount(targetPath); err != nil {
-			glog.Errorf("keyvault - Unmount directory %s failed with %v", targetPath, err)
+			glog.Errorf("secrets-store - Unmount directory %s failed with %v", targetPath, err)
 			return nil, err
 		}
 	}
@@ -101,7 +101,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		glog.V(0).Infof("mount err: %v", err)
 		return nil, err
 	}
-	err = provider.MountKeyVaultObjectContent(ctx, attrib, secrets, targetPath, permission)
+	err = provider.MountSecretsStoreObjectContent(ctx, attrib, secrets, targetPath, permission)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +109,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if err != nil {
 		glog.V(0).Infof("Error checking IsLikelyNotMountPoint: %v", err)
 	}
-	glog.V(5).Infof("after MountKeyVaultObjectContent, notMnt: %v", notMnt)
+	glog.V(5).Infof("after MountSecretsStoreObjectContent, notMnt: %v", notMnt)
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
@@ -130,7 +130,7 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	glog.V(4).Infof("keyvault: targetPath %s volumeID %s has been unmounted.", targetPath, volumeID)
+	glog.V(4).Infof("secrets-store: targetPath %s volumeID %s has been unmounted.", targetPath, volumeID)
 
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }

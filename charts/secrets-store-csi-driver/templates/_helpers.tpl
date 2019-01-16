@@ -2,7 +2,7 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "kv.name" -}}
+{{- define "sscd.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
@@ -10,7 +10,7 @@ Expand the name of the chart.
 Create a default fully qualified app name.
 We truncate at 24 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 */}}
-{{- define "kv.fullname" -}}
+{{- define "sscd.fullname" -}}
 {{- $name := default .Chart.Name .Values.nameOverride -}}
 {{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
@@ -18,12 +18,12 @@ We truncate at 24 chars because some Kubernetes name fields are limited to this 
 {{/*
 Standard labels for helm resources
 */}}
-{{- define "kv.labels" -}}
+{{- define "sscd.labels" -}}
 labels:
   heritage: "{{ .Release.Service }}"
   release: "{{ .Release.Name }}"
   revision: "{{ .Release.Revision }}"
   chart: "{{ .Chart.Name }}"
   chartVersion: "{{ .Chart.Version }}"
-  app: {{ template "kv.name" . }}
+  app: {{ template "sscd.name" . }}
 {{- end -}}

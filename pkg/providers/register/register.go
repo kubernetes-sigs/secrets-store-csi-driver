@@ -1,8 +1,8 @@
 package register
 
 import (
+	"github.com/deislabs/secrets-store-csi-driver/pkg/providers"
 	"github.com/pkg/errors"
-	"github.com/ritazh/keyvault-csi-driver/pkg/providers"
 )
 
 var providerInits = make(map[string]initFunc)

@@ -3,7 +3,7 @@ kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: driver-registrar-runner
-{{ include "kv.labels" . | indent 2 }}
+{{ include "sscd.labels" . | indent 2 }}
 rules:
   - apiGroups: [""]
     resources: ["events"]
@@ -24,7 +24,7 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: csi-driver-registrar-role
-{{ include "kv.labels" . | indent 2 }}
+{{ include "sscd.labels" . | indent 2 }}
 subjects:
   - kind: ServiceAccount
     name: csi-driver-registrar
@@ -40,7 +40,7 @@ kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: external-attacher-runner
-{{ include "kv.labels" . | indent 2 }}
+{{ include "sscd.labels" . | indent 2 }}
 rules:
   - apiGroups: [""]
     resources: ["persistentvolumes"]
@@ -60,7 +60,7 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: csi-attacher-role
-{{ include "kv.labels" . | indent 2 }}
+{{ include "sscd.labels" . | indent 2 }}
 subjects:
   - kind: ServiceAccount
     name: csi-attacher
@@ -78,7 +78,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: external-attacher-cfg
   namespace: {{ .Release.Namespace }}
-{{ include "kv.labels" . | indent 2 }}
+{{ include "sscd.labels" . | indent 2 }}
 rules:
 - apiGroups: [""]
   resources: ["configmaps"]
@@ -90,7 +90,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: csi-attacher-role-cfg
   namespace: {{ .Release.Namespace }}
-{{ include "kv.labels" . | indent 2 }}
+{{ include "sscd.labels" . | indent 2 }}
 subjects:
   - kind: ServiceAccount
     name: csi-attacher

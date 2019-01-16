@@ -3,7 +3,7 @@ kind: CustomResourceDefinition
 metadata:
   creationTimestamp: null
   name: csidrivers.csi.storage.k8s.io
-{{ include "kv.labels" . | indent 2 }}
+{{ include "sscd.labels" . | indent 2 }}
 spec:
   group: csi.storage.k8s.io
   names:

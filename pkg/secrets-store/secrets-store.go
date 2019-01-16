@@ -14,38 +14,38 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package keyvault
+package secretsstore
 
 import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/deislabs/secrets-store-csi-driver/pkg/csi-common"
 	"github.com/golang/glog"
-	"github.com/ritazh/keyvault-csi-driver/pkg/csi-common"
 )
 
-type Keyvault struct {
+type SecretsStore struct {
 	driver *csicommon.CSIDriver
 	ns     *nodeServer
 }
 
-type keyvaultVolume struct {
+type secretsStoreVolume struct {
 	VolName string `json:"volName"`
 	VolID   string `json:"volID"`
 	VolSize int64  `json:"volSize"`
 	VolPath string `json:"volPath"`
 }
 
-var keyvaultVolumes map[string]keyvaultVolume
+var secretsStoreVolumes map[string]secretsStoreVolume
 
 var (
 	vendorVersion = "0.0.3"
 )
 
 func init() {
-	keyvaultVolumes = map[string]keyvaultVolume{}
+	secretsStoreVolumes = map[string]secretsStoreVolume{}
 }
 
-func GetKeyvaultDriver() *Keyvault {
-	return &Keyvault{}
+func GetDriver() *SecretsStore {
+	return &SecretsStore{}
 }
 
 func newNodeServer(d *csicommon.CSIDriver) *nodeServer {
@@ -54,27 +54,27 @@ func newNodeServer(d *csicommon.CSIDriver) *nodeServer {
 	}
 }
 
-func (k *Keyvault) Run(driverName, nodeID, endpoint string) {
+func (s *SecretsStore) Run(driverName, nodeID, endpoint string) {
 	glog.Infof("Driver: %v ", driverName)
 	glog.Infof("Version: %s", vendorVersion)
 
 	// Initialize default library driver
-	k.driver = csicommon.NewCSIDriver(driverName, vendorVersion, nodeID)
-	if k.driver == nil {
-		glog.Fatalln("Failed to initialize keyvault CSI Driver.")
+	s.driver = csicommon.NewCSIDriver(driverName, vendorVersion, nodeID)
+	if s.driver == nil {
+		glog.Fatalln("Failed to initialize SecretsStore CSI Driver.")
 	}
-	k.driver.AddControllerServiceCapabilities(
+	s.driver.AddControllerServiceCapabilities(
 		[]csi.ControllerServiceCapability_RPC_Type{
 			csi.ControllerServiceCapability_RPC_PUBLISH_READONLY,
 		})
-	k.driver.AddVolumeCapabilityAccessModes([]csi.VolumeCapability_AccessMode_Mode{
+	s.driver.AddVolumeCapabilityAccessModes([]csi.VolumeCapability_AccessMode_Mode{
 		csi.VolumeCapability_AccessMode_SINGLE_NODE_READER_ONLY,
 		csi.VolumeCapability_AccessMode_MULTI_NODE_READER_ONLY,
 	})
 
-	k.ns = newNodeServer(k.driver)
+	s.ns = newNodeServer(s.driver)
 
-	s := csicommon.NewNonBlockingGRPCServer()
-	s.Start(endpoint, csicommon.NewDefaultIdentityServer(k.driver), csicommon.NewDefaultControllerServer(k.driver), k.ns)
-	s.Wait()
+	server := csicommon.NewNonBlockingGRPCServer()
+	server.Start(endpoint, csicommon.NewDefaultIdentityServer(s.driver), csicommon.NewDefaultControllerServer(s.driver), s.ns)
+	server.Wait()
 }

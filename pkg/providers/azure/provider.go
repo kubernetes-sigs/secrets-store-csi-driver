@@ -286,8 +286,8 @@ func (p *Provider) GetServicePrincipalToken(env *azure.Environment, resource str
 	return nil, fmt.Errorf("No credentials provided for AAD application %s", aADClientID)
 }
 
-// MountKeyVaultObjectContent mounts content of the keyvault object to target path
-func (p *Provider) MountKeyVaultObjectContent(ctx context.Context, attrib map[string]string, secrets map[string]string, targetPath string, permission os.FileMode) (err error) {
+// MountSecretsStoreObjectContent mounts content of the secrets store object to target path
+func (p *Provider) MountSecretsStoreObjectContent(ctx context.Context, attrib map[string]string, secrets map[string]string, targetPath string, permission os.FileMode) (err error) {
 	keyvaultName := attrib["keyvaultName"]
 	usePodIdentityStr := attrib["usePodIdentity"]
 	resourceGroup := attrib["resourceGroup"]
@@ -368,9 +368,9 @@ func (p *Provider) MountKeyVaultObjectContent(ctx context.Context, attrib map[st
 		}
 		objectContent := []byte(content)
 		if err := ioutil.WriteFile(path.Join(targetPath, keyVaultObject.ObjectName), objectContent, permission); err != nil {
-			return errors.Wrapf(err, "Keyvault csi driver failed to mount %s at %s", keyVaultObject.ObjectName, targetPath)
+			return errors.Wrapf(err, "Secrets Store csi driver failed to mount %s at %s", keyVaultObject.ObjectName, targetPath)
 		}
-		glog.V(0).Infof("Keyvault csi driver mounted %s", keyVaultObject.ObjectName)
+		glog.V(0).Infof("Secrets Store csi driver mounted %s", keyVaultObject.ObjectName)
 		glog.V(5).Infof("Mount point: %s", targetPath)
 	}
 

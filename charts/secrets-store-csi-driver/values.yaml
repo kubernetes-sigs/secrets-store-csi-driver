@@ -1,5 +1,5 @@
 image:
-  repository: ritazh/keyvault-csi
+  repository: ritazh/secrets-store-csi
   tag: v0.0.3
   pullPolicy: Always
 

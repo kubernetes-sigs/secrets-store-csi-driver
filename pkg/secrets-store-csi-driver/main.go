@@ -22,7 +22,7 @@ import (
 
 	"github.com/golang/glog"
 
-	"github.com/ritazh/keyvault-csi-driver/pkg/keyvault"
+	"github.com/deislabs/secrets-store-csi-driver/pkg/secrets-store"
 )
 
 func init() {
@@ -34,7 +34,7 @@ func init() {
 
 var (
 	endpoint   = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
-	driverName = flag.String("drivername", "keyvault.csi.k8s.com", "name of the driver")
+	driverName = flag.String("drivername", "secrets-store.csi.k8s.com", "name of the driver")
 	nodeID     = flag.String("nodeid", "", "node id")
 )
 
@@ -46,6 +46,6 @@ func main() {
 }
 
 func handle() {
-	driver := keyvault.GetKeyvaultDriver()
+	driver := secretsstore.GetDriver()
 	driver.Run(*driverName, *nodeID, *endpoint)
 }
