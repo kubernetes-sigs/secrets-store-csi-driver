@@ -74,5 +74,5 @@ cscope.*
 *.pyc
 
 test.sh
-/pv-keyvault-csi.yaml
+/pv-secrets-store-csi.yaml
 
