@@ -23,7 +23,7 @@ import (
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/glog"
-	"github.com/ritazh/keyvault-csi-driver/pkg/csi-common"
+	csicommon "github.com/ritazh/keyvault-csi-driver/pkg/csi-common"
 	"github.com/ritazh/keyvault-csi-driver/pkg/providers"
 	"github.com/ritazh/keyvault-csi-driver/pkg/providers/register"
 
@@ -93,7 +93,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	initConfig := register.InitConfig{}
 	provider, err = register.GetProvider(providerName, initConfig)
 	if err != nil {
-		glog.V(2).Infof("Error initializing provider")
+		glog.V(2).Infof("Error initializing provider: %s", err)
 	}
 	// to ensure mount bind works, we need to mount before writing content to it
 	err = mounter.Mount("/tmp", targetPath, "", []string{"bind"})
