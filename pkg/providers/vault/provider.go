@@ -271,8 +271,8 @@ func loadCertFolder(pool *x509.CertPool, p string) error {
 	return nil
 }
 
-// MountKeyVaultObjectContent mounts content of the vault object to target path
-func (p *Provider) MountKeyVaultObjectContent(ctx context.Context, attrib map[string]string, secrets map[string]string, targetPath string, permission os.FileMode) (err error) {
+// MountSecretsStoreObjectContent mounts content of the vault object to target path
+func (p *Provider) MountSecretsStoreObjectContent(ctx context.Context, attrib map[string]string, secrets map[string]string, targetPath string, permission os.FileMode) (err error) {
 	roleName := attrib["roleName"]
 	if roleName != "" {
 		p.VaultRole = roleName
