@@ -13,30 +13,30 @@
 # limitations under the License.
 
 REGISTRY_NAME=ritazh
-IMAGE_NAME=keyvault-csi
+IMAGE_NAME=secrets-store-csi
 IMAGE_VERSION=v0.0.3
 IMAGE_TAG=$(REGISTRY_NAME)/$(IMAGE_NAME):$(IMAGE_VERSION)
 IMAGE_TAG_LATEST=$(REGISTRY_NAME)/$(IMAGE_NAME):latest
 REV=$(shell git describe --long --tags --dirty)
 
-.PHONY: all keyvault-csi image clean deps test-style
+.PHONY: all build image clean deps test-style
 
 HAS_DEP := $(shell command -v dep;)
 HAS_GOLANGCI := $(shell command -v golangci-lint;)
 
-all: keyvault-csi
+all: build
 
 test: test-style
-	go test github.com/ritazh/keyvault-csi-driver/pkg/... -cover
-	go vet github.com/ritazh/keyvault-csi-driver/pkg/...
+	go test github.com/deislabs/secrets-store-csi-driver/pkg/... -cover
+	go vet github.com/deislabs/secrets-store-csi-driver/pkg/...
 test-style: setup
 	@echo "==> Running static validations and linters <=="
 	golangci-lint run
-keyvault-csi: deps
+build: deps
 	if [ ! -d ./vendor ]; then dep ensure -vendor-only; fi
-	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-X github.com/ritazh/keyvault-csi-driver/pkg/keyvault.vendorVersion=$(IMAGE_VERSION) -extldflags "-static"' -o _output/keyvaultcsi ./pkg/keyvaultcsidriver
-image: keyvault-csi
-	docker build --no-cache -t $(IMAGE_TAG) -f ./pkg/keyvaultcsidriver/Dockerfile .
+	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-X github.com/deislabs/secrets-store-csi-driver/pkg/secrets-store.vendorVersion=$(IMAGE_VERSION) -extldflags "-static"' -o _output/secrets-store-csi ./pkg/secrets-store-csi-driver
+image: build
+	docker build --no-cache -t $(IMAGE_TAG) -f ./pkg/secrets-store-csi-driver/Dockerfile .
 push: image
 	docker push $(IMAGE_TAG)
 push-latest: image
