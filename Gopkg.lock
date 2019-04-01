@@ -68,20 +68,6 @@
   version = "v1.1.1"
 
 [[projects]]
-  branch = "master"
-  digest = "1:2f93f9d3fc4d75a90bf053927d1b6c37971c04e6d1162306a9226665e74ef989"
-  name = "github.com/deislabs/secrets-store-csi-driver"
-  packages = [
-    "pkg/csi-common",
-    "pkg/providers",
-    "pkg/providers/azure",
-    "pkg/providers/register",
-    "pkg/secrets-store",
-  ]
-  pruneopts = ""
-  revision = "8574085e0d0a1f1b591c26bdea41a2e39383d91e"
-
-[[projects]]
   digest = "1:6098222470fe0172157ce9bbef5d2200df4edde17ee649c5d6e48330e4afa4c6"
   name = "github.com/dgrijalva/jwt-go"
   packages = ["."]
@@ -335,11 +321,6 @@
     "github.com/Azure/go-autorest/autorest/adal",
     "github.com/Azure/go-autorest/autorest/azure",
     "github.com/container-storage-interface/spec/lib/go/csi",
-    "github.com/deislabs/secrets-store-csi-driver/pkg/csi-common",
-    "github.com/deislabs/secrets-store-csi-driver/pkg/providers",
-    "github.com/deislabs/secrets-store-csi-driver/pkg/providers/azure",
-    "github.com/deislabs/secrets-store-csi-driver/pkg/providers/register",
-    "github.com/deislabs/secrets-store-csi-driver/pkg/secrets-store",
     "github.com/golang/glog",
     "github.com/pkg/errors",
     "github.com/stretchr/testify/assert",
