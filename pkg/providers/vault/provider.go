@@ -147,7 +147,7 @@ func (p *Provider) login(jwt string, roleName string) (string, error) {
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&s); err != nil {
-		return "", errors.Wrapf(err, "failed to read body: %s")
+		return "", errors.Wrapf(err, "failed to read body")
 	}
 
 	return s.Auth.ClientToken, nil
@@ -224,7 +224,7 @@ func (p *Provider) getRootCAsPools() (*x509.CertPool, error) {
 	default:
 		certPool, err := x509.SystemCertPool()
 		if err != nil {
-			return nil, errors.Wrapf(err, "couldn't load system certs: %s")
+			return nil, errors.Wrapf(err, "couldn't load system certs")
 		}
 		return certPool, err
 	}
