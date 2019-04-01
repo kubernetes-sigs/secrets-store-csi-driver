@@ -3,8 +3,8 @@
 package register
 
 import (
-	"github.com/ritazh/keyvault-csi-driver/pkg/providers"
-	"github.com/ritazh/keyvault-csi-driver/pkg/providers/vault"
+	"github.com/deislabs/secrets-store-csi-driver/pkg/providers"
+	"github.com/deislabs/secrets-store-csi-driver/pkg/providers/vault"
 )
 
 func init() {

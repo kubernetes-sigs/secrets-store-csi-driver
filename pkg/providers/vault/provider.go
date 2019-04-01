@@ -30,9 +30,9 @@ const (
 	defaultKubernetesServiceAccountPath string = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 )
 
-// VaultProvider implements the keyvault-csi-driver provider interface
+// Provider implements the keyvault-csi-driver provider interface
 // and communicates with the Vault API.
-type VaultProvider struct {
+type Provider struct {
 	VaultAddress                 string
 	VaultCAPem                   string
 	VaultCACert                  string
@@ -58,10 +58,10 @@ type StringArray struct {
 	Array []string `json:"array" yaml:"array"`
 }
 
-// NewProvider creates a new VaultProvider.
-func NewProvider() (*VaultProvider, error) {
-	glog.V(2).Infof("NewVaultProvider")
-	var p VaultProvider
+// NewProvider creates a new vault Provider.
+func NewProvider() (*Provider, error) {
+	glog.V(2).Infof("NewProvider")
+	var p Provider
 	return &p, nil
 }
 
@@ -76,7 +76,7 @@ func readJWTToken(path string) (string, error) {
 	return string(bytes.TrimSpace(data)), nil
 }
 
-func (p *VaultProvider) createHTTPClient() (*http.Client, error) {
+func (p *Provider) createHTTPClient() (*http.Client, error) {
 	rootCAs, err := p.getRootCAsPools()
 	if err != nil {
 		return nil, err
@@ -108,7 +108,7 @@ func (p *VaultProvider) createHTTPClient() (*http.Client, error) {
 	}, nil
 }
 
-func (p *VaultProvider) login(jwt string, roleName string) (string, error) {
+func (p *Provider) login(jwt string, roleName string) (string, error) {
 	glog.V(2).Infof("vault: performing vault login.....")
 
 	client, err := p.createHTTPClient()
@@ -153,7 +153,7 @@ func (p *VaultProvider) login(jwt string, roleName string) (string, error) {
 	return s.Auth.ClientToken, nil
 }
 
-func (p *VaultProvider) getSecret(token string, secretPath string, secretName string, secretVersion string) (string, error) {
+func (p *Provider) getSecret(token string, secretPath string, secretName string, secretVersion string) (string, error) {
 	glog.V(2).Infof("vault: getting secrets from vault.....")
 
 	client, err := p.createHTTPClient()
@@ -201,7 +201,7 @@ func (p *VaultProvider) getSecret(token string, secretPath string, secretName st
 	return d.Data.Data[secretName], nil
 }
 
-func (p *VaultProvider) getRootCAsPools() (*x509.CertPool, error) {
+func (p *Provider) getRootCAsPools() (*x509.CertPool, error) {
 	switch {
 	case p.VaultCAPem != "":
 		certPool := x509.NewCertPool()
@@ -272,7 +272,7 @@ func loadCertFolder(pool *x509.CertPool, p string) error {
 }
 
 // MountKeyVaultObjectContent mounts content of the vault object to target path
-func (p *VaultProvider) MountKeyVaultObjectContent(ctx context.Context, attrib map[string]string, secrets map[string]string, targetPath string, permission os.FileMode) (err error) {
+func (p *Provider) MountKeyVaultObjectContent(ctx context.Context, attrib map[string]string, secrets map[string]string, targetPath string, permission os.FileMode) (err error) {
 	roleName := attrib["roleName"]
 	if roleName != "" {
 		p.VaultRole = roleName
@@ -347,7 +347,7 @@ func (p *VaultProvider) MountKeyVaultObjectContent(ctx context.Context, attrib m
 }
 
 // GetKeyValueObjectContent get content of the keyvault object
-func (p *VaultProvider) GetKeyValueObjectContent(ctx context.Context, objectPath string, objectName string, objectVersion string) (content string, err error) {
+func (p *Provider) GetKeyValueObjectContent(ctx context.Context, objectPath string, objectName string, objectVersion string) (content string, err error) {
 	// Read the jwt token from disk
 	jwt, err := readJWTToken(p.KubernetesServiceAccountPath)
 	if err != nil {
