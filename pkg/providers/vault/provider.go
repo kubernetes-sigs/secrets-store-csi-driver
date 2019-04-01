@@ -124,12 +124,12 @@ func (p *Provider) login(jwt string, roleName string) (string, error) {
 	req, err := http.NewRequest(http.MethodPost, addr, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	if err != nil {
-		return "", errors.Wrapf(err, "couldn't generate request: %s")
+		return "", errors.Wrapf(err, "couldn't generate request")
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", errors.Wrapf(err, "couldn't login: %s")
+		return "", errors.Wrapf(err, "couldn't login")
 	}
 	defer resp.Body.Close()
 
@@ -171,12 +171,12 @@ func (p *Provider) getSecret(token string, secretPath string, secretName string,
 	// Set vault token.
 	req.Header.Set("X-Vault-Token", token)
 	if err != nil {
-		return "", errors.Wrapf(err, "couldn't generate request: %s")
+		return "", errors.Wrapf(err, "couldn't generate request")
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", errors.Wrapf(err, "couldn't get secret: %s")
+		return "", errors.Wrapf(err, "couldn't get secret")
 	}
 
 	defer resp.Body.Close()
@@ -195,7 +195,7 @@ func (p *Provider) getSecret(token string, secretPath string, secretName string,
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&d); err != nil {
-		return "", errors.Wrapf(err, "failed to read body: %s")
+		return "", errors.Wrapf(err, "failed to read body")
 	}
 
 	return d.Data.Data[secretName], nil
@@ -242,7 +242,7 @@ func loadCert(pool *x509.CertPool, pem []byte) error {
 func loadCertFile(pool *x509.CertPool, p string) error {
 	pem, err := ioutil.ReadFile(p)
 	if err != nil {
-		return errors.Wrapf(err, "couldn't read CA file from disk: %s")
+		return errors.Wrapf(err, "couldn't read CA file from disk")
 	}
 
 	if err := loadCert(pool, pem); err != nil {
