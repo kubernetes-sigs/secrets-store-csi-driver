@@ -28,9 +28,10 @@ const (
 	VaultObjectTypeSecret               string = "secret"
 	defaultVaultAddress                 string = "https://127.0.0.1:8200"
 	defaultKubernetesServiceAccountPath string = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	defaultVaultKubernetesMountPath     string = "kubernetes"
 )
 
-// Provider implements the keyvault-csi-driver provider interface
+// Provider implements the secrets-store-csi-driver provider interface
 // and communicates with the Vault API.
 type Provider struct {
 	VaultAddress                 string
@@ -58,7 +59,7 @@ type StringArray struct {
 	Array []string `json:"array" yaml:"array"`
 }
 
-// NewProvider creates a new vault Provider.
+// NewProvider creates a new provider HashiCorp Vault.
 func NewProvider() (*Provider, error) {
 	glog.V(2).Infof("NewProvider")
 	var p Provider
@@ -300,7 +301,7 @@ func (p *Provider) MountSecretsStoreObjectContent(ctx context.Context, attrib ma
 
 	p.VaultK8SMountPath = attrib["vaultKubernetesMountPath"]
 	if p.VaultK8SMountPath == "" {
-		p.VaultK8SMountPath = "kubernetes"
+		p.VaultK8SMountPath = defaultVaultKubernetesMountPath
 	}
 
 	p.KubernetesServiceAccountPath = attrib["vaultKubernetesServiceAccountPath"]
