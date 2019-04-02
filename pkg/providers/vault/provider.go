@@ -275,9 +275,11 @@ func loadCertFolder(pool *x509.CertPool, p string) error {
 // MountSecretsStoreObjectContent mounts content of the vault object to target path
 func (p *Provider) MountSecretsStoreObjectContent(ctx context.Context, attrib map[string]string, secrets map[string]string, targetPath string, permission os.FileMode) (err error) {
 	roleName := attrib["roleName"]
-	if roleName != "" {
-		p.VaultRole = roleName
+	if roleName == "" {
+		return errors.Errorf("missing vault role")
 	}
+	p.VaultRole = roleName
+
 	glog.V(2).Infof("vault: roleName %s", p.VaultRole)
 
 	p.VaultAddress = attrib["vaultAddress"]
@@ -286,9 +288,12 @@ func (p *Provider) MountSecretsStoreObjectContent(ctx context.Context, attrib ma
 	}
 	glog.V(2).Infof("vault: vault address %s", p.VaultAddress)
 
+	// One of the following variables should be set when vaultSkipTLSVerify is false.
+	// Otherwise, system certificates are used to make requests to vault.
 	p.VaultCAPem = attrib["vaultCAPem"]
 	p.VaultCACert = attrib["vaultCACertPath"]
 	p.VaultCAPath = attrib["vaultCADirectory"]
+	// Vault tls server name.
 	p.VaultServerName = attrib["vaultTLSServerName"]
 
 	if s := attrib["vaultSkipTLSVerify"]; s != "" {
@@ -339,15 +344,15 @@ func (p *Provider) MountSecretsStoreObjectContent(ctx context.Context, attrib ma
 		}
 		objectContent := []byte(content)
 		if err := ioutil.WriteFile(path.Join(targetPath, keyValueObject.ObjectPath), objectContent, permission); err != nil {
-			return errors.Wrapf(err, "KeyVault failed to write %s at %s", keyValueObject.ObjectPath, targetPath)
+			return errors.Wrapf(err, "secrets-store csi driver failed to write %s at %s", keyValueObject.ObjectPath, targetPath)
 		}
-		glog.V(0).Infof("KeyVault wrote %s at %s", keyValueObject.ObjectPath, targetPath)
+		glog.V(0).Infof("secrets-store csi driver wrote %s at %s", keyValueObject.ObjectPath, targetPath)
 	}
 
 	return nil
 }
 
-// GetKeyValueObjectContent get content of the keyvault object
+// GetKeyValueObjectContent get content of the vault object
 func (p *Provider) GetKeyValueObjectContent(ctx context.Context, objectPath string, objectName string, objectVersion string) (content string, err error) {
 	// Read the jwt token from disk
 	jwt, err := readJWTToken(p.KubernetesServiceAccountPath)
