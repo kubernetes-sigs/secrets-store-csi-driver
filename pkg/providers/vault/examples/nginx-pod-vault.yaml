@@ -1,0 +1,16 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: nginx-vault
+spec:
+  containers:
+  - image: nginx
+    name: nginx-vault
+    volumeMounts:
+    - name: vault01
+      mountPath: "/mnt/vault"
+      readOnly: true
+  volumes:
+  - name: vault01
+    persistentVolumeClaim:
+      claimName: pvc-vault

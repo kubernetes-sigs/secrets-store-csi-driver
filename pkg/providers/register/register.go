@@ -16,10 +16,12 @@ type initFunc func(InitConfig) (providers.Provider, error)
 
 // GetProvider gets the provider specified by the given name
 func GetProvider(name string, cfg InitConfig) (providers.Provider, error) {
+
 	f, ok := providerInits[name]
 	if !ok {
 		return nil, errors.Errorf("provider not found: %s", name)
 	}
+
 	return f(cfg)
 }
 
