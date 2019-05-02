@@ -276,7 +276,7 @@ func loadCertFolder(pool *x509.CertPool, p string) error {
 func (p *Provider) MountSecretsStoreObjectContent(ctx context.Context, attrib map[string]string, secrets map[string]string, targetPath string, permission os.FileMode) (err error) {
 	roleName := attrib["roleName"]
 	if roleName == "" {
-		return errors.Errorf("missing vault role")
+		return errors.Errorf("missing vault role name. please specify 'roleName' in pv definition.")
 	}
 	p.VaultRole = roleName
 

@@ -8,7 +8,7 @@ spec:
     name: nginx-vault
     volumeMounts:
     - name: vault01
-      mountPath: "/mnt/vault"
+      mountPath: "/mnt/vault" # Vault mount point.
       readOnly: true
   volumes:
   - name: vault01
