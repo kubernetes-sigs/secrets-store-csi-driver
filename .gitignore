@@ -75,4 +75,5 @@ cscope.*
 
 test.sh
 /pv-secrets-store-csi.yaml
+/pod-inline.yaml
 
