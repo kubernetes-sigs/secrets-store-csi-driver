@@ -59,8 +59,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	}
 
 	targetPath := req.GetTargetPath()
-	publishContext := req.GetPublishContext()
-	glog.V(2).Infof("secrets-store - publishContext %v", publishContext)
 	notMnt, err := mount.New("").IsLikelyNotMountPoint(targetPath)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, err
@@ -91,11 +89,29 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if providerName == "" {
 		return nil, fmt.Errorf("providerName is not set")
 	}
+	usePodIdentity := false
+	usePodIdentityStr := attrib["usePodIdentity"]
+	if usePodIdentityStr == "true" {
+		usePodIdentity = true
+	}
+	if usePodIdentity {
+		glog.V(0).Infof("using pod identity to access keyvault")
+		podName := attrib["csi.storage.k8s.io/pod.name"]
+		podNamespace := attrib["csi.storage.k8s.io/pod.namespace"]
+		if podName == "" || podNamespace == "" {
+			return nil, fmt.Errorf("pod information is not available. deploy a CSIDriver object to set podInfoOnMount")
+		}
+	} else {
+		glog.V(0).Infof("not using pod identity to access keyvault")
+		if secrets == nil {
+			return nil, fmt.Errorf("unexpected: secrets is nil")
+		}
+	}
 	var provider providers.Provider
 	initConfig := register.InitConfig{}
 	provider, err = register.GetProvider(providerName, initConfig)
 	if err != nil {
-		glog.V(2).Infof("Error initializing provider: %s", err)
+		return nil, fmt.Errorf("Error initializing provider: %s", err)
 	}
 	// to ensure mount bind works, we need to mount before writing content to it
 	err = mounter.Mount("/tmp", targetPath, "", []string{"bind"})
@@ -105,6 +121,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	}
 	err = provider.MountSecretsStoreObjectContent(ctx, attrib, secrets, targetPath, permission)
 	if err != nil {
+		mounter.Unmount(targetPath)
 		return nil, err
 	}
 	notMnt, err = mount.New("").IsLikelyNotMountPoint(targetPath)
