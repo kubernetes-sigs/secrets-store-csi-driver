@@ -71,7 +71,7 @@ func (d *CSIDriver) ValidateControllerServiceRequest(c csi.ControllerServiceCapa
 			return nil
 		}
 	}
-	return status.Error(codes.InvalidArgument, fmt.Sprintf("%s", c))
+	return status.Error(codes.InvalidArgument, c.String())
 }
 
 func (d *CSIDriver) AddControllerServiceCapabilities(cl []csi.ControllerServiceCapability_RPC_Type) {

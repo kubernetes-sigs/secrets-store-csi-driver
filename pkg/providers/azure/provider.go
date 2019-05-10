@@ -261,7 +261,7 @@ func (p *Provider) GetServicePrincipalToken(env *azure.Environment, resource str
 			token := nmiResp.Token
 			clientID := nmiResp.ClientID
 
-			if &token == nil || clientID == "" {
+			if token.AccessToken == "" || clientID == "" {
 				return nil, fmt.Errorf("nmi did not return expected values in response: token and clientid")
 			}
 
@@ -274,16 +274,15 @@ func (p *Provider) GetServicePrincipalToken(env *azure.Environment, resource str
 
 		err = fmt.Errorf("nmi response failed with status code: %d", resp.StatusCode)
 		return nil, err
-	} else {
-		// When CSI driver is using a Service Principal clientid + client secret to retrieve token for resource
-		if len(p.AADClientSecret) > 0 {
-			glog.V(2).Infof("azure: using client_id+client_secret to retrieve access token")
-			return adal.NewServicePrincipalToken(
-				*oauthConfig,
-				p.AADClientID,
-				p.AADClientSecret,
-				resource)
-		}
+	}
+	// When CSI driver is using a Service Principal clientid + client secret to retrieve token for resource
+	if len(p.AADClientSecret) > 0 {
+		glog.V(2).Infof("azure: using client_id+client_secret to retrieve access token")
+		return adal.NewServicePrincipalToken(
+			*oauthConfig,
+			p.AADClientID,
+			p.AADClientSecret,
+			resource)
 	}
 	return nil, fmt.Errorf("No credentials provided for AAD application %s", p.AADClientID)
 }
