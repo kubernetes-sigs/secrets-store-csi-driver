@@ -18,7 +18,8 @@ package secretsstore
 
 import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/deislabs/secrets-store-csi-driver/pkg/csi-common"
+
+	csicommon "github.com/deislabs/secrets-store-csi-driver/pkg/csi-common"
 	"github.com/golang/glog"
 )
 

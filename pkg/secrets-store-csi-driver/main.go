@@ -22,7 +22,7 @@ import (
 
 	"github.com/golang/glog"
 
-	"github.com/deislabs/secrets-store-csi-driver/pkg/secrets-store"
+	secretsstore "github.com/deislabs/secrets-store-csi-driver/pkg/secrets-store"
 )
 
 func init() {
