@@ -17,7 +17,6 @@ limitations under the License.
 package csicommon
 
 import (
-	"fmt"
 
 	"github.com/golang/glog"
 	"google.golang.org/grpc/codes"
