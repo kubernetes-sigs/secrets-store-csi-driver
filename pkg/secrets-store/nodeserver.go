@@ -22,7 +22,8 @@ import (
 	"os"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/deislabs/secrets-store-csi-driver/pkg/csi-common"
+
+	csicommon "github.com/deislabs/secrets-store-csi-driver/pkg/csi-common"
 	"github.com/deislabs/secrets-store-csi-driver/pkg/providers"
 	"github.com/deislabs/secrets-store-csi-driver/pkg/providers/register"
 	"github.com/golang/glog"

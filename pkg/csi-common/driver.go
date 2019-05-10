@@ -17,7 +17,6 @@ limitations under the License.
 package csicommon
 
 import (
-
 	"github.com/golang/glog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
