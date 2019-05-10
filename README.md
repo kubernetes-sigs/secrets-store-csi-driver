@@ -9,6 +9,7 @@ The Secrets Store CSI driver `secrets-store.csi.k8s.com` allows Kubernetes to mo
 ## Features
 
 - Mounts secrets/keys/certs to pod using a CSI volume
+- Supports CSI Inline volume (Kubernetes version v1.15+)
 - Supports mounting multiple secrets store objects as a single volume
 - Supports pod identity to restrict access with specific identities (WIP)
 - Supports multiple secrets stores as providers
@@ -19,7 +20,8 @@ The Secrets Store CSI driver `secrets-store.csi.k8s.com` allows Kubernetes to mo
 * [Demo](#demo)
 * [Usage](#usage)
 * [Providers](#providers)
-    + [Azure Key Vault Provider](#azure-key-vault-provider)
+    + [Azure Key Vault Provider](pkg/providers/azure)
+    + [HashiCorp Vault Provider](pkg/providers/vault)
     + [Adding a New Provider via the Provider Interface](#adding-a-new-provider-via-the-provider-interface)
 * [Testing](#testing)
     + [Unit Tests](#unit-tests)
@@ -39,7 +41,29 @@ The diagram below illustrates how Secrets Store CSI Volume works.
 
 ## Usage
 
-Deploy a Kubernetes cluster v1.13.0+ and make sure it's reachable.
+### Prerequisites
+
+#### Mount Secret Data to Resource through Inline Volume
+
+* Deploy a Kubernetes cluster v1.15.0-alpha.2+ and make sure it's reachable. The CSI Inline Volume feature was introduced in v1.15.0.
+* Update the API Server manifest to append the following feature gate:
+
+```yaml
+--feature-gates=CSIInlineVolume=true
+```
+
+* Update Kubelet manifest on each node to append the `CSIInlineVolume` feature gate:
+
+```yaml
+--feature-gates=CSIInlineVolume=true
+```
+
+<details>
+<summary><strong>[Optional] Mount Secret Data to Resource through PVC, not Inline</strong></summary>
+
+* If CSI Inline volume is not a requirement and creating PVs and PVCs is acceptable, then the minimum supported Kubernetes Version is v1.13.0.
+
+</details>
 
 ### Install the Secrets Store CSI Driver
 
@@ -149,7 +173,52 @@ csi-secrets-store-zrjt2         2/2     Running   0          4m
 
 1. Select a provider from the [list of supported providers](#providers)
 
-2. To create a Secrets Store CSI volume, follow [specific deployment steps](#providers) for the selected provider to update all the required fields in [this deployment yaml](deploy/example/pv-secrets-store-csi.yaml).
+2. Update deployment of resource to add inline volume using the Secrets Store CSI driver, follow [specific deployment steps](#providers) for the selected provider to update all the required fields in [this deployment yaml](deploy/example/nginx-pod-secrets-store-inline-volume.yaml).
+
+```yaml
+volumes:
+  - name: secrets-store-inline
+    csi:
+      driver: secrets-store.csi.k8s.com
+      readOnly: true
+      volumeAttributes:
+        providerName: "azure"
+        usePodIdentity: "false"         # [OPTIONAL] if not provided, will default to "false"
+        keyvaultName: ""                # the name of the KeyVault
+        objects:  |
+          array:
+            - |
+              objectName: secret1
+              objectType: secret        # object types: secret, key or cert
+              objectVersion: ""         # [OPTIONAL] object versions, default to latest if empty
+            - |
+              objectName: key1
+              objectType: key
+              objectVersion: ""
+        resourceGroup: ""               # the resource group of the KeyVault
+        subscriptionId: ""              # the subscription ID of the KeyVault
+        tenantId: ""                    # the tenant ID of the KeyVault
+      nodePublishSecretRef:
+        name: secrets-store-creds
+
+```
+3. Deploy your resource with the inline CSI volume
+
+```bash
+kubectl apply -f deploy/example/nginx-pod-secrets-store-inline-volume.yaml
+```
+
+Validate the pod has access to the secret from your secrets store instance:
+
+```bash
+kubectl exec -it nginx-secrets-store-inline ls /mnt/secrets-store/
+testsecret
+```
+
+<details>
+<summary><strong>[Optional] Mount Secret Data to Resource through PVC, not Inline</strong></summary>
+
+1. To create a Secrets Store CSI PersistentVolume, follow [specific deployment steps](#providers) for the selected provider to update all the required fields in [this deployment yaml](deploy/example/pv-secrets-store-csi.yaml).
 
 ```yaml
 csi:
@@ -160,19 +229,19 @@ csi:
     providerName: "azure"
     ...
 ```
-3. Deploy your PersistentVolume (CSI Volume)
+2. Deploy your PersistentVolume (CSI Volume)
 
 ```bash
 kubectl apply -f deploy/example/pv-secrets-store-csi.yaml
 ```
 
-4. Deploy a static pvc pointing to your persistentvolume
+3. Deploy a static pvc pointing to your persistentvolume
 
 ```bash
 kubectl apply -f deploy/example/pvc-secrets-store-csi-static.yaml
 ```
 
-5. Fill in the missing pieces in [this pod deployment yaml](deploy/example/nginx-pod-secrets-store.yaml) to create your own pod pointing to your PVC. 
+4. Fill in the missing pieces in [this pod deployment yaml](deploy/example/nginx-pod-secrets-store.yaml) to create your own pod pointing to your PVC. 
 Make sure to specify the mount point.
 
 ```yaml
@@ -201,7 +270,7 @@ spec:
       claimName: pvc-secrets-store
 ```
 
-Deploy your app
+5. Deploy your resource with PVC
 
 ```bash
 kubectl apply -f deploy/example/nginx-pod-secrets-store.yaml
@@ -210,9 +279,10 @@ kubectl apply -f deploy/example/nginx-pod-secrets-store.yaml
 Validate the pod has access to the secret from your secrets store instance:
 
 ```bash
-kubectl exec -it nginx-flex-kv cat /mnt/secrets-store/testsecret
-testvalue
+kubectl exec -it nginx-secrets-store ls /mnt/secrets-store/
+testsecret
 ```
+</details>
 
 ## Providers
 
@@ -227,80 +297,9 @@ Providers must provide the following functionality to be considered a supported 
 2. Conforms to the current API provided by the Secrets Store CSI Driver.
 3. Does not have access to the Kubernetes APIs and has a well-defined callback mechanism to mount objects to a target path.
 
-### Azure Key Vault Provider
-
-The Secrets Store CSI driver Azure Key Vault Provider offers two modes for accessing a Key Vault instance: Service Principal and Pod Identity.
-
-#### OPTION 1 - Service Principal
-
-Add your service principal credentials as a Kubernetes secrets accessible by the Secrets Store CSI driver.
-
-```bash
-kubectl create secret generic secrets-store-creds --from-literal clientid=<CLIENTID> --from-literal clientsecret=<CLIENTSECRET>
-```
-
-Ensure this service principal has all the required permissions to access content in your Azure key vault instance. 
-If not, you can run the following using the Azure cli:
-
-```bash
-# Assign Reader Role to the service principal for your keyvault
-az role assignment create --role Reader --assignee <principalid> --scope /subscriptions/<subscriptionid>/resourcegroups/<resourcegroup>/providers/Microsoft.KeyVault/vaults/<keyvaultname>
-
-az keyvault set-policy -n $KV_NAME --key-permissions get --spn <YOUR SPN CLIENT ID>
-az keyvault set-policy -n $KV_NAME --secret-permissions get --spn <YOUR SPN CLIENT ID>
-az keyvault set-policy -n $KV_NAME --certificate-permissions get --spn <YOUR SPN CLIENT ID>
-```
-
-Fill in the missing pieces in [this](deploy/example/pv-secrets-store-csi) deployment to create your own pv, make sure to:
-
-1. reference the service principal kubernetes secret created in the previous step
-```yaml
-nodePublishSecretRef:
-  name: secrets-store-creds
-```
-2. pass in properties for the Azure Key Vault instance to the Secrets Store CSI driver to create a PV
-
-|Name|Required|Description|Default Value|
-|---|---|---|---|
-|providerName|yes|specify name of the provider|""|
-|usePodIdentity|no|specify access mode: service principal or pod identity|"false"|
-|keyvaultName|yes|name of a Key Vault instance|""|
-|objects|yes|a string of arrays of strings|""|
-|objectName|yes|name of a Key Vault object|""|
-|objectType|yes|type of a Key Vault object: secret, key or cert|""|
-|objectVersion|no|version of a Key Vault object, if not provided, will use latest|""|
-|resourceGroup|yes|name of resource group containing key vault instance|""|
-|subscriptionId|yes|subscription ID containing key vault instance|""|
-|tenantId|yes|tenant ID containing key vault instance|""|
-
-```yaml
-  csi:
-    driver: secrets-store.csi.k8s.com
-    readOnly: true
-    volumeHandle: kv
-    volumeAttributes:
-      providerName: "azure"
-      usePodIdentity: "false"         # [OPTIONAL] default to "false" if empty
-      keyvaultName: ""                # name of the KeyVault
-      objects:  |
-        array:                        # array of objects
-          - |
-            objectName: secret1
-            objectType: secret        # object types: secret, key or cert
-            objectVersion: ""         # [OPTIONAL] object versions, default to latest if empty
-          - |
-            objectName: key1
-            objectType: key
-            objectVersion: ""
-      resourceGroup: ""               # resource group of the KeyVault
-      subscriptionId: ""              # subscription ID of the KeyVault
-      tenantId: ""                    # tenant ID of the KeyVault
-      ...
-```
-
-#### OPTION 2 - Pod Identity
-
-_WIP_
+* Supported Providers:
+  + [Azure Key Vault Provider](pkg/providers/azure)
+  + [HashiCorp Vault Provider](pkg/providers/vault)
 
 ### Adding a New Provider via the Provider Interface
 
