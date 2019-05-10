@@ -128,6 +128,7 @@ kubectl apply -f deploy/rbac-csi-driver-registrar.yaml
 kubectl apply -f deploy/rbac-csi-attacher.yaml
 kubectl apply -f deploy/csi-secrets-store-attacher.yaml
 kubectl apply -f deploy/secrets-store-csi-driver.yaml
+kubectl apply -f deploy/csidriver.yaml
 ```
 To validate the installer is running as expected, run the following commands:
 
