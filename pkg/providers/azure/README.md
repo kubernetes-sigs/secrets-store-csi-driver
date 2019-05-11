@@ -156,7 +156,7 @@ Not all steps need to be followed on the instructions for the aad-pod-identity p
     kubectl create -f aadpodidentitybinding.yaml
     ```
 
-6. Add the following to [this](examples/nginx-pod-secrets-store-inline-volume.yaml) deployment yaml:
+6. Add the following to [this](examples/nginx-pod-secrets-store-inline-volume-pod-identity.yaml) deployment yaml:
 
     a. Include the `aadpodidbinding` label matching the `Selector` value set in the previous step so that this pod will be assigned an identity
     ```yaml
@@ -173,7 +173,7 @@ Not all steps need to be followed on the instructions for the aad-pod-identity p
 7. Deploy your app
 
     ```bash
-    kubectl create -f examples/nginx-pod-secrets-store-inline-volume.yaml
+    kubectl create -f examples/nginx-pod-secrets-store-inline-volume-pod-identity.yaml
     ```
 
 8. Validate the pod has access to the secret from key vault:
