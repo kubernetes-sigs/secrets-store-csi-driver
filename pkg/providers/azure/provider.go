@@ -417,5 +417,5 @@ func (p *Provider) GetKeyVaultObjectContent(ctx context.Context, objectType stri
 }
 
 func wrapObjectTypeError(err error, objectType string, objectName string, objectVersion string) error {
-	return errors.Wrapf(err, "failed to get objectType:%s, objetName:%s, objectVersion:%s", objectType, objectName, objectVersion)
+	return errors.Wrapf(err, "failed to get objectType:%s, objectName:%s, objectVersion:%s", objectType, objectName, objectVersion)
 }
