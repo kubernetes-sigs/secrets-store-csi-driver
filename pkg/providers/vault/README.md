@@ -13,9 +13,9 @@ TODO
 
 The guide assumes the following:
 
-* A Kubernetes cluster up and running.
-* A Vault cluster up and running. Instructions for spinning up a Vault cluster in Kubernetes can be
-found [here](#TODO).
+* A Kubernetes cluster version 1.13.x+ up and running.
+* A Vault cluster up and running. Instructions for spinning up a *development* Vault cluster in Kubernetes can be
+found [here](./docs/vault-setup.md).
 * [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl) installed.
 
 ## Usage
@@ -25,8 +25,27 @@ driver on Kubernetes.
 
 ### Install the Secrets Store CSI Driver
 
-Follow instructions [here](../../../README.md#Install-the-Secrets-Store-CSI-Driver) to install the Secret
-Store CSI driver.
+```bash
+kubectl apply -f deploy/crd-csi-driver-registry.yaml
+kubectl apply -f deploy/rbac-csi-driver-registrar.yaml
+kubectl apply -f deploy/rbac-csi-attacher.yaml
+kubectl apply -f pkg/providers/vault/example/csi-secrets-store-attacher.yaml
+```
+
+To validate the installer is running as expected, run the following commands:
+
+```bash
+kubectl get po
+```
+
+You should see the Secrets Store CSI driver pods running on each agent node:
+
+```bash
+csi-secrets-store-2c5ln         2/2     Running   0          4m
+csi-secrets-store-attacher-0    1/1     Running   0          6m
+csi-secrets-store-qp9r8         2/2     Running   0          4m
+csi-secrets-store-zrjt2         2/2     Running   0          4m
+```
 
 ### Configure Vault Provider CSI Driver Volume
 
