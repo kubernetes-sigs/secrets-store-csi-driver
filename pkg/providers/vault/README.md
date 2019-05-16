@@ -7,7 +7,7 @@ Vault and use the Secret Store CSI driver interface to mount them into Kubernete
 
 ## Demo
 
-TODO
+![Secret Store CSI Driver Vault Provider Demo](./images/secret-store-csi-driver-vault-provider-demo.gif "Secret Store CSI Driver Vault Provider Demo")
 
 ## Prerequisites
 
@@ -32,7 +32,8 @@ You should have a development Vault cluster up and running using the [guide](./d
 kubectl apply -f deploy/crd-csi-driver-registry.yaml
 kubectl apply -f deploy/rbac-csi-driver-registrar.yaml
 kubectl apply -f deploy/rbac-csi-attacher.yaml
-kubectl apply -f pkg/providers/vault/example/csi-secrets-store-attacher.yaml
+kubectl apply -f deploy/csi-secrets-store-attacher.yaml
+kubectl apply -f pkg/providers/vault/examples/secrets-store-csi-driver.yaml
 ```
 
 To validate the installer is running as expected, run the following commands:
