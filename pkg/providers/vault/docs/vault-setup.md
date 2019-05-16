@@ -17,7 +17,7 @@ This will create a Kubernetes pod running Vault in ["dev" mode](https://www.vaul
 Port forward to the Vault pod
 
 ```bash
-kubectl port-forward vault-5d9dd7cd87-vjmcm 8200:8200 &
+kubectl port-forward vault-{POD_ID} 8200:8200 &
 ```
 
 Export Vault address and token

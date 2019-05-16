@@ -23,6 +23,9 @@ found [here](./docs/vault-setup.md).
 This guide will walk you through the steps to configure and run the Vault provider for Secret Store CSI
 driver on Kubernetes.
 
+Make sure you have followed the [prerequisites](#prerequisites) specified above before you continue with this guide.
+You should have a development Vault cluster up and running using the [guide](./docs/vault-setup.md) specified above.
+
 ### Install the Secrets Store CSI Driver
 
 ```bash
