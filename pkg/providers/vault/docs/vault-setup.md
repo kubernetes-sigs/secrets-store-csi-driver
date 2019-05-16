@@ -27,7 +27,7 @@ export VAULT_ADDR="http://127.0.0.1:8200"
 export VAULT_TOKEN="root"
 ```
 
-Note: *This is an example Vault cluster running in development mode. This is not recommended
+Note: *This is an example Vault cluster running in "dev" mode. This is not recommended
 for a production deployment for Vault.*
 
 Create a Kubernetes service account for Vault
