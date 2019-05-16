@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-REGISTRY_NAME=anubhavmishra
+REGISTRY_NAME=ritazh
 IMAGE_NAME=secrets-store-csi
 IMAGE_VERSION=v0.0.3
 IMAGE_TAG=$(REGISTRY_NAME)/$(IMAGE_NAME):$(IMAGE_VERSION)
