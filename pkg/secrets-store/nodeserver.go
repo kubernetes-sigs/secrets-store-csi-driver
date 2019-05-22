@@ -95,6 +95,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if usePodIdentityStr == "true" {
 		usePodIdentity = true
 	}
+
 	if usePodIdentity {
 		glog.V(0).Infof("using pod identity to access keyvault")
 		podName := attrib["csi.storage.k8s.io/pod.name"]
@@ -102,12 +103,8 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		if podName == "" || podNamespace == "" {
 			return nil, fmt.Errorf("pod information is not available. deploy a CSIDriver object to set podInfoOnMount")
 		}
-	} else {
-		glog.V(0).Infof("not using pod identity to access keyvault")
-		if secrets == nil {
-			return nil, fmt.Errorf("unexpected: secrets is nil")
-		}
 	}
+
 	var provider providers.Provider
 	initConfig := register.InitConfig{}
 	provider, err = register.GetProvider(providerName, initConfig)
