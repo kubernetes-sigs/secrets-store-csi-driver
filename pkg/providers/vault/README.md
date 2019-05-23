@@ -13,7 +13,7 @@ Vault and use the Secret Store CSI driver interface to mount them into Kubernete
 
 The guide assumes the following:
 
-* A Kubernetes cluster version 1.13.x+ up and running.
+* A Kubernetes cluster up and running.
 * A Vault cluster up and running. Instructions for spinning up a *development* Vault cluster in Kubernetes can be
 found [here](./docs/vault-setup.md).
 * [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl) installed.
@@ -26,7 +26,10 @@ driver on Kubernetes.
 Make sure you have followed the [prerequisites](#prerequisites) specified above before you continue with this guide.
 You should have a development Vault cluster up and running using the [guide](./docs/vault-setup.md) specified above.
 
-### Install the Secrets Store CSI Driver
+### Install the Secrets Store CSI Driver (Kubernetes Version 1.13.x)
+
+**NOTE: If you are using Kubernetes version 1.13.x use the commands below. For Kubernetes version 1.15.x+ use the
+guide [here]().**
 
 ```bash
 kubectl apply -f deploy/crd-csi-driver-registry.yaml
@@ -124,9 +127,94 @@ Deploy the application
 
 ```bash
 kubectl apply -f examples/nginx-pod-vault.yaml
+``` 
+
+Validate Secret in Pod
+
+```bash
+kubectl exec -it nginx-vault cat /mnt/vault/foo
+hello
 ```
 
-### Validate Secret in Pod
+
+### Install the Secrets Store CSI Driver (Kubernetes Version 1.15.x+)
+
+```bash
+kubectl apply -f deploy/crd-csi-driver-registry.yaml
+kubectl apply -f deploy/rbac-csi-driver-registrar.yaml
+kubectl apply -f deploy/rbac-csi-attacher.yaml
+kubectl apply -f deploy/csi-secrets-store-attacher.yaml
+kubectl apply -f pkg/providers/vault/examples/secrets-store-csi-driver.yaml
+```
+
+To validate the installer is running as expected, run the following commands:
+
+```bash
+kubectl get po
+```
+
+You should see the Secrets Store CSI driver pods running on each agent node:
+
+```bash
+csi-secrets-store-2c5ln         2/2     Running   0          4m
+csi-secrets-store-attacher-0    1/1     Running   0          6m
+csi-secrets-store-qp9r8         2/2     Running   0          4m
+csi-secrets-store-zrjt2         2/2     Running   0          4m
+```
+
+
+### Create an Example Deployment
+
+We will use a NGINX deployment to showcase accessing the secret created by the Secret Store CSI Driver.
+The mount point and the provider configuration for the secret will be in the [pod deployment specification](./examples/nginx-pod-vault-inline-volume.yaml) file. For this example, we have already configured the Vault provider. 
+
+```yaml
+kind: Pod
+apiVersion: v1
+metadata:
+  name: nginx-vault
+
+.....
+    volumeMounts:
+    - name: secrets-store-inline
+      mountPath: "/mnt/secrets-store"
+      readOnly: true
+  volumes:
+    - name: secrets-store-inline
+      csi:
+        driver: secrets-store.csi.k8s.com
+        readOnly: true
+        volumeAttributes:
+          providerName: "vault"
+          roleName: "example-role"
+          vaultAddress: "http://10.0.146.70:8200"
+          vaultSkipTLSVerify: "true"
+          objects:  |
+            array:
+              - |
+                objectPath: "/foo"
+                objectName: "bar"
+                objectVersion: ""
+.....
+
+
+
+```
+
+Make sure the `vaultAddress` is pointing to the Kubernetes `vault` service that is created in the prerequisite steps.
+You can get the `vault` service address using the following command.
+
+```bash
+kubectl get service vault
+```
+
+Deploy the application
+
+```bash
+kubectl apply -f examples/nginx-pod-vault.yaml
+``` 
+
+Validate Secret in Pod
 
 ```bash
 kubectl exec -it nginx-vault cat /mnt/vault/foo
