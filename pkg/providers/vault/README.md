@@ -29,7 +29,7 @@ You should have a development Vault cluster up and running using the [guide](./d
 ### Install the Secrets Store CSI Driver (Kubernetes Version 1.13.x)
 
 **NOTE: If you are using Kubernetes version 1.13.x use the commands below. For Kubernetes version 1.15.x+ use the
-guide [here]().**
+guide [here](#install-the-secrets-store-csi-driver-kubernetes-version-115x).**
 
 ```bash
 kubectl apply -f deploy/crd-csi-driver-registry.yaml
