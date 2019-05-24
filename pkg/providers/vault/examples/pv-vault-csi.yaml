@@ -16,7 +16,7 @@ spec:
       providerName: "vault"
       roleName: "example-role"
       vaultAddress: "http://10.0.63.109:8200"
-      vaultSkipTLSVerify: "true" # TODO: document TLS configuration
+      vaultSkipTLSVerify: "true"
       objects:  |
         array:
           - |
