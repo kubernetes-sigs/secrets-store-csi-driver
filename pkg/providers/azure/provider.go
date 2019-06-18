@@ -25,6 +25,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"time"
 
 	"golang.org/x/net/context"
 	yaml "gopkg.in/yaml.v2"
@@ -57,6 +58,10 @@ const (
 	podnameheader = "podname"
 	// Pod Identity podnsheader
 	podnsheader = "podns"
+	// Pod Identity podIdentityRetryDelay
+	podIdentityRetryDelay = time.Duration(7 * time.Second)
+	// Pod Identity podIdentityRetryMaxAttempts
+	podIdentityRetryMaxAttempts = 5
 )
 
 type NMIResponse struct {
@@ -230,17 +235,20 @@ func (p *Provider) GetServicePrincipalToken(env *azure.Environment, resource str
 		glog.V(0).Infof("azure: using pod identity to retrieve token")
 
 		endpoint := fmt.Sprintf("%s?resource=%s", nmiendpoint, resource)
-		client := &http.Client{}
 		req, err := http.NewRequest("GET", endpoint, nil)
 		if err != nil {
 			return nil, err
 		}
 		req.Header.Add(podnsheader, p.PodNamespace)
 		req.Header.Add(podnameheader, p.PodName)
-		resp, err := client.Do(req)
+		resp, err := retryFetchToken(req, podIdentityRetryMaxAttempts)
 		if err != nil {
 			return nil, err
 		}
+		if resp == nil {
+			return nil, fmt.Errorf("nmi response is nil")
+		}
+
 		defer resp.Body.Close()
 
 		if resp.StatusCode == http.StatusOK {
@@ -418,4 +426,35 @@ func (p *Provider) GetKeyVaultObjectContent(ctx context.Context, objectType stri
 
 func wrapObjectTypeError(err error, objectType string, objectName string, objectVersion string) error {
 	return errors.Wrapf(err, "failed to get objectType:%s, objectName:%s, objectVersion:%s", objectType, objectName, objectVersion)
+}
+
+func retryFetchToken(req *http.Request, maxAttempts int) (resp *http.Response, err error) {
+	attempt := 0
+
+	client := &http.Client{}
+	for attempt < maxAttempts {
+		resp, err = client.Do(req)
+
+		// pod-identity calls will be retried in every scenario except when the err is nil
+		// and we get 200 response code.
+		if err == nil && resp != nil && resp.StatusCode == http.StatusOK {
+			return
+		}
+
+		attempt++
+
+		select {
+		// Not using exponential backoff logic because the avg time taken by nmi to complete
+		// identity assignment is ~35s. With exponential backoff we might end up waiting
+		// longer than required. Kubelet poll interval is 300ms which is aggressive and results in
+		// a lot of failed volume mount events. This retry will reduce the number of events in the
+		// case when nmi takes longer than usual.
+		case <-time.After(podIdentityRetryDelay):
+		case <-req.Context().Done():
+			// request is cancelled
+			err = req.Context().Err()
+			return nil, err
+		}
+	}
+	return
 }
