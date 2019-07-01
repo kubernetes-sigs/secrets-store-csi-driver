@@ -3,6 +3,8 @@ kind: CustomResourceDefinition
 metadata:
   creationTimestamp: null
   name: csidrivers.csi.storage.k8s.io
+  annotations:
+    helm.sh/hook: crd-install
 {{ include "sscd.labels" . | indent 2 }}
 spec:
   group: csi.storage.k8s.io
