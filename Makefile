@@ -18,10 +18,13 @@ IMAGE_VERSION=v0.0.4
 IMAGE_TAG=$(REGISTRY_NAME)/$(IMAGE_NAME):$(IMAGE_VERSION)
 IMAGE_TAG_LATEST=$(REGISTRY_NAME)/$(IMAGE_NAME):latest
 REV=$(shell git describe --long --tags --dirty)
+LDFLAGS?='-X github.com/deislabs/secrets-store-csi-driver/pkg/secrets-store.vendorVersion=$(IMAGE_VERSION) -extldflags "-static"'
 
-.PHONY: all build image clean deps test-style
+.PHONY: all build image clean test-style
 
-HAS_DEP := $(shell command -v dep;)
+GO111MODULE ?= on
+export GO111MODULE
+
 HAS_GOLANGCI := $(shell command -v golangci-lint;)
 
 all: build
@@ -32,9 +35,8 @@ test: test-style
 test-style: setup
 	@echo "==> Running static validations and linters <=="
 	golangci-lint run
-build: deps
-	if [ ! -d ./vendor ]; then dep ensure -vendor-only; fi
-	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-X github.com/deislabs/secrets-store-csi-driver/pkg/secrets-store.vendorVersion=$(IMAGE_VERSION) -extldflags "-static"' -o _output/secrets-store-csi ./pkg/secrets-store-csi-driver
+build: setup
+	CGO_ENABLED=0 GOOS=linux go build -a -ldflags ${LDFLAGS} -o _output/secrets-store-csi ./pkg/secrets-store-csi-driver
 image: build
 	docker build --no-cache -t $(IMAGE_TAG) -f ./pkg/secrets-store-csi-driver/Dockerfile .
 push: image
@@ -44,17 +46,19 @@ push-latest: image
 	docker tag $(IMAGE_TAG) $(IMAGE_TAG_LATEST)
 	docker push $(IMAGE_TAG_LATEST)
 clean:
-	go clean -r -x
 	-rm -rf _output
 setup: clean
 	@echo "Setup..."
-ifndef HAS_DEP
-	go get -u github.com/golang/dep/cmd/dep
-endif
+	$Q go env
+
 ifndef HAS_GOLANGCI
 	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(GOPATH)/bin
 endif
-deps: setup
-	@echo "Ensuring Dependencies..."
-	$Q go env
-	$Q dep ensure
+
+.PHONY: unit-test
+unit-test:
+	go test -v -race ./pkg/...
+
+.PHONY: mod
+mod:
+	@go mod tidy
