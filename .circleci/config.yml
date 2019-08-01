@@ -26,6 +26,9 @@ jobs:
           name: Run tests
           command: make test
       - run:
+          name: Run sanity test
+          command: make sanity-test
+      - run:
           name: Build
           command: make build
 workflows:
