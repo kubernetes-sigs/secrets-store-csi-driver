@@ -25,9 +25,11 @@ jobs:
       - run:
           name: Run tests
           command: make test
-      - run:
-          name: Run sanity test
-          command: make sanity-test
+      # TODO (aramase) add sanity check as part of CI using travis as running docker
+      # in privileged mode is not allowed in circleci unless executor type is machine.
+      #- run:
+      #    name: Run sanity test
+      #    command: make sanity-test
       - run:
           name: Build
           command: make build
