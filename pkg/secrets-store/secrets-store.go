@@ -26,24 +26,12 @@ import (
 type SecretsStore struct {
 	driver *csicommon.CSIDriver
 	ns     *nodeServer
+	cs     *controllerServer
 }
-
-type secretsStoreVolume struct {
-	VolName string `json:"volName"`
-	VolID   string `json:"volID"`
-	VolSize int64  `json:"volSize"`
-	VolPath string `json:"volPath"`
-}
-
-var secretsStoreVolumes map[string]secretsStoreVolume
 
 var (
 	vendorVersion = "0.0.3"
 )
-
-func init() {
-	secretsStoreVolumes = map[string]secretsStoreVolume{}
-}
 
 func GetDriver() *SecretsStore {
 	return &SecretsStore{}
@@ -52,6 +40,13 @@ func GetDriver() *SecretsStore {
 func newNodeServer(d *csicommon.CSIDriver) *nodeServer {
 	return &nodeServer{
 		DefaultNodeServer: csicommon.NewDefaultNodeServer(d),
+	}
+}
+
+func newControllerServer(d *csicommon.CSIDriver) *controllerServer {
+	return &controllerServer{
+		DefaultControllerServer: csicommon.NewDefaultControllerServer(d),
+		vols:                    make(map[string]csi.Volume),
 	}
 }
 
@@ -66,7 +61,7 @@ func (s *SecretsStore) Run(driverName, nodeID, endpoint string) {
 	}
 	s.driver.AddControllerServiceCapabilities(
 		[]csi.ControllerServiceCapability_RPC_Type{
-			csi.ControllerServiceCapability_RPC_PUBLISH_READONLY,
+			csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
 		})
 	s.driver.AddVolumeCapabilityAccessModes([]csi.VolumeCapability_AccessMode_Mode{
 		csi.VolumeCapability_AccessMode_SINGLE_NODE_READER_ONLY,
@@ -74,8 +69,9 @@ func (s *SecretsStore) Run(driverName, nodeID, endpoint string) {
 	})
 
 	s.ns = newNodeServer(s.driver)
+	s.cs = newControllerServer(s.driver)
 
 	server := csicommon.NewNonBlockingGRPCServer()
-	server.Start(endpoint, csicommon.NewDefaultIdentityServer(s.driver), csicommon.NewDefaultControllerServer(s.driver), s.ns)
+	server.Start(endpoint, csicommon.NewDefaultIdentityServer(s.driver), s.cs, s.ns)
 	server.Wait()
 }
