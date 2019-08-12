@@ -1,4 +1,4 @@
-# Setting Up a Developement Vault Cluster
+# Setting Up a Development Vault Cluster
 
 This guide showcases how to create a development HashiCorp Vault cluster in Kubernetes.
 It also shows how to configure the Kubernetes [auth method](https://www.vaultproject.io/docs/auth/kubernetes.html) to enable Vault to make API calls to Kubernetes. This allows applications/users to login to Vault using the Kubernetes
@@ -7,7 +7,7 @@ service account tokens. As part of the guide we will also store a secret as an e
 ## Deploy Vault Pod
 
 ```bash
-kubectl apply -f pkg/providers/vault/example/vault.yaml
+kubectl apply -f pkg/providers/vault/examples/vault.yaml
 ```
 
 This will create a Kubernetes pod running Vault in ["dev" mode](https://www.vaultproject.io/docs/concepts/dev-server.html).
@@ -17,7 +17,8 @@ This will create a Kubernetes pod running Vault in ["dev" mode](https://www.vaul
 Port forward to the Vault pod
 
 ```bash
-kubectl port-forward vault-{POD_ID} 8200:8200 &
+VAULT_POD=$(kubectl get pod -l app=vault -o jsonpath="{.items[0].metadata.name}")
+kubectl port-forward ${VAULT_POD} 8200:8200 &
 ```
 
 Export Vault address and token
@@ -60,7 +61,8 @@ EOH
 Configure variables for enabling Kubernetes auth method
 
 ```bash
-CLUSTER_NAME="$(kubectl config view -o json | jq -r .clusters[].name)"
+CLUSTER_NAME="$(kubectl config view --raw \
+  -o go-template="{{ range .contexts }}{{ if eq .name \"$(kubectl config current-context)\" }}{{ index .context \"cluster\" }}{{ end }}{{ end }}")"
 
 SECRET_NAME="$(kubectl get serviceaccount vault-auth \
   -o go-template='{{ (index .secrets 0).name }}')"
@@ -68,11 +70,15 @@ SECRET_NAME="$(kubectl get serviceaccount vault-auth \
 TR_ACCOUNT_TOKEN="$(kubectl get secret ${SECRET_NAME} \
   -o go-template='{{ .data.token }}' | base64 --decode)"
 
-K8S_HOST="$(kubectl config view --raw \
-  -o go-template="{{ range .clusters }}{{ if eq .name \"${CLUSTER_NAME}\" }}{{ index .cluster \"server\" }}{{ end }}{{ end }}")"
+K8S_HOST="https://$(kubectl get svc kubernetes -o go-template="{{ .spec.clusterIP }}")"
 
+# if you have embedded client cert, use the commands below.
 K8S_CACERT="$(kubectl config view --raw \
   -o go-template="{{ range .clusters }}{{ if eq .name \"${CLUSTER_NAME}\" }}{{ index .cluster \"certificate-authority-data\" }}{{ end }}{{ end }}" | base64 --decode)"
+
+# if you haven't embedded client cert, use the commands below.
+K8S_CACERT="$(cat $(kubectl config view --raw \
+  -o go-template="{{ range .clusters }}{{ if eq .name \"${CLUSTER_NAME}\" }}{{ index .cluster \"certificate-authority\" }}{{ end }}{{ end }}"))"
 ```
 
 Enable Kubernetes Auth Method

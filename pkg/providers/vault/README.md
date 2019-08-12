@@ -105,7 +105,7 @@ kubectl apply -f examples/pvc-vault-csi-static.yaml
 
 ### Create an Example Deployment
 
-We will use a NGINX deployment to showcase accessing the secret created by the Secret Store CSI Driver.
+We will use an NGINX deployment to showcase accessing the secret created by the Secret Store CSI Driver.
 The mount point for the secret will be in the [pod deployment specification](./examples/nginx-pod-vault.yaml) file.
 
 ```yaml
@@ -127,7 +127,7 @@ Deploy the application
 
 ```bash
 kubectl apply -f examples/nginx-pod-vault.yaml
-``` 
+```
 
 Validate Secret in Pod
 
@@ -165,14 +165,14 @@ csi-secrets-store-zrjt2         2/2     Running   0          4m
 
 ### Create an Example Deployment
 
-We will use a NGINX deployment to showcase accessing the secret created by the Secret Store CSI Driver.
-The mount point and the provider configuration for the secret will be in the [pod deployment specification](./examples/nginx-pod-vault-inline-volume.yaml) file. For this example, we have already configured the Vault provider. 
+We will use an NGINX deployment to showcase accessing the secret created by the Secret Store CSI Driver.
+The mount point and the provider configuration for the secret will be in the [pod deployment specification](./examples/nginx-pod-vault-inline-volume.yaml) file. For this example, we have already configured the Vault provider.
 
 ```yaml
 kind: Pod
 apiVersion: v1
 metadata:
-  name: nginx-vault
+  name: nginx-secrets-store-inline
 
 .....
     volumeMounts:
@@ -211,12 +211,12 @@ kubectl get service vault
 Deploy the application
 
 ```bash
-kubectl apply -f examples/nginx-pod-vault.yaml
-``` 
+kubectl apply -f examples/nginx-pod-vault-inline-volume.yaml
+```
 
 Validate Secret in Pod
 
 ```bash
-kubectl exec -it nginx-vault cat /mnt/vault/foo
+kubectl exec -it nginx-secrets-store-inline cat /mnt/secrets-store/foo
 hello
 ```

@@ -9,7 +9,7 @@ Add your service principal credentials as a Kubernetes secrets accessible by the
 kubectl create secret generic secrets-store-creds --from-literal clientid=<CLIENTID> --from-literal clientsecret=<CLIENTSECRET>
 ```
 
-Ensure this service principal has all the required permissions to access content in your Azure key vault instance. 
+Ensure this service principal has all the required permissions to access content in your Azure key vault instance.
 If not, you can run the following using the Azure cli:
 
 ```bash
@@ -67,7 +67,7 @@ nodePublishSecretRef:
       ...
 ```
 
-#### OPTION 2 - Pod Identity
+## OPTION 2 - Pod Identity
 
 ##### Prerequisites: #####
 
@@ -78,7 +78,7 @@ nodePublishSecretRef:
 Not all steps need to be followed on the instructions for the aad-pod-identity project as we will also complete some of the steps on our installation here.
 
 1. Install the aad-pod-identity components to your cluster
-     
+
    - Install the RBAC enabled aad-pod-identiy infrastructure components:
       ```
       kubectl create -f https://raw.githubusercontent.com/Azure/aad-pod-identity/master/deploy/infra/deployment-rbac.yaml
@@ -91,16 +91,16 @@ Not all steps need to be followed on the instructions for the aad-pod-identity p
        az role assignment create --role "Managed Identity Operator" --assignee <sp id> --scope <full id of the managed identity>
        ```
 
-2. Create an Azure User Identity 
+2. Create an Azure User Identity
 
-    Create an Azure User Identity with the following command. 
-    Get `clientId` and `id` from the output. 
+    Create an Azure User Identity with the following command.
+    Get `clientId` and `id` from the output.
     ```
     az identity create -g <resourcegroup> -n <idname>
     ```
 
 3. Assign permissions to new identity
-    Ensure your Azure user identity has all the required permissions to read the keyvault instance and to access content within your key vault instance. 
+    Ensure your Azure user identity has all the required permissions to read the keyvault instance and to access content within your key vault instance.
     If not, you can run the following using the Azure cli:
 
     ```bash
@@ -121,7 +121,7 @@ Not all steps need to be followed on the instructions for the aad-pod-identity p
 
     Set `type: 0` for Managed Service Identity; `type: 1` for Service Principal
     In this case, we are using managed service identity, `type: 0`.
-    Create a new name for the AzureIdentity. 
+    Create a new name for the AzureIdentity.
     Set `ResourceID` to `id` of the Azure User Identity created from the previous step.
 
     ```yaml
@@ -150,7 +150,7 @@ Not all steps need to be followed on the instructions for the aad-pod-identity p
     spec:
      AzureIdentity: <name_of_AzureIdentity_created_from_previous_step>
      Selector: <label value to match in your app>
-    ``` 
+    ```
 
     ```
     kubectl create -f aadpodidentitybinding.yaml
