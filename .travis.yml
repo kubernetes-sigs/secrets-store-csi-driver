@@ -1,0 +1,30 @@
+language: go
+go_import_path: github.com/deislabs/secrets-store-csi-driver
+dist: bionic
+
+env:
+  global:
+    - GO111MODULE=on
+
+go:
+  - "1.12.1"
+
+jobs:
+  include:
+    - stage: test
+      name: "linting rules"
+      script:
+        - make test-style
+    - stage: test
+      name: "test"
+      script:
+        - make test
+    - stage: test
+      name: "sanity test"
+      install:
+        - sudo apt update && sudo apt install cifs-utils procps -y
+      script: sudo -E env "PATH=$PATH" make sanity-test
+    - stage: test
+      name: "build"
+      script:
+        - make build

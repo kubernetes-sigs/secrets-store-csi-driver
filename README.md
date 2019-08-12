@@ -4,7 +4,7 @@ Secrets Store CSI driver for Kubernetes secrets - Integrates secrets stores with
 
 The Secrets Store CSI driver `secrets-store.csi.k8s.com` allows Kubernetes to mount multiple secrets, keys, and certs stored in enterprise-grade external secrets stores into their pods as a volume. Once the Volume is attached, the data in it is mounted into the container's file system. 
 
-[![CircleCI](https://circleci.com/gh/deislabs/secrets-store-csi-driver/tree/master.svg?style=svg)](https://circleci.com/gh/deislabs/secrets-store-csi-driver/tree/master)
+[![Build Status](https://travis-ci.org/deislabs/secrets-store-csi-driver.svg?branch=master)](https://travis-ci.org/deislabs/secrets-store-csi-driver)
 
 ## Features
 

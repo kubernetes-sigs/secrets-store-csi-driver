@@ -29,11 +29,11 @@ HAS_GOLANGCI := $(shell command -v golangci-lint;)
 
 all: build
 
-test: test-style
+test:
 	go test github.com/deislabs/secrets-store-csi-driver/pkg/... -cover
 	go vet github.com/deislabs/secrets-store-csi-driver/pkg/...
-test-style: setup
-	@echo "==> Running static validations and linters <=="
+test-style: setup	
+	@echo "==> Running static validations and linters <=="	
 	golangci-lint run
 sanity-test:
 	go test -v ./test/sanity
