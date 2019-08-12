@@ -59,6 +59,7 @@ const (
 	podnsheader = "podns"
 )
 
+// NMIResponse is the response received from aad-pod-identity
 type NMIResponse struct {
 	Token    adal.Token `json:"token"`
 	ClientID string     `json:"clientid"`
@@ -67,10 +68,12 @@ type NMIResponse struct {
 // OAuthGrantType specifies which grant type to use.
 type OAuthGrantType int
 
+// AuthGrantType ...
 func AuthGrantType() OAuthGrantType {
 	return OAuthGrantTypeServicePrincipal
 }
 
+// Provider implements the secrets-store-csi-driver provider interface
 type Provider struct {
 	// the name of the Azure Key Vault instance
 	KeyvaultName string
@@ -94,6 +97,7 @@ type Provider struct {
 	PodNamespace string
 }
 
+// KeyVaultObject holds keyvault object related config
 type KeyVaultObject struct {
 	// the name of the Azure Key Vault objects
 	ObjectName string `json:"objectName" yaml:"objectName"`
@@ -103,6 +107,7 @@ type KeyVaultObject struct {
 	ObjectType string `json:"objectType" yaml:"objectType"`
 }
 
+// StringArray ...
 type StringArray struct {
 	Array []string `json:"array" yaml:"array"`
 }
@@ -126,6 +131,7 @@ func ParseAzureEnvironment(cloudName string) (*azure.Environment, error) {
 	return &env, err
 }
 
+// GetKeyvaultToken retrieves a new service principal token to access keyvault
 func (p *Provider) GetKeyvaultToken(grantType OAuthGrantType, cloudName string) (authorizer autorest.Authorizer, err error) {
 	env, err := ParseAzureEnvironment(cloudName)
 	if err != nil {
@@ -155,6 +161,7 @@ func (p *Provider) initializeKvClient(cloudName string) (*kv.BaseClient, error) 
 	return &kvClient, nil
 }
 
+// GetCredential gets clientid and clientsecret
 func GetCredential(secrets map[string]string) (string, string, error) {
 	if secrets == nil {
 		return "", "", fmt.Errorf("unexpected: getCredential secrets is nil")
@@ -188,7 +195,7 @@ func (p *Provider) getVaultURL(ctx context.Context, cloudName string) (vaultURL 
 	vaultsClient := kvmgmt.NewVaultsClient(p.SubscriptionID)
 	token, tokenErr := p.GetManagementToken(AuthGrantType(), cloudName)
 	if tokenErr != nil {
-		return nil, errors.Wrapf(err, "failed to get management token")
+		return nil, errors.Wrapf(tokenErr, "failed to get management token")
 	}
 	vaultsClient.Authorizer = token
 	vault, err := vaultsClient.Get(ctx, p.ResourceGroup, p.KeyvaultName)
@@ -198,6 +205,7 @@ func (p *Provider) getVaultURL(ctx context.Context, cloudName string) (vaultURL 
 	return vault.Properties.VaultURI, nil
 }
 
+// GetManagementToken retrieves a new service principal token
 func (p *Provider) GetManagementToken(grantType OAuthGrantType, cloudName string) (authorizer autorest.Authorizer, err error) {
 
 	env, err := ParseAzureEnvironment(cloudName)
