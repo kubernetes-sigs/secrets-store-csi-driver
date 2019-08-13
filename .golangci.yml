@@ -1,5 +1,5 @@
 run:
-  deadline: 1m
+  deadline: 2m
   skip-dirs:
   skip-files:
 

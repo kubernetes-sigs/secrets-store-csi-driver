@@ -32,7 +32,7 @@ all: build
 test: test-style
 	go test github.com/deislabs/secrets-store-csi-driver/pkg/... -cover
 	go vet github.com/deislabs/secrets-store-csi-driver/pkg/...
-test-style: setup
+test-style: setup	
 	@echo "==> Running static validations and linters <=="
 	golangci-lint run
 sanity-test:
