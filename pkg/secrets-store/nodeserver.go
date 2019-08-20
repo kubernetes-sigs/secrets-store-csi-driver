@@ -22,8 +22,10 @@ import (
 	"os"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/spf13/cast"
 
 	csicommon "github.com/deislabs/secrets-store-csi-driver/pkg/csi-common"
+
 	"github.com/deislabs/secrets-store-csi-driver/pkg/providers"
 	"github.com/deislabs/secrets-store-csi-driver/pkg/providers/register"
 	"github.com/golang/glog"
@@ -32,7 +34,13 @@ import (
 	"google.golang.org/grpc/status"
 
 	"golang.org/x/net/context"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kubernetes/pkg/util/mount"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 type nodeServer struct {
@@ -86,23 +94,71 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		targetPath, volumeID, attrib, mountFlags)
 
 	secrets := req.GetSecrets()
-	providerName := attrib["providerName"]
-	if providerName == "" {
-		return nil, fmt.Errorf("providerName is not set")
-	}
-	usePodIdentity := false
-	usePodIdentityStr := attrib["usePodIdentity"]
-	if usePodIdentityStr == "true" {
-		usePodIdentity = true
-	}
 
-	if usePodIdentity {
-		glog.V(0).Infof("using pod identity to access keyvault")
-		podName := attrib["csi.storage.k8s.io/pod.name"]
-		podNamespace := attrib["csi.storage.k8s.io/pod.namespace"]
-		if podName == "" || podNamespace == "" {
-			return nil, fmt.Errorf("pod information is not available. deploy a CSIDriver object to set podInfoOnMount")
+	secretProviderClass := attrib["secretProviderClass"]
+	providerName := attrib["providerName"]
+	/// TODO: providerName is here for backward compatibility. Will eventually deprecate.
+	if secretProviderClass == "" && providerName == "" {
+		return nil, fmt.Errorf("secretProviderClass is not set")
+	}
+	var parameters map[string]string
+	/// TODO: This is here for backward compatibility. Will eventually deprecate.
+	if providerName != "" {
+		parameters = attrib
+	} else {
+		secretProviderClassGvk := schema.GroupVersionKind{
+			Group:   "secrets-store.csi.k8s.com",
+			Version: "v1alpha1",
+			Kind:    "SecretProviderClassList",
 		}
+		instanceList := &unstructured.UnstructuredList{}
+		instanceList.SetGroupVersionKind(secretProviderClassGvk)
+		cfg, err := config.GetConfig()
+		if err != nil {
+			return nil, err
+		}
+		c, err := client.New(cfg, client.Options{Scheme: nil, Mapper: nil})
+		if err != nil {
+			return nil, err
+		}
+		err = c.List(ctx, instanceList)
+		if err != nil {
+			return nil, err
+		}
+		var secretProvideObject map[string]interface{}
+		for _, item := range instanceList.Items {
+			glog.V(5).Infof("item obj: %v \n", item.Object)
+			if item.GetName() == secretProviderClass {
+				secretProvideObject = item.Object
+				break
+			}
+		}
+		if secretProvideObject == nil {
+			return nil, fmt.Errorf("could not find a matching SecretProviderClass object for the secretProviderClass '%s' specified", secretProviderClass)
+		}
+		providerSpec := secretProvideObject["spec"]
+		providerSpecMap, ok := providerSpec.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("could not cast resource as map[string]interface{}")
+		}
+		providerName, ok := providerSpecMap["provider"].(string)
+		if !ok {
+			return nil, fmt.Errorf("could not cast resource as string")
+		}
+		if providerName == "" {
+			return nil, fmt.Errorf("providerName is not set")
+		}
+		parameters, err = cast.ToStringMapStringE(providerSpecMap["parameters"])
+		if err != nil {
+			return nil, err
+		}
+		if len(parameters) == 0 {
+			return nil, fmt.Errorf("Failed to initialize provider parameters")
+		}
+
+		glog.V(5).Infof("got parameters: %v \n", parameters)
+		parameters["csi.storage.k8s.io/pod.name"] = attrib["csi.storage.k8s.io/pod.name"]
+		parameters["csi.storage.k8s.io/pod.namespace"] = attrib["csi.storage.k8s.io/pod.namespace"]
 	}
 
 	var provider providers.Provider
@@ -117,7 +173,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		glog.V(0).Infof("mount err: %v", err)
 		return nil, err
 	}
-	err = provider.MountSecretsStoreObjectContent(ctx, attrib, secrets, targetPath, permission)
+	err = provider.MountSecretsStoreObjectContent(ctx, parameters, secrets, targetPath, permission)
 	if err != nil {
 		mounter.Unmount(targetPath)
 		return nil, err

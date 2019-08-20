@@ -164,7 +164,7 @@ func (p *Provider) initializeKvClient(cloudName string) (*kv.BaseClient, error) 
 // GetCredential gets clientid and clientsecret
 func GetCredential(secrets map[string]string) (string, string, error) {
 	if secrets == nil {
-		return "", "", fmt.Errorf("unexpected: getCredential secrets is nil")
+		return "", "", fmt.Errorf("unexpected: getCredential failed, nodePublishSecretRef secret is not provided")
 	}
 
 	var clientID, clientSecret string
@@ -331,6 +331,9 @@ func (p *Provider) MountSecretsStoreObjectContent(ctx context.Context, attrib ma
 		}
 	} else {
 		glog.V(0).Infof("using pod identity to access keyvault")
+		if p.PodName == "" || p.PodNamespace == "" {
+			return fmt.Errorf("pod information is not available. deploy a CSIDriver object to set podInfoOnMount")
+		}
 	}
 	objectsStrings := attrib["objects"]
 	if objectsStrings == "" {
