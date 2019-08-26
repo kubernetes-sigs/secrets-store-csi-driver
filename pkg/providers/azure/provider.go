@@ -262,7 +262,7 @@ func (p *Provider) GetServicePrincipalToken(env *azure.Environment, resource str
 				return nil, err
 			}
 
-			r, _ := regexp.Compile("^(\\S{4})(\\S|\\s)*(\\S{4})$")
+			r, _ := regexp.Compile(`^(\S{4})(\S|\s)*(\S{4})$`)
 			glog.V(0).Infof("accesstoken: %s", r.ReplaceAllString(nmiResp.Token.AccessToken, "$1##### REDACTED #####$3"))
 			glog.V(0).Infof("clientid: %s", r.ReplaceAllString(nmiResp.ClientID, "$1##### REDACTED #####$3"))
 
