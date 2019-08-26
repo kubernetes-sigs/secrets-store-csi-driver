@@ -262,7 +262,7 @@ func (p *Provider) GetServicePrincipalToken(env *azure.Environment, resource str
 				return nil, err
 			}
 
-			r, _ := regexp.Compile(`^(S{4})(S|s)*(S{4})$`)
+			r, _ := regexp.Compile("^(\\S{4})(\\S|\\s)*(\\S{4})$")
 			glog.V(0).Infof("accesstoken: %s", r.ReplaceAllString(nmiResp.Token.AccessToken, "$1##### REDACTED #####$3"))
 			glog.V(0).Infof("clientid: %s", r.ReplaceAllString(nmiResp.ClientID, "$1##### REDACTED #####$3"))
 
@@ -386,8 +386,6 @@ func (p *Provider) MountSecretsStoreObjectContent(ctx context.Context, attrib ma
 
 // GetKeyVaultObjectContent get content of the keyvault object
 func (p *Provider) GetKeyVaultObjectContent(ctx context.Context, objectType string, objectName string, objectVersion string) (content string, err error) {
-	// TODO: support pod identity
-
 	vaultURL, err := p.getVaultURL(ctx, "")
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get vault")
