@@ -1,3 +1,3 @@
-version: "1"
+version: "2"
 domain: secrets-store.csi.k8s.com
 repo: github.com/deislabs/secrets-store-csi-driver
