@@ -139,11 +139,11 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		providerSpec := secretProvideObject["spec"]
 		providerSpecMap, ok := providerSpec.(map[string]interface{})
 		if !ok {
-			return nil, fmt.Errorf("could not cast resource as map[string]interface{}")
+			return nil, fmt.Errorf("could not cast spec as map[string]interface{}")
 		}
-		providerName, ok := providerSpecMap["provider"].(string)
+		providerName, ok = providerSpecMap["provider"].(string)
 		if !ok {
-			return nil, fmt.Errorf("could not cast resource as string")
+			return nil, fmt.Errorf("could not cast provider as string")
 		}
 		if providerName == "" {
 			return nil, fmt.Errorf("providerName is not set")
