@@ -30,7 +30,7 @@ type SecretsStore struct {
 }
 
 var (
-	vendorVersion = "0.0.3"
+	vendorVersion = "0.0.4"
 )
 
 func GetDriver() *SecretsStore {

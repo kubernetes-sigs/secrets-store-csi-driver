@@ -31,7 +31,7 @@ const (
 )
 
 var (
-	vendorVersion = "1.0.0-rc2"
+	vendorVersion = "1.1"
 )
 
 func NewFakeDriver() *CSIDriver {
