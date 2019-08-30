@@ -122,7 +122,7 @@ Create an example Vault role
 ```bash
 vault write auth/kubernetes/role/example-role \
   bound_service_account_names=csi-driver-registrar \
-  bound_service_account_namespaces=default \
+  bound_service_account_namespaces=<SECRETS-STORE-CSI-DRIVER NAMESPACE> \
   policies=default,example-readonly \
   ttl=20m
 ```
