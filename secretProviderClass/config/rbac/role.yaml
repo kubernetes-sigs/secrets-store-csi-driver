@@ -1,0 +1,14 @@
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: secretproviderclasses-role
+rules:
+- apiGroups:
+  - secrets-store.csi.k8s.com
+  resources:
+  - secretproviderclasses
+  verbs:
+  - get
+  - list

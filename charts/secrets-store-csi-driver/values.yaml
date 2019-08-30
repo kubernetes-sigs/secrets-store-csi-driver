@@ -3,7 +3,8 @@ image:
   tag: v0.0.4
   pullPolicy: Always
 
-## `provider` should be one of azure, etc...
+## this is only needed for the azure provider to mount host paths
+## will eventually deprecate after we no longer depend on azure.json
 provider: azure
 logLevel: 
 
