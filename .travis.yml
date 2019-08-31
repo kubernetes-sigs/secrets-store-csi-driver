@@ -24,7 +24,7 @@ jobs:
         # Create kind cluster
         - |
           if [ $(kind get clusters) ]; then
-            export KUBECONFIG="$(kind get kubeconfig-path --name="kind")"
+            continue
           else
             kind create cluster
           fi
@@ -41,6 +41,9 @@ jobs:
         - helm init --service-account tiller --upgrade --wait
       script:
         - helm install charts/secrets-store-csi-driver -n csi-secrets-store --set provider="" --set image.pullPolicy="IfNotPresent"
+        - kubectl create secret generic secrets-store-creds --from-literal clientid=$AZURE_CLIENT_ID --from-literal clientsecret=$AZURE_CLIENT_SECRET
+        - kubectl apply -f test/e2e/azure-inline.yaml
+        - kubectl exec -it nginx-secrets-store-inline cat /mnt/secrets-store/secret1
     - stage: test
       name: "linting rules"
       script:
