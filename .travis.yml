@@ -17,6 +17,7 @@ jobs:
     - stage: e2e
       before_script:
         - KIND_VERSION=0.5.1
+        - KUBERNETES_VERSION=1.15.3
         # Download and install kind
         - curl -L https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-linux-amd64 --output kind && chmod +x kind && sudo mv kind /usr/local/bin/
         # Download and install Helm
@@ -26,7 +27,7 @@ jobs:
           if [ $(kind get clusters) ]; then
             continue
           else
-            kind create cluster
+            kind create cluster --config kind-config.yaml --image kindest/node:v${KUBERNETES_VERSION}
           fi
         # Get kubeconfig
         - export KUBECONFIG="$(kind get kubeconfig-path --name="kind")"
