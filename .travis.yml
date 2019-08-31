@@ -16,7 +16,7 @@ jobs:
   include:
     - stage: e2e
       before_script:
-        - KIND_VERSION=0.4.0
+        - KIND_VERSION=0.5.1
         # Download and install kind
         - curl -L https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-linux-amd64 --output kind && chmod +x kind && sudo mv kind /usr/local/bin/
         # Download and install Helm
@@ -42,7 +42,7 @@ jobs:
       script:
         - helm install charts/secrets-store-csi-driver -n csi-secrets-store --set provider="" --set image.pullPolicy="IfNotPresent"
         - kubectl create secret generic secrets-store-creds --from-literal clientid=$AZURE_CLIENT_ID --from-literal clientsecret=$AZURE_CLIENT_SECRET
-        - kubectl apply -f test/e2e/azure-inline.yaml
+        - kubectl apply -f test/bats/tests/azure-inline.yaml
         - kubectl exec -it nginx-secrets-store-inline cat /mnt/secrets-store/secret1
     - stage: test
       name: "linting rules"
