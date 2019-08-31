@@ -12,12 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-REGISTRY_NAME=ritazh
+REGISTRY_NAME?=ritazh
 IMAGE_NAME=secrets-store-csi
-IMAGE_VERSION=v0.0.4
+IMAGE_VERSION?=v0.0.4
 IMAGE_TAG=$(REGISTRY_NAME)/$(IMAGE_NAME):$(IMAGE_VERSION)
 IMAGE_TAG_LATEST=$(REGISTRY_NAME)/$(IMAGE_NAME):latest
-REV=$(shell git describe --long --tags --dirty)
 LDFLAGS?='-X github.com/deislabs/secrets-store-csi-driver/pkg/secrets-store.vendorVersion=$(IMAGE_VERSION) -extldflags "-static"'
 
 .PHONY: all build image clean test-style
@@ -32,7 +31,7 @@ all: build
 test: test-style
 	go test github.com/deislabs/secrets-store-csi-driver/pkg/... -cover
 	go vet github.com/deislabs/secrets-store-csi-driver/pkg/...
-test-style: setup	
+test-style: setup
 	@echo "==> Running static validations and linters <=="
 	golangci-lint run
 sanity-test:

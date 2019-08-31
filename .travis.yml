@@ -11,6 +11,33 @@ go:
 
 jobs:
   include:
+    - stage: e2e
+      before_script:
+        - KIND_VERSION=0.4.0
+        # Download and install kind
+        - curl -L https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-linux-amd64 --output kind && chmod +x kind && sudo mv kind /usr/local/bin/
+        # Download and install Helm
+        - curl https://raw.githubusercontent.com/helm/helm/master/scripts/get | bash
+        # Create kind cluster
+        - |
+          if [ $(kind get clusters) ]; then
+            export KUBECONFIG="$(kind get kubeconfig-path --name="kind")"
+          else
+            kind create cluster
+          fi
+        # Get kubeconfig
+        - export KUBECONFIG="$(kind get kubeconfig-path --name="kind")"
+        # Build image
+        - REGISTRY_NAME="e2e" IMAGE_VERSION=$(git rev-parse --short HEAD) make imag
+        # Load image into kind cluster
+        - kind load docker-image --name kind e2e/secrets-store-csi:$(git rev-parse --short HEAD)
+        # Download and install kubectl
+        - curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl && chmod +x ./kubectl && sudo mv kubectl /usr/local/bin/
+        - kubectl --namespace kube-system --output yaml create serviceaccount tiller --dry-run | kubectl apply -f -
+        - kubectl create --output yaml clusterrolebinding tiller-cluster-rule --clusterrole=cluster-admin --serviceaccount=kube-system:tiller --dry-run | kubectl apply -f -
+        - helm init --service-account tiller --upgrade --wait
+      script:
+        - helm install charts/secrets-store-csi-driver -n csi-secrets-store --set provider=""
     - stage: test
       name: "linting rules"
       script:
