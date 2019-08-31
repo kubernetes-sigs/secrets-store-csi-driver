@@ -2,12 +2,15 @@ language: go
 go_import_path: github.com/deislabs/secrets-store-csi-driver
 dist: bionic
 
+services:
+  - docker
+
 env:
   global:
     - GO111MODULE=on
 
 go:
-  - "1.12.1"
+  - "1.12.x"
 
 jobs:
   include:
@@ -28,7 +31,7 @@ jobs:
         # Get kubeconfig
         - export KUBECONFIG="$(kind get kubeconfig-path --name="kind")"
         # Build image
-        - REGISTRY_NAME="e2e" IMAGE_VERSION=$(git rev-parse --short HEAD) make imag
+        - REGISTRY_NAME="e2e" IMAGE_VERSION=$(git rev-parse --short HEAD) make image
         # Load image into kind cluster
         - kind load docker-image --name kind e2e/secrets-store-csi:$(git rev-parse --short HEAD)
         # Download and install kubectl
@@ -37,7 +40,7 @@ jobs:
         - kubectl create --output yaml clusterrolebinding tiller-cluster-rule --clusterrole=cluster-admin --serviceaccount=kube-system:tiller --dry-run | kubectl apply -f -
         - helm init --service-account tiller --upgrade --wait
       script:
-        - helm install charts/secrets-store-csi-driver -n csi-secrets-store --set provider=""
+        - helm install charts/secrets-store-csi-driver -n csi-secrets-store --set provider="" --set image.pullPolicy="IfNotPresent"
     - stage: test
       name: "linting rules"
       script:
