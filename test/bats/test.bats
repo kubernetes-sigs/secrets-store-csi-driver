@@ -10,7 +10,7 @@ load helpers
   assert_success
 }
 
-@test "install helm chart" {
+@test "install helm chart with local image" {
   run helm install charts/secrets-store-csi-driver -n csi-secrets-store --namespace dev \
           --set provider="" \
           --set image.pullPolicy="IfNotPresent" \
@@ -24,7 +24,7 @@ load helpers
   assert_success
 }
 
-@test "deploy nginx-secrets-store-inline" {
+@test "CSI inline volume test" {
   run kubectl apply -f test/bats/tests/nginx-pod-secrets-store-inline-volume.yaml
   assert_success
 
@@ -35,7 +35,12 @@ load helpers
   assert_success
 }
 
-@test "read azure kv value from pod" {
+@test "read azure kv secret from pod" {
   result=$(kubectl exec -it nginx-secrets-store-inline cat /mnt/secrets-store/secret1)
+  [[ "$result" -eq "test" ]]
+}
+
+@test "read azure kv key from pod" {
+  result=$(kubectl exec -it nginx-secrets-store-inline cat /mnt/secrets-store/key1)
   [[ "$result" -eq "test" ]]
 }

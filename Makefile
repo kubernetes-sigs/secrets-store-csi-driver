@@ -59,3 +59,7 @@ endif
 .PHONY: mod
 mod:
 	@go mod tidy
+
+.PHONY: e2e
+e2e:
+	bats -t test/bats/tests.bats
