@@ -2,20 +2,24 @@
 
 load helpers
 
-@test "csi-secrets-store-attacher-0 is running" {
-  cmd="kubectl wait -n dev --for=condition=Ready --timeout=60s pod/csi-secrets-store-attacher-0"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+BATS_TESTS_DIR=test/bats/tests
+WAIT_TIME=60
+SLEEP_TIME=1
 
-  run kubectl get pod/csi-secrets-store-attacher-0
-  assert_success
-}
-
-@test "install helm chart with local image" {
+@test "install helm chart with e2e image" {
   run helm install charts/secrets-store-csi-driver -n csi-secrets-store --namespace dev \
           --set provider="" \
           --set image.pullPolicy="IfNotPresent" \
           --set image.repository=e2e/secrets-store-csi \
           --set image.tag=$(git rev-parse --short HEAD)
+  assert_success
+}
+
+@test "csi-secrets-store-attacher-0 is running" {
+  cmd="kubectl wait -n dev --for=condition=Ready --timeout=60s pod/csi-secrets-store-attacher-0"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  run kubectl get pod/csi-secrets-store-attacher-0 -n dev
   assert_success
 }
 
@@ -25,7 +29,7 @@ load helpers
 }
 
 @test "CSI inline volume test" {
-  run kubectl apply -f test/bats/tests/nginx-pod-secrets-store-inline-volume.yaml
+  run kubectl apply -f $BATS_TESTS_DIR/nginx-pod-secrets-store-inline-volume.yaml
   assert_success
 
   cmd="kubectl wait --for=condition=Ready --timeout=60s pod/nginx-secrets-store-inline"
@@ -42,5 +46,5 @@ load helpers
 
 @test "read azure kv key from pod" {
   result=$(kubectl exec -it nginx-secrets-store-inline cat /mnt/secrets-store/key1)
-  [[ "$result" -eq "test" ]]
+  [[ "$result" == *"qQ84NGiV6HCu"* ]]
 }
