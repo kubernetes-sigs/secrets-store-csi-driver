@@ -62,4 +62,4 @@ mod:
 
 .PHONY: e2e
 e2e:
-	bats -t test/bats/tests.bats
+	bats -t test/bats/test.bats
