@@ -42,3 +42,5 @@ require (
 	k8s.io/utils v0.0.0-20190809000727-6c36bc71fc4a // indirect
 	sigs.k8s.io/controller-runtime v0.2.0
 )
+
+replace git.apache.org/thrift.git => github.com/apache/thrift v0.0.0-20180902110319-2566ecd5d999
