@@ -7,6 +7,13 @@ WAIT_TIME=60
 SLEEP_TIME=1
 IMAGE_TAG=e2e-$(git rev-parse --short HEAD)
 
+setup() {
+  if [[ -z "${AZURE_CLIENT_ID}" ]] || [[ -z "${AZURE_CLIENT_SECRET}" ]]; then
+    echo "Error: Azure service principal is not provided" >&2
+    return 1
+  fi
+}
+
 @test "install helm chart with e2e image" {
   run helm install charts/secrets-store-csi-driver -n csi-secrets-store --namespace dev \
           --set provider="" \
