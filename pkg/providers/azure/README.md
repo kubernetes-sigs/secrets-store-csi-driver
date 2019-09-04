@@ -3,69 +3,85 @@ The Azure Key Vault Provider offers two modes for accessing a Key Vault instance
 
 ## OPTION 1 - Service Principal
 
-Add your service principal credentials as a Kubernetes secrets accessible by the Secrets Store CSI driver.
+1. Add your service principal credentials as a Kubernetes secrets accessible by the Secrets Store CSI driver.
 
-```bash
-kubectl create secret generic secrets-store-creds --from-literal clientid=<CLIENTID> --from-literal clientsecret=<CLIENTSECRET>
-```
+    ```bash
+    kubectl create secret generic secrets-store-creds --from-literal clientid=<CLIENTID> --from-literal clientsecret=<CLIENTSECRET>
+    ```
 
-Ensure this service principal has all the required permissions to access content in your Azure key vault instance.
-If not, you can run the following using the Azure cli:
+    Ensure this service principal has all the required permissions to access content in your Azure key vault instance.
+    If not, you can run the following using the Azure cli:
 
-```bash
-# Assign Reader Role to the service principal for your keyvault
-az role assignment create --role Reader --assignee <principalid> --scope /subscriptions/<subscriptionid>/resourcegroups/<resourcegroup>/providers/Microsoft.KeyVault/vaults/<keyvaultname>
+    ```bash
+    # Assign Reader Role to the service principal for your keyvault
+    az role assignment create --role Reader --assignee <principalid> --scope /subscriptions/<subscriptionid>/resourcegroups/<resourcegroup>/providers/Microsoft.KeyVault/vaults/<keyvaultname>
 
-az keyvault set-policy -n $KV_NAME --key-permissions get --spn <YOUR SPN CLIENT ID>
-az keyvault set-policy -n $KV_NAME --secret-permissions get --spn <YOUR SPN CLIENT ID>
-az keyvault set-policy -n $KV_NAME --certificate-permissions get --spn <YOUR SPN CLIENT ID>
-```
+    az keyvault set-policy -n $KV_NAME --key-permissions get --spn <YOUR SPN CLIENT ID>
+    az keyvault set-policy -n $KV_NAME --secret-permissions get --spn <YOUR SPN CLIENT ID>
+    az keyvault set-policy -n $KV_NAME --certificate-permissions get --spn <YOUR SPN CLIENT ID>
+    ```
 
-Fill in the missing pieces in [this](examples/nginx-pod-secrets-store-inline-volume.yaml) deployment to create an inline volume, make sure to:
+1. Update [this sample deployment](examples/v1alpha1_secretproviderclass.yaml) to create a `secretproviderclasses` resource to provide Azure-specific parameters for the Secrets Store CSI driver.
 
-1. reference the service principal kubernetes secret created in the previous step
-```yaml
-nodePublishSecretRef:
-  name: secrets-store-creds
-```
-2. pass in properties for the Azure Key Vault instance to the Secrets Store CSI driver to create an inline volume
+    ```yaml
+    apiVersion: secrets-store.csi.k8s.com/v1alpha1
+    kind: SecretProviderClass
+    metadata:
+      name: azure-kvname
+    spec:
+      provider: azure                   # accepted provider options: azure or vault
+      parameters:
+        usePodIdentity: "false"         # [OPTIONAL for Azure] if not provided, will default to "false"
+        keyvaultName: "kvname"          # the name of the KeyVault
+        objects:  |
+          array:
+            - |
+              objectName: secret1
+              objectType: secret        # object types: secret, key or cert
+              objectVersion: ""         # [OPTIONAL] object versions, default to latest if empty
+            - |
+              objectName: key1
+              objectType: key
+              objectVersion: ""
+        resourceGroup: "rg1"            # the resource group of the KeyVault
+        subscriptionId: "subid"         # the subscription ID of the KeyVault
+        tenantId: "tid"                 # the tenant ID of the KeyVault
 
-|Name|Required|Description|Default Value|
-|---|---|---|---|
-|providerName|yes|specify name of the provider|""|
-|usePodIdentity|no|specify access mode: service principal or pod identity|"false"|
-|keyvaultName|yes|name of a Key Vault instance|""|
-|objects|yes|a string of arrays of strings|""|
-|objectName|yes|name of a Key Vault object|""|
-|objectType|yes|type of a Key Vault object: secret, key or cert|""|
-|objectVersion|no|version of a Key Vault object, if not provided, will use latest|""|
-|resourceGroup|yes|name of resource group containing key vault instance|""|
-|subscriptionId|yes|subscription ID containing key vault instance|""|
-|tenantId|yes|tenant ID containing key vault instance|""|
+    ```
 
-```yaml
-  csi:
-    driver: secrets-store.csi.k8s.com
-    readOnly: true
-    volumeAttributes:
-      providerName: "azure"
-      usePodIdentity: "false"         # [OPTIONAL] default to "false" if empty
-      keyvaultName: ""                # name of the KeyVault
-      objects:  |
-        array:                        # array of objects
-          - |
-            objectName: secret1
-            objectType: secret        # object types: secret, key or cert
-            objectVersion: ""         # [OPTIONAL] object versions, default to latest if empty
-          - |
-            objectName: key1
-            objectType: key
-            objectVersion: ""
-      resourceGroup: ""               # resource group of the KeyVault
-      subscriptionId: ""              # subscription ID of the KeyVault
-      tenantId: ""                    # tenant ID of the KeyVault
-      ...
-```
+    |Name|Required|Description|Default Value|
+    |---|---|---|---|
+    |provider|yes|specify name of the provider|""|
+    |usePodIdentity|no|specify access mode: service principal or pod identity|"false"|
+    |keyvaultName|yes|name of a Key Vault instance|""|
+    |objects|yes|a string of arrays of strings|""|
+    |objectName|yes|name of a Key Vault object|""|
+    |objectType|yes|type of a Key Vault object: secret, key or cert|""|
+    |objectVersion|no|version of a Key Vault object, if not provided, will use latest|""|
+    |resourceGroup|yes|name of resource group containing key vault instance|""|
+    |subscriptionId|yes|subscription ID containing key vault instance|""|
+    |tenantId|yes|tenant ID containing key vault instance|""|
+
+1. Update your [deployment yaml](examples/nginx-pod-secrets-store-inline-volume-secretproviderclass.yaml) to use the Secrets Store CSI driver and reference the `secretProviderClass` resource created in the previous step
+
+    ```yaml
+    volumes:
+      - name: secrets-store-inline
+        csi:
+          driver: secrets-store.csi.k8s.com
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: "azure-kvname"
+          nodePublishSecretRef:
+            name: secrets-store-creds
+    ```
+
+1. Make sure to reference the service principal kubernetes secret created in the previous step
+
+    ```yaml
+    nodePublishSecretRef:
+      name: secrets-store-creds
+    ```
 
 ## OPTION 2 - Pod Identity
 
@@ -81,7 +97,7 @@ Not all steps need to be followed on the instructions for the aad-pod-identity p
 
    - Install the RBAC enabled aad-pod-identiy infrastructure components:
       ```
-      kubectl create -f https://raw.githubusercontent.com/Azure/aad-pod-identity/master/deploy/infra/deployment-rbac.yaml
+      kubectl apply -f https://raw.githubusercontent.com/Azure/aad-pod-identity/master/deploy/infra/deployment-rbac.yaml
       ```
 
    - (Optional) Providing required permissions for MIC
@@ -91,7 +107,7 @@ Not all steps need to be followed on the instructions for the aad-pod-identity p
        az role assignment create --role "Managed Identity Operator" --assignee <sp id> --scope <full id of the managed identity>
        ```
 
-2. Create an Azure User Identity
+1. Create an Azure User Identity
 
     Create an Azure User Identity with the following command.
     Get `clientId` and `id` from the output.
@@ -99,7 +115,7 @@ Not all steps need to be followed on the instructions for the aad-pod-identity p
     az identity create -g <resourcegroup> -n <idname>
     ```
 
-3. Assign permissions to new identity
+1. Assign permissions to new identity
     Ensure your Azure user identity has all the required permissions to read the keyvault instance and to access content within your key vault instance.
     If not, you can run the following using the Azure cli:
 
@@ -115,7 +131,7 @@ Not all steps need to be followed on the instructions for the aad-pod-identity p
     az keyvault set-policy -n $KV_NAME --certificate-permissions get --spn <YOUR AZURE USER IDENTITY CLIENT ID>
     ```
 
-4. Add a new `AzureIdentity` for the new identity to your cluster
+1. Add a new `AzureIdentity` for the new identity to your cluster
 
     Edit and save this as `aadpodidentity.yaml`
 
@@ -139,7 +155,7 @@ Not all steps need to be followed on the instructions for the aad-pod-identity p
     kubectl create -f aadpodidentity.yaml
     ```
 
-5. Add a new `AzureIdentityBinding` for the new Azure identity to your cluster
+1. Add a new `AzureIdentityBinding` for the new Azure identity to your cluster
 
     Edit and save this as `aadpodidentitybinding.yaml`
     ```yaml
@@ -156,7 +172,7 @@ Not all steps need to be followed on the instructions for the aad-pod-identity p
     kubectl create -f aadpodidentitybinding.yaml
     ```
 
-6. Add the following to [this](examples/nginx-pod-secrets-store-inline-volume-pod-identity.yaml) deployment yaml:
+1. Add the following to [this](examples/nginx-pod-secrets-store-inline-volume-secretproviderclass-podid.yaml) deployment yaml:
 
     a. Include the `aadpodidbinding` label matching the `Selector` value set in the previous step so that this pod will be assigned an identity
     ```yaml
@@ -169,18 +185,20 @@ Not all steps need to be followed on the instructions for the aad-pod-identity p
     ```yaml
     usepodidentity: "true"
     ```
+    
+1. Update [this sample deployment](examples/v1alpha1_secretproviderclass_podid.yaml) to create a `secretproviderclasses` resource with `usePodIdentity: "true"` to provide Azure-specific parameters for the Secrets Store CSI driver.
 
-7. Deploy your app
+1. Deploy your app
 
     ```bash
-    kubectl create -f examples/nginx-pod-secrets-store-inline-volume-pod-identity.yaml
+    kubectl apply -f examples/nginx-pod-secrets-store-inline-volume-secretproviderclass-podid.yaml
     ```
 
-8. Validate the pod has access to the secret from key vault:
+1. Validate the pod has access to the secret from key vault:
 
     ```bash
-    kubectl exec -it nginx-secrets-store-inline-pod-identity cat /kvmnt/testsecret
-    testvalue
+    kubectl exec -it nginx-secrets-store-inline-podid ls /mnt/secrets-store/
+    secret1
     ```
 
 **NOTE** When using the `Pod Identity` option mode, there can be some amount of delay in obtaining the objects from keyvault. During the pod creation time, in this particular mode `aad-pod-identity` will need to create the `AzureAssignedIdentity` for the pod based on the `AzureIdentity` and `AzureIdentityBinding`, retrieve token for keyvault. This process can take time to complete and it's possible for the pod volume mount to fail during this time. When the volume mount fails, kubelet will keep retrying until it succeeds. So the volume mount will eventually succeed after the whole process for retrieving the token is complete.
