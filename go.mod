@@ -3,16 +3,15 @@ module github.com/deislabs/secrets-store-csi-driver
 go 1.12
 
 require (
-	contrib.go.opencensus.io/exporter/ocagent v0.2.0 // indirect
-	github.com/Azure/azure-sdk-for-go v21.3.0+incompatible
-	github.com/Azure/go-autorest v11.2.8+incompatible
-	github.com/census-instrumentation/opencensus-proto v0.1.0 // indirect
+	github.com/Azure/azure-sdk-for-go v33.0.0+incompatible
+	github.com/Azure/go-autorest/autorest v0.9.0
+	github.com/Azure/go-autorest/autorest/adal v0.6.0
+	github.com/Azure/go-autorest/autorest/to v0.3.0 // indirect
+	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
 	github.com/container-storage-interface/spec v1.1.0
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/go-logr/zapr v0.1.1 // indirect
 	github.com/gogo/protobuf v1.2.2-0.20190723190241-65acae22fc9d // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
-	github.com/google/go-cmp v0.3.0 // indirect
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/imdario/mergo v0.3.7 // indirect
 	github.com/json-iterator/go v1.1.7 // indirect
@@ -25,7 +24,6 @@ require (
 	github.com/spf13/cast v1.3.0
 	github.com/spf13/pflag v1.0.3 // indirect
 	github.com/stretchr/testify v1.3.0
-	go.opencensus.io v0.18.0 // indirect
 	go.uber.org/atomic v1.4.0 // indirect
 	go.uber.org/zap v1.10.0 // indirect
 	golang.org/x/crypto v0.0.0-20190820162420-60c769a6c586 // indirect
@@ -34,7 +32,6 @@ require (
 	golang.org/x/sys v0.0.0-20190616124812-15dcb6c0061f // indirect
 	golang.org/x/text v0.3.2 // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
-	google.golang.org/api v0.0.0-20181221000618-65a46cafb132 // indirect
 	google.golang.org/appengine v1.5.0 // indirect
 	google.golang.org/genproto v0.0.0-20181221175505-bd9b4fb69e2f // indirect
 	google.golang.org/grpc v1.17.0

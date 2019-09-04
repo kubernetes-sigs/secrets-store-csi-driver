@@ -123,11 +123,10 @@ func (p *Provider) login(jwt string, roleName string) (string, error) {
 	glog.V(2).Infof("vault: vault address: %s\n", addr)
 
 	req, err := http.NewRequest(http.MethodPost, addr, strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
 	if err != nil {
 		return "", errors.Wrapf(err, "couldn't generate request")
 	}
-
+	req.Header.Set("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", errors.Wrapf(err, "couldn't login")

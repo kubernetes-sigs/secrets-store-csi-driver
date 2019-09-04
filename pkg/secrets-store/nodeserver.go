@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/spf13/cast"
@@ -163,9 +164,9 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 	var provider providers.Provider
 	initConfig := register.InitConfig{}
-	provider, err = register.GetProvider(providerName, initConfig)
+	provider, err = register.GetProvider(strings.ToLower(providerName), initConfig)
 	if err != nil {
-		return nil, fmt.Errorf("Error initializing provider: %s", err)
+		return nil, fmt.Errorf("Error initializing provider: %v", err)
 	}
 	// to ensure mount bind works, we need to mount before writing content to it
 	err = mounter.Mount("/tmp", targetPath, "", []string{"bind"})
@@ -198,7 +199,7 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 	targetPath := req.GetTargetPath()
 	volumeID := req.GetVolumeId()
 
-	// Unmounting the image
+	// Unmounting the target
 	err := mount.New("").Unmount(req.GetTargetPath())
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())

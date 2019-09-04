@@ -2,12 +2,15 @@ language: go
 go_import_path: github.com/deislabs/secrets-store-csi-driver
 dist: bionic
 
+services:
+  - docker
+
 env:
   global:
     - GO111MODULE=on
 
 go:
-  - "1.12.1"
+  - "1.12.x"
 
 jobs:
   include:
@@ -16,7 +19,7 @@ jobs:
       script:
         - make test-style
     - stage: test
-      name: "test"
+      name: "unit test"
       script:
         - make test
     - stage: test
@@ -25,6 +28,43 @@ jobs:
         - sudo apt update && sudo apt install cifs-utils procps -y
       script: sudo -E env "PATH=$PATH" make sanity-test
     - stage: test
-      name: "build"
+      name: "e2e"
+      before_script:
+        - KIND_VERSION=0.5.1
+        - KUBERNETES_VERSION=1.15.3
+        # Download and install kubectl
+        - curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl && chmod +x ./kubectl && sudo mv kubectl /usr/local/bin/
+        # Download and install kind
+        - curl -L https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-linux-amd64 --output kind && chmod +x kind && sudo mv kind /usr/local/bin/
+        # Download and install Helm
+        - curl https://raw.githubusercontent.com/helm/helm/master/scripts/get | bash
+        # Create kind cluster
+        - |
+          if [ $(kind get clusters) ]; then
+            continue
+          else
+            kind create cluster --config kind-config.yaml --image kindest/node:v${KUBERNETES_VERSION}
+          fi
+        # Get kubeconfig
+        - export KUBECONFIG="$(kind get kubeconfig-path --name="kind")"
+        # Build image
+        - REGISTRY_NAME="e2e" IMAGE_VERSION=e2e-$(git rev-parse --short HEAD) make image
+        # Load image into kind cluster
+        - kind load docker-image --name kind e2e/secrets-store-csi:e2e-$(git rev-parse --short HEAD)
+        # Set up tiller
+        - kubectl --namespace kube-system --output yaml create serviceaccount tiller --dry-run | kubectl apply -f -
+        - kubectl create --output yaml clusterrolebinding tiller-cluster-rule --clusterrole=cluster-admin --serviceaccount=kube-system:tiller --dry-run | kubectl apply -f -
+        - helm init --service-account tiller --upgrade --wait
+      script:
+        - make e2e
+    - stage: "build, deploy"
       script:
         - make build
+      deploy:
+        - provider: script
+          skip_cleanup: true
+          script: make ci-deploy
+          on:
+            repo: deislabs/secrets-store-csi-driver
+            branch: master
+            tags: true
