@@ -75,7 +75,7 @@ Expected output:
 ```console
 NAME:   csi-secrets-store
 LAST DEPLOYED: Fri Aug 30 17:50:25 2019
-NAMESPACE: default
+NAMESPACE: dev
 STATUS: DEPLOYED
 
 RESOURCES:
@@ -122,6 +122,7 @@ csi-secrets-store-secrets-store-csi-driver-hj445  0/2    ContainerCreating  0   
 ==> v1beta1/CustomResourceDefinition
 
 NAME                                             AGE
+csidrivers.csi.storage.k8s.io                    1s
 secretproviderclasses.secrets-store.csi.k8s.com  1s
 
 
