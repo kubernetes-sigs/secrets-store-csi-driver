@@ -7,13 +7,8 @@ WAIT_TIME=60
 SLEEP_TIME=1
 IMAGE_TAG=e2e-$(git rev-parse --short HEAD)
 
-export KEYVAULT_NAME=secrets-store-csi-e2e
-export RESOURCE_GROUP=secrets-store-csi-driver-e2e
-export SUBSCRIPTION_ID=940f88ce-a64b-4e73-a258-9931349b9789
-export TENANT_ID=microsoft.com
 export SECRET_NAME=secret1
 export KEY_NAME=key1
-export KEY_VERSION=06baad80c1f74e51868fd2271ef2b06c
 export SECRET_NAME=secret1
 export SECRET_VERSION=""
 
