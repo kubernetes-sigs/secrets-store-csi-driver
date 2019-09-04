@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-REGISTRY_NAME?=ritazh
+REGISTRY_NAME?=docker.io/deislabs
 IMAGE_NAME=secrets-store-csi
-IMAGE_VERSION?=v0.0.4
+IMAGE_VERSION?=v0.0.5
 IMAGE_TAG=$(REGISTRY_NAME)/$(IMAGE_NAME):$(IMAGE_VERSION)
 IMAGE_TAG_LATEST=$(REGISTRY_NAME)/$(IMAGE_NAME):latest
 LDFLAGS?='-X github.com/deislabs/secrets-store-csi-driver/pkg/secrets-store.vendorVersion=$(IMAGE_VERSION) -extldflags "-static"'
@@ -40,9 +40,9 @@ build: setup
 	CGO_ENABLED=0 GOOS=linux go build -tags 'no_mock_provider' -a -ldflags ${LDFLAGS} -o _output/secrets-store-csi ./pkg/secrets-store-csi-driver
 image: build
 	docker build --no-cache -t $(IMAGE_TAG) -f ./pkg/secrets-store-csi-driver/Dockerfile .
-push: image
-	docker push $(IMAGE_TAG)
-push-latest: image
+docker-login:
+	echo $(DOCKER_PASSWORD) | docker login -u $(DOCKER_USERNAME) --password-stdin
+ci-deploy: image docker-login
 	docker push $(IMAGE_TAG)
 	docker tag $(IMAGE_TAG) $(IMAGE_TAG_LATEST)
 	docker push $(IMAGE_TAG_LATEST)

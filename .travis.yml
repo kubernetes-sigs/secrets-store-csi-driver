@@ -19,7 +19,7 @@ jobs:
       script:
         - make test-style
     - stage: test
-      name: "test"
+      name: "unit test"
       script:
         - make test
     - stage: test
@@ -27,10 +27,6 @@ jobs:
       install:
         - sudo apt update && sudo apt install cifs-utils procps -y
       script: sudo -E env "PATH=$PATH" make sanity-test
-    - stage: test
-      name: "build"
-      script:
-        - make build
     - stage: test
       name: "e2e"
       before_script:
@@ -61,3 +57,14 @@ jobs:
         - helm init --service-account tiller --upgrade --wait
       script:
         - make e2e
+    - stage: "build, deploy"
+      script:
+        - make build
+      deploy:
+        - provider: script
+          skip_cleanup: true
+          script: make ci-deploy
+          on:
+            repo: deislabs/secrets-store-csi-driver
+            branch: master
+            tags: true
