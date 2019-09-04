@@ -74,7 +74,7 @@ Expected output:
 
 ```console
 NAME:   csi-secrets-store
-LAST DEPLOYED: Fri Aug 30 17:50:25 2019
+LAST DEPLOYED: Fri Aug 30 17:50:26 2019
 NAMESPACE: dev
 STATUS: DEPLOYED
 
@@ -234,7 +234,7 @@ secretproviderclasses.secrets-store.csi.k8s.com
 
     ```bash
     kubectl exec -it nginx-secrets-store-inline ls /mnt/secrets-store/
-    testsecret
+    secret1
     ```
 
 ## Providers

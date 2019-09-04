@@ -51,7 +51,7 @@ The Azure Key Vault Provider offers two modes for accessing a Key Vault instance
 
     |Name|Required|Description|Default Value|
     |---|---|---|---|
-    |providerName|yes|specify name of the provider|""|
+    |provider|yes|specify name of the provider|""|
     |usePodIdentity|no|specify access mode: service principal or pod identity|"false"|
     |keyvaultName|yes|name of a Key Vault instance|""|
     |objects|yes|a string of arrays of strings|""|
@@ -97,7 +97,7 @@ Not all steps need to be followed on the instructions for the aad-pod-identity p
 
    - Install the RBAC enabled aad-pod-identiy infrastructure components:
       ```
-      kubectl create -f https://raw.githubusercontent.com/Azure/aad-pod-identity/master/deploy/infra/deployment-rbac.yaml
+      kubectl apply -f https://raw.githubusercontent.com/Azure/aad-pod-identity/master/deploy/infra/deployment-rbac.yaml
       ```
 
    - (Optional) Providing required permissions for MIC
@@ -172,7 +172,7 @@ Not all steps need to be followed on the instructions for the aad-pod-identity p
     kubectl create -f aadpodidentitybinding.yaml
     ```
 
-1. Add the following to [this](examples/nginx-pod-secrets-store-inline-volume-pod-identity.yaml) deployment yaml:
+1. Add the following to [this](examples/nginx-pod-secrets-store-inline-volume-secretproviderclass-podid.yaml) deployment yaml:
 
     a. Include the `aadpodidbinding` label matching the `Selector` value set in the previous step so that this pod will be assigned an identity
     ```yaml
@@ -185,18 +185,20 @@ Not all steps need to be followed on the instructions for the aad-pod-identity p
     ```yaml
     usepodidentity: "true"
     ```
+    
+1. Update [this sample deployment](examples/v1alpha1_secretproviderclass_podid.yaml) to create a `secretproviderclasses` resource with `usePodIdentity: "true"` to provide Azure-specific parameters for the Secrets Store CSI driver.
 
 1. Deploy your app
 
     ```bash
-    kubectl create -f examples/nginx-pod-secrets-store-inline-volume-pod-identity.yaml
+    kubectl apply -f examples/nginx-pod-secrets-store-inline-volume-secretproviderclass-podid.yaml
     ```
 
 1. Validate the pod has access to the secret from key vault:
 
     ```bash
-    kubectl exec -it nginx-secrets-store-inline-pod-identity cat /kvmnt/testsecret
-    testvalue
+    kubectl exec -it nginx-secrets-store-inline-podid ls /mnt/secrets-store/
+    secret1
     ```
 
 **NOTE** When using the `Pod Identity` option mode, there can be some amount of delay in obtaining the objects from keyvault. During the pod creation time, in this particular mode `aad-pod-identity` will need to create the `AzureAssignedIdentity` for the pod based on the `AzureIdentity` and `AzureIdentityBinding`, retrieve token for keyvault. This process can take time to complete and it's possible for the pod volume mount to fail during this time. When the volume mount fails, kubelet will keep retrying until it succeeds. So the volume mount will eventually succeed after the whole process for retrieving the token is complete.
