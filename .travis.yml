@@ -29,6 +29,7 @@ jobs:
       script: sudo -E env "PATH=$PATH" make sanity-test
     - stage: test
       name: "e2e"
+      if: branch = master AND repo = deislabs/secrets-store-csi-driver AND type != pull_request
       before_script:
         - KIND_VERSION=0.5.1
         - KUBERNETES_VERSION=1.15.3
