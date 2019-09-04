@@ -11,8 +11,9 @@ The Secrets Store CSI driver `secrets-store.csi.k8s.com` allows Kubernetes to mo
 - Mounts secrets/keys/certs to pod using a CSI volume
 - Supports CSI Inline volume (Kubernetes version v1.15+)
 - Supports mounting multiple secrets store objects as a single volume
-- Supports pod identity to restrict access with specific identities (WIP)
+- Supports pod identity to restrict access with specific identities (Azure provider only)
 - Supports multiple secrets stores as providers
+- Supports pod portability with the SecretProviderClass CRD
 
 #### Table of Contents
 
@@ -45,8 +46,8 @@ The diagram below illustrates how Secrets Store CSI Volume works.
 
 #### Mount Secret Data to Resource through Inline Volume
 
-- Deploy a Kubernetes cluster v1.15.0-alpha.2+ and make sure it's reachable. The CSI Inline Volume feature was introduced in v1.15.0.
-- Update the API Server manifest to append the following feature gate:
+* Deploy a Kubernetes cluster v1.15.0+ and make sure it's reachable. The CSI Inline Volume feature was introduced in v1.15.0.
+* Update the API Server manifest to append the following feature gate:
 
 ```yaml
 --feature-gates=CSIInlineVolume=true
@@ -57,13 +58,6 @@ The diagram below illustrates how Secrets Store CSI Volume works.
 ```yaml
 --feature-gates=CSIInlineVolume=true
 ```
-
-<details>
-<summary><strong>[Optional] Mount Secret Data to Resource through PVC, not Inline</strong></summary>
-
-- If CSI Inline volume is not a requirement and creating PVs and PVCs is acceptable, then the minimum supported Kubernetes Version is v1.13.0.
-
-</details>
 
 ### Install the Secrets Store CSI Driver
 
@@ -80,50 +74,55 @@ Expected output:
 
 ```console
 NAME:   csi-secrets-store
-LAST DEPLOYED: Mon Jan  7 18:39:41 2019
-NAMESPACE: dev
+LAST DEPLOYED: Fri Aug 30 17:50:25 2019
+NAMESPACE: default
 STATUS: DEPLOYED
 
 RESOURCES:
-==> v1/RoleBinding
-NAME                   AGE
-csi-attacher-role-cfg  1s
+==> v1/ClusterRole
+NAME                        AGE
+driver-registrar-runner     1s
+external-attacher-runner    1s
+secretproviderclasses-role  1s
 
-==> v1/DaemonSet
-csi-secrets-store-secrets-store-csi-driver  1s
+==> v1/RoleBinding
+csi-attacher-role-cfg  1s
 
 ==> v1/StatefulSet
 csi-secrets-store-attacher  1s
 
-==> v1/Pod(related)
-
-NAME                                    READY  STATUS             RESTARTS  AGE
-csi-secrets-store-attacher-0                 0/1    ContainerCreating  0         1s
-csi-secrets-store-secrets-store-csi-driver-9crwj  0/2    ContainerCreating  0         1s
-csi-secrets-store-secrets-store-csi-driver-pcbtg  0/2    ContainerCreating  0         1s
-
-==> v1beta1/CustomResourceDefinition
-
-NAME                           AGE
-csidrivers.csi.storage.k8s.io  1s
-
-==> v1/ClusterRole
-driver-registrar-runner   1s
-external-attacher-runner  1s
-
-==> v1/ClusterRoleBinding
-csi-driver-registrar-role  1s
-csi-attacher-role          1s
-
-==> v1/Role
-external-attacher-cfg  1s
+==> v1beta1/CSIDriver
+secrets-store.csi.k8s.com  1s
 
 ==> v1/ServiceAccount
 csi-driver-registrar  1s
 csi-attacher          1s
 
+==> v1/ClusterRoleBinding
+csi-attacher-role                  1s
+csi-driver-registrar-role          1s
+secretproviderclasses-rolebinding  1s
+
+==> v1/Role
+external-attacher-cfg  1s
+
 ==> v1/Service
 csi-secrets-store-attacher  1s
+
+==> v1/DaemonSet
+csi-secrets-store-secrets-store-csi-driver  1s
+
+==> v1/Pod(related)
+
+NAME                                              READY  STATUS             RESTARTS  AGE
+csi-secrets-store-attacher-0                      0/1    ContainerCreating  0         1s
+csi-secrets-store-secrets-store-csi-driver-f8lw6  0/2    ContainerCreating  0         1s
+csi-secrets-store-secrets-store-csi-driver-hj445  0/2    ContainerCreating  0         1s
+
+==> v1beta1/CustomResourceDefinition
+
+NAME                                             AGE
+secretproviderclasses.secrets-store.csi.k8s.com  1s
 
 
 NOTES:
@@ -134,13 +133,13 @@ To verify that Secrets Store CSI Driver has started, run:
   kubectl --namespace=dev get pods -l "app=secrets-store-csi-driver"
 
 Now you can follow these steps https://github.com/deislabs/secrets-store-csi-driver#use-the-secrets-store-csi-driver
-to create a PersistentVolume, a static PVC, and a deployment using the PVC.
+to create a SecretProviderClass resource, and a deployment using the SecretProviderClass.
 
 $ kubectl --namespace=dev get pods -l "app=secrets-store-csi-driver"
 NAME                                     READY     STATUS    RESTARTS   AGE
 csi-secrets-store-attacher-0                  1/1       Running   0          43s
-csi-secrets-store-secrets-store-csi-driver-9crwj   2/2       Running   0          43s
-csi-secrets-store-secrets-store-csi-driver-pcbtg   2/2       Running   0          43s
+csi-secrets-store-secrets-store-csi-driver-f8lw6   2/2       Running   0          43s
+csi-secrets-store-secrets-store-csi-driver-hj445   2/2       Running   0          43s
 
 ```
 
@@ -154,6 +153,8 @@ kubectl apply -f deploy/rbac-csi-attacher.yaml
 kubectl apply -f deploy/csi-secrets-store-attacher.yaml
 kubectl apply -f deploy/secrets-store-csi-driver.yaml
 kubectl apply -f deploy/csidriver.yaml
+kubectl apply -f deploy/secrets-store.csi.k8s.com_secretproviderclasses.yaml
+kubectl apply -f deploy/rbac-secretproviderclass.yaml # update the namespace of the csi-driver-registrar ServiceAccount
 ```
 
 To validate the installer is running as expected, run the following commands:
@@ -165,130 +166,75 @@ kubectl get po
 You should see the Secrets Store CSI driver pods running on each agent node:
 
 ```bash
-csi-secrets-store-2c5ln         2/2     Running   0          4m
 csi-secrets-store-attacher-0    1/1     Running   0          6m
 csi-secrets-store-qp9r8         2/2     Running   0          4m
 csi-secrets-store-zrjt2         2/2     Running   0          4m
 ```
 
+You should see the following CRDs deployed:
+
+```bash
+kubectl get crd
+NAME                                               
+csidrivers.csi.storage.k8s.io                      
+secretproviderclasses.secrets-store.csi.k8s.com    
+```
 </details>
 
 ### Use the Secrets Store CSI Driver
 
 1. Select a provider from the [list of supported providers](#providers)
+1. Create a `secretproviderclasses` resource to provide provider-specific parameters for the Secrets Store CSI driver. Follow [specific deployment steps](#providers) for the selected provider to update all required fields [see example secretproviderclass](pkg/providers/azure/examples/v1alpha1_secretproviderclass.yaml).
 
-2. Update deployment of resource to add inline volume using the Secrets Store CSI driver, follow [specific deployment steps](#providers) for the selected provider to update all the required fields in [this deployment yaml](deploy/example/nginx-pod-secrets-store-inline-volume.yaml).
+      ```yaml
+      apiVersion: secrets-store.csi.k8s.com/v1alpha1
+      kind: SecretProviderClass
+      metadata:
+        name: azure-kvname
+      spec:
+        provider: azure                   # accepted provider options: azure or vault
+        parameters:
+          usePodIdentity: "false"         # [OPTIONAL for Azure] if not provided, will default to "false"
+          keyvaultName: "kvname"          # the name of the KeyVault
+          objects:  |
+            array:
+              - |
+                objectName: secret1
+                objectType: secret        # object types: secret, key or cert
+                objectVersion: ""         # [OPTIONAL] object versions, default to latest if empty
+              - |
+                objectName: key1
+                objectType: key
+                objectVersion: ""
+          resourceGroup: "rg1"            # the resource group of the KeyVault
+          subscriptionId: "subid"         # the subscription ID of the KeyVault
+          tenantId: "tid"                 # the tenant ID of the KeyVault
 
-```yaml
-volumes:
-  - name: secrets-store-inline
-    csi:
-      driver: secrets-store.csi.k8s.com
-      readOnly: true
-      volumeAttributes:
-        providerName: "azure"
-        usePodIdentity: "false" # [OPTIONAL] if not provided, will default to "false"
-        keyvaultName: "" # the name of the KeyVault
-        objects: |
-          array:
-            - |
-              objectName: secret1
-              objectType: secret        # object types: secret, key or cert
-              objectVersion: ""         # [OPTIONAL] object versions, default to latest if empty
-            - |
-              objectName: key1
-              objectType: key
-              objectVersion: ""
-        resourceGroup: "" # the resource group of the KeyVault
-        subscriptionId: "" # the subscription ID of the KeyVault
-        tenantId: "" # the tenant ID of the KeyVault
-      nodePublishSecretRef:
-        name: secrets-store-creds
-```
+      ```
+1. Update your [deployment yaml](pkg/providers/azure/examples/nginx-pod-secrets-store-inline-volume-secretproviderclass.yaml) to use the Secrets Store CSI driver and reference the `secretProviderClass` resource created in the previous step
 
-3. Deploy your resource with the inline CSI volume
+    ```yaml
+    volumes:
+      - name: secrets-store-inline
+        csi:
+          driver: secrets-store.csi.k8s.com
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: "azure-kvname"
+    ```
 
-```bash
-kubectl apply -f deploy/example/nginx-pod-secrets-store-inline-volume.yaml
-```
+1. Deploy your resource with the inline CSI volume using the Secrets Store CSI driver
 
-Validate the pod has access to the secret from your secrets store instance:
+    ```bash
+    kubectl apply -f pkg/providers/azure/examples/nginx-pod-secrets-store-inline-volume-secretproviderclass.yaml
+    ```
 
-```bash
-kubectl exec -it nginx-secrets-store-inline ls /mnt/secrets-store/
-testsecret
-```
+1. Validate the pod has access to the secret from your secrets store instance:
 
-<details>
-<summary><strong>[Optional] Mount Secret Data to Resource through PVC, not Inline</strong></summary>
-
-1. To create a Secrets Store CSI PersistentVolume, follow [specific deployment steps](#providers) for the selected provider to update all the required fields in [this deployment yaml](deploy/example/pv-secrets-store-csi.yaml).
-
-```yaml
-csi:
-  driver: secrets-store.csi.k8s.com
-  readOnly: true
-  volumeHandle: kv
-  volumeAttributes:
-    providerName: "azure"
-    ...
-```
-
-2. Deploy your PersistentVolume (CSI Volume)
-
-```bash
-kubectl apply -f deploy/example/pv-secrets-store-csi.yaml
-```
-
-3. Deploy a static pvc pointing to your persistentvolume
-
-```bash
-kubectl apply -f deploy/example/pvc-secrets-store-csi-static.yaml
-```
-
-4. Fill in the missing pieces in [this pod deployment yaml](deploy/example/nginx-pod-secrets-store.yaml) to create your own pod pointing to your PVC.
-   Make sure to specify the mount point.
-
-```yaml
-volumeMounts:
-  - name: secrets-store01
-    mountPath: "/mnt/secrets-store"
-```
-
-Example of an nginx pod accessing a secret from a PV created by the Secrets Store CSI Driver:
-
-```yaml
-kind: Pod
-apiVersion: v1
-metadata:
-  name: nginx-secrets-store
-spec:
-  containers:
-    - image: nginx
-      name: nginx-secrets-store
-      volumeMounts:
-        - name: secrets-store01
-          mountPath: "/mnt/secrets-store"
-  volumes:
-    - name: secrets-store01
-      persistentVolumeClaim:
-        claimName: pvc-secrets-store
-```
-
-5. Deploy your resource with PVC
-
-```bash
-kubectl apply -f deploy/example/nginx-pod-secrets-store.yaml
-```
-
-Validate the pod has access to the secret from your secrets store instance:
-
-```bash
-kubectl exec -it nginx-secrets-store ls /mnt/secrets-store/
-testsecret
-```
-
-</details>
+    ```bash
+    kubectl exec -it nginx-secrets-store-inline ls /mnt/secrets-store/
+    testsecret
+    ```
 
 ## Providers
 
@@ -301,8 +247,8 @@ Each provider may have its own required properties.
 Providers must provide the following functionality to be considered a supported integration.
 
 1. Provides the backend plumbing necessary to access objects from the external secrets store.
-2. Conforms to the current API provided by the Secrets Store CSI Driver.
-3. Does not have access to the Kubernetes APIs and has a well-defined callback mechanism to mount objects to a target path.
+1. Conforms to the current API provided by the Secrets Store CSI Driver.
+1. Does not have access to the Kubernetes APIs and has a well-defined callback mechanism to mount objects to a target path.
 
 - Supported Providers:
   - [Azure Key Vault Provider](pkg/providers/azure)
