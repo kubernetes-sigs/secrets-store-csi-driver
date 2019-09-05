@@ -18,7 +18,7 @@ spec:
         volumeAttributes:
           providerName: "vault"
           roleName: "example-role"
-          vaultAddress: "http://10.0.146.70:8200"
+          vaultAddress: "http://10.97.45.20:8200"
           vaultSkipTLSVerify: "true"
           objects:  |
             array:
