@@ -106,7 +106,7 @@ func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, h
 }
 
 func logRedactedRequest(req interface{}) {
-	re, _ := regexp.Compile("^(\\S{4})(\\S|\\s)*(\\S{4})$")
+	re, _ := regexp.Compile(`^(\\S{4})(\\S|\\s)*(\\S{4})$`)
 
 	r, ok := req.(*csi.NodePublishVolumeRequest)
 	if !ok {
