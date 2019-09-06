@@ -38,21 +38,8 @@ EOF
 }
 
 @test "install vault" {
-  CLUSTER_NAME="$(kubectl config view --raw \
-    -o go-template="{{ range .contexts }}{{ if eq .name \"$(kubectl config current-context)\" }}{{ index .context \"cluster\" }}{{ end }}{{ end }}")"
-
-  SECRET_NAME="$(kubectl get serviceaccount vault-auth \
-    -o go-template='{{ (index .secrets 0).name }}')"
-
-  export TR_ACCOUNT_TOKEN="$(kubectl get secret ${SECRET_NAME} \
-    -o go-template='{{ .data.token }}' | base64 --decode)"
-
-  export K8S_HOST="https://$(kubectl get svc kubernetes -o go-template="{{ .spec.clusterIP }}")"
-
-  export K8S_CACERT="$(kubectl config view --raw \
-    -o go-template="{{ range .clusters }}{{ if eq .name \"${CLUSTER_NAME}\" }}{{ index .cluster \"certificate-authority-data\" }}{{ end }}{{ end }}" | base64 --decode)"
-
-  envsubst < pkg/providers/vault/examples/vault.yaml | kubectl apply -f -
+  run kubectl apply -f $BATS_TESTS_DIR/vault.yaml
+  assert_success
 
   VAULT_POD=$(kubectl get pod -l app=vault -o jsonpath="{.items[0].metadata.name}")
   cmd="kubectl wait --for=condition=Ready --timeout=60s pod/$VAULT_POD"
@@ -66,6 +53,20 @@ EOF
   VAULT_POD=$(kubectl get pod -l app=vault -o jsonpath="{.items[0].metadata.name}")
   run kubectl exec -it $VAULT_POD -- vault auth enable kubernetes
   assert_success
+
+  CLUSTER_NAME="$(kubectl config view --raw \
+    -o go-template="{{ range .contexts }}{{ if eq .name \"$(kubectl config current-context)\" }}{{ index .context \"cluster\" }}{{ end }}{{ end }}")"
+
+  SECRET_NAME="$(kubectl get serviceaccount vault-auth \
+    -o go-template='{{ (index .secrets 0).name }}')"
+
+  export TR_ACCOUNT_TOKEN="$(kubectl get secret ${SECRET_NAME} \
+    -o go-template='{{ .data.token }}' | base64 --decode)"
+
+  export K8S_HOST="https://$(kubectl get svc kubernetes -o go-template="{{ .spec.clusterIP }}")"
+
+  export K8S_CACERT="$(kubectl config view --raw \
+    -o go-template="{{ range .clusters }}{{ if eq .name \"${CLUSTER_NAME}\" }}{{ index .cluster \"certificate-authority-data\" }}{{ end }}{{ end }}" | base64 --decode)"
 
   run kubectl exec -it $VAULT_POD -- vault write auth/kubernetes/config \
     kubernetes_host="${K8S_HOST}" \
@@ -93,4 +94,40 @@ EOF
 
   run kubectl exec -it $VAULT_POD -- vault kv put secret/foo bar=hello
   assert_success
+}
+
+@test "secretproviderclasses crd is established" {
+  cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.k8s.com"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  run kubectl get crd/secretproviderclasses.secrets-store.csi.k8s.com
+  assert_success
+}
+
+@test "deploy vault secretproviderclass crd" {
+  export VAULT_SERVICE_IP=$(kubectl get service vault -o jsonpath='{.spec.clusterIP}')
+
+  envsubst < $BATS_TESTS_DIR/vault_v1alpha1_secretproviderclass.yaml | kubectl apply -f -
+
+  cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.k8s.com"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  cmd="kubectl get secretproviderclasses.secrets-store.csi.k8s.com/vault-foo -o yaml | grep vault"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+}
+
+@test "CSI inline volume test with pod portability" {
+  run kubectl apply -f $BATS_TESTS_DIR/nginx-pod-vault-inline-volume-secretproviderclass.yaml
+  assert_success
+
+  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/nginx-secrets-store-inline"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  run kubectl get pod/nginx-secrets-store-inline
+  assert_success
+}
+
+@test "CSI inline volume test with pod portability - read vault secret from pod" {
+  result=$(kubectl exec -it nginx-secrets-store-inline cat /mnt/secrets-store/foo)
+  [[ "$result" -eq "hello" ]]
 }

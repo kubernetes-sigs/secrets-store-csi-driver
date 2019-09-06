@@ -42,6 +42,10 @@ spec:
             cluster_addr = "http://$(POD_IP_ADDR):8201"
         - name: VAULT_DEV_ROOT_TOKEN_ID
           value: "root" ## THIS IS NOT A PRODUCTION DEPLOYMENT OF VAULT!
+        - name: VAULT_ADDR
+          value: http://127.0.0.1:8200
+        - name: VAULT_TOKEN
+          value: root
         readinessProbe:
           httpGet:
             path: /v1/sys/health
