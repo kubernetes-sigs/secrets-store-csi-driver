@@ -18,6 +18,7 @@ package csicommon
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -94,7 +95,7 @@ func RunControllerandNodePublishServer(endpoint string, d *CSIDriver, cs csi.Con
 
 func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	glog.V(3).Infof("GRPC call: %s", info.FullMethod)
-	glog.V(5).Infof("GRPC request: %+v", req)
+	logRedactedRequest(req)
 	resp, err := handler(ctx, req)
 	if err != nil {
 		glog.Errorf("GRPC error: %v", err)
@@ -102,4 +103,29 @@ func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, h
 		glog.V(5).Infof("GRPC response: %+v", resp)
 	}
 	return resp, err
+}
+
+func logRedactedRequest(req interface{}) {
+	re, _ := regexp.Compile(`^(\S{4})(\S|\s)*(\S{4})$`)
+
+	r, ok := req.(*csi.NodePublishVolumeRequest)
+	if !ok {
+		glog.V(5).Infof("GRPC request: %+v", req)
+		return
+	}
+
+	req1 := *r
+	redactedSecrets := make(map[string]string)
+
+	secrets := req1.GetSecrets()
+	for k, v := range secrets {
+		switch k {
+		case "clientid", "clientsecret":
+			redactedSecrets[k] = re.ReplaceAllString(v, "$1##### REDACTED #####$3")
+		default:
+			redactedSecrets[k] = v
+		}
+	}
+	req1.Secrets = redactedSecrets
+	glog.V(5).Infof("GRPC request: %+v", req1)
 }
