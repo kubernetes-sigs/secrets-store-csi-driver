@@ -32,6 +32,7 @@ jobs:
       before_script:
         - make e2e-bootstrap
       script:
+        - export KUBECONFIG=$(kind get kubeconfig-path)
         - make e2e-vault
     - stage: test
       name: "e2e-azure"
@@ -39,6 +40,7 @@ jobs:
       before_script:
         - make e2e-bootstrap
       script:
+        - export KUBECONFIG=$(kind get kubeconfig-path)
         - make e2e-azure
     - stage: "build, deploy"
       script:
