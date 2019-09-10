@@ -1,5 +1,22 @@
 # Azure Key Vault Provider for Secret Store CSI Driver
-The Azure Key Vault Provider offers two modes for accessing a Key Vault instance: Service Principal and Pod Identity.
+
+Azure Key Vault provider for Secret Store CSI driver allows you to get secret contents stored in Azure Key Vault instance and use the Secret Store CSI driver interface to mount them into Kubernetes pods.
+
+## Demo
+
+_WIP_
+
+## Usage
+
+This guide will walk you through the steps to configure and run the Azure Key Vault provider for Secret Store CSI driver on Kubernetes.
+
+## Install the Secrets Store CSI Driver (Kubernetes Version 1.15.x+)
+Make sure you have followed the [Installation guide for the Secrets Store CSI Driver](https://github.com/deislabs/secrets-store-csi-driver#usage).
+
+
+The Azure Key Vault Provider offers two modes for accessing a Key Vault instance: 
+1. Service Principal 
+1. Pod Identity
 
 ## OPTION 1 - Service Principal
 
@@ -85,7 +102,7 @@ The Azure Key Vault Provider offers two modes for accessing a Key Vault instance
 
 ## OPTION 2 - Pod Identity
 
-##### Prerequisites: #####
+### Prerequisites:
 
 💡 Make sure you have installed pod identity to your Kubernetes cluster
 
@@ -144,11 +161,11 @@ Not all steps need to be followed on the instructions for the aad-pod-identity p
     apiVersion: "aadpodidentity.k8s.io/v1"
     kind: AzureIdentity
     metadata:
-     name: <any-name>
+      name: <any-name>
     spec:
-     type: 0
-     ResourceID: /subscriptions/<subid>/resourcegroups/<resourcegroup>/providers/Microsoft.ManagedIdentity/userAssignedIdentities/<idname>
-     ClientID: <clientid>
+      type: 0
+      ResourceID: /subscriptions/<subid>/resourcegroups/<resourcegroup>/providers/Microsoft.ManagedIdentity/userAssignedIdentities/<idname>
+      ClientID: <clientid>
     ```
 
     ```bash
@@ -162,10 +179,10 @@ Not all steps need to be followed on the instructions for the aad-pod-identity p
     apiVersion: "aadpodidentity.k8s.io/v1"
     kind: AzureIdentityBinding
     metadata:
-     name: <any-name>
+      name: <any-name>
     spec:
-     AzureIdentity: <name_of_AzureIdentity_created_from_previous_step>
-     Selector: <label value to match in your app>
+      AzureIdentity: <name of AzureIdentity created from previous step>
+      Selector: <label value to match in your app>
     ```
 
     ```
@@ -178,7 +195,7 @@ Not all steps need to be followed on the instructions for the aad-pod-identity p
     ```yaml
     metadata:
     labels:
-        aadpodidbinding: "NAME OF the AzureIdentityBinding SELECTOR"
+      aadpodidbinding: <AzureIdentityBinding Selector created from previous step>
     ```
 
     b. make sure to update `usepodidentity` to `true`
