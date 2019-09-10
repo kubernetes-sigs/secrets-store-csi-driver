@@ -77,10 +77,9 @@ e2e-bootstrap:
 	# Create kind cluster
 	kind create cluster --config kind-config.yaml --image kindest/node:v${KUBERNETES_VERSION}
 	# Build image
-	IMAGE_VERSION=e2e-$(shell git rev-parse --short HEAD)
-	REGISTRY_NAME="e2e" IMAGE_VERSION=${IMAGE_VERSION} make image
+	REGISTRY_NAME="e2e" IMAGE_VERSION=e2e-$$(git rev-parse --short HEAD) make image
 	# Load image into kind cluster
-	kind load docker-image --name kind e2e/secrets-store-csi:${IMAGE_VERSION}
+	kind load docker-image --name kind e2e/secrets-store-csi:e2e-$$(git rev-parse --short HEAD)
 	# Set up tiller
 	kubectl --namespace kube-system --output yaml create serviceaccount tiller --dry-run | kubectl --kubeconfig $$(kind get kubeconfig-path)  apply -f -
 	kubectl create --output yaml clusterrolebinding tiller-cluster-rule --clusterrole=cluster-admin --serviceaccount=kube-system:tiller --dry-run | kubectl --kubeconfig $$(kind get kubeconfig-path) apply -f -
