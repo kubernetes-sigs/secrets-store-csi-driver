@@ -61,7 +61,7 @@ type StringArray struct {
 
 // NewProvider creates a new provider HashiCorp Vault.
 func NewProvider() (*Provider, error) {
-	glog.V(2).Infof("NewProvider")
+	glog.V(2).Infof("NewVaultProvider")
 	var p Provider
 	return &p, nil
 }

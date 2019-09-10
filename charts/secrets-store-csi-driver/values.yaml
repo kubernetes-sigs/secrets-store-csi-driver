@@ -1,6 +1,6 @@
 image:
-  repository: ritazh/secrets-store-csi
-  tag: v0.0.4
+  repository: docker.io/deislabs/secrets-store-csi
+  tag: v0.0.5
   pullPolicy: Always
 
 logLevel: 
