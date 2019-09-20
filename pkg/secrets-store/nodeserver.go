@@ -17,18 +17,17 @@ limitations under the License.
 package secretsstore
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"strings"
+	"os/exec"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/spf13/cast"
 
 	csicommon "github.com/deislabs/secrets-store-csi-driver/pkg/csi-common"
 
-	"github.com/deislabs/secrets-store-csi-driver/pkg/providers"
-	"github.com/deislabs/secrets-store-csi-driver/pkg/providers/register"
 	"github.com/golang/glog"
 
 	"google.golang.org/grpc/codes"
@@ -161,24 +160,63 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		parameters["csi.storage.k8s.io/pod.name"] = attrib["csi.storage.k8s.io/pod.name"]
 		parameters["csi.storage.k8s.io/pod.namespace"] = attrib["csi.storage.k8s.io/pod.namespace"]
 	}
-
-	var provider providers.Provider
-	initConfig := register.InitConfig{}
-	provider, err = register.GetProvider(strings.ToLower(providerName), initConfig)
-	if err != nil {
-		return nil, fmt.Errorf("Error initializing provider: %v", err)
-	}
 	// to ensure mount bind works, we need to mount before writing content to it
 	err = mounter.Mount("/tmp", targetPath, "", []string{"bind"})
 	if err != nil {
 		glog.V(0).Infof("mount err: %v", err)
 		return nil, err
 	}
-	err = provider.MountSecretsStoreObjectContent(ctx, parameters, secrets, targetPath, permission)
-	if err != nil {
-		mounter.Unmount(targetPath)
-		return nil, err
+	if !isMockProvider(providerName) {
+		// get provider volume path
+		providerVolumePath := getProvidersVolumePath()
+		if providerVolumePath == "" {
+			return nil, fmt.Errorf("Providers volume path not found. Set PROVIDERS_VOLUME_PATH")
+		}
+		if _, err := os.Stat(fmt.Sprintf("%s/%s/provider-%s", providerVolumePath, providerName, providerName)); err != nil {
+			glog.Errorf("failed to find provider %s, err: %v", providerName, err)
+			return nil, err
+		}
+		parametersStr, err := json.Marshal(parameters)
+		if err != nil {
+			glog.V(0).Infof("failed to marshal parameters, err: %v", err)
+			return nil, err
+		}
+		secretStr, err := json.Marshal(secrets)
+		if err != nil {
+			glog.V(0).Infof("failed to marshal secrets, err: %v", err)
+			return nil, err
+		}
+		permissionStr, err := json.Marshal(permission)
+		if err != nil {
+			glog.V(0).Infof("failed to marshal file permission, err: %v", err)
+			return nil, err
+		}
+
+		glog.Infof("Calling provider: %s", providerName)
+		glog.Infof("provider command invoked: %s %s %s %s %s %s %s %s %s",
+			fmt.Sprintf("%s/%s/provider-%s", providerVolumePath, providerName, providerName),
+			"--attributes", string(parametersStr),
+			"--secrets", string(secretStr),
+			"--targetPath", string(targetPath),
+			"--permission", string(permissionStr))
+
+		out, err := exec.Command(
+			fmt.Sprintf("%s/%s/provider-%s", providerVolumePath, providerName, providerName),
+			"--attributes", string(parametersStr),
+			"--secrets", string(secretStr),
+			"--targetPath", string(targetPath),
+			"--permission", string(permissionStr),
+		).Output()
+
+		if err != nil {
+			mounter.Unmount(targetPath)
+			glog.Errorf("error invoking provider, err: %v, output %v", err, string(out))
+			return nil, err
+		}
+	} else {
+		glog.Infof("skipping calling provider as its mock")
 	}
+
 	notMnt, err = mount.New("").IsLikelyNotMountPoint(targetPath)
 	if err != nil {
 		glog.V(0).Infof("Error checking IsLikelyNotMountPoint: %v", err)

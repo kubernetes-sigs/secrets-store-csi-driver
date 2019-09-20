@@ -41,6 +41,10 @@ var (
 func main() {
 	flag.Parse()
 
+	if os.Getenv("PROVIDERS_VOLUME_PATH") == "" {
+		glog.Fatalf("providers volume path not provided. Set PROVIDERS_VOLUME_PATH")
+	}
+
 	handle()
 	os.Exit(0)
 }

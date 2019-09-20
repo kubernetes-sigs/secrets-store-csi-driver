@@ -14,6 +14,7 @@ limitations under the License.
 package secretsstore
 
 import (
+	"os"
 	"strings"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -55,4 +56,12 @@ func (cs *controllerServer) findVolumeInternal(key, nameOrID string) (csi.Volume
 		}
 	}
 	return csi.Volume{}, false
+}
+
+func getProvidersVolumePath() string {
+	return os.Getenv("PROVIDERS_VOLUME_PATH")
+}
+
+func isMockProvider(provider string) bool {
+	return strings.EqualFold(provider, "mock_provider")
 }
