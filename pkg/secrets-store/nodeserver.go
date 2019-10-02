@@ -193,15 +193,17 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		}
 
 		glog.Infof("Calling provider: %s", providerName)
-		glog.Infof("provider command invoked: %s %s %s %s %s %s %s %s %s",
+		glog.Infof("provider command invoked: %s %s %s %s %s %s %s %s %s %s",
 			fmt.Sprintf("%s/%s/provider-%s", providerVolumePath, providerName, providerName),
-			"--attributes", string(parametersStr),
-			"--secrets", string(secretStr),
+			"--logtostderr",
+			"--attributes", "[REDACTED]",
+			"--secrets", "[REDACTED]",
 			"--targetPath", string(targetPath),
 			"--permission", string(permissionStr))
 
 		out, err := exec.Command(
 			fmt.Sprintf("%s/%s/provider-%s", providerVolumePath, providerName, providerName),
+			"--logtostderr",
 			"--attributes", string(parametersStr),
 			"--secrets", string(secretStr),
 			"--targetPath", string(targetPath),

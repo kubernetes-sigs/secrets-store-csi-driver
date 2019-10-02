@@ -8,3 +8,7 @@ logLevel:
 ## Install Default RBAC roles and bindings
 rbac:
   install: true
+
+providers:
+  azure: false
+  vault: false

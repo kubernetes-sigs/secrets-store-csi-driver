@@ -11,13 +11,9 @@ IMAGE_TAG=e2e-$(git rev-parse --short HEAD)
   run helm install charts/secrets-store-csi-driver -n csi-secrets-store --namespace dev \
           --set image.pullPolicy="IfNotPresent" \
           --set image.repository="e2e/secrets-store-csi" \
-          --set image.tag=$IMAGE_TAG
+          --set image.tag=$IMAGE_TAG \
+          --set providers.vault=true
   assert_success
-}
-
-# TODO (aramase) remove this as provider e2e will need to be run in each provider
-@test "install vault provider" {
-  run kubectl apply -f https://gist.githubusercontent.com/aramase/d0f62e231aa65bbf898afaf08b080978/raw/67e47b4c9226a9e8bb5c652a2c35cc4e0ecda991/secrets-store-csi-driver-vault-provider.yml
 }
 
 @test "install vault service account" {
