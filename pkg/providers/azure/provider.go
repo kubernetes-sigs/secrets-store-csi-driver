@@ -95,6 +95,8 @@ type Provider struct {
 	PodName string
 	// the namespace of the pod (if using POD AAD Identity)
 	PodNamespace string
+	// the name of the azure cloud
+	CloudName string
 }
 
 // KeyVaultObject holds keyvault object related config
@@ -132,8 +134,8 @@ func ParseAzureEnvironment(cloudName string) (*azure.Environment, error) {
 }
 
 // GetKeyvaultToken retrieves a new service principal token to access keyvault
-func (p *Provider) GetKeyvaultToken(grantType OAuthGrantType, cloudName string) (authorizer autorest.Authorizer, err error) {
-	env, err := ParseAzureEnvironment(cloudName)
+func (p *Provider) GetKeyvaultToken(grantType OAuthGrantType) (authorizer autorest.Authorizer, err error) {
+	env, err := ParseAzureEnvironment(p.CloudName)
 	if err != nil {
 		return nil, err
 	}
@@ -150,9 +152,9 @@ func (p *Provider) GetKeyvaultToken(grantType OAuthGrantType, cloudName string) 
 	return authorizer, nil
 }
 
-func (p *Provider) initializeKvClient(cloudName string) (*kv.BaseClient, error) {
+func (p *Provider) initializeKvClient() (*kv.BaseClient, error) {
 	kvClient := kv.New()
-	token, err := p.GetKeyvaultToken(AuthGrantType(), cloudName)
+	token, err := p.GetKeyvaultToken(AuthGrantType())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get key vault token")
 	}
@@ -187,13 +189,13 @@ func GetCredential(secrets map[string]string) (string, string, error) {
 	return clientID, clientSecret, nil
 }
 
-func (p *Provider) getVaultURL(ctx context.Context, cloudName string) (vaultURL *string, err error) {
+func (p *Provider) getVaultURL(ctx context.Context) (vaultURL *string, err error) {
 	glog.V(5).Infof("subscriptionID: %s", p.SubscriptionID)
 	glog.V(5).Infof("vaultName: %s", p.KeyvaultName)
 	glog.V(5).Infof("resourceGroup: %s", p.ResourceGroup)
 
 	vaultsClient := kvmgmt.NewVaultsClient(p.SubscriptionID)
-	token, tokenErr := p.GetManagementToken(AuthGrantType(), cloudName)
+	token, tokenErr := p.GetManagementToken(AuthGrantType())
 	if tokenErr != nil {
 		return nil, errors.Wrapf(tokenErr, "failed to get management token")
 	}
@@ -206,9 +208,9 @@ func (p *Provider) getVaultURL(ctx context.Context, cloudName string) (vaultURL 
 }
 
 // GetManagementToken retrieves a new service principal token
-func (p *Provider) GetManagementToken(grantType OAuthGrantType, cloudName string) (authorizer autorest.Authorizer, err error) {
+func (p *Provider) GetManagementToken(grantType OAuthGrantType) (authorizer autorest.Authorizer, err error) {
 
-	env, err := ParseAzureEnvironment(cloudName)
+	env, err := ParseAzureEnvironment(p.CloudName)
 	if err != nil {
 		return nil, err
 	}
@@ -304,6 +306,7 @@ func (p *Provider) MountSecretsStoreObjectContent(ctx context.Context, attrib ma
 	tenantID := attrib["tenantId"]
 	p.PodName = attrib["csi.storage.k8s.io/pod.name"]
 	p.PodNamespace = attrib["csi.storage.k8s.io/pod.namespace"]
+	p.CloudName = attrib["cloudName"]
 
 	if keyvaultName == "" {
 		return fmt.Errorf("keyvaultName is not set")
@@ -389,12 +392,12 @@ func (p *Provider) MountSecretsStoreObjectContent(ctx context.Context, attrib ma
 
 // GetKeyVaultObjectContent get content of the keyvault object
 func (p *Provider) GetKeyVaultObjectContent(ctx context.Context, objectType string, objectName string, objectVersion string) (content string, err error) {
-	vaultURL, err := p.getVaultURL(ctx, "")
+	vaultURL, err := p.getVaultURL(ctx)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get vault")
 	}
 
-	kvClient, err := p.initializeKvClient("")
+	kvClient, err := p.initializeKvClient()
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get keyvaultClient")
 	}
