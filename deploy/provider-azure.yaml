@@ -1,22 +1,21 @@
-{{- if .Values.providers.vault }}
 apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
   labels:
-    app: csi-secrets-store-provider-vault
-  name: csi-secrets-store-provider-vault
+    app: csi-secrets-store-provider-azure
+  name: csi-secrets-store-provider-azure
 spec:
   updateStrategy:
     type: RollingUpdate
   template:
     metadata:
       labels:
-        app: csi-secrets-store-provider-vault
+        app: csi-secrets-store-provider-azure
     spec:
       tolerations:
       containers:
-        - name: provider-vault-installer
-          image: hashicorp/secrets-store-csi-driver-provider-vault:0.0.1
+        - name: provider-azure-installer
+          image: aramase/secrets-store-csi-driver-provider-azure:v0.0.6
           imagePullPolicy: Always
           resources:
             requests:
@@ -35,19 +34,20 @@ spec:
         - name: provider-log
           image: busybox
           imagePullPolicy: IfNotPresent
-          args: [/bin/sh, -c, 'tail -n+1 -f /var/log/vault-provider.log']
+          args: [/bin/sh, -c, 'tail -n+1 -f /var/log/azure-provider.log']
           volumeMounts:
-            - mountPath: "/var/log/vault-provider.log"
+            - mountPath: "/var/log/azure-provider.log"
               name: providerlog
           env:
             - name: PROVIDER_LOG_FILE
-              value: "/var/log/vault-provider.log"
+              value: "/var/log/azure-provider.log"
       volumes:
         - name: providervol
           hostPath:
-              path: "/etc/kubernetes/secrets-store-csi-providers"
+            path: "/etc/kubernetes/secrets-store-csi-providers"
         - name: providerlog
           hostPath:
-            path: "/var/log/vault-provider.log"
+            path: "/var/log/azure-provider.log"
             type: FileOrCreate
-{{- end }}
+      nodeSelector:
+        beta.kubernetes.io/os: linux
