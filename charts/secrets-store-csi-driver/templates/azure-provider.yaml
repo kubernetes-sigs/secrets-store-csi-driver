@@ -1,4 +1,4 @@
-{{- if .Values.providers.azure }}
+{{- if .Values.providers.azure.enabled }}
 apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
@@ -16,8 +16,8 @@ spec:
       tolerations:
       containers:
         - name: provider-azure-installer
-          image: aramase/secrets-store-csi-driver-provider-azure:v0.0.6
-          imagePullPolicy: Always
+          image: "{{ .Values.providers.azure.repository }}:{{ .Values.providers.azure.tag }}"
+          imagePullPolicy: {{ .Values.providers.azure.imagePullPolicy }}
           resources:
             requests:
               cpu: 50m

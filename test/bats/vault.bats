@@ -12,7 +12,7 @@ IMAGE_TAG=e2e-$(git rev-parse --short HEAD)
           --set image.pullPolicy="IfNotPresent" \
           --set image.repository="e2e/secrets-store-csi" \
           --set image.tag=$IMAGE_TAG \
-          --set providers.vault=true
+          --set providers.vault.enabled=true
   assert_success
 }
 

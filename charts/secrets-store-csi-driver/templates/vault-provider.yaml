@@ -1,4 +1,4 @@
-{{- if .Values.providers.vault }}
+{{- if .Values.providers.vault.enabled }}
 apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
@@ -16,8 +16,8 @@ spec:
       tolerations:
       containers:
         - name: provider-vault-installer
-          image: hashicorp/secrets-store-csi-driver-provider-vault:0.0.1
-          imagePullPolicy: Always
+          image: "{{ .Values.providers.vault.repository }}:{{ .Values.providers.vault.tag }}"
+          imagePullPolicy: {{ .Values.providers.vault.imagePullPolicy }}
           resources:
             requests:
               cpu: 50m
