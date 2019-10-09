@@ -9,6 +9,7 @@ logLevel:
 rbac:
   install: true
 
+## providers supported
 providers:
   azure:
     enabled: false
