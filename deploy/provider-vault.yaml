@@ -15,7 +15,7 @@ spec:
       tolerations:
       containers:
         - name: provider-vault-installer
-          image: hashicorp/secrets-store-csi-driver-provider-vault:0.0.1
+          image: hashicorp/secrets-store-csi-driver-provider-vault:0.0.2
           imagePullPolicy: Always
           resources:
             requests:

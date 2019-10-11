@@ -252,23 +252,12 @@ Providers must provide the following functionality to be considered a supported 
 1. Does not have access to the Kubernetes APIs and has a well-defined callback mechanism to mount objects to a target path.
 
 - Supported Providers:
-  - [Azure Key Vault Provider](pkg/providers/azure)
-  - [HashiCorp Vault Provider](pkg/providers/vault)
+  - [Azure Key Vault Provider](https://github.com/Azure/secrets-store-csi-driver-provider-azure)
+  - [HashiCorp Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault)
 
 ### Adding a New Provider via the Provider Interface
 
-Create a new directory for your provider under `providers` and implement the following interface.
-Then add your provider in `providers/register/provider_<provider_name>.go`. Make sure to add a build tag so that
-your provider can be excluded from being built. The format for this build tag
-should be `no_<provider_name>_provider`.
-
-```go
-// Provider contains the methods required to implement a Secrets Store CSI Driver provider.
-type Provider interface {
-    // MountSecretsStoreObjectContent mounts content of the secrets store object to target path
-    MountSecretsStoreObjectContent(ctx context.Context, attrib map[string]string, secrets map[string]string, targetPath string, permission os.FileMode) error
-}
-```
+_WIP_
 
 ## Testing
 
