@@ -23,7 +23,7 @@ setup() {
   run helm install charts/secrets-store-csi-driver -n csi-secrets-store --namespace dev \
           --set image.pullPolicy="IfNotPresent" \
           --set image.repository="e2e/secrets-store-csi" \
-          --set image.tag=$IMAGE_TAG
+          --set image.tag=$IMAGE_TAG \
           --set providers.azure.enabled=true
   assert_success
 }
