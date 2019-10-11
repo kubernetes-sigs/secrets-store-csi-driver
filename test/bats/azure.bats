@@ -24,6 +24,7 @@ setup() {
           --set image.pullPolicy="IfNotPresent" \
           --set image.repository="e2e/secrets-store-csi" \
           --set image.tag=$IMAGE_TAG
+          --set providers.azure.enabled=true
   assert_success
 }
 
