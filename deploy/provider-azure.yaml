@@ -1,0 +1,53 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  labels:
+    app: csi-secrets-store-provider-azure
+  name: csi-secrets-store-provider-azure
+spec:
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: csi-secrets-store-provider-azure
+    spec:
+      tolerations:
+      containers:
+        - name: provider-azure-installer
+          image: aramase/secrets-store-csi-driver-provider-azure:v0.0.6
+          imagePullPolicy: Always
+          resources:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+            limits:
+              cpu: 50m
+              memory: 100Mi
+          env:
+            # set TARGET_DIR env var and mount the same directory to to the container
+            - name: TARGET_DIR
+              value: "/etc/kubernetes/secrets-store-csi-providers"
+          volumeMounts:
+            - mountPath: "/etc/kubernetes/secrets-store-csi-providers"
+              name: providervol
+        - name: provider-log
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          args: [/bin/sh, -c, 'tail -n+1 -f /var/log/azure-provider.log']
+          volumeMounts:
+            - mountPath: "/var/log/azure-provider.log"
+              name: providerlog
+          env:
+            - name: PROVIDER_LOG_FILE
+              value: "/var/log/azure-provider.log"
+      volumes:
+        - name: providervol
+          hostPath:
+            path: "/etc/kubernetes/secrets-store-csi-providers"
+        - name: providerlog
+          hostPath:
+            path: "/var/log/azure-provider.log"
+            type: FileOrCreate
+      nodeSelector:
+        beta.kubernetes.io/os: linux

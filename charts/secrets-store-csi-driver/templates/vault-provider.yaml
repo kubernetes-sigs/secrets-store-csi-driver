@@ -1,0 +1,53 @@
+{{- if .Values.providers.vault.enabled }}
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  labels:
+    app: csi-secrets-store-provider-vault
+  name: csi-secrets-store-provider-vault
+spec:
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: csi-secrets-store-provider-vault
+    spec:
+      tolerations:
+      containers:
+        - name: provider-vault-installer
+          image: "{{ .Values.providers.vault.repository }}:{{ .Values.providers.vault.tag }}"
+          imagePullPolicy: {{ .Values.providers.vault.imagePullPolicy }}
+          resources:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+            limits:
+              cpu: 50m
+              memory: 100Mi
+          env:
+            # set TARGET_DIR env var and mount the same directory to to the container
+            - name: TARGET_DIR
+              value: "/etc/kubernetes/secrets-store-csi-providers"
+          volumeMounts:
+            - mountPath: "/etc/kubernetes/secrets-store-csi-providers"
+              name: providervol
+        - name: provider-log
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          args: [/bin/sh, -c, 'tail -n+1 -f /var/log/vault-provider.log']
+          volumeMounts:
+            - mountPath: "/var/log/vault-provider.log"
+              name: providerlog
+          env:
+            - name: PROVIDER_LOG_FILE
+              value: "/var/log/vault-provider.log"
+      volumes:
+        - name: providervol
+          hostPath:
+              path: "/etc/kubernetes/secrets-store-csi-providers"
+        - name: providerlog
+          hostPath:
+            path: "/var/log/vault-provider.log"
+            type: FileOrCreate
+{{- end }}

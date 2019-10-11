@@ -3,9 +3,9 @@ module github.com/deislabs/secrets-store-csi-driver
 go 1.12
 
 require (
-	github.com/Azure/azure-sdk-for-go v33.0.0+incompatible
-	github.com/Azure/go-autorest/autorest v0.9.0
-	github.com/Azure/go-autorest/autorest/adal v0.6.0
+	github.com/Azure/azure-sdk-for-go v33.4.0+incompatible // indirect
+	github.com/Azure/go-autorest/autorest v0.9.1 // indirect
+	github.com/Azure/go-autorest/autorest/adal v0.6.0 // indirect
 	github.com/Azure/go-autorest/autorest/to v0.3.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
 	github.com/container-storage-interface/spec v1.0.0
@@ -19,7 +19,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/onsi/ginkgo v1.8.0 // indirect
 	github.com/onsi/gomega v1.5.0 // indirect
-	github.com/pkg/errors v0.8.1
 	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/spf13/cast v1.3.0
 	github.com/spf13/pflag v1.0.3 // indirect
@@ -35,7 +34,6 @@ require (
 	google.golang.org/appengine v1.5.0 // indirect
 	google.golang.org/genproto v0.0.0-20181221175505-bd9b4fb69e2f // indirect
 	google.golang.org/grpc v1.17.0
-	gopkg.in/yaml.v2 v2.2.2
 	k8s.io/apimachinery v0.0.0-20190404173353-6a84e37a896d
 	k8s.io/klog v0.4.0 // indirect
 	k8s.io/kubernetes v1.13.1

@@ -8,3 +8,17 @@ logLevel:
 ## Install Default RBAC roles and bindings
 rbac:
   install: true
+
+## providers supported
+providers:
+  azure:
+    enabled: false
+    repository: aramase/secrets-store-csi-driver-provider-azure
+    tag: v0.0.6
+    imagePullPolicy: Always
+
+  vault:
+    enabled: false
+    repository: hashicorp/secrets-store-csi-driver-provider-vault
+    tag: 0.0.1
+    imagePullPolicy: Always
