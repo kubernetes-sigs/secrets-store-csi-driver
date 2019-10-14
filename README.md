@@ -67,10 +67,11 @@ Make sure you already have helm CLI installed.
 
 ```bash
 $ cd charts/secrets-store-csi-driver
-$ helm install . -n csi-secrets-store --namespace dev --set <[providers.vault.enabled=true | providers.azure.enabled=true]>
+$ helm install . -n csi-secrets-store --namespace dev --set providers.azure.enabled=true
 ```
 
-In this example, we have chosen to install the secrets store csi driver with the Vault provider `--set providers.vault.enabled=true`. You can enable the Azure Key Vault provider with `--set providers.azure.enabled=true`.
+In this example, we have chosen to install the secrets store csi driver with the Azure Key Vault provider `--set providers.azure.enabled=true`. 
+You can enable the Hashicorp Vault Key Vault provider with `--set providers.vault.enabled=true`. 
 
 Expected output:
 
@@ -115,7 +116,7 @@ secrets-store.csi.k8s.com  2s
 csi-attacher-role-cfg  2s
 
 ==> v1beta1/DaemonSet
-csi-secrets-store-provider-vault  2s
+csi-secrets-store-provider-azure  2s
 
 ==> v1/StatefulSet
 csi-secrets-store-attacher  2s
@@ -126,8 +127,8 @@ NAME                                              READY  STATUS             REST
 csi-secrets-store-attacher-0                      0/1    ContainerCreating  0         2s
 csi-secrets-store-secrets-store-csi-driver-q74wf  0/2    ContainerCreating  0         2s
 csi-secrets-store-secrets-store-csi-driver-ssw6r  0/2    ContainerCreating  0         2s
-csi-secrets-store-provider-vault-pksfd            0/2    ContainerCreating  0         2s
-csi-secrets-store-provider-vault-sxht2            0/2    ContainerCreating  0         2s
+csi-secrets-store-provider-azure-pksfd            0/2    ContainerCreating  0         2s
+csi-secrets-store-provider-azure-sxht2            0/2    ContainerCreating  0         2s
 
 
 NOTES:
@@ -154,6 +155,10 @@ kubectl apply -f deploy/secrets-store-csi-driver.yaml
 kubectl apply -f deploy/csidriver.yaml
 kubectl apply -f deploy/secrets-store.csi.k8s.com_secretproviderclasses.yaml
 kubectl apply -f deploy/rbac-secretproviderclass.yaml # update the namespace of the csi-driver-registrar ServiceAccount
+# [REQUIRED FOR AZURE PROVIDER] Deploy Azure provider specific resources
+kubectl apply -f deploy/provider-azure.yaml
+# [REQUIRED FOR VAULT PROVIDER] Deploy Vault provider specific resources
+kubectl apply -f deploy/provider-vault.yaml
 ```
 
 To validate the installer is running as expected, run the following commands:
@@ -178,6 +183,14 @@ NAME
 csidrivers.csi.storage.k8s.io                      
 secretproviderclasses.secrets-store.csi.k8s.com    
 ```
+
+You should see the following pods deployed for the provider you selected. For example, for the Azure Key Vault provider:
+
+```bash
+csi-secrets-store-provider-azure-pksfd             2/2     Running   0          4m
+csi-secrets-store-provider-azure-sxht2             2/2     Running   0          4m
+```
+
 </details>
 
 ### Use the Secrets Store CSI Driver
