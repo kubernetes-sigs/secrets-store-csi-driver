@@ -67,63 +67,67 @@ Make sure you already have helm CLI installed.
 
 ```bash
 $ cd charts/secrets-store-csi-driver
-$ helm install . -n csi-secrets-store --namespace dev
+$ helm install . -n csi-secrets-store --namespace dev --set <[providers.vault.enabled=true | providers.azure.enabled=true]>
 ```
+
+In this example, we have chosen to install the secrets store csi driver with the Vault provider `--set providers.vault.enabled=true`. You can enable the Azure Key Vault provider with `--set providers.azure.enabled=true`.
 
 Expected output:
 
 ```console
 NAME:   csi-secrets-store
-LAST DEPLOYED: Fri Aug 30 17:50:26 2019
 NAMESPACE: dev
 STATUS: DEPLOYED
 
 RESOURCES:
-==> v1/ClusterRole
-NAME                        AGE
-driver-registrar-runner     1s
-external-attacher-runner    1s
-secretproviderclasses-role  1s
-
-==> v1/RoleBinding
-csi-attacher-role-cfg  1s
-
-==> v1/StatefulSet
-csi-secrets-store-attacher  1s
-
-==> v1beta1/CSIDriver
-secrets-store.csi.k8s.com  1s
-
 ==> v1/ServiceAccount
-csi-driver-registrar  1s
-csi-attacher          1s
+NAME                  AGE
+csi-attacher          2s
+csi-driver-registrar  2s
+
+==> v1beta1/CustomResourceDefinition
+csidrivers.csi.storage.k8s.io                    2s
+secretproviderclasses.secrets-store.csi.k8s.com  2s
+
+==> v1/ClusterRole
+driver-registrar-runner     2s
+external-attacher-runner    2s
+secretproviderclasses-role  2s
 
 ==> v1/ClusterRoleBinding
-csi-attacher-role                  1s
-csi-driver-registrar-role          1s
-secretproviderclasses-rolebinding  1s
+csi-attacher-role                  2s
+csi-driver-registrar-role          2s
+secretproviderclasses-rolebinding  2s
 
 ==> v1/Role
-external-attacher-cfg  1s
+external-attacher-cfg  2s
 
 ==> v1/Service
-csi-secrets-store-attacher  1s
+csi-secrets-store-attacher  2s
 
 ==> v1/DaemonSet
-csi-secrets-store-secrets-store-csi-driver  1s
+csi-secrets-store-secrets-store-csi-driver  2s
+
+==> v1beta1/CSIDriver
+secrets-store.csi.k8s.com  2s
+
+==> v1/RoleBinding
+csi-attacher-role-cfg  2s
+
+==> v1beta1/DaemonSet
+csi-secrets-store-provider-vault  2s
+
+==> v1/StatefulSet
+csi-secrets-store-attacher  2s
 
 ==> v1/Pod(related)
 
 NAME                                              READY  STATUS             RESTARTS  AGE
-csi-secrets-store-attacher-0                      0/1    ContainerCreating  0         1s
-csi-secrets-store-secrets-store-csi-driver-f8lw6  0/2    ContainerCreating  0         1s
-csi-secrets-store-secrets-store-csi-driver-hj445  0/2    ContainerCreating  0         1s
-
-==> v1beta1/CustomResourceDefinition
-
-NAME                                             AGE
-csidrivers.csi.storage.k8s.io                    1s
-secretproviderclasses.secrets-store.csi.k8s.com  1s
+csi-secrets-store-attacher-0                      0/1    ContainerCreating  0         2s
+csi-secrets-store-secrets-store-csi-driver-q74wf  0/2    ContainerCreating  0         2s
+csi-secrets-store-secrets-store-csi-driver-ssw6r  0/2    ContainerCreating  0         2s
+csi-secrets-store-provider-vault-pksfd            0/2    ContainerCreating  0         2s
+csi-secrets-store-provider-vault-sxht2            0/2    ContainerCreating  0         2s
 
 
 NOTES:
@@ -135,12 +139,6 @@ To verify that Secrets Store CSI Driver has started, run:
 
 Now you can follow these steps https://github.com/deislabs/secrets-store-csi-driver#use-the-secrets-store-csi-driver
 to create a SecretProviderClass resource, and a deployment using the SecretProviderClass.
-
-$ kubectl --namespace=dev get pods -l "app=secrets-store-csi-driver"
-NAME                                     READY     STATUS    RESTARTS   AGE
-csi-secrets-store-attacher-0                  1/1       Running   0          43s
-csi-secrets-store-secrets-store-csi-driver-f8lw6   2/2       Running   0          43s
-csi-secrets-store-secrets-store-csi-driver-hj445   2/2       Running   0          43s
 
 ```
 
@@ -271,6 +269,10 @@ End-to-end tests automatically runs on Travis CI when a PR is submitted. If you 
 
 ## Known Issues and Workarounds
 
-_WIP_
+- If you are seeing the following error when installing with `helm install`, then make sure you have enabled at least one provider with `--set providers.vault.enabled=true` or `--set providers.azure.enabled=true`.
+
+```bash
+Error: render error in "secrets-store-csi-driver/templates/required-check.yaml": template: secrets-store-csi-driver/templates/required-check.yaml:2:3: executing "secrets-store-csi-driver/templates/required-check.yaml" at <required "At least o...>: error calling required: At least one of the Values.providers is required to be enable
+```
 
 ## Contributing

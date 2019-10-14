@@ -18,7 +18,7 @@ providers:
     imagePullPolicy: Always
 
   vault:
-    enabled: false
+    enabled: true
     repository: hashicorp/secrets-store-csi-driver-provider-vault
     tag: 0.0.2
     imagePullPolicy: Always
