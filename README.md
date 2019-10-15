@@ -12,7 +12,7 @@ The Secrets Store CSI driver `secrets-store.csi.k8s.com` allows Kubernetes to mo
 - Supports CSI Inline volume (Kubernetes version v1.15+)
 - Supports mounting multiple secrets store objects as a single volume
 - Supports pod identity to restrict access with specific identities (Azure provider only)
-- Supports multiple secrets stores as providers
+- Supports multiple secrets stores as providers. Multiple providers can run in the same cluster simultaneously.
 - Supports pod portability with the SecretProviderClass CRD
 
 #### Table of Contents
@@ -70,8 +70,17 @@ $ cd charts/secrets-store-csi-driver
 $ helm install . -n csi-secrets-store --namespace dev --set providers.azure.enabled=true
 ```
 
-In this example, we have chosen to install the secrets store csi driver with the Azure Key Vault provider `--set providers.azure.enabled=true`. 
-You can enable the Hashicorp Vault Key Vault provider with `--set providers.vault.enabled=true`. 
+In the example above, we have chosen to install the secrets store csi driver with the Azure Key Vault provider `--set providers.azure.enabled=true`. 
+
+If you just want to add support for the Hashicorp Vault provider, then only enable the providers flag for Vault. For example:
+```bash
+$ helm install . -n csi-secrets-store --namespace dev --set providers.vault.enabled=true
+```
+
+Since multiple providers can run in the same cluster simultaneously, for each provider you want to support, append the `--set providers` flag when running the helm install command. For example:
+```bash
+$ helm install . -n csi-secrets-store --namespace dev --set providers.azure.enabled=true --set providers.vault.enabled=true
+```
 
 Expected output:
 
@@ -184,7 +193,7 @@ csidrivers.csi.storage.k8s.io
 secretproviderclasses.secrets-store.csi.k8s.com    
 ```
 
-You should see the following pods deployed for the provider you selected. For example, for the Azure Key Vault provider:
+You should see the following pods deployed for the provider(s) you selected. For example, for the Azure Key Vault provider:
 
 ```bash
 csi-secrets-store-provider-azure-pksfd             2/2     Running   0          4m
@@ -284,8 +293,27 @@ End-to-end tests automatically runs on Travis CI when a PR is submitted. If you 
 
 - If you are seeing the following error when installing with `helm install`, then make sure you have enabled at least one provider with `--set providers.vault.enabled=true` or `--set providers.azure.enabled=true`.
 
-```bash
-Error: render error in "secrets-store-csi-driver/templates/required-check.yaml": template: secrets-store-csi-driver/templates/required-check.yaml:2:3: executing "secrets-store-csi-driver/templates/required-check.yaml" at <required "At least o...>: error calling required: At least one of the Values.providers is required to be enable
-```
+  ```bash
+  Error: render error in "secrets-store-csi-driver/templates/required-check.yaml": template: secrets-store-csi-driver/templates/required-check.yaml:2:3: executing "secrets-store-csi-driver/templates/required-check.yaml" at <required "At least o...>: error calling required: At least one of the Values.providers is required to be enable
+  ```
 
-## Contributing
+## Troubleshooting
+
+- To troubleshoot issues with the csi driver, you can look at logs from the `secrets-store` container of the csi driver pod running on the same node as your application pod:
+  ```bash
+  kubectl get pod -o wide
+  # find the secrets store csi driver pod running on the same node as your application pod
+
+  kubectl logs csi-secrets-store-secrets-store-csi-driver-7x44t secrets-store
+  ```
+- To troubleshoot issues with the provider component, you can look at logs from the `provider-log` container of the provider pod running on the same node as your application pod:
+  ```bash
+  kubectl get pod -o wide
+  # find the secrets store csi driver pod running on the same node as your application pod
+
+  kubectl logs csi-secrets-store-provider-azure-64bq7 provider-log
+  ```
+
+## Code of conduct
+
+Participation in the Kubernetes community is governed by the [Kubernetes Code of Conduct](code-of-conduct.md).
