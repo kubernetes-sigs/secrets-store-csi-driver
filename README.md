@@ -309,7 +309,7 @@ End-to-end tests automatically runs on Travis CI when a PR is submitted. If you 
 - To troubleshoot issues with the provider component, you can look at logs from the `provider-log` container of the provider pod running on the same node as your application pod:
   ```bash
   kubectl get pod -o wide
-  # find the secrets store csi driver pod running on the same node as your application pod
+  # find the secrets store csi provider pod running on the same node as your application pod
 
   kubectl logs csi-secrets-store-provider-azure-64bq7 provider-log
   ```
