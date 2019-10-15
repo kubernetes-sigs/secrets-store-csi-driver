@@ -12,7 +12,7 @@ The Secrets Store CSI driver `secrets-store.csi.k8s.com` allows Kubernetes to mo
 - Supports CSI Inline volume (Kubernetes version v1.15+)
 - Supports mounting multiple secrets store objects as a single volume
 - Supports pod identity to restrict access with specific identities (Azure provider only)
-- Supports multiple secrets stores as providers
+- Supports multiple secrets stores as providers. Multiple providers can run in the same cluster simultaneously.
 - Supports pod portability with the SecretProviderClass CRD
 
 #### Table of Contents
@@ -21,8 +21,8 @@ The Secrets Store CSI driver `secrets-store.csi.k8s.com` allows Kubernetes to mo
 - [Demo](#demo)
 - [Usage](#usage)
 - [Providers](#providers)
-  - [Azure Key Vault Provider](pkg/providers/azure)
-  - [HashiCorp Vault Provider](pkg/providers/vault)
+  - [Azure Key Vault Provider](https://github.com/Azure/secrets-store-csi-driver-provider-azure)
+  - [HashiCorp Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault)
   - [Adding a New Provider via the Provider Interface](#adding-a-new-provider-via-the-provider-interface)
 - [Testing](#testing)
   - [Unit Tests](#unit-tests)
@@ -67,63 +67,77 @@ Make sure you already have helm CLI installed.
 
 ```bash
 $ cd charts/secrets-store-csi-driver
-$ helm install . -n csi-secrets-store --namespace dev
+$ helm install . -n csi-secrets-store --namespace dev --set providers.azure.enabled=true
+```
+
+In the example above, we have chosen to install the secrets store csi driver with the Azure Key Vault provider `--set providers.azure.enabled=true`. 
+
+If you just want to add support for the Hashicorp Vault provider, then only enable the providers flag for Vault. For example:
+```bash
+$ helm install . -n csi-secrets-store --namespace dev --set providers.vault.enabled=true
+```
+
+Since multiple providers can run in the same cluster simultaneously, for each provider you want to support, append the `--set providers` flag when running the helm install command. For example:
+```bash
+$ helm install . -n csi-secrets-store --namespace dev --set providers.azure.enabled=true --set providers.vault.enabled=true
 ```
 
 Expected output:
 
 ```console
 NAME:   csi-secrets-store
-LAST DEPLOYED: Fri Aug 30 17:50:26 2019
 NAMESPACE: dev
 STATUS: DEPLOYED
 
 RESOURCES:
-==> v1/ClusterRole
-NAME                        AGE
-driver-registrar-runner     1s
-external-attacher-runner    1s
-secretproviderclasses-role  1s
-
-==> v1/RoleBinding
-csi-attacher-role-cfg  1s
-
-==> v1/StatefulSet
-csi-secrets-store-attacher  1s
-
-==> v1beta1/CSIDriver
-secrets-store.csi.k8s.com  1s
-
 ==> v1/ServiceAccount
-csi-driver-registrar  1s
-csi-attacher          1s
+NAME                  AGE
+csi-attacher          2s
+csi-driver-registrar  2s
+
+==> v1beta1/CustomResourceDefinition
+csidrivers.csi.storage.k8s.io                    2s
+secretproviderclasses.secrets-store.csi.k8s.com  2s
+
+==> v1/ClusterRole
+driver-registrar-runner     2s
+external-attacher-runner    2s
+secretproviderclasses-role  2s
 
 ==> v1/ClusterRoleBinding
-csi-attacher-role                  1s
-csi-driver-registrar-role          1s
-secretproviderclasses-rolebinding  1s
+csi-attacher-role                  2s
+csi-driver-registrar-role          2s
+secretproviderclasses-rolebinding  2s
 
 ==> v1/Role
-external-attacher-cfg  1s
+external-attacher-cfg  2s
 
 ==> v1/Service
-csi-secrets-store-attacher  1s
+csi-secrets-store-attacher  2s
 
 ==> v1/DaemonSet
-csi-secrets-store-secrets-store-csi-driver  1s
+csi-secrets-store-secrets-store-csi-driver  2s
+
+==> v1beta1/CSIDriver
+secrets-store.csi.k8s.com  2s
+
+==> v1/RoleBinding
+csi-attacher-role-cfg  2s
+
+==> v1beta1/DaemonSet
+csi-secrets-store-provider-azure  2s
+
+==> v1/StatefulSet
+csi-secrets-store-attacher  2s
 
 ==> v1/Pod(related)
 
 NAME                                              READY  STATUS             RESTARTS  AGE
-csi-secrets-store-attacher-0                      0/1    ContainerCreating  0         1s
-csi-secrets-store-secrets-store-csi-driver-f8lw6  0/2    ContainerCreating  0         1s
-csi-secrets-store-secrets-store-csi-driver-hj445  0/2    ContainerCreating  0         1s
-
-==> v1beta1/CustomResourceDefinition
-
-NAME                                             AGE
-csidrivers.csi.storage.k8s.io                    1s
-secretproviderclasses.secrets-store.csi.k8s.com  1s
+csi-secrets-store-attacher-0                      0/1    ContainerCreating  0         2s
+csi-secrets-store-secrets-store-csi-driver-q74wf  0/2    ContainerCreating  0         2s
+csi-secrets-store-secrets-store-csi-driver-ssw6r  0/2    ContainerCreating  0         2s
+csi-secrets-store-provider-azure-pksfd            0/2    ContainerCreating  0         2s
+csi-secrets-store-provider-azure-sxht2            0/2    ContainerCreating  0         2s
 
 
 NOTES:
@@ -135,12 +149,6 @@ To verify that Secrets Store CSI Driver has started, run:
 
 Now you can follow these steps https://github.com/deislabs/secrets-store-csi-driver#use-the-secrets-store-csi-driver
 to create a SecretProviderClass resource, and a deployment using the SecretProviderClass.
-
-$ kubectl --namespace=dev get pods -l "app=secrets-store-csi-driver"
-NAME                                     READY     STATUS    RESTARTS   AGE
-csi-secrets-store-attacher-0                  1/1       Running   0          43s
-csi-secrets-store-secrets-store-csi-driver-f8lw6   2/2       Running   0          43s
-csi-secrets-store-secrets-store-csi-driver-hj445   2/2       Running   0          43s
 
 ```
 
@@ -156,6 +164,10 @@ kubectl apply -f deploy/secrets-store-csi-driver.yaml
 kubectl apply -f deploy/csidriver.yaml
 kubectl apply -f deploy/secrets-store.csi.k8s.com_secretproviderclasses.yaml
 kubectl apply -f deploy/rbac-secretproviderclass.yaml # update the namespace of the csi-driver-registrar ServiceAccount
+# [REQUIRED FOR AZURE PROVIDER] Deploy Azure provider specific resources
+kubectl apply -f deploy/provider-azure.yaml
+# [REQUIRED FOR VAULT PROVIDER] Deploy Vault provider specific resources
+kubectl apply -f deploy/provider-vault.yaml
 ```
 
 To validate the installer is running as expected, run the following commands:
@@ -180,6 +192,14 @@ NAME
 csidrivers.csi.storage.k8s.io                      
 secretproviderclasses.secrets-store.csi.k8s.com    
 ```
+
+You should see the following pods deployed for the provider(s) you selected. For example, for the Azure Key Vault provider:
+
+```bash
+csi-secrets-store-provider-azure-pksfd             2/2     Running   0          4m
+csi-secrets-store-provider-azure-sxht2             2/2     Running   0          4m
+```
+
 </details>
 
 ### Use the Secrets Store CSI Driver
@@ -271,6 +291,29 @@ End-to-end tests automatically runs on Travis CI when a PR is submitted. If you 
 
 ## Known Issues and Workarounds
 
-_WIP_
+- If you are seeing the following error when installing with `helm install`, then make sure you have enabled at least one provider with `--set providers.vault.enabled=true` or `--set providers.azure.enabled=true`.
 
-## Contributing
+  ```bash
+  Error: render error in "secrets-store-csi-driver/templates/required-check.yaml": template: secrets-store-csi-driver/templates/required-check.yaml:2:3: executing "secrets-store-csi-driver/templates/required-check.yaml" at <required "At least o...>: error calling required: At least one of the Values.providers is required to be enable
+  ```
+
+## Troubleshooting
+
+- To troubleshoot issues with the csi driver, you can look at logs from the `secrets-store` container of the csi driver pod running on the same node as your application pod:
+  ```bash
+  kubectl get pod -o wide
+  # find the secrets store csi driver pod running on the same node as your application pod
+
+  kubectl logs csi-secrets-store-secrets-store-csi-driver-7x44t secrets-store
+  ```
+- To troubleshoot issues with the provider component, you can look at logs from the `provider-log` container of the provider pod running on the same node as your application pod:
+  ```bash
+  kubectl get pod -o wide
+  # find the secrets store csi provider pod running on the same node as your application pod
+
+  kubectl logs csi-secrets-store-provider-azure-64bq7 provider-log
+  ```
+
+## Code of conduct
+
+Participation in the Kubernetes community is governed by the [Kubernetes Code of Conduct](code-of-conduct.md).
