@@ -15,6 +15,8 @@ package secretsstore
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -95,4 +97,50 @@ func (cs *controllerServer) ValidateVolumeCapabilities(ctx context.Context, req 
 		return &csi.ValidateVolumeCapabilitiesResponse{}, nil
 	}
 	return nil, status.Error(codes.NotFound, reqVolID)
+}
+
+func (cs *controllerServer) findVolumeByName(volName string) (csi.Volume, bool) {
+	return cs.findVolume("name", volName)
+}
+
+func (cs *controllerServer) findVolumeByID(volID string) (csi.Volume, bool) {
+	return cs.findVolume("id", volID)
+}
+
+func (cs *controllerServer) addVolume(name string, vol csi.Volume) {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+
+	cs.vols[name] = vol
+}
+
+func (cs *controllerServer) findVolume(key, nameOrID string) (csi.Volume, bool) {
+	return cs.findVolumeInternal(key, nameOrID)
+}
+
+func (cs *controllerServer) findVolumeInternal(key, nameOrID string) (csi.Volume, bool) {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+
+	switch key {
+	case "name":
+		vol, ok := cs.vols[nameOrID]
+		return vol, ok
+
+	case "id":
+		for _, vol := range cs.vols {
+			if strings.EqualFold(nameOrID, vol.VolumeId) {
+				return vol, true
+			}
+		}
+	}
+	return csi.Volume{}, false
+}
+
+func getProvidersVolumePath() string {
+	return os.Getenv("PROVIDERS_VOLUME_PATH")
+}
+
+func isMockProvider(provider string) bool {
+	return strings.EqualFold(provider, "mock_provider")
 }
