@@ -18,6 +18,7 @@ IMAGE_VERSION?=v0.0.6
 IMAGE_TAG=$(REGISTRY_NAME)/$(IMAGE_NAME):$(IMAGE_VERSION)
 IMAGE_TAG_LATEST=$(REGISTRY_NAME)/$(IMAGE_NAME):latest
 LDFLAGS?='-X github.com/deislabs/secrets-store-csi-driver/pkg/secrets-store.vendorVersion=$(IMAGE_VERSION) -extldflags "-static"'
+GO_FILES=$(shell go list ./... | grep -v /test/sanity)
 
 .PHONY: all build image clean test-style
 
@@ -29,17 +30,17 @@ HAS_GOLANGCI := $(shell command -v golangci-lint;)
 all: build
 
 test: test-style
-	go test github.com/deislabs/secrets-store-csi-driver/pkg/... -cover
-	go vet github.com/deislabs/secrets-store-csi-driver/pkg/...
+	go test $(GO_FILES) -v -cover
+	go vet $(GO_FILES)
 test-style: setup
 	@echo "==> Running static validations and linters <=="
 	golangci-lint run
 sanity-test:
 	go test -v ./test/sanity
 build: setup
-	CGO_ENABLED=0 GOOS=linux go build -tags 'no_mock_provider' -a -ldflags ${LDFLAGS} -o _output/secrets-store-csi ./pkg/secrets-store-csi-driver
+	CGO_ENABLED=0 GOOS=linux go build -a -ldflags ${LDFLAGS} -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
 image: build
-	docker build --no-cache -t $(IMAGE_TAG) -f ./pkg/secrets-store-csi-driver/Dockerfile .
+	docker build --no-cache -t $(IMAGE_TAG) -f Dockerfile .
 docker-login:
 	echo $(DOCKER_PASSWORD) | docker login -u $(DOCKER_USERNAME) --password-stdin
 ci-deploy: image docker-login
