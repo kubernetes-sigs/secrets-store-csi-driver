@@ -160,8 +160,8 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		parameters["csi.storage.k8s.io/pod.name"] = attrib["csi.storage.k8s.io/pod.name"]
 		parameters["csi.storage.k8s.io/pod.namespace"] = attrib["csi.storage.k8s.io/pod.namespace"]
 	}
-	// to ensure mount bind works, we need to mount before writing content to it
-	err = mounter.Mount("/tmp", targetPath, "", []string{"bind"})
+	// mount before providers can write content to it
+	err = mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
 	if err != nil {
 		glog.V(0).Infof("mount err: %v", err)
 		return nil, err
