@@ -20,8 +20,9 @@ import (
 	"fmt"
 	"strings"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/golang/glog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
@@ -93,13 +94,13 @@ func RunControllerandNodePublishServer(endpoint string, d *CSIDriver, cs csi.Con
 }
 
 func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	glog.V(3).Infof("GRPC call: %s", info.FullMethod)
+	log.Debugf("GRPC call: %s", info.FullMethod)
 	logRedactedRequest(req)
 	resp, err := handler(ctx, req)
 	if err != nil {
-		glog.Errorf("GRPC error: %v", err)
+		log.Errorf("GRPC error: %v", err)
 	} else {
-		glog.V(5).Infof("GRPC response: %+v", resp)
+		log.Debugf("GRPC response: %+v", resp)
 	}
 	return resp, err
 }
@@ -107,7 +108,7 @@ func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, h
 func logRedactedRequest(req interface{}) {
 	r, ok := req.(*csi.NodePublishVolumeRequest)
 	if !ok {
-		glog.V(5).Infof("GRPC request: %+v", req)
+		log.Debugf("GRPC request: %+v", req)
 		return
 	}
 
@@ -119,5 +120,5 @@ func logRedactedRequest(req interface{}) {
 		redactedSecrets[k] = "[REDACTED]"
 	}
 	req1.Secrets = redactedSecrets
-	glog.V(5).Infof("GRPC request: %+v", req1)
+	log.Debugf("GRPC request: %+v", req1)
 }

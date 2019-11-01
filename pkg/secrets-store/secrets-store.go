@@ -20,7 +20,8 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 
 	csicommon "github.com/deislabs/secrets-store-csi-driver/pkg/csi-common"
-	"github.com/golang/glog"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type SecretsStore struct {
@@ -51,13 +52,13 @@ func newControllerServer(d *csicommon.CSIDriver) *controllerServer {
 }
 
 func (s *SecretsStore) Run(driverName, nodeID, endpoint string) {
-	glog.Infof("Driver: %v ", driverName)
-	glog.Infof("Version: %s", vendorVersion)
+	log.Infof("Driver: %s ", driverName)
+	log.Infof("Version: %s", vendorVersion)
 
 	// Initialize default library driver
 	s.driver = csicommon.NewCSIDriver(driverName, vendorVersion, nodeID)
 	if s.driver == nil {
-		glog.Fatalln("Failed to initialize SecretsStore CSI Driver.")
+		log.Fatal("Failed to initialize SecretsStore CSI Driver.")
 	}
 	s.driver.AddControllerServiceCapabilities(
 		[]csi.ControllerServiceCapability_RPC_Type{

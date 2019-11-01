@@ -17,6 +17,7 @@ limitations under the License.
 package secretsstore
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -28,7 +29,7 @@ import (
 
 	csicommon "github.com/deislabs/secrets-store-csi-driver/pkg/csi-common"
 
-	"github.com/golang/glog"
+	log "github.com/sirupsen/logrus"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -52,7 +53,7 @@ const (
 )
 
 func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
-	glog.V(0).Infof("NodePublishVolume")
+	log.Info("NodePublishVolume")
 	// Check arguments
 	if req.GetVolumeCapability() == nil {
 		return nil, status.Error(codes.InvalidArgument, "Volume capability missing in request")
@@ -76,13 +77,13 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if !notMnt {
 		// testing original mount point, make sure the mount link is valid
 		if _, err := ioutil.ReadDir(targetPath); err == nil {
-			glog.V(2).Infof("secrets-store - already mounted to target %s", targetPath)
+			log.Infof("secrets-store - already mounted to target %s", targetPath)
 			return &csi.NodePublishVolumeResponse{}, nil
 		}
 		// todo: mount link is invalid, now unmount and remount later (built-in functionality)
-		glog.Warningf("secrets-store - ReadDir %s failed with %v, unmount this directory", targetPath, err)
+		log.Warningf("secrets-store - ReadDir %s failed with %v, unmount this directory", targetPath, err)
 		if err := mounter.Unmount(targetPath); err != nil {
-			glog.Errorf("secrets-store - Unmount directory %s failed with %v", targetPath, err)
+			log.Errorf("secrets-store - Unmount directory %s failed with %v", targetPath, err)
 			return nil, err
 		}
 	}
@@ -90,7 +91,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	attrib := req.GetVolumeContext()
 	mountFlags := req.GetVolumeCapability().GetMount().GetMountFlags()
 
-	glog.V(5).Infof("target %v\nvolumeId %v\nattributes %v\nmountflags %v\n",
+	log.Debugf("target %v, volumeId %v, attributes %v, mountflags %v",
 		targetPath, volumeID, attrib, mountFlags)
 
 	secrets := req.GetSecrets()
@@ -127,7 +128,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		}
 		var secretProvideObject map[string]interface{}
 		for _, item := range instanceList.Items {
-			glog.V(5).Infof("item obj: %v \n", item.Object)
+			log.Debugf("item obj: %v", item.Object)
 			if item.GetName() == secretProviderClass {
 				secretProvideObject = item.Object
 				break
@@ -156,7 +157,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return nil, fmt.Errorf("Failed to initialize provider parameters")
 		}
 
-		glog.V(5).Infof("got parameters: %v \n", parameters)
+		log.Debugf("got parameters: %v", parameters)
 		parameters["csi.storage.k8s.io/pod.name"] = attrib["csi.storage.k8s.io/pod.name"]
 		parameters["csi.storage.k8s.io/pod.namespace"] = attrib["csi.storage.k8s.io/pod.namespace"]
 	}
@@ -172,72 +173,82 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return nil, fmt.Errorf("Providers volume path not found. Set PROVIDERS_VOLUME_PATH")
 		}
 		if _, err := os.Stat(fmt.Sprintf("%s/%s/provider-%s", providerVolumePath, providerName, providerName)); err != nil {
-			glog.Errorf("failed to find provider %s, err: %v", providerName, err)
+			log.Errorf("failed to find provider %s, err: %v", providerName, err)
 			return nil, err
 		}
+
 		parametersStr, err := json.Marshal(parameters)
 		if err != nil {
-			glog.V(0).Infof("failed to marshal parameters, err: %v", err)
+			log.Errorf("failed to marshal parameters, err: %v", err)
 			return nil, err
 		}
 		secretStr, err := json.Marshal(secrets)
 		if err != nil {
-			glog.V(0).Infof("failed to marshal secrets, err: %v", err)
+			log.Errorf("failed to marshal secrets, err: %v", err)
 			return nil, err
 		}
 		permissionStr, err := json.Marshal(permission)
 		if err != nil {
-			glog.V(0).Infof("failed to marshal file permission, err: %v", err)
+			log.Errorf("failed to marshal file permission, err: %v", err)
 			return nil, err
 		}
 
 		// mount before providers can write content to it
 		err = mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
 		if err != nil {
-			glog.V(0).Infof("mount err: %v", err)
+			log.Errorf("mount err: %v", err)
 			return nil, err
 		}
 
-		glog.Infof("Calling provider: %s", providerName)
-		glog.Infof("provider command invoked: %s %s %s %s %s %s %s %s %s",
-			fmt.Sprintf("%s/%s/provider-%s", providerVolumePath, providerName, providerName),
-			"--attributes", "[REDACTED]",
-			"--secrets", "[REDACTED]",
-			"--targetPath", string(targetPath),
-			"--permission", string(permissionStr))
-
-		out, err := exec.Command(
-			fmt.Sprintf("%s/%s/provider-%s", providerVolumePath, providerName, providerName),
+		log.Infof("Calling provider: %s", providerName)
+		providerBinary := fmt.Sprintf("%s/%s/provider-%s", providerVolumePath, providerName, providerName)
+		args := []string{
 			"--attributes", string(parametersStr),
 			"--secrets", string(secretStr),
 			"--targetPath", string(targetPath),
 			"--permission", string(permissionStr),
-		).Output()
+		}
 
+		log.Infof("provider command invoked: %s %s %v", providerBinary,
+			"--attributes [REDACTED] --secrets [REDACTED]", args[4:])
+
+		cmd := exec.Command(
+			providerBinary,
+			args...,
+		)
+
+		stdout := &bytes.Buffer{}
+		stderr := &bytes.Buffer{}
+		cmd.Stderr, cmd.Stdout = stderr, stdout
+
+		err = cmd.Run()
+
+		log.Infof(string(stdout.String()))
 		if err != nil {
 			mounter.Unmount(targetPath)
-			glog.Errorf("error invoking provider, err: %v, output %v", err, string(out))
-			return nil, err
+			log.Errorf("error invoking provider, err: %v, output: %v", err, stderr.String())
+			return nil, fmt.Errorf("error mounting secret %v", stderr.String())
 		}
 	} else {
 		err = mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
 		if err != nil {
-			glog.V(0).Infof("mount err: %v", err)
+			log.Errorf("mount err: %v", err)
 			return nil, err
 		}
-		glog.Infof("skipping calling provider as its mock")
+		log.Infof("skipping calling provider as its mock")
 	}
 
 	notMnt, err = mount.New("").IsLikelyNotMountPoint(targetPath)
 	if err != nil {
-		glog.V(0).Infof("Error checking IsLikelyNotMountPoint: %v", err)
+		log.Errorf("Error checking IsLikelyNotMountPoint: %v", err)
+		return nil, err
 	}
-	glog.V(5).Infof("after MountSecretsStoreObjectContent, notMnt: %v", notMnt)
+	log.Debugf("after MountSecretsStoreObjectContent, notMnt: %v", notMnt)
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
 func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
-	glog.V(0).Infof("NodeUnpublishVolume")
+	log.Infof("NodeUnpublishVolume")
 	// Check arguments
 	if len(req.GetVolumeId()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
@@ -251,15 +262,16 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 	// Unmounting the target
 	err := mount.New("").Unmount(req.GetTargetPath())
 	if err != nil {
+		log.Errorf("error unmounting target path %s, err: %v", targetPath, err)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	glog.V(4).Infof("secrets-store: targetPath %s volumeID %s has been unmounted.", targetPath, volumeID)
+	log.Debugf("secrets-store: targetPath %s volumeID %s has been unmounted.", targetPath, volumeID)
 
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 
 func (ns *nodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
-	glog.V(0).Infof("NodeStageVolume")
+	log.Infof("NodeStageVolume")
 	// Check arguments
 	if len(req.GetVolumeId()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
@@ -272,7 +284,7 @@ func (ns *nodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 }
 
 func (ns *nodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
-	glog.V(0).Infof("NodeUnstageVolume")
+	log.Infof("NodeUnstageVolume")
 	// Check arguments
 	if len(req.GetVolumeId()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")

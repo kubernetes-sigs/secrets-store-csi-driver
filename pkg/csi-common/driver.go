@@ -17,13 +17,16 @@ limitations under the License.
 package csicommon
 
 import (
-	"github.com/golang/glog"
+	log "github.com/sirupsen/logrus"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 )
 
+// CSIDriver provides a container storage interface driver implementation
+// for secrets-store-csi-driver
 type CSIDriver struct {
 	name    string
 	nodeID  string
@@ -32,21 +35,21 @@ type CSIDriver struct {
 	vc      []*csi.VolumeCapability_AccessMode
 }
 
-// Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
+// NewCSIDriver creates a new csi driver object. Assumes vendor version is equal to driver version &
 // does not support optional driver plugin info manifest field. Refer to CSI spec for more details.
 func NewCSIDriver(name string, v string, nodeID string) *CSIDriver {
 	if name == "" {
-		glog.Errorf("Driver name missing")
+		log.Errorf("Driver name missing")
 		return nil
 	}
 
 	if nodeID == "" {
-		glog.Errorf("NodeID missing")
+		log.Errorf("NodeID missing")
 		return nil
 	}
 	// TODO version format and validation
 	if len(v) == 0 {
-		glog.Errorf("Version argument missing")
+		log.Errorf("Version argument missing")
 		return nil
 	}
 
@@ -76,7 +79,7 @@ func (d *CSIDriver) AddControllerServiceCapabilities(cl []csi.ControllerServiceC
 	var csc []*csi.ControllerServiceCapability
 
 	for _, c := range cl {
-		glog.Infof("Enabling controller service capability: %v", c.String())
+		log.Infof("Enabling controller service capability: %v", c.String())
 		csc = append(csc, NewControllerServiceCapability(c))
 	}
 
@@ -86,7 +89,7 @@ func (d *CSIDriver) AddControllerServiceCapabilities(cl []csi.ControllerServiceC
 func (d *CSIDriver) AddVolumeCapabilityAccessModes(vc []csi.VolumeCapability_AccessMode_Mode) []*csi.VolumeCapability_AccessMode {
 	var vca []*csi.VolumeCapability_AccessMode
 	for _, c := range vc {
-		glog.Infof("Enabling volume access mode: %v", c.String())
+		log.Infof("Enabling volume access mode: %v", c.String())
 		vca = append(vca, NewVolumeCapabilityAccessMode(c))
 	}
 	d.vc = vca
