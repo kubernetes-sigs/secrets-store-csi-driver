@@ -151,6 +151,15 @@ Now you can follow these steps https://github.com/deislabs/secrets-store-csi-dri
 to create a SecretProviderClass resource, and a deployment using the SecretProviderClass.
 
 ```
+#### Using Helm without Tiller
+
+You can also template this chart locally without Tiller and apply the result using `kubectl`.
+
+```bash
+helm template . --name csi-secrets-store --namespace dev --set providers.vault.enabled=true > manifest.yml
+kubectl apply -f manifest.yml
+```
+
 
 <details>
 <summary><strong>[ALTERNATIVE DEPLOYMENT OPTION] Using Deployment Yamls</strong></summary>
