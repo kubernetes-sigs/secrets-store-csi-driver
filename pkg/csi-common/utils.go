@@ -18,7 +18,6 @@ package csicommon
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -106,8 +105,6 @@ func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, h
 }
 
 func logRedactedRequest(req interface{}) {
-	re, _ := regexp.Compile(`^(\S{4})(\S|\s)*(\S{4})$`)
-
 	r, ok := req.(*csi.NodePublishVolumeRequest)
 	if !ok {
 		glog.V(5).Infof("GRPC request: %+v", req)
@@ -118,13 +115,8 @@ func logRedactedRequest(req interface{}) {
 	redactedSecrets := make(map[string]string)
 
 	secrets := req1.GetSecrets()
-	for k, v := range secrets {
-		switch k {
-		case "clientid", "clientsecret":
-			redactedSecrets[k] = re.ReplaceAllString(v, "$1##### REDACTED #####$3")
-		default:
-			redactedSecrets[k] = v
-		}
+	for k := range secrets {
+		redactedSecrets[k] = "[REDACTED]"
 	}
 	req1.Secrets = redactedSecrets
 	glog.V(5).Infof("GRPC request: %+v", req1)
