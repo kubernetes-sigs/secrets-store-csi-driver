@@ -44,6 +44,10 @@ The diagram below illustrates how Secrets Store CSI Volume works.
 
 ### Prerequisites
 
+#### Supported kubernetes versions
+
+secrets-store-csi-driver is supported only for cluster versions >= v1.15.0
+
 #### Mount Secret Data to Resource through Inline Volume
 
 * Deploy a Kubernetes cluster v1.15.0+ and make sure it's reachable. The CSI Inline Volume feature was introduced in v1.15.0.
@@ -86,58 +90,48 @@ Expected output:
 
 ```console
 NAME:   csi-secrets-store
+LAST DEPLOYED: Mon Nov  4 12:51:55 2019
 NAMESPACE: dev
 STATUS: DEPLOYED
 
 RESOURCES:
-==> v1/ServiceAccount
-NAME                  AGE
-csi-attacher          2s
-csi-driver-registrar  2s
-
-==> v1beta1/CustomResourceDefinition
-csidrivers.csi.storage.k8s.io                    2s
-secretproviderclasses.secrets-store.csi.k8s.com  2s
-
 ==> v1/ClusterRole
-driver-registrar-runner     2s
-external-attacher-runner    2s
-secretproviderclasses-role  2s
+NAME                        AGE
+secretproviderclasses-role  1s
 
 ==> v1/ClusterRoleBinding
-csi-attacher-role                  2s
-csi-driver-registrar-role          2s
-secretproviderclasses-rolebinding  2s
-
-==> v1/Role
-external-attacher-cfg  2s
-
-==> v1/Service
-csi-secrets-store-attacher  2s
+NAME                               AGE
+secretproviderclasses-rolebinding  1s
 
 ==> v1/DaemonSet
-csi-secrets-store-secrets-store-csi-driver  2s
-
-==> v1beta1/CSIDriver
-secrets-store.csi.k8s.com  2s
-
-==> v1/RoleBinding
-csi-attacher-role-cfg  2s
-
-==> v1beta1/DaemonSet
-csi-secrets-store-provider-azure  2s
-
-==> v1/StatefulSet
-csi-secrets-store-attacher  2s
+NAME                                        DESIRED  CURRENT  READY  UP-TO-DATE  AVAILABLE  NODE SELECTOR  AGE
+csi-secrets-store-secrets-store-csi-driver  0        0        0      0           0          <none>         1s
 
 ==> v1/Pod(related)
-
 NAME                                              READY  STATUS             RESTARTS  AGE
-csi-secrets-store-attacher-0                      0/1    ContainerCreating  0         2s
-csi-secrets-store-secrets-store-csi-driver-q74wf  0/2    ContainerCreating  0         2s
-csi-secrets-store-secrets-store-csi-driver-ssw6r  0/2    ContainerCreating  0         2s
-csi-secrets-store-provider-azure-pksfd            0/2    ContainerCreating  0         2s
-csi-secrets-store-provider-azure-sxht2            0/2    ContainerCreating  0         2s
+csi-secrets-store-provider-azure-5hc6p            0/2    ContainerCreating  0         1s
+csi-secrets-store-provider-azure-cgqss            0/2    ContainerCreating  0         1s
+csi-secrets-store-provider-vault-8p465            0/2    ContainerCreating  0         1s
+csi-secrets-store-provider-vault-b7k8f            0/2    ContainerCreating  0         1s
+csi-secrets-store-secrets-store-csi-driver-r2dnv  0/2    ContainerCreating  0         0s
+csi-secrets-store-secrets-store-csi-driver-xwlm9  0/2    ContainerCreating  0         0s
+
+==> v1/ServiceAccount
+NAME                      SECRETS  AGE
+secrets-store-csi-driver  1        1s
+
+==> v1beta1/CSIDriver
+NAME                       AGE
+secrets-store.csi.k8s.com  1s
+
+==> v1beta1/CustomResourceDefinition
+NAME                                             AGE
+secretproviderclasses.secrets-store.csi.k8s.com  1s
+
+==> v1beta1/DaemonSet
+NAME                              DESIRED  CURRENT  READY  UP-TO-DATE  AVAILABLE  NODE SELECTOR                AGE
+csi-secrets-store-provider-azure  2        2        0      2           0          beta.kubernetes.io/os=linux  1s
+csi-secrets-store-provider-vault  2        2        0      2           0          <none>                       1s
 
 
 NOTES:
