@@ -167,6 +167,10 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		return nil, err
 	}
 	if !isMockProvider(providerName) {
+		// ensure it's read-only
+		if !req.GetReadonly() {
+			return nil, status.Error(codes.InvalidArgument, "read-only mode needs to be true")
+		}
 		// get provider volume path
 		providerVolumePath := getProvidersVolumePath()
 		if providerVolumePath == "" {
