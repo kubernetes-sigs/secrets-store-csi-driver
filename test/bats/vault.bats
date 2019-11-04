@@ -87,7 +87,7 @@ EOF
   assert_success
 
   run kubectl exec -it $VAULT_POD -- vault write auth/kubernetes/role/example-role \
-    bound_service_account_names=csi-driver-registrar \
+    bound_service_account_names=secrets-store-csi-driver \
     bound_service_account_namespaces=dev \
     policies=default,example-readonly \
     ttl=20m
