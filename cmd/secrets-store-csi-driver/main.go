@@ -26,20 +26,17 @@ import (
 )
 
 var (
-	endpoint        = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
-	driverName      = flag.String("drivername", "secrets-store.csi.k8s.com", "name of the driver")
-	nodeID          = flag.String("nodeid", "", "node id")
-	debug           = flag.Bool("debug", false, "sets log to debug level")
-	logFormatJSON   = flag.Bool("log-format-json", false, "set log formatter to json")
-	logReportCaller = flag.Bool("log-report-caller", false, "include the calling method as fields in the log")
+	endpoint           = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
+	driverName         = flag.String("drivername", "secrets-store.csi.k8s.com", "name of the driver")
+	nodeID             = flag.String("nodeid", "", "node id")
+	debug              = flag.Bool("debug", false, "sets log to debug level")
+	logFormatJSON      = flag.Bool("log-format-json", false, "set log formatter to json")
+	logReportCaller    = flag.Bool("log-report-caller", false, "include the calling method as fields in the log")
+	providerVolumePath = flag.String("provider-volume", "/etc/kubernetes/secrets-store-csi-providers", "Volume path for provider")
 )
 
 func main() {
 	flag.Parse()
-
-	if os.Getenv("PROVIDERS_VOLUME_PATH") == "" {
-		log.Fatalf("providers volume path not provided. Set PROVIDERS_VOLUME_PATH")
-	}
 
 	log.SetLevel(log.InfoLevel)
 	if *debug {
@@ -57,5 +54,5 @@ func main() {
 
 func handle() {
 	driver := secretsstore.GetDriver()
-	driver.Run(*driverName, *nodeID, *endpoint)
+	driver.Run(*driverName, *nodeID, *endpoint, *providerVolumePath)
 }

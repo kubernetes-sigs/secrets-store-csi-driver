@@ -15,7 +15,6 @@ package secretsstore
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -135,10 +134,6 @@ func (cs *controllerServer) findVolumeInternal(key, nameOrID string) (csi.Volume
 		}
 	}
 	return csi.Volume{}, false
-}
-
-func getProvidersVolumePath() string {
-	return os.Getenv("PROVIDERS_VOLUME_PATH")
 }
 
 func isMockProvider(provider string) bool {

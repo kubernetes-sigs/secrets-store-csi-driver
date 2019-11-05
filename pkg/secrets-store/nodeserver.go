@@ -46,6 +46,7 @@ import (
 
 type nodeServer struct {
 	*csicommon.DefaultNodeServer
+	providerVolumePath string
 }
 
 const (
@@ -168,7 +169,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return nil, status.Error(codes.InvalidArgument, "Readonly is not true in request")
 		}
 		// get provider volume path
-		providerVolumePath := getProvidersVolumePath()
+		providerVolumePath := ns.providerVolumePath
 		if providerVolumePath == "" {
 			return nil, fmt.Errorf("Providers volume path not found. Set PROVIDERS_VOLUME_PATH")
 		}

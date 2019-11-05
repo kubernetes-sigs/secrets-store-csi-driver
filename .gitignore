@@ -1,3 +1,5 @@
+cmd/secrets-store-csi-driver/secrets-store-csi-driver
+
 # OSX leaves these everywhere on SMB shares
 ._*
 

@@ -38,9 +38,10 @@ func GetDriver() *SecretsStore {
 	return &SecretsStore{}
 }
 
-func newNodeServer(d *csicommon.CSIDriver) *nodeServer {
+func newNodeServer(d *csicommon.CSIDriver, providerVolumePath string) *nodeServer {
 	return &nodeServer{
-		DefaultNodeServer: csicommon.NewDefaultNodeServer(d),
+		DefaultNodeServer:  csicommon.NewDefaultNodeServer(d),
+		providerVolumePath: providerVolumePath,
 	}
 }
 
@@ -51,9 +52,10 @@ func newControllerServer(d *csicommon.CSIDriver) *controllerServer {
 	}
 }
 
-func (s *SecretsStore) Run(driverName, nodeID, endpoint string) {
-	log.Infof("Driver: %s ", driverName)
+func (s *SecretsStore) Run(driverName, nodeID, endpoint, providerVolumePath string) {
+	log.Infof("Driver: %v ", driverName)
 	log.Infof("Version: %s", vendorVersion)
+	log.Infof("Provider Volume Path: %s", providerVolumePath)
 
 	// Initialize default library driver
 	s.driver = csicommon.NewCSIDriver(driverName, vendorVersion, nodeID)
@@ -69,7 +71,7 @@ func (s *SecretsStore) Run(driverName, nodeID, endpoint string) {
 		csi.VolumeCapability_AccessMode_MULTI_NODE_READER_ONLY,
 	})
 
-	s.ns = newNodeServer(s.driver)
+	s.ns = newNodeServer(s.driver, providerVolumePath)
 	s.cs = newControllerServer(s.driver)
 
 	server := csicommon.NewNonBlockingGRPCServer()
