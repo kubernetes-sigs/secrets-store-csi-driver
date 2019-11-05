@@ -160,7 +160,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		parameters["csi.storage.k8s.io/pod.name"] = attrib["csi.storage.k8s.io/pod.name"]
 		parameters["csi.storage.k8s.io/pod.namespace"] = attrib["csi.storage.k8s.io/pod.namespace"]
 	}
-	
+
 	if !isMockProvider(providerName) {
 		// get provider volume path
 		providerVolumePath := getProvidersVolumePath()
@@ -216,6 +216,11 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return nil, err
 		}
 	} else {
+		err = mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
+		if err != nil {
+			glog.V(0).Infof("mount err: %v", err)
+			return nil, err
+		}
 		glog.Infof("skipping calling provider as its mock")
 	}
 
