@@ -46,7 +46,7 @@ The diagram below illustrates how Secrets Store CSI Volume works.
 
 #### Supported kubernetes versions
 
-secrets-store-csi-driver is supported only for cluster versions >= v1.15.0
+secrets-store-csi-driver is supported only for cluster versions v1.15.0+
 
 #### Mount Secret Data to Resource through Inline Volume
 
@@ -90,7 +90,6 @@ Expected output:
 
 ```console
 NAME:   csi-secrets-store
-LAST DEPLOYED: Mon Nov  4 12:51:55 2019
 NAMESPACE: dev
 STATUS: DEPLOYED
 
@@ -159,14 +158,10 @@ kubectl apply -f manifest.yml
 <summary><strong>[ALTERNATIVE DEPLOYMENT OPTION] Using Deployment Yamls</strong></summary>
 
 ```bash
-kubectl apply -f deploy/crd-csi-driver-registry.yaml
-kubectl apply -f deploy/rbac-csi-driver-registrar.yaml
-kubectl apply -f deploy/rbac-csi-attacher.yaml
-kubectl apply -f deploy/csi-secrets-store-attacher.yaml
-kubectl apply -f deploy/secrets-store-csi-driver.yaml
+kubectl apply -f deploy/rbac-secretproviderclass.yaml # update the namespace of the secrets-store-csi-driver ServiceAccount
 kubectl apply -f deploy/csidriver.yaml
 kubectl apply -f deploy/secrets-store.csi.k8s.com_secretproviderclasses.yaml
-kubectl apply -f deploy/rbac-secretproviderclass.yaml # update the namespace of the csi-driver-registrar ServiceAccount
+kubectl apply -f deploy/secrets-store-csi-driver.yaml
 # [REQUIRED FOR AZURE PROVIDER] Deploy Azure provider specific resources
 kubectl apply -f deploy/provider-azure.yaml
 # [REQUIRED FOR VAULT PROVIDER] Deploy Vault provider specific resources
