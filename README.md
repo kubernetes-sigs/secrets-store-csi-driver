@@ -96,41 +96,41 @@ STATUS: DEPLOYED
 RESOURCES:
 ==> v1/ClusterRole
 NAME                        AGE
-secretproviderclasses-role  1s
+secretproviderclasses-role  3s
 
 ==> v1/ClusterRoleBinding
 NAME                               AGE
-secretproviderclasses-rolebinding  1s
+secretproviderclasses-rolebinding  3s
 
 ==> v1/DaemonSet
 NAME                                        DESIRED  CURRENT  READY  UP-TO-DATE  AVAILABLE  NODE SELECTOR  AGE
-csi-secrets-store-secrets-store-csi-driver  0        0        0      0           0          <none>         1s
+csi-secrets-store-secrets-store-csi-driver  2        2        0      2           0          <none>         3s
 
 ==> v1/Pod(related)
 NAME                                              READY  STATUS             RESTARTS  AGE
-csi-secrets-store-provider-azure-5hc6p            0/2    ContainerCreating  0         1s
-csi-secrets-store-provider-azure-cgqss            0/2    ContainerCreating  0         1s
-csi-secrets-store-provider-vault-8p465            0/2    ContainerCreating  0         1s
-csi-secrets-store-provider-vault-b7k8f            0/2    ContainerCreating  0         1s
-csi-secrets-store-secrets-store-csi-driver-r2dnv  0/2    ContainerCreating  0         0s
-csi-secrets-store-secrets-store-csi-driver-xwlm9  0/2    ContainerCreating  0         0s
+csi-secrets-store-provider-azure-ckctw            0/2    ContainerCreating  0         3s
+csi-secrets-store-provider-azure-sj7wm            0/2    ContainerCreating  0         3s
+csi-secrets-store-provider-vault-8wr27            0/2    ContainerCreating  0         3s
+csi-secrets-store-provider-vault-dtvt5            0/2    ContainerCreating  0         3s
+csi-secrets-store-secrets-store-csi-driver-ct9kt  0/2    ContainerCreating  0         3s
+csi-secrets-store-secrets-store-csi-driver-qfspv  0/2    ContainerCreating  0         3s
 
 ==> v1/ServiceAccount
 NAME                      SECRETS  AGE
-secrets-store-csi-driver  1        1s
+secrets-store-csi-driver  1        4s
 
 ==> v1beta1/CSIDriver
 NAME                       AGE
-secrets-store.csi.k8s.com  1s
+secrets-store.csi.k8s.com  3s
 
 ==> v1beta1/CustomResourceDefinition
 NAME                                             AGE
-secretproviderclasses.secrets-store.csi.k8s.com  1s
+secretproviderclasses.secrets-store.csi.k8s.com  3s
 
 ==> v1beta1/DaemonSet
 NAME                              DESIRED  CURRENT  READY  UP-TO-DATE  AVAILABLE  NODE SELECTOR                AGE
-csi-secrets-store-provider-azure  2        2        0      2           0          beta.kubernetes.io/os=linux  1s
-csi-secrets-store-provider-vault  2        2        0      2           0          <none>                       1s
+csi-secrets-store-provider-azure  2        2        0      2           0          beta.kubernetes.io/os=linux  3s
+csi-secrets-store-provider-vault  2        2        0      2           0          beta.kubernetes.io/os=linux  3s
 
 
 NOTES:
