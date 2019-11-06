@@ -4,3 +4,4 @@ metadata:
   name: secrets-store.csi.k8s.com
 spec:
   podInfoOnMount: true
+  attachRequired: false

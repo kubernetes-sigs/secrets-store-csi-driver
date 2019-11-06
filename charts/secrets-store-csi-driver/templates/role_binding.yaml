@@ -9,9 +9,6 @@ roleRef:
   name: secretproviderclasses-role
 subjects:
 - kind: ServiceAccount
-  name: default
-  namespace: system
-- kind: ServiceAccount
-  name: csi-driver-registrar
+  name: secrets-store-csi-driver
   namespace: {{ .Release.Namespace }}
 {{ end }}

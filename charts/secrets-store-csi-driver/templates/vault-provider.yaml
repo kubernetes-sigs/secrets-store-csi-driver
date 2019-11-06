@@ -50,4 +50,6 @@ spec:
           hostPath:
             path: "/var/log/vault-provider.log"
             type: FileOrCreate
+      nodeSelector:
+        beta.kubernetes.io/os: linux
 {{- end }}
