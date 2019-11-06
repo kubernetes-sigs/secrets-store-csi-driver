@@ -160,12 +160,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		parameters["csi.storage.k8s.io/pod.name"] = attrib["csi.storage.k8s.io/pod.name"]
 		parameters["csi.storage.k8s.io/pod.namespace"] = attrib["csi.storage.k8s.io/pod.namespace"]
 	}
-	// mount before providers can write content to it
-	err = mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
-	if err != nil {
-		glog.V(0).Infof("mount err: %v", err)
-		return nil, err
-	}
+
 	if !isMockProvider(providerName) {
 		// ensure it's read-only
 		if !req.GetReadonly() {
@@ -196,6 +191,13 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return nil, err
 		}
 
+		// mount before providers can write content to it
+		err = mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
+		if err != nil {
+			glog.V(0).Infof("mount err: %v", err)
+			return nil, err
+		}
+
 		glog.Infof("Calling provider: %s", providerName)
 		glog.Infof("provider command invoked: %s %s %s %s %s %s %s %s %s",
 			fmt.Sprintf("%s/%s/provider-%s", providerVolumePath, providerName, providerName),
@@ -218,6 +220,11 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return nil, err
 		}
 	} else {
+		err = mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
+		if err != nil {
+			glog.V(0).Infof("mount err: %v", err)
+			return nil, err
+		}
 		glog.Infof("skipping calling provider as its mock")
 	}
 
