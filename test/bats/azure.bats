@@ -28,14 +28,6 @@ setup() {
   assert_success
 }
 
-@test "csi-secrets-store-attacher-0 is running" {
-  cmd="kubectl wait -n dev --for=condition=Ready --timeout=60s pod/csi-secrets-store-attacher-0"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
-
-  run kubectl get pod/csi-secrets-store-attacher-0 -n dev
-  assert_success
-}
-
 @test "create azure k8s secret" {
   run kubectl create secret generic secrets-store-creds --from-literal clientid=${AZURE_CLIENT_ID} --from-literal clientsecret=${AZURE_CLIENT_SECRET}
   assert_success
