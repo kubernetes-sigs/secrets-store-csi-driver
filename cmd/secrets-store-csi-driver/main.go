@@ -20,30 +20,36 @@ import (
 	"flag"
 	"os"
 
-	"github.com/golang/glog"
+	log "github.com/sirupsen/logrus"
 
 	secretsstore "github.com/deislabs/secrets-store-csi-driver/pkg/secrets-store"
 )
 
-func init() {
-	err := flag.Set("logtostderr", "true")
-	if err != nil {
-		glog.Fatalf("Failed to set flag: %v", err)
-	}
-}
-
 var (
-	endpoint   = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
-	driverName = flag.String("drivername", "secrets-store.csi.k8s.com", "name of the driver")
-	nodeID     = flag.String("nodeid", "", "node id")
+	endpoint        = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
+	driverName      = flag.String("drivername", "secrets-store.csi.k8s.com", "name of the driver")
+	nodeID          = flag.String("nodeid", "", "node id")
+	debug           = flag.Bool("debug", false, "sets log to debug level")
+	logFormatJSON   = flag.Bool("log-format-json", false, "set log formatter to json")
+	logReportCaller = flag.Bool("log-report-caller", false, "include the calling method as fields in the log")
 )
 
 func main() {
 	flag.Parse()
 
 	if os.Getenv("PROVIDERS_VOLUME_PATH") == "" {
-		glog.Fatalf("providers volume path not provided. Set PROVIDERS_VOLUME_PATH")
+		log.Fatalf("providers volume path not provided. Set PROVIDERS_VOLUME_PATH")
 	}
+
+	log.SetLevel(log.InfoLevel)
+	if *debug {
+		log.SetLevel(log.DebugLevel)
+	}
+	if *logFormatJSON {
+		log.SetFormatter(&log.JSONFormatter{})
+	}
+
+	log.SetReportCaller(*logReportCaller)
 
 	handle()
 	os.Exit(0)
