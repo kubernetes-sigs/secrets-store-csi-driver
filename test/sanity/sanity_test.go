@@ -22,16 +22,17 @@ import (
 )
 
 const (
-	mountPath = "/tmp/csi/mount"
-	stagePath = "/tmp/csi/stage"
-	socket    = "/tmp/csi.sock"
-	endpoint  = "unix://" + socket
+	mountPath          = "/tmp/csi/mount"
+	stagePath          = "/tmp/csi/stage"
+	socket             = "/tmp/csi.sock"
+	endpoint           = "unix://" + socket
+	providerVolumePath = "/etc/kubernetes/secrets-store-csi-providers"
 )
 
 func TestSanity(t *testing.T) {
 	driver := secretsstore.GetDriver()
 	go func() {
-		driver.Run("secrets-store.csi.k8s.com", "somenodeid", endpoint)
+		driver.Run("secrets-store.csi.k8s.com", "somenodeid", endpoint, providerVolumePath)
 	}()
 
 	config := &sanity.Config{
