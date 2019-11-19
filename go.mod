@@ -6,7 +6,6 @@ require (
 	github.com/container-storage-interface/spec v1.0.0
 	github.com/go-logr/zapr v0.1.1 // indirect
 	github.com/gogo/protobuf v1.2.2-0.20190723190241-65acae22fc9d // indirect
-	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/imdario/mergo v0.3.7 // indirect
 	github.com/json-iterator/go v1.1.7 // indirect
@@ -31,7 +30,6 @@ require (
 	google.golang.org/grpc v1.17.0
 	k8s.io/apimachinery v0.0.0-20190404173353-6a84e37a896d
 	k8s.io/klog v0.4.0 // indirect
-	k8s.io/kubernetes v1.13.1
-	k8s.io/utils v0.0.0-20190809000727-6c36bc71fc4a // indirect
+	k8s.io/utils v0.0.0-20191114200735-6ca3b61696b6
 	sigs.k8s.io/controller-runtime v0.2.0
 )
