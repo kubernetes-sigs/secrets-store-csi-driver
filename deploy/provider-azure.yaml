@@ -15,7 +15,7 @@ spec:
       tolerations:
       containers:
         - name: provider-azure-installer
-          image: aramase/secrets-store-csi-driver-provider-azure:v0.0.6
+          image: mcr.microsoft.com/k8s/csi/secrets-store/provider-azure:0.0.1
           imagePullPolicy: Always
           resources:
             requests:

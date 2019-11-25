@@ -13,8 +13,8 @@ rbac:
 providers:
   azure:
     enabled: false
-    repository: aramase/secrets-store-csi-driver-provider-azure
-    tag: v0.0.6
+    repository: mcr.microsoft.com/k8s/csi/secrets-store/provider-azure
+    tag: 0.0.1
     imagePullPolicy: Always
 
   vault:
