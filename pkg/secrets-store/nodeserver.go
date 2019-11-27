@@ -231,6 +231,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return nil, fmt.Errorf("error mounting secret %v", stderr.String())
 		}
 	} else {
+		// mock provider is used only for running sanity tests against the driver
 		err = mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
 		if err != nil {
 			log.Errorf("mount err: %v", err)
@@ -241,10 +242,13 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 	notMnt, err = mount.New("").IsLikelyNotMountPoint(targetPath)
 	if err != nil {
-		log.Errorf("Error checking IsLikelyNotMountPoint: %v", err)
+		log.Errorf("Error checking targetPath %s IsLikelyNotMountPoint: %v", targetPath, err)
 		return nil, err
 	}
-	log.Debugf("after MountSecretsStoreObjectContent, notMnt: %v", notMnt)
+	// this means the mount didn't succeed
+	if notMnt {
+		return nil, fmt.Errorf("after MountSecretsStoreObjectContent, notMnt: %v", notMnt)
+	}
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
@@ -260,14 +264,23 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 	targetPath := req.GetTargetPath()
 	volumeID := req.GetVolumeId()
 
+	// check if target path is mount point
+	notMnt, err := mount.New("").IsLikelyNotMountPoint(targetPath)
+	// if not mount point then no need to unmount
+	if (err != nil && os.IsNotExist(err)) || notMnt {
+		log.Infof("target path %s is not likely a mount point, notMnt %v", targetPath, notMnt)
+		return &csi.NodeUnpublishVolumeResponse{}, nil
+	}
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
 	// Unmounting the target
-	err := mount.New("").Unmount(req.GetTargetPath())
+	err = mount.New("").Unmount(targetPath)
 	if err != nil {
 		log.Errorf("error unmounting target path %s, err: %v", targetPath, err)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	log.Debugf("secrets-store: targetPath %s volumeID %s has been unmounted.", targetPath, volumeID)
-
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 

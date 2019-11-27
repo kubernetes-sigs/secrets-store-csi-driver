@@ -18,7 +18,6 @@ package main
 
 import (
 	"flag"
-	"os"
 
 	log "github.com/sirupsen/logrus"
 
@@ -49,7 +48,6 @@ func main() {
 	log.SetReportCaller(*logReportCaller)
 
 	handle()
-	os.Exit(0)
 }
 
 func handle() {
