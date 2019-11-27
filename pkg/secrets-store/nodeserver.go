@@ -249,7 +249,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if notMnt {
 		return nil, fmt.Errorf("after MountSecretsStoreObjectContent, notMnt: %v", notMnt)
 	}
-	log.Debugf("after MountSecretsStoreObjectContent, notMnt: %v", notMnt)
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
@@ -267,6 +266,7 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 
 	// check if target path is mount point
 	notMnt, err := mount.New("").IsLikelyNotMountPoint(targetPath)
+	// if not mount point then no need to unmount
 	if (err != nil && os.IsNotExist(err)) || notMnt {
 		log.Infof("target path %s is not likely a mount point, notMnt %v", targetPath, notMnt)
 		return &csi.NodeUnpublishVolumeResponse{}, nil
@@ -274,14 +274,6 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
-	// if mount point, ensure mount link is still valid
-	if !notMnt {
-		if _, err = ioutil.ReadDir(targetPath); err != nil {
-			log.Infof("secrets-store not mounted to target path %s", targetPath)
-			return &csi.NodeUnpublishVolumeResponse{}, nil
-		}
-	}
-
 	// Unmounting the target
 	err = mount.New("").Unmount(targetPath)
 	if err != nil {
