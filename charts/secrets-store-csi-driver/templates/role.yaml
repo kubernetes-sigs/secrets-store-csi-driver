@@ -7,6 +7,7 @@ metadata:
 rules:
 - apiGroups:
   - secrets-store.csi.k8s.com
+  - secrets-store.csi.x-k8s.io
   resources:
   - secretproviderclasses
   verbs:
