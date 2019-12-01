@@ -98,7 +98,7 @@ EOF
 }
 
 @test "secretproviderclasses crd is established" {
-  cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.x-k8s.io"
+  cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 
   run kubectl get crd/secretproviderclasses.secrets-store.csi.x-k8s.io
