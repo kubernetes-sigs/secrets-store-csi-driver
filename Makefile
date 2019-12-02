@@ -30,7 +30,7 @@ HAS_GOLANGCI := $(shell command -v golangci-lint;)
 all: build
 
 test: test-style
-	go test $(GO_FILES) -v -cover
+	go test $(GO_FILES) -v
 	go vet $(GO_FILES)
 test-style: setup
 	@echo "==> Running static validations and linters <=="

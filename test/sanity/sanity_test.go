@@ -32,7 +32,7 @@ const (
 func TestSanity(t *testing.T) {
 	driver := secretsstore.GetDriver()
 	go func() {
-		driver.Run("secrets-store.csi.k8s.com", "somenodeid", endpoint, providerVolumePath)
+		driver.Run("secrets-store.csi.k8s.com", "somenodeid", endpoint, providerVolumePath, "")
 	}()
 
 	config := &sanity.Config{

@@ -28,6 +28,7 @@ import (
 	"github.com/spf13/cast"
 
 	csicommon "github.com/deislabs/secrets-store-csi-driver/pkg/csi-common"
+	version "github.com/deislabs/secrets-store-csi-driver/pkg/version"
 
 	log "github.com/sirupsen/logrus"
 
@@ -46,7 +47,8 @@ import (
 
 type nodeServer struct {
 	*csicommon.DefaultNodeServer
-	providerVolumePath string
+	providerVolumePath  string
+	minProviderVersions map[string]string
 }
 
 const (
@@ -203,6 +205,18 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 		log.Infof("Calling provider: %s", providerName)
 		providerBinary := fmt.Sprintf("%s/%s/provider-%s", providerVolumePath, providerName, providerName)
+
+		// check if provider is compatible with driver
+		if v, exists := ns.minProviderVersions[providerName]; exists {
+			providerCompatible, err := version.IsProviderCompatible(providerBinary, v)
+			if err != nil {
+				return nil, err
+			}
+			if !providerCompatible {
+				return nil, fmt.Errorf("Minimum supported %s provider version with current driver is %s", providerName, v)
+			}
+		}
+
 		args := []string{
 			"--attributes", string(parametersStr),
 			"--secrets", string(secretStr),
