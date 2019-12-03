@@ -14,6 +14,7 @@ limitations under the License.
 package version
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -65,12 +66,18 @@ func GetMinimumProviderVersions(minProviderVersions string) map[string]string {
 }
 
 func getProviderVersion(providerName string) (string, error) {
-	out, err := exec.Command(providerName, "--version").CombinedOutput()
+	cmd := exec.Command(providerName, "--version")
+
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd.Stderr, cmd.Stdout = stderr, stdout
+
+	err := cmd.Run()
 	if err != nil {
-		return "", fmt.Errorf("error getting current provider version for %s, err: %v", providerName, err)
+		return "", fmt.Errorf("error getting current provider version for %s, err: %v, output: %v", providerName, err, stderr.String())
 	}
 	var pv providerVersion
-	if err := json.Unmarshal(out, &pv); err != nil {
+	if err := json.Unmarshal(stdout.Bytes(), &pv); err != nil {
 		return "", fmt.Errorf("error unmarshalling provider version %v", err)
 	}
 
