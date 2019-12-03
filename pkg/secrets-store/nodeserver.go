@@ -109,7 +109,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		parameters = attrib
 	} else {
 		secretProviderClassGvk := schema.GroupVersionKind{
-			Group:   "secrets-store.csi.k8s.com",
+			Group:   "secrets-store.csi.x-k8s.io",
 			Version: "v1alpha1",
 			Kind:    "SecretProviderClassList",
 		}

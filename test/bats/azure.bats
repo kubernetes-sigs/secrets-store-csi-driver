@@ -55,20 +55,20 @@ setup() {
 }
 
 @test "secretproviderclasses crd is established" {
-  cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.k8s.com"
+  cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 
-  run kubectl get crd/secretproviderclasses.secrets-store.csi.k8s.com
+  run kubectl get crd/secretproviderclasses.secrets-store.csi.x-k8s.io
   assert_success
 }
 
 @test "deploy azure secretproviderclass crd" {
   envsubst < $BATS_TESTS_DIR/azure_v1alpha1_secretproviderclass.yaml | kubectl apply -f -
 
-  cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.k8s.com"
+  cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 
-  cmd="kubectl get secretproviderclasses.secrets-store.csi.k8s.com/azure -o yaml | grep azure"
+  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure -o yaml | grep azure"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 }
 
