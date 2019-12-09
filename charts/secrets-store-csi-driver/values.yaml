@@ -1,9 +1,10 @@
 image:
   repository: docker.io/deislabs/secrets-store-csi
-  tag: v0.0.6
+  tag: v0.0.7
   pullPolicy: Always
 
-logLevel: 
+logLevel:
+  debug: true
 
 ## Install Default RBAC roles and bindings
 rbac:
@@ -14,11 +15,11 @@ providers:
   azure:
     enabled: false
     repository: mcr.microsoft.com/k8s/csi/secrets-store/provider-azure
-    tag: 0.0.1
+    tag: 0.0.2
     imagePullPolicy: Always
 
   vault:
     enabled: false
     repository: hashicorp/secrets-store-csi-driver-provider-vault
-    tag: 0.0.2
+    tag: 0.0.3
     imagePullPolicy: Always

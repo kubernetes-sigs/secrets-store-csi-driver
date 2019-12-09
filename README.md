@@ -96,41 +96,39 @@ STATUS: DEPLOYED
 RESOURCES:
 ==> v1/ClusterRole
 NAME                        AGE
-secretproviderclasses-role  3s
+secretproviderclasses-role  1s
 
 ==> v1/ClusterRoleBinding
 NAME                               AGE
-secretproviderclasses-rolebinding  3s
+secretproviderclasses-rolebinding  0s
 
 ==> v1/DaemonSet
-NAME                                        DESIRED  CURRENT  READY  UP-TO-DATE  AVAILABLE  NODE SELECTOR  AGE
-csi-secrets-store-secrets-store-csi-driver  2        2        0      2           0          <none>         3s
+NAME                                        AGE
+csi-secrets-store-provider-azure            0s
+csi-secrets-store-provider-vault            0s
+csi-secrets-store-secrets-store-csi-driver  0s
 
 ==> v1/Pod(related)
-NAME                                              READY  STATUS             RESTARTS  AGE
-csi-secrets-store-provider-azure-ckctw            0/2    ContainerCreating  0         3s
-csi-secrets-store-provider-azure-sj7wm            0/2    ContainerCreating  0         3s
-csi-secrets-store-provider-vault-8wr27            0/2    ContainerCreating  0         3s
-csi-secrets-store-provider-vault-dtvt5            0/2    ContainerCreating  0         3s
-csi-secrets-store-secrets-store-csi-driver-ct9kt  0/2    ContainerCreating  0         3s
-csi-secrets-store-secrets-store-csi-driver-qfspv  0/2    ContainerCreating  0         3s
+NAME                                              AGE
+csi-secrets-store-provider-azure-9rrg9            0s
+csi-secrets-store-provider-azure-xmtm7            0s
+csi-secrets-store-provider-vault-29bms            0s
+csi-secrets-store-provider-vault-lmtxz            0s
+csi-secrets-store-secrets-store-csi-driver-hb8gb  0s
+csi-secrets-store-secrets-store-csi-driver-rk7hg  0s
 
 ==> v1/ServiceAccount
-NAME                      SECRETS  AGE
-secrets-store-csi-driver  1        4s
+NAME                      AGE
+secrets-store-csi-driver  1s
 
 ==> v1beta1/CSIDriver
 NAME                       AGE
-secrets-store.csi.k8s.com  3s
+secrets-store.csi.k8s.com  0s
 
 ==> v1beta1/CustomResourceDefinition
-NAME                                             AGE
-secretproviderclasses.secrets-store.csi.k8s.com  3s
-
-==> v1beta1/DaemonSet
-NAME                              DESIRED  CURRENT  READY  UP-TO-DATE  AVAILABLE  NODE SELECTOR                AGE
-csi-secrets-store-provider-azure  2        2        0      2           0          beta.kubernetes.io/os=linux  3s
-csi-secrets-store-provider-vault  2        2        0      2           0          beta.kubernetes.io/os=linux  3s
+NAME                                              AGE
+secretproviderclasses.secrets-store.csi.k8s.com   1s
+secretproviderclasses.secrets-store.csi.x-k8s.io  1s
 
 
 NOTES:
@@ -303,13 +301,6 @@ End-to-end tests automatically runs on Travis CI when a PR is submitted. If you 
   # find the secrets store csi driver pod running on the same node as your application pod
 
   kubectl logs csi-secrets-store-secrets-store-csi-driver-7x44t secrets-store
-  ```
-- To troubleshoot issues with the provider component, you can look at logs from the `provider-log` container of the provider pod running on the same node as your application pod:
-  ```bash
-  kubectl get pod -o wide
-  # find the secrets store csi provider pod running on the same node as your application pod
-
-  kubectl logs csi-secrets-store-provider-azure-64bq7 provider-log
   ```
 
 ## Code of conduct
