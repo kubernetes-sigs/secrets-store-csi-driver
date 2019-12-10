@@ -127,7 +127,6 @@ secrets-store.csi.k8s.com  0s
 
 ==> v1beta1/CustomResourceDefinition
 NAME                                              AGE
-secretproviderclasses.secrets-store.csi.k8s.com   1s
 secretproviderclasses.secrets-store.csi.x-k8s.io  1s
 
 
@@ -158,7 +157,7 @@ kubectl apply -f manifest.yml
 ```bash
 kubectl apply -f deploy/rbac-secretproviderclass.yaml # update the namespace of the secrets-store-csi-driver ServiceAccount
 kubectl apply -f deploy/csidriver.yaml
-kubectl apply -f deploy/secrets-store.csi.k8s.com_secretproviderclasses.yaml
+kubectl apply -f deploy/secrets-store.csi.x-k8s.io_secretproviderclasses.yaml
 kubectl apply -f deploy/secrets-store-csi-driver.yaml
 # [REQUIRED FOR AZURE PROVIDER] Deploy Azure provider specific resources
 kubectl apply -f deploy/provider-azure.yaml
@@ -186,7 +185,7 @@ You should see the following CRDs deployed:
 kubectl get crd
 NAME                                               
 csidrivers.csi.storage.k8s.io                      
-secretproviderclasses.secrets-store.csi.k8s.com    
+secretproviderclasses.secrets-store.csi.x-k8s.io    
 ```
 
 You should see the following pods deployed for the provider(s) you selected. For example, for the Azure Key Vault provider:
@@ -204,7 +203,7 @@ csi-secrets-store-provider-azure-sxht2             2/2     Running   0          
 1. Create a `secretproviderclasses` resource to provide provider-specific parameters for the Secrets Store CSI driver. Follow [specific deployment steps](#providers) for the selected provider to update all required fields [see example secretproviderclass](pkg/providers/azure/examples/v1alpha1_secretproviderclass.yaml).
 
       ```yaml
-      apiVersion: secrets-store.csi.k8s.com/v1alpha1
+      apiVersion: secrets-store.csi.x-k8s.io/v1alpha1
       kind: SecretProviderClass
       metadata:
         name: azure-kvname
