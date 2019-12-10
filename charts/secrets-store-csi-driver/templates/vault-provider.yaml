@@ -35,24 +35,10 @@ spec:
           volumeMounts:
             - mountPath: "/etc/kubernetes/secrets-store-csi-providers"
               name: providervol
-        - name: provider-log
-          image: busybox
-          imagePullPolicy: IfNotPresent
-          args: [/bin/sh, -c, 'tail -n+1 -f /var/log/vault-provider.log']
-          volumeMounts:
-            - mountPath: "/var/log/vault-provider.log"
-              name: providerlog
-          env:
-            - name: PROVIDER_LOG_FILE
-              value: "/var/log/vault-provider.log"
       volumes:
         - name: providervol
           hostPath:
               path: "/etc/kubernetes/secrets-store-csi-providers"
-        - name: providerlog
-          hostPath:
-            path: "/var/log/vault-provider.log"
-            type: FileOrCreate
       nodeSelector:
         beta.kubernetes.io/os: linux
 {{- end }}
