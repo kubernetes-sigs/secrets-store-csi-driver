@@ -39,12 +39,17 @@ func GetDriver() *SecretsStore {
 	return &SecretsStore{}
 }
 
-func newNodeServer(d *csicommon.CSIDriver, providerVolumePath, minProviderVersions string) *nodeServer {
+func newNodeServer(d *csicommon.CSIDriver, providerVolumePath, minProviderVersions string) (*nodeServer, error) {
+	// get a map of provider and compatible version
+	minProviderVersionsMap, err := version.GetMinimumProviderVersions(minProviderVersions)
+	if err != nil {
+		return nil, err
+	}
 	return &nodeServer{
 		DefaultNodeServer:   csicommon.NewDefaultNodeServer(d),
 		providerVolumePath:  providerVolumePath,
-		minProviderVersions: version.GetMinimumProviderVersions(minProviderVersions),
-	}
+		minProviderVersions: minProviderVersionsMap,
+	}, nil
 }
 
 func newControllerServer(d *csicommon.CSIDriver) *controllerServer {
@@ -74,7 +79,11 @@ func (s *SecretsStore) Run(driverName, nodeID, endpoint, providerVolumePath, min
 		csi.VolumeCapability_AccessMode_MULTI_NODE_READER_ONLY,
 	})
 
-	s.ns = newNodeServer(s.driver, providerVolumePath, minProviderVersions)
+	ns, err := newNodeServer(s.driver, providerVolumePath, minProviderVersions)
+	if err != nil {
+		log.Fatalf("failed to initialize node server, error: %+v", err)
+	}
+	s.ns = ns
 	s.cs = newControllerServer(s.driver)
 
 	server := csicommon.NewNonBlockingGRPCServer()

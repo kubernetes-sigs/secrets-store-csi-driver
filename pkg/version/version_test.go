@@ -23,37 +23,58 @@ func TestGetMinimumProviderVersions(t *testing.T) {
 		desc                string
 		minProviderVersions string
 		expectedMap         map[string]string
+		expectedErr         bool
 	}{
 		{
 			desc:                "no min provider version provided",
 			minProviderVersions: "",
 			expectedMap:         make(map[string]string),
+			expectedErr:         false,
+		},
+		{
+			desc:                "using ; instead of , as delimiter",
+			minProviderVersions: "provider1=0.0.2;provider2=0.0.4",
+			expectedMap:         make(map[string]string),
+			expectedErr:         true,
+		},
+		{
+			desc:                "provider version bad format",
+			minProviderVersions: "provider1:0.0.2,provider2=0.0.4",
+			expectedMap:         make(map[string]string),
+			expectedErr:         true,
 		},
 		{
 			desc:                "single min provider version provided",
 			minProviderVersions: "provider1=0.0.2",
 			expectedMap:         map[string]string{"provider1": "0.0.2"},
+			expectedErr:         false,
 		},
 		{
 			desc:                "more than one provider version provided",
 			minProviderVersions: "provider1=0.0.2,provider2=0.0.4",
 			expectedMap:         map[string]string{"provider1": "0.0.2", "provider2": "0.0.4"},
+			expectedErr:         false,
 		},
 		{
 			desc:                "white space in min provider versions",
 			minProviderVersions: "provider1=0.0.2, provider2=0.0.4",
 			expectedMap:         map[string]string{"provider1": "0.0.2", "provider2": "0.0.4"},
+			expectedErr:         false,
 		},
 		{
 			desc:                "more white space in min provider versions",
 			minProviderVersions: "provider1=0.0.2 , provider2=0.0.4",
 			expectedMap:         map[string]string{"provider1": "0.0.2", "provider2": "0.0.4"},
+			expectedErr:         false,
 		},
 	}
 
 	for i, tc := range cases {
 		t.Log(i, tc.desc)
-		actualMap := GetMinimumProviderVersions(tc.minProviderVersions)
+		actualMap, err := GetMinimumProviderVersions(tc.minProviderVersions)
+		if (err != nil) != tc.expectedErr {
+			t.Fatalf("expected error: %v, actual: %v", tc.expectedErr, err)
+		}
 		if !reflect.DeepEqual(tc.expectedMap, actualMap) {
 			t.Fatalf("expected: %v, actual: %v", tc.expectedMap, actualMap)
 		}
@@ -72,6 +93,13 @@ func TestIsProviderCompatible(t *testing.T) {
 			desc:        "empty version",
 			currVersion: "",
 			minVersion:  "0.0.4",
+			expected:    false,
+			expectedErr: true,
+		},
+		{
+			desc:        "invalid version semver",
+			currVersion: "v0.0.2",
+			minVersion:  "v0.0.4",
 			expected:    false,
 			expectedErr: true,
 		},

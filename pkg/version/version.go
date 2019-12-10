@@ -26,9 +26,12 @@ import (
 
 // providerVersion holds current provider version
 type providerVersion struct {
+	// Version is the current provider version
 	Version string `json:"version"`
-	Date    string `json:"date"`
+	// BuildDate is the date provider binary was built
+	BuildDate string `json:"buildDate"`
 	// MinDriverVersion is minimum driver version the provider works with
+	// this can be used later for bidirectional compatibility checks between driver-provider
 	MinDriverVersion string `json:"minDriverVersion"`
 }
 
@@ -45,24 +48,29 @@ func IsProviderCompatible(provider string, minProviderVersion string) (bool, err
 
 // GetMinimumProviderVersions creates a map with provider name and minimum version
 // supported with this driver.
-func GetMinimumProviderVersions(minProviderVersions string) map[string]string {
+func GetMinimumProviderVersions(minProviderVersions string) (map[string]string, error) {
 	providerVersionMap := make(map[string]string)
 
 	if minProviderVersions == "" {
-		return providerVersionMap
+		return providerVersionMap, nil
 	}
 
+	// splitting on , delimiter will result in array of provider=value string
 	providers := strings.Split(minProviderVersions, ",")
 	for _, provider := range providers {
 		provider = strings.TrimSpace(provider)
 
 		pv := strings.Split(provider, "=")
+		// validate its expected format provider=version
+		if len(pv) != 2 || len(pv[0]) == 0 || len(pv[1]) == 0 {
+			return providerVersionMap, fmt.Errorf("min provider version not defined in expected format, got %+v", pv)
+		}
 
 		providerVersionMap[strings.TrimSpace(pv[0])] = strings.TrimSpace(pv[1])
 	}
 
 	log.Debugf("Minimum supported provider versions: %v", providerVersionMap)
-	return providerVersionMap
+	return providerVersionMap, nil
 }
 
 func getProviderVersion(providerName string) (string, error) {
@@ -81,7 +89,7 @@ func getProviderVersion(providerName string) (string, error) {
 		return "", fmt.Errorf("error unmarshalling provider version %v", err)
 	}
 
-	log.Debugf("provider: %s, version %s, build date: %s", providerName, pv.Version, pv.Date)
+	log.Debugf("provider: %s, version %s, build date: %s", providerName, pv.Version, pv.BuildDate)
 	return pv.Version, nil
 }
 
