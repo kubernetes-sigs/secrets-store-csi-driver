@@ -57,16 +57,31 @@ func GetMinimumProviderVersions(minProviderVersions string) (map[string]string, 
 
 	// splitting on , delimiter will result in array of provider=value string
 	providers := strings.Split(minProviderVersions, ",")
-	for _, provider := range providers {
-		provider = strings.TrimSpace(provider)
+	for _, p := range providers {
+		p = strings.TrimSpace(p)
+		pv := strings.Split(p, "=")
 
-		pv := strings.Split(provider, "=")
-		// validate its expected format provider=version
-		if len(pv) != 2 || len(pv[0]) == 0 || len(pv[1]) == 0 {
+		if len(pv) != 2 {
 			return providerVersionMap, fmt.Errorf("min provider version not defined in expected format, got %+v", pv)
 		}
 
-		providerVersionMap[strings.TrimSpace(pv[0])] = strings.TrimSpace(pv[1])
+		provider := strings.TrimSpace(pv[0])
+		version := strings.TrimSpace(pv[1])
+
+		// check if in expected format provider=version
+		if len(provider) == 0 || len(version) == 0 {
+			return providerVersionMap, fmt.Errorf("min provider version not defined in expected format provider=version, got provider %s version %s", provider, version)
+		}
+		// check if duplicate provider name
+		if v, exists := providerVersionMap[provider]; exists {
+			return providerVersionMap, fmt.Errorf("duplicate versions defined for %s provider, versions: [%s, %s]", provider, v, version)
+		}
+		// check if provided version is a valid semver
+		if err := isValidSemver(version); err != nil {
+			return providerVersionMap, fmt.Errorf("minimum %s provider version %s is not a valid semver, error %+v", provider, version, err)
+		}
+
+		providerVersionMap[provider] = version
 	}
 
 	log.Debugf("Minimum supported provider versions: %v", providerVersionMap)
@@ -103,4 +118,9 @@ func isProviderCompatible(currVersion, minVersion string) (bool, error) {
 		return false, err
 	}
 	return currV.Compare(minV) >= 0, nil
+}
+
+func isValidSemver(version string) error {
+	_, err := semver.Make(version)
+	return err
 }

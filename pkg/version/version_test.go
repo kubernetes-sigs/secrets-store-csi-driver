@@ -38,8 +38,32 @@ func TestGetMinimumProviderVersions(t *testing.T) {
 			expectedErr:         true,
 		},
 		{
+			desc:                "invalid provider version",
+			minProviderVersions: " = ",
+			expectedMap:         make(map[string]string),
+			expectedErr:         true,
+		},
+		{
+			desc:                "invalid provider version(2)",
+			minProviderVersions: "provider1=0.0.2,provider2= ",
+			expectedMap:         map[string]string{"provider1": "0.0.2"},
+			expectedErr:         true,
+		},
+		{
 			desc:                "provider version bad format",
 			minProviderVersions: "provider1:0.0.2,provider2=0.0.4",
+			expectedMap:         make(map[string]string),
+			expectedErr:         true,
+		},
+		{
+			desc:                "duplicate provider version",
+			minProviderVersions: "provider1=0.0.2,provider1=0.0.4",
+			expectedMap:         map[string]string{"provider1": "0.0.2"},
+			expectedErr:         true,
+		},
+		{
+			desc:                "invalid semver",
+			minProviderVersions: "provider1=v0.0.2",
 			expectedMap:         make(map[string]string),
 			expectedErr:         true,
 		},
@@ -64,6 +88,12 @@ func TestGetMinimumProviderVersions(t *testing.T) {
 		{
 			desc:                "more white space in min provider versions",
 			minProviderVersions: "provider1=0.0.2 , provider2=0.0.4",
+			expectedMap:         map[string]string{"provider1": "0.0.2", "provider2": "0.0.4"},
+			expectedErr:         false,
+		},
+		{
+			desc:                "more white space in min provider versions(2)",
+			minProviderVersions: "provider1 = 0.0.2 , provider2  =  0.0.4",
 			expectedMap:         map[string]string{"provider1": "0.0.2", "provider2": "0.0.4"},
 			expectedErr:         false,
 		},
