@@ -43,7 +43,8 @@ func IsProviderCompatible(provider string, minProviderVersion string) (bool, err
 	if err != nil {
 		return false, err
 	}
-	return isProviderCompatible(currProviderVersion, minProviderVersion)
+	// check with normalized versions
+	return isProviderCompatible(normalizeVersion(currProviderVersion), normalizeVersion(minProviderVersion))
 }
 
 // GetMinimumProviderVersions creates a map with provider name and minimum version
@@ -123,4 +124,11 @@ func isProviderCompatible(currVersion, minVersion string) (bool, error) {
 func isValidSemver(version string) error {
 	_, err := semver.Make(version)
 	return err
+}
+
+func normalizeVersion(version string) string {
+	// driver currently uses prefix in version
+	// no checks are currently performed using driver version, but
+	// will be done in the future for bi-directional version validation.
+	return strings.TrimPrefix(version, "v")
 }

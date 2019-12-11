@@ -63,7 +63,7 @@ func TestGetMinimumProviderVersions(t *testing.T) {
 		},
 		{
 			desc:                "invalid semver",
-			minProviderVersions: "provider1=v0.0.2",
+			minProviderVersions: "provider1=.2",
 			expectedMap:         make(map[string]string),
 			expectedErr:         true,
 		},
