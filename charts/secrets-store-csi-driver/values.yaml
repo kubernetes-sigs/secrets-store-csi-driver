@@ -15,7 +15,7 @@ providers:
   azure:
     enabled: false
     repository: mcr.microsoft.com/k8s/csi/secrets-store/provider-azure
-    tag: 0.0.2
+    tag: 0.0.3
     imagePullPolicy: Always
 
   vault:
