@@ -15,11 +15,11 @@ providers:
   azure:
     enabled: false
     repository: mcr.microsoft.com/k8s/csi/secrets-store/provider-azure
-    tag: 0.0.2
+    tag: 0.0.3
     imagePullPolicy: Always
 
   vault:
     enabled: false
     repository: hashicorp/secrets-store-csi-driver-provider-vault
-    tag: 0.0.3
+    tag: 0.0.4
     imagePullPolicy: Always
