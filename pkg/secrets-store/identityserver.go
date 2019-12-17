@@ -17,9 +17,9 @@ limitations under the License.
 package secretsstore
 
 import (
-	"context"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	csicommon "github.com/deislabs/secrets-store-csi-driver/pkg/csi-common"
+	"golang.org/x/net/context"
 
 	wrappers "github.com/golang/protobuf/ptypes/wrappers"
 )
