@@ -3,6 +3,7 @@ module github.com/deislabs/secrets-store-csi-driver
 go 1.12
 
 require (
+	github.com/blang/semver v3.5.1+incompatible
 	github.com/container-storage-interface/spec v1.0.0
 	github.com/go-logr/zapr v0.1.1 // indirect
 	github.com/gogo/protobuf v1.2.2-0.20190723190241-65acae22fc9d // indirect
@@ -25,7 +26,7 @@ require (
 	golang.org/x/sys v0.0.0-20190616124812-15dcb6c0061f // indirect
 	golang.org/x/text v0.3.2 // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
-	google.golang.org/appengine v1.5.0 // indirect
+	google.golang.org/appengine v1.5.0
 	google.golang.org/genproto v0.0.0-20181221175505-bd9b4fb69e2f // indirect
 	google.golang.org/grpc v1.17.0
 	k8s.io/apimachinery v0.0.0-20190404173353-6a84e37a896d

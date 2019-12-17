@@ -17,9 +17,12 @@ limitations under the License.
 package secretsstore
 
 import (
+	"fmt"
+
 	"github.com/container-storage-interface/spec/lib/go/csi"
 
 	csicommon "github.com/deislabs/secrets-store-csi-driver/pkg/csi-common"
+	version "github.com/deislabs/secrets-store-csi-driver/pkg/version"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -38,11 +41,20 @@ func GetDriver() *SecretsStore {
 	return &SecretsStore{}
 }
 
-func newNodeServer(d *csicommon.CSIDriver, providerVolumePath string) *nodeServer {
-	return &nodeServer{
-		DefaultNodeServer:  csicommon.NewDefaultNodeServer(d),
-		providerVolumePath: providerVolumePath,
+func newNodeServer(d *csicommon.CSIDriver, providerVolumePath, minProviderVersions string) (*nodeServer, error) {
+	// get a map of provider and compatible version
+	minProviderVersionsMap, err := version.GetMinimumProviderVersions(minProviderVersions)
+	if err != nil {
+		return nil, err
 	}
+	if len(minProviderVersionsMap) == 0 {
+		return nil, fmt.Errorf("minimum compatible provider versions not specified with --min-provider-version")
+	}
+	return &nodeServer{
+		DefaultNodeServer:   csicommon.NewDefaultNodeServer(d),
+		providerVolumePath:  providerVolumePath,
+		minProviderVersions: minProviderVersionsMap,
+	}, nil
 }
 
 func newControllerServer(d *csicommon.CSIDriver) *controllerServer {
@@ -52,10 +64,11 @@ func newControllerServer(d *csicommon.CSIDriver) *controllerServer {
 	}
 }
 
-func (s *SecretsStore) Run(driverName, nodeID, endpoint, providerVolumePath string) {
+func (s *SecretsStore) Run(driverName, nodeID, endpoint, providerVolumePath, minProviderVersions string) {
 	log.Infof("Driver: %v ", driverName)
 	log.Infof("Version: %s", vendorVersion)
 	log.Infof("Provider Volume Path: %s", providerVolumePath)
+	log.Infof("Minimum provider versions: %s", minProviderVersions)
 
 	// Initialize default library driver
 	s.driver = csicommon.NewCSIDriver(driverName, vendorVersion, nodeID)
@@ -71,7 +84,11 @@ func (s *SecretsStore) Run(driverName, nodeID, endpoint, providerVolumePath stri
 		csi.VolumeCapability_AccessMode_MULTI_NODE_READER_ONLY,
 	})
 
-	s.ns = newNodeServer(s.driver, providerVolumePath)
+	ns, err := newNodeServer(s.driver, providerVolumePath, minProviderVersions)
+	if err != nil {
+		log.Fatalf("failed to initialize node server, error: %+v", err)
+	}
+	s.ns = ns
 	s.cs = newControllerServer(s.driver)
 
 	server := csicommon.NewNonBlockingGRPCServer()

@@ -5,7 +5,7 @@ load helpers
 BATS_TESTS_DIR=test/bats/tests
 WAIT_TIME=60
 SLEEP_TIME=1
-IMAGE_TAG=e2e-$(git rev-parse --short HEAD)
+IMAGE_TAG=v0.0.8-e2e-$(git rev-parse --short HEAD)
 
 export SECRET_NAME=secret1
 export KEY_NAME=key1

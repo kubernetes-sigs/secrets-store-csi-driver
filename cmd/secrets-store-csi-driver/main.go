@@ -32,6 +32,7 @@ var (
 	logFormatJSON      = flag.Bool("log-format-json", false, "set log formatter to json")
 	logReportCaller    = flag.Bool("log-report-caller", false, "include the calling method as fields in the log")
 	providerVolumePath = flag.String("provider-volume", "/etc/kubernetes/secrets-store-csi-providers", "Volume path for provider")
+	minProviderVersion = flag.String("min-provider-version", "", "set minimum supported provider versions with current driver")
 )
 
 func main() {
@@ -52,5 +53,5 @@ func main() {
 
 func handle() {
 	driver := secretsstore.GetDriver()
-	driver.Run(*driverName, *nodeID, *endpoint, *providerVolumePath)
+	driver.Run(*driverName, *nodeID, *endpoint, *providerVolumePath, *minProviderVersion)
 }

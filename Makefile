@@ -30,7 +30,7 @@ HAS_GOLANGCI := $(shell command -v golangci-lint;)
 all: build
 
 test: test-style
-	go test $(GO_FILES) -v -cover
+	go test $(GO_FILES) -v
 	go vet $(GO_FILES)
 test-style: setup
 	@echo "==> Running static validations and linters <=="
@@ -64,6 +64,7 @@ mod:
 KIND_VERSION ?= 0.5.1
 KUBERNETES_VERSION ?= 1.15.3
 VAULT_VERSION ?= 1.2.2
+E2E_IMAGE_VERSION = v0.0.8-e2e-$$(git rev-parse --short HEAD)
 
 .PHONY: e2e-bootstrap
 e2e-bootstrap:
@@ -78,9 +79,9 @@ e2e-bootstrap:
 	# Create kind cluster
 	kind create cluster --config kind-config.yaml --image kindest/node:v${KUBERNETES_VERSION}
 	# Build image
-	REGISTRY_NAME="e2e" IMAGE_VERSION=e2e-$$(git rev-parse --short HEAD) make image
+	REGISTRY_NAME="e2e" IMAGE_VERSION=${E2E_IMAGE_VERSION} make image
 	# Load image into kind cluster
-	kind load docker-image --name kind e2e/secrets-store-csi:e2e-$$(git rev-parse --short HEAD)
+	kind load docker-image --name kind e2e/secrets-store-csi:${E2E_IMAGE_VERSION}
 	# Set up tiller
 	kubectl --namespace kube-system --output yaml create serviceaccount tiller --dry-run | kubectl --kubeconfig $$(kind get kubeconfig-path)  apply -f -
 	kubectl create --output yaml clusterrolebinding tiller-cluster-rule --clusterrole=cluster-admin --serviceaccount=kube-system:tiller --dry-run | kubectl --kubeconfig $$(kind get kubeconfig-path) apply -f -
