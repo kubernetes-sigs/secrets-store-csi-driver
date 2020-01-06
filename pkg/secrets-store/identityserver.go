@@ -29,9 +29,9 @@ type identityServer struct {
 }
 
 // Probe check whether the plugin is running or not.
-// This method does not need to return anything.
-// Currently the spec does not dictate what you should return either.
-// Hence, return an empty response
+// Currently the spec does not dictate what you should return.
+// Returning ready=true as ability to connect to the driver and make Probe RPC call
+// means driver is working as expected.
 func (ids *identityServer) Probe(ctx context.Context, req *csi.ProbeRequest) (*csi.ProbeResponse, error) {
 	return &csi.ProbeResponse{Ready: &wrappers.BoolValue{Value: true}}, nil
 }
