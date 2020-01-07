@@ -6,6 +6,9 @@ image:
 logLevel:
   debug: true
 
+livenessProbe:
+  port: 9808
+
 ## Install Default RBAC roles and bindings
 rbac:
   install: true

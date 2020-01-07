@@ -27,16 +27,20 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// SecretsStore implements the IdentityServer, ControllerServer and
+// NodeServer CSI interfaces.
 type SecretsStore struct {
 	driver *csicommon.CSIDriver
 	ns     *nodeServer
 	cs     *controllerServer
+	ids    *identityServer
 }
 
 var (
-	vendorVersion = "0.0.3"
+	vendorVersion = "0.0.7"
 )
 
+// GetDriver returns a new secrets store driver
 func GetDriver() *SecretsStore {
 	return &SecretsStore{}
 }
@@ -64,6 +68,13 @@ func newControllerServer(d *csicommon.CSIDriver) *controllerServer {
 	}
 }
 
+func newIdentityServer(d *csicommon.CSIDriver) *identityServer {
+	return &identityServer{
+		DefaultIdentityServer: csicommon.NewDefaultIdentityServer(d),
+	}
+}
+
+// Run starts the CSI plugin
 func (s *SecretsStore) Run(driverName, nodeID, endpoint, providerVolumePath, minProviderVersions string) {
 	log.Infof("Driver: %v ", driverName)
 	log.Infof("Version: %s", vendorVersion)
@@ -90,8 +101,9 @@ func (s *SecretsStore) Run(driverName, nodeID, endpoint, providerVolumePath, min
 	}
 	s.ns = ns
 	s.cs = newControllerServer(s.driver)
+	s.ids = newIdentityServer(s.driver)
 
 	server := csicommon.NewNonBlockingGRPCServer()
-	server.Start(endpoint, csicommon.NewDefaultIdentityServer(s.driver), s.cs, s.ns)
+	server.Start(endpoint, s.ids, s.cs, s.ns)
 	server.Wait()
 }
