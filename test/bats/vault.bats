@@ -6,6 +6,7 @@ BATS_TESTS_DIR=test/bats/tests
 WAIT_TIME=60
 SLEEP_TIME=1
 IMAGE_TAG=v0.0.8-e2e-$(git rev-parse --short HEAD)
+PROVIDER_YAML=https://raw.githubusercontent.com/hashicorp/secrets-store-csi-driver-provider-vault/master/deployment/provider-vault-installer.yaml
 
 @test "install helm chart with e2e image" {
   run helm install charts/secrets-store-csi-driver -n csi-secrets-store --namespace dev \
@@ -16,7 +17,7 @@ IMAGE_TAG=v0.0.8-e2e-$(git rev-parse --short HEAD)
 }
 
 @test "install vault provider" {
-  run kubectl apply -f $BATS_TESTS_DIR/provider-vault.yaml
+  run kubectl apply -f $PROVIDER_YAML
   assert_success
 
   VAULT_PROVIDER_POD=$(kubectl get pod -l app=csi-secrets-store-provider-vault -o jsonpath="{.items[0].metadata.name}")

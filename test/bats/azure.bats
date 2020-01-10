@@ -6,6 +6,7 @@ BATS_TESTS_DIR=test/bats/tests
 WAIT_TIME=60
 SLEEP_TIME=1
 IMAGE_TAG=v0.0.8-e2e-$(git rev-parse --short HEAD)
+PROVIDER_YAML=https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/deployment/provider-azure-installer.yaml
 
 export SECRET_NAME=secret1
 export KEY_NAME=key1
@@ -28,7 +29,7 @@ setup() {
 }
 
 @test "install azure provider" {
-  run kubectl apply -f $BATS_TESTS_DIR/provider-azure.yaml
+  run kubectl apply -f $PROVIDER_YAML
   assert_success
 
   AZURE_PROVIDER_POD=$(kubectl get pod -l app=csi-secrets-store-provider-azure -o jsonpath="{.items[0].metadata.name}")
