@@ -1,6 +1,6 @@
 name: secrets-store-csi-driver
-version: 0.0.7
-appVersion: 0.0.7
+version: 0.0.8
+appVersion: 0.0.8
 kubeVersion: ">=1.15.0-0"
 description: A Helm chart to install the SecretsStore CSI Driver inside a Kubernetes cluster.
 icon: https://github.com/kubernetes/kubernetes/blob/master/logo/logo.png

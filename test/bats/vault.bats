@@ -11,8 +11,19 @@ IMAGE_TAG=v0.0.8-e2e-$(git rev-parse --short HEAD)
   run helm install charts/secrets-store-csi-driver -n csi-secrets-store --namespace dev \
           --set image.pullPolicy="IfNotPresent" \
           --set image.repository="e2e/secrets-store-csi" \
-          --set image.tag=$IMAGE_TAG \
-          --set providers.vault.enabled=true
+          --set image.tag=$IMAGE_TAG
+  assert_success
+}
+
+@test "install vault provider" {
+  run kubectl apply -f $BATS_TESTS_DIR/provider-vault.yaml
+  assert_success
+
+  VAULT_PROVIDER_POD=$(kubectl get pod -l app=csi-secrets-store-provider-vault -o jsonpath="{.items[0].metadata.name}")
+  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/$VAULT_PROVIDER_POD"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  run kubectl get pod/$VAULT_PROVIDER_POD
   assert_success
 }
 

@@ -23,8 +23,19 @@ setup() {
   run helm install charts/secrets-store-csi-driver -n csi-secrets-store --namespace dev \
           --set image.pullPolicy="IfNotPresent" \
           --set image.repository="e2e/secrets-store-csi" \
-          --set image.tag=$IMAGE_TAG \
-          --set providers.azure.enabled=true
+          --set image.tag=$IMAGE_TAG
+  assert_success
+}
+
+@test "install azure provider" {
+  run kubectl apply -f $BATS_TESTS_DIR/provider-azure.yaml
+  assert_success
+
+  AZURE_PROVIDER_POD=$(kubectl get pod -l app=csi-secrets-store-provider-azure -o jsonpath="{.items[0].metadata.name}")
+  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/$AZURE_PROVIDER_POD"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  run kubectl get pod/$AZURE_PROVIDER_POD
   assert_success
 }
 

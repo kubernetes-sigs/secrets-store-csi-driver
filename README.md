@@ -67,23 +67,10 @@ secrets-store-csi-driver is supported only for cluster versions v1.15.0+
 
 #### Using Helm Chart
 
-Make sure you already have helm CLI installed.
+Make sure you already have helm CLI installed. To install the secrets store csi driver:
 
 ```bash
-$ cd charts/secrets-store-csi-driver
-$ helm install . -n csi-secrets-store --namespace dev --set providers.azure.enabled=true
-```
-
-In the example above, we have chosen to install the secrets store csi driver with the Azure Key Vault provider `--set providers.azure.enabled=true`. 
-
-If you just want to add support for the Hashicorp Vault provider, then only enable the providers flag for Vault. For example:
-```bash
-$ helm install . -n csi-secrets-store --namespace dev --set providers.vault.enabled=true
-```
-
-Since multiple providers can run in the same cluster simultaneously, for each provider you want to support, append the `--set providers` flag when running the helm install command. For example:
-```bash
-$ helm install . -n csi-secrets-store --namespace dev --set providers.azure.enabled=true --set providers.vault.enabled=true
+helm install charts/secrets-store-csi-driver -n csi-secrets-store --namespace dev
 ```
 
 Expected output:
@@ -104,16 +91,10 @@ secretproviderclasses-rolebinding  0s
 
 ==> v1/DaemonSet
 NAME                                        AGE
-csi-secrets-store-provider-azure            0s
-csi-secrets-store-provider-vault            0s
 csi-secrets-store-secrets-store-csi-driver  0s
 
 ==> v1/Pod(related)
 NAME                                              AGE
-csi-secrets-store-provider-azure-9rrg9            0s
-csi-secrets-store-provider-azure-xmtm7            0s
-csi-secrets-store-provider-vault-29bms            0s
-csi-secrets-store-provider-vault-lmtxz            0s
 csi-secrets-store-secrets-store-csi-driver-hb8gb  0s
 csi-secrets-store-secrets-store-csi-driver-rk7hg  0s
 
@@ -146,7 +127,7 @@ to create a SecretProviderClass resource, and a deployment using the SecretProvi
 You can also template this chart locally without Tiller and apply the result using `kubectl`.
 
 ```bash
-helm template . --name csi-secrets-store --namespace dev --set providers.vault.enabled=true > manifest.yml
+helm template charts/secrets-store-csi-driver --name csi-secrets-store --namespace dev > manifest.yml
 kubectl apply -f manifest.yml
 ```
 
@@ -159,10 +140,6 @@ kubectl apply -f deploy/rbac-secretproviderclass.yaml # update the namespace of 
 kubectl apply -f deploy/csidriver.yaml
 kubectl apply -f deploy/secrets-store.csi.x-k8s.io_secretproviderclasses.yaml
 kubectl apply -f deploy/secrets-store-csi-driver.yaml
-# [REQUIRED FOR AZURE PROVIDER] Deploy Azure provider specific resources
-kubectl apply -f deploy/provider-azure.yaml
-# [REQUIRED FOR VAULT PROVIDER] Deploy Vault provider specific resources
-kubectl apply -f deploy/provider-vault.yaml
 ```
 
 To validate the installer is running as expected, run the following commands:
@@ -188,6 +165,21 @@ csidrivers.csi.storage.k8s.io
 secretproviderclasses.secrets-store.csi.x-k8s.io    
 ```
 
+</details>
+
+### Use the Secrets Store CSI Driver
+
+1. Select a provider from the [list of supported providers](#providers) and deploy the provider yaml
+
+```bash
+# [REQUIRED FOR AZURE PROVIDER]
+kubectl apply -f https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/deployment/provider-azure-installer.yaml
+
+# [REQUIRED FOR VAULT PROVIDER]
+kubectl apply -f https://raw.githubusercontent.com/hashicorp/secrets-store-csi-driver-provider-vault/master/deployment/provider-vault-installer.yaml
+
+```
+
 You should see the following pods deployed for the provider(s) you selected. For example, for the Azure Key Vault provider:
 
 ```bash
@@ -195,11 +187,6 @@ csi-secrets-store-provider-azure-pksfd             2/2     Running   0          
 csi-secrets-store-provider-azure-sxht2             2/2     Running   0          4m
 ```
 
-</details>
-
-### Use the Secrets Store CSI Driver
-
-1. Select a provider from the [list of supported providers](#providers)
 1. Create a `secretproviderclasses` resource to provide provider-specific parameters for the Secrets Store CSI driver. Follow [specific deployment steps](#providers) for the selected provider to update all required fields [see example secretproviderclass](pkg/providers/azure/examples/v1alpha1_secretproviderclass.yaml).
 
       ```yaml
@@ -286,11 +273,6 @@ End-to-end tests automatically runs on Travis CI when a PR is submitted. If you 
 
 ## Known Issues and Workarounds
 
-- If you are seeing the following error when installing with `helm install`, then make sure you have enabled at least one provider with `--set providers.vault.enabled=true` or `--set providers.azure.enabled=true`.
-
-  ```bash
-  Error: render error in "secrets-store-csi-driver/templates/required-check.yaml": template: secrets-store-csi-driver/templates/required-check.yaml:2:3: executing "secrets-store-csi-driver/templates/required-check.yaml" at <required "At least o...>: error calling required: At least one of the Values.providers is required to be enable
-  ```
 
 ## Troubleshooting
 

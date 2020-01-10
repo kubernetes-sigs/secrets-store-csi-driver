@@ -17,8 +17,6 @@ limitations under the License.
 package secretsstore
 
 import (
-	"fmt"
-
 	"github.com/container-storage-interface/spec/lib/go/csi"
 
 	csicommon "github.com/deislabs/secrets-store-csi-driver/pkg/csi-common"
@@ -37,7 +35,7 @@ type SecretsStore struct {
 }
 
 var (
-	vendorVersion = "0.0.7"
+	vendorVersion = "0.0.8"
 )
 
 // GetDriver returns a new secrets store driver
@@ -52,7 +50,7 @@ func newNodeServer(d *csicommon.CSIDriver, providerVolumePath, minProviderVersio
 		return nil, err
 	}
 	if len(minProviderVersionsMap) == 0 {
-		return nil, fmt.Errorf("minimum compatible provider versions not specified with --min-provider-version")
+		log.Infof("minimum compatible provider versions not specified with --min-provider-version")
 	}
 	return &nodeServer{
 		DefaultNodeServer:   csicommon.NewDefaultNodeServer(d),
