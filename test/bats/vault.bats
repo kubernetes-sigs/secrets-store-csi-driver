@@ -3,7 +3,7 @@
 load helpers
 
 BATS_TESTS_DIR=test/bats/tests
-WAIT_TIME=60
+WAIT_TIME=120
 SLEEP_TIME=1
 IMAGE_TAG=v0.0.8-e2e-$(git rev-parse --short HEAD)
 PROVIDER_YAML=https://raw.githubusercontent.com/hashicorp/secrets-store-csi-driver-provider-vault/master/deployment/provider-vault-installer.yaml
