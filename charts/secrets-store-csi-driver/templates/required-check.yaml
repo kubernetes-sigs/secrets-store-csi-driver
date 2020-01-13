@@ -1,3 +1,0 @@
-{{ if not (or .Values.providers.azure.enabled .Values.providers.vault.enabled) }}
-{{ required "At least one of the Values.providers is required to be enabled" "" }}
-{{ end }}

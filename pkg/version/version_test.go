@@ -97,6 +97,12 @@ func TestGetMinimumProviderVersions(t *testing.T) {
 			expectedMap:         map[string]string{"provider1": "0.0.2", "provider2": "0.0.4"},
 			expectedErr:         false,
 		},
+		{
+			desc:                "minProviderVersions is not provided",
+			minProviderVersions: "",
+			expectedMap:         map[string]string{},
+			expectedErr:         false,
+		},
 	}
 
 	for i, tc := range cases {

@@ -3,16 +3,30 @@
 load helpers
 
 BATS_TESTS_DIR=test/bats/tests
-WAIT_TIME=60
+WAIT_TIME=120
 SLEEP_TIME=1
 IMAGE_TAG=v0.0.8-e2e-$(git rev-parse --short HEAD)
+NAMESPACE=dev
+PROVIDER_YAML=https://raw.githubusercontent.com/hashicorp/secrets-store-csi-driver-provider-vault/master/deployment/provider-vault-installer.yaml
 
 @test "install helm chart with e2e image" {
-  run helm install charts/secrets-store-csi-driver -n csi-secrets-store --namespace dev \
+  run helm install charts/secrets-store-csi-driver -n csi-secrets-store --namespace $NAMESPACE \
           --set image.pullPolicy="IfNotPresent" \
           --set image.repository="e2e/secrets-store-csi" \
           --set image.tag=$IMAGE_TAG \
-          --set providers.vault.enabled=true
+          --set minimumProviderVersions=azure=0.0.3,vault=0.0.4
+  assert_success
+}
+
+@test "install vault provider" {
+  run kubectl apply -f $PROVIDER_YAML --namespace $NAMESPACE
+  assert_success
+
+  VAULT_PROVIDER_POD=$(kubectl get pod --namespace $NAMESPACE -l app=csi-secrets-store-provider-vault -o jsonpath="{.items[0].metadata.name}")
+  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/$VAULT_PROVIDER_POD --namespace $NAMESPACE"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  run kubectl get pod/$VAULT_PROVIDER_POD --namespace $NAMESPACE
   assert_success
 }
 
@@ -88,7 +102,7 @@ EOF
 
   run kubectl exec -it $VAULT_POD -- vault write auth/kubernetes/role/example-role \
     bound_service_account_names=secrets-store-csi-driver \
-    bound_service_account_namespaces=dev \
+    bound_service_account_namespaces=$NAMESPACE \
     policies=default,example-readonly \
     ttl=20m
   assert_success
