@@ -209,7 +209,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		// check if minimum compatible provider version with current driver version is set
 		// if minimum version is not provided, skip check
 		if _, exists := ns.minProviderVersions[providerName]; !exists {
-			log.Errorf("minimum compatible %s provider version not set", providerName)
+			log.Warningf("minimum compatible %s provider version not set", providerName)
 		} else {
 			// check if provider is compatible with driver
 			providerCompatible, err := version.IsProviderCompatible(providerBinary, ns.minProviderVersions[providerName])

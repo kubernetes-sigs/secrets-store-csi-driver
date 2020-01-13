@@ -14,4 +14,6 @@ rbac:
   install: true
 
 ## Minimum Provider Versions (optional)
+## A comma delimited list of key-value pairs of minimum provider versions
+## e.g. provider1=0.0.2,provider2=0.0.3
 minimumProviderVersions:

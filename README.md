@@ -70,7 +70,8 @@ secrets-store-csi-driver is supported only for cluster versions v1.15.0+
 Make sure you already have helm CLI installed. To install the secrets store csi driver:
 
 ```bash
-helm install charts/secrets-store-csi-driver -n csi-secrets-store --namespace dev
+NAMESPACE=dev
+helm install charts/secrets-store-csi-driver -n csi-secrets-store --namespace $NAMESPACE
 ```
 
 Expected output:
@@ -127,7 +128,7 @@ to create a SecretProviderClass resource, and a deployment using the SecretProvi
 You can also template this chart locally without Tiller and apply the result using `kubectl`.
 
 ```bash
-helm template charts/secrets-store-csi-driver --name csi-secrets-store --namespace dev > manifest.yml
+helm template charts/secrets-store-csi-driver --name csi-secrets-store --namespace $NAMESPACE > manifest.yml
 kubectl apply -f manifest.yml
 ```
 
@@ -139,19 +140,18 @@ kubectl apply -f manifest.yml
 kubectl apply -f deploy/rbac-secretproviderclass.yaml # update the namespace of the secrets-store-csi-driver ServiceAccount
 kubectl apply -f deploy/csidriver.yaml
 kubectl apply -f deploy/secrets-store.csi.x-k8s.io_secretproviderclasses.yaml
-kubectl apply -f deploy/secrets-store-csi-driver.yaml
+kubectl apply -f deploy/secrets-store-csi-driver.yaml --namespace $NAMESPACE
 ```
 
 To validate the installer is running as expected, run the following commands:
 
 ```bash
-kubectl get po
+kubectl get po --namespace $NAMESPACE
 ```
 
 You should see the Secrets Store CSI driver pods running on each agent node:
 
 ```bash
-csi-secrets-store-attacher-0    1/1     Running   0          6m
 csi-secrets-store-qp9r8         2/2     Running   0          4m
 csi-secrets-store-zrjt2         2/2     Running   0          4m
 ```
@@ -161,7 +161,6 @@ You should see the following CRDs deployed:
 ```bash
 kubectl get crd
 NAME                                               
-csidrivers.csi.storage.k8s.io                      
 secretproviderclasses.secrets-store.csi.x-k8s.io    
 ```
 
@@ -173,10 +172,10 @@ secretproviderclasses.secrets-store.csi.x-k8s.io
 
 ```bash
 # [REQUIRED FOR AZURE PROVIDER]
-kubectl apply -f https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/deployment/provider-azure-installer.yaml
+kubectl apply -f https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/deployment/provider-azure-installer.yaml --namespace $NAMESPACE
 
 # [REQUIRED FOR VAULT PROVIDER]
-kubectl apply -f https://raw.githubusercontent.com/hashicorp/secrets-store-csi-driver-provider-vault/master/deployment/provider-vault-installer.yaml
+kubectl apply -f https://raw.githubusercontent.com/hashicorp/secrets-store-csi-driver-provider-vault/master/deployment/provider-vault-installer.yaml --namespace $NAMESPACE
 
 ```
 
