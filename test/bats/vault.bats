@@ -129,6 +129,9 @@ EOF
 
   cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/vault-foo -o yaml | grep vault"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  cmd="kubectl get all | grep secretproviderclass.secrets-store.csi.x-k8s.io/vault-foo"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 }
 
 @test "CSI inline volume test with pod portability" {
