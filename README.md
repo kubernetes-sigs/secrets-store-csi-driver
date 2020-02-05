@@ -244,18 +244,20 @@ This project features a pluggable provider interface developers can implement th
 
 ### Criteria for Supported Providers
 
-Here is a list of criteria for being added as a supported provider:
+Here is a list of criteria for supported provider:
 1. Code audit of the provider implementation to ensure it adheres to the required provider-driver interface, which includes:
     - implementation of provider command args https://github.com/deislabs/secrets-store-csi-driver/blob/master/pkg/secrets-store/nodeserver.go#L223-L236
     - provider binary naming convention and semver convention
     - provider binary deployment volume path
     - provider logs are written to stdout and stderr so they can be part of the driver logs
-1. Add provider to the e2e test suite to demonstrate it functions as expected https://github.com/deislabs/secrets-store-csi-driver/tree/master/test/bats
+1. Add provider to the e2e test suite to demonstrate it functions as expected https://github.com/deislabs/secrets-store-csi-driver/tree/master/test/bats Please use existing providers e2e tests as a reference.
 1. If any update is made by a provider (not limited to security updates), the provider is expected to update the provider's e2e test in this repo
 
 ### Removal from Supported Providers
 
-when a provider's e2e tests are consistently failing with the latest version of the driver, the driver maintainers will coordinate with the provider maintainers to provide a fix. If the test failures prolong to more than 4 weeks, then the provider will be removed from the list of supported providers. 
+Failure to adhere to the [Criteria for Supported Providers](#criteria-for-supported-providers) will result in the removal of the provider from the supported list and subject to another review before it can be added back to the list of supported providers.
+
+When a provider's e2e tests are consistently failing with the latest version of the driver, the driver maintainers will coordinate with the provider maintainers to provide a fix. If the test failures are not resolved within 4 weeks, then the provider will be removed from the list of supported providers. 
 
 ## Testing
 
