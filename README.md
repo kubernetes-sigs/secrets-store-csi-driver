@@ -240,25 +240,22 @@ csi-secrets-store-provider-azure-sxht2             2/2     Running   0          
 
 ## Providers
 
-This project features a pluggable provider interface developers can implement that defines the actions of the Secrets Store CSI driver.
+This project features a pluggable provider interface developers can implement that defines the actions of the Secrets Store CSI driver. This enables retrieval of sensitive objects storied an enterprise-grade external secrets store into Kubernetes while continue to manage these objects outside of Kubernetes.
 
-This enables on-demand retrieval of sensitive objects storied an enterprise-grade external secrets store into Kubernetes while continue to manage these objects outside of Kubernetes.
+### Criteria for Supported Providers
 
-Each provider may have its own required properties.
+Here is a list of criteria for being added as a supported provider:
+1. Code audit of the provider implementation to ensure it adheres to the required provider-driver interface, which includes:
+    - implementation of provider command args https://github.com/deislabs/secrets-store-csi-driver/blob/master/pkg/secrets-store/nodeserver.go#L223-L236
+    - provider binary naming convention and semver convention
+    - provider binary deployment volume path
+    - provider logs are written to stdout and stderr so they can be part of the driver logs
+1. Add provider to the e2e test suite to demonstrate it functions as expected https://github.com/deislabs/secrets-store-csi-driver/tree/master/test/bats
+1. If any update is made by a provider (not limited to security updates), the provider is expected to update the provider's e2e test in this repo
 
-Providers must provide the following functionality to be considered a supported integration.
+### Removal from Supported Providers
 
-1. Provides the backend plumbing necessary to access objects from the external secrets store.
-1. Conforms to the current API provided by the Secrets Store CSI Driver.
-1. Does not have access to the Kubernetes APIs and has a well-defined callback mechanism to mount objects to a target path.
-
-- Supported Providers:
-  - [Azure Key Vault Provider](https://github.com/Azure/secrets-store-csi-driver-provider-azure)
-  - [HashiCorp Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault)
-
-### Adding a New Provider via the Provider Interface
-
-_WIP_
+when a provider's e2e tests are consistently failing with the latest version of the driver, the driver maintainers will coordinate with the provider maintainers to provide a fix. If the test failures prolong to more than 4 weeks, then the provider will be removed from the list of supported providers. 
 
 ## Testing
 
