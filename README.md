@@ -240,7 +240,7 @@ csi-secrets-store-provider-azure-sxht2             2/2     Running   0          
 
 ## Providers
 
-This project features a pluggable provider interface developers can implement that defines the actions of the Secrets Store CSI driver. This enables retrieval of sensitive objects storied an enterprise-grade external secrets store into Kubernetes while continue to manage these objects outside of Kubernetes.
+This project features a pluggable provider interface developers can implement that defines the actions of the Secrets Store CSI driver. This enables retrieval of sensitive objects stored in an enterprise-grade external secrets store into Kubernetes while continue to manage these objects outside of Kubernetes.
 
 ### Criteria for Supported Providers
 
