@@ -5,5 +5,3 @@ metadata:
 spec:
   podInfoOnMount: true
   attachRequired: false
-  volumeLifecycleModes:
-  - Ephemeral
