@@ -138,7 +138,8 @@ kubectl apply -f manifest.yml
 
 ```bash
 kubectl apply -f deploy/rbac-secretproviderclass.yaml # update the namespace of the secrets-store-csi-driver ServiceAccount
-kubectl apply -f deploy/csidriver.yaml
+kubectl apply -f deploy/csidriver.yaml # deploy this yaml for kubernetes version 1.15 only
+kubectl apply -f deploy/csidriver-1.16.yaml # deploy this yaml for kubernetes version 1.16+
 kubectl apply -f deploy/secrets-store.csi.x-k8s.io_secretproviderclasses.yaml
 kubectl apply -f deploy/secrets-store-csi-driver.yaml --namespace $NAMESPACE
 ```
