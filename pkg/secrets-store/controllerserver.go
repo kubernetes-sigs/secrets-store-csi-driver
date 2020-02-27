@@ -20,9 +20,9 @@ import (
 	"sync/atomic"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	csicommon "github.com/deislabs/secrets-store-csi-driver/pkg/csi-common"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	csicommon "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
 
 	"golang.org/x/net/context"
 )

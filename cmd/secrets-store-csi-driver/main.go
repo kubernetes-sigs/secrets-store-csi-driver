@@ -21,7 +21,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	secretsstore "github.com/deislabs/secrets-store-csi-driver/pkg/secrets-store"
+	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
 )
 
 var (

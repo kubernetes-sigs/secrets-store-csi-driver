@@ -1,4 +1,4 @@
-module github.com/deislabs/secrets-store-csi-driver
+module sigs.k8s.io/secrets-store-csi-driver
 
 go 1.12
 
