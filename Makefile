@@ -69,13 +69,13 @@ E2E_IMAGE_VERSION = v0.0.8-e2e-$$(git rev-parse --short HEAD)
 .PHONY: e2e-bootstrap
 e2e-bootstrap:
 	# Download and install kubectl
-	curl -LO https://storage.googleapis.com/kubernetes-release/release/v${KUBERNETES_VERSION}/bin/linux/amd64/kubectl && chmod +x ./kubectl && sudo mv kubectl /usr/local/bin/
+	curl -LO https://storage.googleapis.com/kubernetes-release/release/v${KUBERNETES_VERSION}/bin/linux/amd64/kubectl && chmod +x ./kubectl && mv kubectl /usr/local/bin/
 	# Download and install kind
-	curl -L https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-linux-amd64 --output kind && chmod +x kind && sudo mv kind /usr/local/bin/
+	curl -L https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-linux-amd64 --output kind && chmod +x kind && mv kind /usr/local/bin/
 	# Download and install Helm
 	curl https://raw.githubusercontent.com/helm/helm/master/scripts/get | bash
 	# Download and install Vault
-	curl -LO https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_linux_amd64.zip && unzip vault_${VAULT_VERSION}_linux_amd64.zip && chmod +x vault && sudo mv vault /usr/local/bin/
+	curl -LO https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_linux_amd64.zip && unzip vault_${VAULT_VERSION}_linux_amd64.zip && chmod +x vault && mv vault /usr/local/bin/
 	# Create kind cluster
 	kind create cluster --config kind-config.yaml --image kindest/node:v${KUBERNETES_VERSION}
 	# Build image
