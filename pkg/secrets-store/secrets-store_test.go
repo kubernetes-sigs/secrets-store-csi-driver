@@ -16,7 +16,7 @@ limitations under the License.
 
 package secretsstore
 
-import csicommon "github.com/deislabs/secrets-store-csi-driver/pkg/csi-common"
+import csicommon "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
 
 const (
 	fakeDriverName = "fake"

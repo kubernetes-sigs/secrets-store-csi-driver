@@ -19,8 +19,8 @@ package secretsstore
 import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 
-	csicommon "github.com/deislabs/secrets-store-csi-driver/pkg/csi-common"
-	version "github.com/deislabs/secrets-store-csi-driver/pkg/version"
+	csicommon "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
+	version "sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
 	log "github.com/sirupsen/logrus"
 )

@@ -119,7 +119,7 @@ To verify that Secrets Store CSI Driver has started, run:
 
   kubectl --namespace=dev get pods -l "app=secrets-store-csi-driver"
 
-Now you can follow these steps https://github.com/deislabs/secrets-store-csi-driver#use-the-secrets-store-csi-driver
+Now you can follow these steps https://github.com/kubernetes-sigs/secrets-store-csi-driver#use-the-secrets-store-csi-driver
 to create a SecretProviderClass resource, and a deployment using the SecretProviderClass.
 
 ```
@@ -249,11 +249,11 @@ This project features a pluggable provider interface developers can implement th
 
 Here is a list of criteria for supported provider:
 1. Code audit of the provider implementation to ensure it adheres to the required provider-driver interface, which includes:
-    - implementation of provider command args https://github.com/deislabs/secrets-store-csi-driver/blob/master/pkg/secrets-store/nodeserver.go#L223-L236
+    - implementation of provider command args https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/master/pkg/secrets-store/nodeserver.go#L223-L236
     - provider binary naming convention and semver convention
     - provider binary deployment volume path
     - provider logs are written to stdout and stderr so they can be part of the driver logs
-1. Add provider to the e2e test suite to demonstrate it functions as expected https://github.com/deislabs/secrets-store-csi-driver/tree/master/test/bats Please use existing providers e2e tests as a reference.
+1. Add provider to the e2e test suite to demonstrate it functions as expected https://github.com/kubernetes-sigs/secrets-store-csi-driver/tree/master/test/bats Please use existing providers e2e tests as a reference.
 1. If any update is made by a provider (not limited to security updates), the provider is expected to update the provider's e2e test in this repo
 
 ### Removal from Supported Providers
