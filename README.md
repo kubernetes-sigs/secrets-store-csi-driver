@@ -2,7 +2,7 @@
 
 Secrets Store CSI driver for Kubernetes secrets - Integrates secrets stores with Kubernetes via a [Container Storage Interface (CSI)](https://kubernetes-csi.github.io/docs/) volume.
 
-The Secrets Store CSI driver `secrets-store.csi.k8s.com` allows Kubernetes to mount multiple secrets, keys, and certs stored in enterprise-grade external secrets stores into their pods as a volume. Once the Volume is attached, the data in it is mounted into the container's file system.
+The Secrets Store CSI driver `secrets-store.csi.k8s.io` allows Kubernetes to mount multiple secrets, keys, and certs stored in enterprise-grade external secrets stores into their pods as a volume. Once the Volume is attached, the data in it is mounted into the container's file system.
 
 [![Build Status](https://travis-ci.org/deislabs/secrets-store-csi-driver.svg?branch=master)](https://travis-ci.org/deislabs/secrets-store-csi-driver)
 
@@ -105,7 +105,7 @@ secrets-store-csi-driver  1s
 
 ==> v1beta1/CSIDriver
 NAME                       AGE
-secrets-store.csi.k8s.com  0s
+secrets-store.csi.k8s.io  0s
 
 ==> v1beta1/CustomResourceDefinition
 NAME                                              AGE
@@ -222,7 +222,7 @@ csi-secrets-store-provider-azure-sxht2             2/2     Running   0          
     volumes:
       - name: secrets-store-inline
         csi:
-          driver: secrets-store.csi.k8s.com
+          driver: secrets-store.csi.k8s.io
           readOnly: true
           volumeAttributes:
             secretProviderClass: "azure-kvname"
