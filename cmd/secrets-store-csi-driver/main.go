@@ -26,7 +26,7 @@ import (
 
 var (
 	endpoint           = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
-	driverName         = flag.String("drivername", "secrets-store.csi.k8s.com", "name of the driver")
+	driverName         = flag.String("drivername", "secrets-store.csi.k8s.io", "name of the driver")
 	nodeID             = flag.String("nodeid", "", "node id")
 	debug              = flag.Bool("debug", false, "sets log to debug level")
 	logFormatJSON      = flag.Bool("log-format-json", false, "set log formatter to json")
