@@ -32,6 +32,6 @@ require (
 	google.golang.org/grpc v1.17.0
 	k8s.io/apimachinery v0.0.0-20190404173353-6a84e37a896d
 	k8s.io/klog v0.4.0 // indirect
-	k8s.io/utils v0.0.0-20191114200735-6ca3b61696b6
+	k8s.io/utils v0.0.0-20200229041039-0a110f9eb7ab
 	sigs.k8s.io/controller-runtime v0.2.0
 )
