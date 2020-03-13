@@ -14,7 +14,7 @@
 
 REGISTRY_NAME?=docker.io/deislabs
 IMAGE_NAME=secrets-store-csi
-IMAGE_VERSION?=v0.0.7
+IMAGE_VERSION?=v0.0.8
 IMAGE_TAG=$(REGISTRY_NAME)/$(IMAGE_NAME):$(IMAGE_VERSION)
 IMAGE_TAG_LATEST=$(REGISTRY_NAME)/$(IMAGE_NAME):latest
 LDFLAGS?='-X sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store.vendorVersion=$(IMAGE_VERSION) -extldflags "-static"'
