@@ -44,7 +44,7 @@ build-windows: setup
 image: build
 	docker build --no-cache -t $(IMAGE_TAG) -f Dockerfile .
 image-windows: build-windows
-	docker build --no-cache -t $(IMAGE_TAG) -f Dockerfile.Windows . 
+	docker build --no-cache -t $(IMAGE_TAG) -f windows.Dockerfile .
 docker-login:
 	echo $(DOCKER_PASSWORD) | docker login -u $(DOCKER_USERNAME) --password-stdin
 ci-deploy: image docker-login

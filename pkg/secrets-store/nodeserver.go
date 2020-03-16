@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -75,31 +76,22 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	}
 
 	targetPath := req.GetTargetPath()
-	notMnt, err := ns.mounter.IsLikelyNotMountPoint(targetPath)
-	if err != nil && !os.IsNotExist(err) {
-		return nil, err
-	}
-	if !notMnt {
-		// testing original mount point, make sure the mount link is valid
-		if _, err := ioutil.ReadDir(targetPath); err == nil {
-			log.Infof("secrets-store - already mounted to target %s", targetPath)
-			return &csi.NodePublishVolumeResponse{}, nil
-		}
-		// todo: mount link is invalid, now unmount and remount later (built-in functionality)
-		log.Warningf("secrets-store - ReadDir %s failed with %v, unmount this directory", targetPath, err)
-		if err := ns.mounter.Unmount(targetPath); err != nil {
-			log.Errorf("secrets-store - Unmount directory %s failed with %v", targetPath, err)
-			return nil, err
-		}
-	}
 	volumeID := req.GetVolumeId()
 	attrib := req.GetVolumeContext()
 	mountFlags := req.GetVolumeCapability().GetMount().GetMountFlags()
+	secrets := req.GetSecrets()
+
+	mnt, err := ns.ensureMountPoint(targetPath)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Could not mount target %q: %v", targetPath, err)
+	}
+	if mnt {
+		log.Infof("NodePublishVolume: %s is already mounted", targetPath)
+		return &csi.NodePublishVolumeResponse{}, nil
+	}
 
 	log.Debugf("target %v, volumeId %v, attributes %v, mountflags %v",
 		targetPath, volumeID, attrib, mountFlags)
-
-	secrets := req.GetSecrets()
 
 	secretProviderClass := attrib["secretProviderClass"]
 	providerName := attrib["providerName"]
@@ -200,13 +192,11 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return nil, err
 		}
 
-		if runtime.GOOS != "windows" {
-			// mount before providers can write content to it
-			err = ns.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
-			if err != nil {
-				log.Errorf("mount err: %v", err)
-				return nil, err
-			}
+		// mount before providers can write content to it
+		err = ns.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
+		if err != nil {
+			log.Errorf("mount err: %v", err)
+			return nil, err
 		}
 
 		log.Debugf("Calling provider: %s", providerName)
@@ -255,7 +245,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		}
 	} else {
 		// mock provider is used only for running sanity tests against the driver
-		err = ns.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
+		err := ns.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
 		if err != nil {
 			log.Errorf("mount err: %v", err)
 			return nil, err
@@ -263,15 +253,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		log.Infof("skipping calling provider as its mock")
 	}
 
-	notMnt, err = ns.mounter.IsLikelyNotMountPoint(targetPath)
-	if err != nil {
-		log.Errorf("Error checking targetPath %s IsLikelyNotMountPoint: %v", targetPath, err)
-		return nil, err
-	}
-	// this means the mount didn't succeed
-	if notMnt {
-		return nil, fmt.Errorf("after MountSecretsStoreObjectContent, notMnt: %v", notMnt)
-	}
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
@@ -287,22 +268,26 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 	targetPath := req.GetTargetPath()
 	volumeID := req.GetVolumeId()
 
-	// check if target path is mount point
-	notMnt, err := ns.mounter.IsLikelyNotMountPoint(targetPath)
-	// if not mount point then no need to unmount
-	if (err != nil && os.IsNotExist(err)) || notMnt {
-		log.Infof("target path %s is not likely a mount point, notMnt %v", targetPath, notMnt)
-		return &csi.NodeUnpublishVolumeResponse{}, nil
+	if runtime.GOOS == "windows" {
+		files, err := filepath.Glob(filepath.Join(targetPath, "*"))
+		if err != nil {
+			log.Errorf("failed to list dir for target path %s, err: %v", targetPath, err)
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		for _, file := range files {
+			err = os.RemoveAll(file)
+			if err != nil {
+				log.Errorf("failed to remove file %s, err: %v", file, err)
+				return nil, status.Error(codes.Internal, err.Error())
+			}
+		}
 	}
-	if err != nil && !os.IsNotExist(err) {
-		return nil, err
-	}
-	// Unmounting the target
-	err = ns.mounter.Unmount(targetPath)
+	err := mount.CleanupMountPoint(targetPath, ns.mounter, false)
 	if err != nil {
-		log.Errorf("error unmounting target path %s, err: %v", targetPath, err)
+		log.Errorf("error cleaning and unmounting target path %s, err: %v", targetPath, err)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
+
 	log.Debugf("secrets-store: targetPath %s volumeID %s has been unmounted.", targetPath, volumeID)
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
@@ -347,4 +332,46 @@ func normalizeWindowsPath(path string) string {
 		normalizedPath = "c:" + normalizedPath
 	}
 	return normalizedPath
+}
+
+// ensureMountPoint ensures mount point is valid
+func (ns *nodeServer) ensureMountPoint(target string) (bool, error) {
+	notMnt, err := ns.mounter.IsLikelyNotMountPoint(target)
+	if err != nil && !os.IsNotExist(err) {
+		return !notMnt, err
+	}
+
+	if !notMnt {
+		// testing original mount point, make sure the mount link is valid
+		_, err := ioutil.ReadDir(target)
+		if err == nil {
+			log.Infof("already mounted to target %s", target)
+			// already mounted
+			return !notMnt, nil
+		}
+		if err := ns.mounter.Unmount(target); err != nil {
+			log.Errorf("Unmount directory %s failed with %v", target, err)
+			return !notMnt, err
+		}
+		notMnt = true
+		// remount it in node publish
+		return !notMnt, err
+	}
+
+	if runtime.GOOS == "windows" {
+		// IsLikelyNotMountPoint always returns notMnt=true for windows as the
+		// target path is not a soft link to the global mount
+		// instead check if the dir exists for windows and if it's not empty
+		// If there are contents in the dir, then objects are already mounted
+		f, err := ioutil.ReadDir(target)
+		if err != nil {
+			return !notMnt, err
+		}
+		if len(f) > 0 {
+			notMnt = false
+			return !notMnt, err
+		}
+	}
+
+	return false, nil
 }
