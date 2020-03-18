@@ -46,12 +46,16 @@ The diagram below illustrates how Secrets Store CSI Volume works.
 
 #### Supported kubernetes versions
 
-secrets-store-csi-driver is supported only for cluster versions v1.15.0+
+Recommended Kubernetes version: v1.16.0+
 
-#### Mount Secret Data to Resource through Inline Volume
+> NOTE: The CSI Inline Volume feature was introduced in Kubernetes v1.15.x. Version 1.15.x will require the `CSIInlineVolume` feature gate to be updated in the cluster. Version 1.16+ does not require any feature gate.
 
-* Deploy a Kubernetes cluster v1.15.0+ and make sure it's reachable. The CSI Inline Volume feature was introduced in v1.15.0.
-* Update the API Server manifest to append the following feature gate:
+<details>
+<summary><strong> For v1.15.x, update CSI Inline Volume feature gate </strong></summary>
+
+The CSI Inline Volume feature was introduced in Kubernetes v1.15.x. We need to make the following updates to include the `CSIInlineVolume` feature gate:
+
+- Update the API Server manifest to append the following feature gate:
 
 ```yaml
 --feature-gates=CSIInlineVolume=true
@@ -62,6 +66,7 @@ secrets-store-csi-driver is supported only for cluster versions v1.15.0+
 ```yaml
 --feature-gates=CSIInlineVolume=true
 ```
+</details>
 
 ### Install the Secrets Store CSI Driver
 
@@ -169,25 +174,25 @@ secretproviderclasses.secrets-store.csi.x-k8s.io
 
 </details>
 
-### Use the Secrets Store CSI Driver
+### Use the Secrets Store CSI Driver with a Provider
 
 1. Select a provider from the [list of supported providers](#providers) and deploy the provider yaml
 
-```bash
-# [REQUIRED FOR AZURE PROVIDER]
-kubectl apply -f https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/deployment/provider-azure-installer.yaml --namespace $NAMESPACE
+    ```bash
+    # [REQUIRED FOR AZURE PROVIDER]
+    kubectl apply -f https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/deployment/provider-azure-installer.yaml --namespace $NAMESPACE
 
-# [REQUIRED FOR VAULT PROVIDER]
-kubectl apply -f https://raw.githubusercontent.com/hashicorp/secrets-store-csi-driver-provider-vault/master/deployment/provider-vault-installer.yaml --namespace $NAMESPACE
+    # [REQUIRED FOR VAULT PROVIDER]
+    kubectl apply -f https://raw.githubusercontent.com/hashicorp/secrets-store-csi-driver-provider-vault/master/deployment/provider-vault-installer.yaml --namespace $NAMESPACE
 
-```
+    ```
 
-You should see the following pods deployed for the provider(s) you selected. For example, for the Azure Key Vault provider:
+    You should see the following pods deployed for the provider(s) you selected. For example, for the Azure Key Vault provider:
 
-```bash
-csi-secrets-store-provider-azure-pksfd             2/2     Running   0          4m
-csi-secrets-store-provider-azure-sxht2             2/2     Running   0          4m
-```
+    ```bash
+    csi-secrets-store-provider-azure-pksfd             2/2     Running   0          4m
+    csi-secrets-store-provider-azure-sxht2             2/2     Running   0          4m
+    ```
 
 1. Create a `secretproviderclasses` resource to provide provider-specific parameters for the Secrets Store CSI driver. Follow [specific deployment steps](#providers) for the selected provider to update all required fields [see example secretproviderclass](pkg/providers/azure/examples/v1alpha1_secretproviderclass.yaml).
 
