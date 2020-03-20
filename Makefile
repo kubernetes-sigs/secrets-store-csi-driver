@@ -39,8 +39,12 @@ sanity-test:
 	go test -v ./test/sanity
 build: setup
 	CGO_ENABLED=0 GOOS=linux go build -a -ldflags ${LDFLAGS} -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
+build-windows: setup
+	CGO_ENABLED=0 GOOS=windows go build -a -ldflags ${LDFLAGS} -o _output/secrets-store-csi.exe ./cmd/secrets-store-csi-driver
 image: build
 	docker build --no-cache -t $(IMAGE_TAG) -f Dockerfile .
+image-windows: build-windows
+	docker build --no-cache -t $(IMAGE_TAG) -f windows.Dockerfile .
 docker-login:
 	echo $(DOCKER_PASSWORD) | docker login -u $(DOCKER_USERNAME) --password-stdin
 ci-deploy: image docker-login

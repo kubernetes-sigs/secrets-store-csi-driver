@@ -23,6 +23,9 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/spf13/cast"
@@ -49,6 +52,7 @@ type nodeServer struct {
 	*csicommon.DefaultNodeServer
 	providerVolumePath  string
 	minProviderVersions map[string]string
+	mounter             mount.Interface
 }
 
 const (
@@ -72,32 +76,22 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	}
 
 	targetPath := req.GetTargetPath()
-	notMnt, err := mount.New("").IsLikelyNotMountPoint(targetPath)
-	if err != nil && !os.IsNotExist(err) {
-		return nil, err
-	}
-	mounter := mount.New("")
-	if !notMnt {
-		// testing original mount point, make sure the mount link is valid
-		if _, err := ioutil.ReadDir(targetPath); err == nil {
-			log.Infof("secrets-store - already mounted to target %s", targetPath)
-			return &csi.NodePublishVolumeResponse{}, nil
-		}
-		// todo: mount link is invalid, now unmount and remount later (built-in functionality)
-		log.Warningf("secrets-store - ReadDir %s failed with %v, unmount this directory", targetPath, err)
-		if err := mounter.Unmount(targetPath); err != nil {
-			log.Errorf("secrets-store - Unmount directory %s failed with %v", targetPath, err)
-			return nil, err
-		}
-	}
 	volumeID := req.GetVolumeId()
 	attrib := req.GetVolumeContext()
 	mountFlags := req.GetVolumeCapability().GetMount().GetMountFlags()
+	secrets := req.GetSecrets()
+
+	mnt, err := ns.ensureMountPoint(targetPath)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Could not mount target %q: %v", targetPath, err)
+	}
+	if mnt {
+		log.Infof("NodePublishVolume: %s is already mounted", targetPath)
+		return &csi.NodePublishVolumeResponse{}, nil
+	}
 
 	log.Debugf("target %v, volumeId %v, attributes %v, mountflags %v",
 		targetPath, volumeID, attrib, mountFlags)
-
-	secrets := req.GetSecrets()
 
 	secretProviderClass := attrib["secretProviderClass"]
 	providerName := attrib["providerName"]
@@ -175,7 +169,9 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		if providerVolumePath == "" {
 			return nil, fmt.Errorf("Providers volume path not found. Set PROVIDERS_VOLUME_PATH")
 		}
-		if _, err := os.Stat(fmt.Sprintf("%s/%s/provider-%s", providerVolumePath, providerName, providerName)); err != nil {
+
+		providerBinary := ns.getProviderPath(runtime.GOOS, providerName)
+		if _, err := os.Stat(providerBinary); err != nil {
 			log.Errorf("failed to find provider %s, err: %v", providerName, err)
 			return nil, err
 		}
@@ -197,14 +193,13 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		}
 
 		// mount before providers can write content to it
-		err = mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
+		err = ns.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
 		if err != nil {
 			log.Errorf("mount err: %v", err)
 			return nil, err
 		}
 
 		log.Debugf("Calling provider: %s", providerName)
-		providerBinary := fmt.Sprintf("%s/%s/provider-%s", providerVolumePath, providerName, providerName)
 
 		// check if minimum compatible provider version with current driver version is set
 		// if minimum version is not provided, skip check
@@ -244,13 +239,13 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 		log.Infof(string(stdout.String()))
 		if err != nil {
-			mounter.Unmount(targetPath)
+			ns.mounter.Unmount(targetPath)
 			log.Errorf("error invoking provider, err: %v, output: %v", err, stderr.String())
 			return nil, fmt.Errorf("error mounting secret %v", stderr.String())
 		}
 	} else {
 		// mock provider is used only for running sanity tests against the driver
-		err = mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
+		err := ns.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
 		if err != nil {
 			log.Errorf("mount err: %v", err)
 			return nil, err
@@ -258,15 +253,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		log.Infof("skipping calling provider as its mock")
 	}
 
-	notMnt, err = mount.New("").IsLikelyNotMountPoint(targetPath)
-	if err != nil {
-		log.Errorf("Error checking targetPath %s IsLikelyNotMountPoint: %v", targetPath, err)
-		return nil, err
-	}
-	// this means the mount didn't succeed
-	if notMnt {
-		return nil, fmt.Errorf("after MountSecretsStoreObjectContent, notMnt: %v", notMnt)
-	}
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
@@ -282,22 +268,26 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 	targetPath := req.GetTargetPath()
 	volumeID := req.GetVolumeId()
 
-	// check if target path is mount point
-	notMnt, err := mount.New("").IsLikelyNotMountPoint(targetPath)
-	// if not mount point then no need to unmount
-	if (err != nil && os.IsNotExist(err)) || notMnt {
-		log.Infof("target path %s is not likely a mount point, notMnt %v", targetPath, notMnt)
-		return &csi.NodeUnpublishVolumeResponse{}, nil
+	if runtime.GOOS == "windows" {
+		files, err := filepath.Glob(filepath.Join(targetPath, "*"))
+		if err != nil {
+			log.Errorf("failed to list dir for target path %s, err: %v", targetPath, err)
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		for _, file := range files {
+			err = os.RemoveAll(file)
+			if err != nil {
+				log.Errorf("failed to remove file %s, err: %v", file, err)
+				return nil, status.Error(codes.Internal, err.Error())
+			}
+		}
 	}
-	if err != nil && !os.IsNotExist(err) {
-		return nil, err
-	}
-	// Unmounting the target
-	err = mount.New("").Unmount(targetPath)
+	err := mount.CleanupMountPoint(targetPath, ns.mounter, false)
 	if err != nil {
-		log.Errorf("error unmounting target path %s, err: %v", targetPath, err)
+		log.Errorf("error cleaning and unmounting target path %s, err: %v", targetPath, err)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
+
 	log.Debugf("secrets-store: targetPath %s volumeID %s has been unmounted.", targetPath, volumeID)
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
@@ -326,4 +316,62 @@ func (ns *nodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstag
 	}
 
 	return &csi.NodeUnstageVolumeResponse{}, nil
+}
+
+// getProviderPath returns the absolute path to the provider binary
+func (ns *nodeServer) getProviderPath(goos, providerName string) string {
+	if goos == "windows" {
+		return normalizeWindowsPath(fmt.Sprintf(`%s\%s\provider-%s.exe`, ns.providerVolumePath, providerName, providerName))
+	}
+	return fmt.Sprintf("%s/%s/provider-%s", ns.providerVolumePath, providerName, providerName)
+}
+
+func normalizeWindowsPath(path string) string {
+	normalizedPath := strings.Replace(path, "/", "\\", -1)
+	if strings.HasPrefix(normalizedPath, "\\") {
+		normalizedPath = "c:" + normalizedPath
+	}
+	return normalizedPath
+}
+
+// ensureMountPoint ensures mount point is valid
+func (ns *nodeServer) ensureMountPoint(target string) (bool, error) {
+	notMnt, err := ns.mounter.IsLikelyNotMountPoint(target)
+	if err != nil && !os.IsNotExist(err) {
+		return !notMnt, err
+	}
+
+	if !notMnt {
+		// testing original mount point, make sure the mount link is valid
+		_, err := ioutil.ReadDir(target)
+		if err == nil {
+			log.Infof("already mounted to target %s", target)
+			// already mounted
+			return !notMnt, nil
+		}
+		if err := ns.mounter.Unmount(target); err != nil {
+			log.Errorf("Unmount directory %s failed with %v", target, err)
+			return !notMnt, err
+		}
+		notMnt = true
+		// remount it in node publish
+		return !notMnt, err
+	}
+
+	if runtime.GOOS == "windows" {
+		// IsLikelyNotMountPoint always returns notMnt=true for windows as the
+		// target path is not a soft link to the global mount
+		// instead check if the dir exists for windows and if it's not empty
+		// If there are contents in the dir, then objects are already mounted
+		f, err := ioutil.ReadDir(target)
+		if err != nil {
+			return !notMnt, err
+		}
+		if len(f) > 0 {
+			notMnt = false
+			return !notMnt, err
+		}
+	}
+
+	return false, nil
 }

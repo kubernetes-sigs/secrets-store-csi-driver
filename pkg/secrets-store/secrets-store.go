@@ -18,6 +18,7 @@ package secretsstore
 
 import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"k8s.io/utils/mount"
 
 	csicommon "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
 	version "sigs.k8s.io/secrets-store-csi-driver/pkg/version"
@@ -56,6 +57,7 @@ func newNodeServer(d *csicommon.CSIDriver, providerVolumePath, minProviderVersio
 		DefaultNodeServer:   csicommon.NewDefaultNodeServer(d),
 		providerVolumePath:  providerVolumePath,
 		minProviderVersions: minProviderVersionsMap,
+		mounter:             mount.New(""),
 	}, nil
 }
 
