@@ -69,6 +69,7 @@ KIND_VERSION ?= 0.5.1
 KUBERNETES_VERSION ?= 1.15.3
 VAULT_VERSION ?= 1.2.2
 E2E_IMAGE_VERSION = v0.0.8-e2e-$$(git rev-parse --short HEAD)
+HELM_VERSION = v2.16.1
 
 .PHONY: e2e-bootstrap
 e2e-bootstrap:
@@ -77,7 +78,7 @@ e2e-bootstrap:
 	# Download and install kind
 	curl -L https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-linux-amd64 --output kind && chmod +x kind && mv kind /usr/local/bin/
 	# Download and install Helm
-	curl https://raw.githubusercontent.com/helm/helm/master/scripts/get | bash
+	curl https://raw.githubusercontent.com/helm/helm/master/scripts/get | bash -s -- --version ${HELM_VERSION}
 	# Download and install Vault
 	curl -LO https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_linux_amd64.zip && unzip vault_${VAULT_VERSION}_linux_amd64.zip && chmod +x vault && mv vault /usr/local/bin/
 	# Create kind cluster
