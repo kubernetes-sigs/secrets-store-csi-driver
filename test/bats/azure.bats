@@ -6,13 +6,16 @@ BATS_TESTS_DIR=test/bats/tests
 WAIT_TIME=60
 SLEEP_TIME=1
 IMAGE_TAG=v0.0.8-e2e-$(git rev-parse --short HEAD)
-NAMESPACE=dev
+NAMESPACE=default
 PROVIDER_YAML=https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/deployment/provider-azure-installer.yaml
 
-export SECRET_NAME=secret1
-export KEY_NAME=key1
-export SECRET_NAME=secret1
-export SECRET_VERSION=""
+export KEYVAULT_NAME=${KEYVAULT_NAME:-csi-secrets-store-e2e}
+export SECRET_NAME=${KEYVAULT_SECRET_NAME:-secret1}
+export SECRET_VERSION=${KEYVAULT_SECRET_VERSION:-""}
+export SECRET_VALUE=${KEYVAULT_SECRET_VALUE:-"test"}
+export KEY_NAME=${KEYVAULT_KEY_NAME:-key1}
+export KEY_VERSION=${KEYVAULT_KEY_VERSION:-7cc095105411491b84fe1b92ebbcf01a}
+export KEY_VALUE_CONTAINS=${KEYVAULT_KEY_VALUE:-"x-aZvXI7aetnCo"}
 
 setup() {
   if [[ -z "${AZURE_CLIENT_ID}" ]] || [[ -z "${AZURE_CLIENT_SECRET}" ]]; then
@@ -57,13 +60,12 @@ setup() {
 }
 
 @test "CSI inline volume test - read azure kv secret from pod" {
-  result=$(kubectl exec -it nginx-secrets-store-inline cat /mnt/secrets-store/secret1)
-  [[ "$result" -eq "test" ]]
+  result=$(kubectl exec -it nginx-secrets-store-inline cat /mnt/secrets-store/$SECRET_NAME)
+  [[ "$result" -eq "${SECRET_VALUE}" ]]
 }
 
 @test "CSI inline volume test - read azure kv key from pod" {
-  KEY_VALUE_CONTAINS=yOtivc0OMjJ
-  result=$(kubectl exec -it nginx-secrets-store-inline cat /mnt/secrets-store/key1)
+  result=$(kubectl exec -it nginx-secrets-store-inline cat /mnt/secrets-store/$KEY_NAME)
   [[ "$result" == *"${KEY_VALUE_CONTAINS}"* ]]
 }
 
@@ -97,12 +99,11 @@ setup() {
 }
 
 @test "CSI inline volume test with pod portability - read azure kv secret from pod" {
-  result=$(kubectl exec -it nginx-secrets-store-inline-crd cat /mnt/secrets-store/secret1)
-  [[ "$result" -eq "test" ]]
+  result=$(kubectl exec -it nginx-secrets-store-inline-crd cat /mnt/secrets-store/$SECRET_NAME)
+  [[ "$result" -eq "${SECRET_VALUE}" ]]
 }
 
 @test "CSI inline volume test with pod portability - read azure kv key from pod" {
-  KEY_VALUE_CONTAINS=yOtivc0OMjJ
-  result=$(kubectl exec -it nginx-secrets-store-inline-crd cat /mnt/secrets-store/key1)
+  result=$(kubectl exec -it nginx-secrets-store-inline-crd cat /mnt/secrets-store/$KEY_NAME)
   [[ "$result" == *"${KEY_VALUE_CONTAINS}"* ]]
 }
