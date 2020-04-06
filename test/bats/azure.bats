@@ -24,25 +24,17 @@ setup() {
   fi
 }
 
-@test "install helm chart with e2e image" {
-  run helm install charts/secrets-store-csi-driver -n csi-secrets-store --namespace $NAMESPACE \
-          --set image.pullPolicy="IfNotPresent" \
-          --set image.repository="e2e/secrets-store-csi" \
-          --set image.tag=$IMAGE_TAG
-  assert_success
-}
+@test "install azure provider" {	
+  run kubectl apply -f $PROVIDER_YAML --namespace $NAMESPACE	
+  assert_success	
 
-@test "install azure provider" {
-  run kubectl apply -f $PROVIDER_YAML --namespace $NAMESPACE
-  assert_success
+  AZURE_PROVIDER_POD=$(kubectl get pod --namespace $NAMESPACE -l app=csi-secrets-store-provider-azure -o jsonpath="{.items[0].metadata.name}")	
+  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/$AZURE_PROVIDER_POD --namespace $NAMESPACE"	
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"	
 
-  AZURE_PROVIDER_POD=$(kubectl get pod --namespace $NAMESPACE -l app=csi-secrets-store-provider-azure -o jsonpath="{.items[0].metadata.name}")
-  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/$AZURE_PROVIDER_POD --namespace $NAMESPACE"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
-
-  run kubectl get pod/$AZURE_PROVIDER_POD --namespace $NAMESPACE
-  assert_success
-}
+  run kubectl get pod/$AZURE_PROVIDER_POD --namespace $NAMESPACE	
+  assert_success	
+}	
 
 @test "create azure k8s secret" {
   run kubectl create secret generic secrets-store-creds --from-literal clientid=${AZURE_CLIENT_ID} --from-literal clientsecret=${AZURE_CLIENT_SECRET}
