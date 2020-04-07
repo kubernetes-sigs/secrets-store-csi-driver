@@ -94,12 +94,9 @@ setup-kind:
 	curl -L https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-linux-amd64 --output kind && chmod +x kind && mv kind /usr/local/bin/
 	# Create kind cluster
 	kind create cluster --config kind-config.yaml --image kindest/node:v${KUBERNETES_VERSION}
-	# Build image
-	REGISTRY="e2e" make image
-	# Load image into kind cluster
-	kind load docker-image --name kind e2e/secrets-store-csi:${IMAGE_VERSION}
 
 .PHONY: e2e-container
+e2e-container:
 ifdef TEST_WINDOWS
 		az acr login --name $(REGISTRY_NAME)
 		make build build-windows
@@ -125,9 +122,9 @@ e2e-teardown:
 install-driver:
 ifdef TEST_WINDOWS
 		helm install csi-secrets-store charts/secrets-store-csi-driver --namespace default --wait --timeout=15m -v=5 --debug \
-			--set image.pullPolicy="IfNotPresent" \
-			--set image.repository=$(REGISTRY)/$(IMAGE_NAME) \
-			--set image.tag=$(IMAGE_VERSION) \
+			--set windows.image.pullPolicy="IfNotPresent" \
+			--set windows.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
+			--set windows.image.tag=$(IMAGE_VERSION) \
 			--set windows.enabled=true
 else
 		helm install csi-secrets-store charts/secrets-store-csi-driver --namespace default --wait --timeout=15m -v=5 --debug \
