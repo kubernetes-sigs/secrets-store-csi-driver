@@ -1,7 +1,16 @@
-image:
-  repository: docker.io/deislabs/secrets-store-csi
-  tag: v0.0.9
-  pullPolicy: Always
+linux:
+  enabled: true
+  image:
+    repository: docker.io/deislabs/secrets-store-csi
+    tag: v0.0.9
+    pullPolicy: Always
+
+windows:
+  enabled: false
+  image:
+    repository: mcr.microsoft.com/k8s/csi/secrets-store/driver
+    tag: v0.0.9
+    pullPolicy: IfNotPresent
 
 logLevel:
   debug: true
@@ -17,10 +26,3 @@ rbac:
 ## A comma delimited list of key-value pairs of minimum provider versions
 ## e.g. provider1=0.0.2,provider2=0.0.3
 minimumProviderVersions:
-
-windows:
-  enabled: false
-  image:
-    repository: mcr.microsoft.com/k8s/csi/secrets-store/driver
-    tag: v0.0.9
-    pullPolicy: IfNotPresent

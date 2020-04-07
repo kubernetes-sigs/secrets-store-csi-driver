@@ -125,13 +125,14 @@ ifdef TEST_WINDOWS
 			--set windows.image.pullPolicy="IfNotPresent" \
 			--set windows.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
 			--set windows.image.tag=$(IMAGE_VERSION) \
-			--set windows.enabled=true
+			--set windows.enabled=true \
+			--set linux.enabled=false
 else
 		helm install csi-secrets-store charts/secrets-store-csi-driver --namespace default --wait --timeout=15m -v=5 --debug \
-			--set image.pullPolicy="IfNotPresent" \
-			--set image.repository="e2e/secrets-store-csi" \
-			--set image.tag=$(IMAGE_VERSION) \
-			--set image.pullPolicy="IfNotPresent"
+			--set linux.image.pullPolicy="IfNotPresent" \
+			--set linux.image.repository="e2e/secrets-store-csi" \
+			--set linux.image.tag=$(IMAGE_VERSION) \
+			--set linux.image.pullPolicy="IfNotPresent"
 endif
 
 .PHONY: e2e-azure
