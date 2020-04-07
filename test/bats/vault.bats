@@ -9,14 +9,7 @@ IMAGE_TAG=v0.0.8-e2e-$(git rev-parse --short HEAD)
 NAMESPACE=default
 PROVIDER_YAML=https://raw.githubusercontent.com/hashicorp/secrets-store-csi-driver-provider-vault/master/deployment/provider-vault-installer.yaml
 
-@test "install helm chart with e2e image" {
-  run helm install charts/secrets-store-csi-driver -n csi-secrets-store --namespace $NAMESPACE \
-          --set image.pullPolicy="IfNotPresent" \
-          --set image.repository="e2e/secrets-store-csi" \
-          --set image.tag=$IMAGE_TAG \
-          --set minimumProviderVersions=azure=0.0.3,vault=0.0.4
-  assert_success
-}
+export CONTAINER_IMAGE=nginx
 
 @test "install vault provider" {
   run kubectl apply -f $PROVIDER_YAML --namespace $NAMESPACE
@@ -132,8 +125,7 @@ EOF
 }
 
 @test "CSI inline volume test with pod portability" {
-  run kubectl apply -f $BATS_TESTS_DIR/nginx-pod-vault-inline-volume-secretproviderclass.yaml
-  assert_success
+  envsubst < $BATS_TESTS_DIR/nginx-pod-vault-inline-volume-secretproviderclass.yaml | kubectl apply -f -
 
   cmd="kubectl wait --for=condition=Ready --timeout=60s pod/nginx-secrets-store-inline"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"

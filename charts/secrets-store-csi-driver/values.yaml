@@ -1,7 +1,16 @@
-image:
-  repository: docker.io/deislabs/secrets-store-csi
-  tag: v0.0.9
-  pullPolicy: Always
+linux:
+  enabled: true
+  image:
+    repository: docker.io/deislabs/secrets-store-csi
+    tag: v0.0.9
+    pullPolicy: Always
+
+windows:
+  enabled: false
+  image:
+    repository: mcr.microsoft.com/k8s/csi/secrets-store/driver
+    tag: v0.0.9
+    pullPolicy: IfNotPresent
 
 logLevel:
   debug: true

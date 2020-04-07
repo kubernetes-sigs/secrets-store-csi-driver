@@ -12,11 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-REGISTRY_NAME?=docker.io/deislabs
+REGISTRY?=docker.io/deislabs
+REGISTRY_NAME = $(shell echo $(REGISTRY) | sed "s/.azurecr.io//g")
+GIT_COMMIT ?= $(shell git rev-parse HEAD)
 IMAGE_NAME=secrets-store-csi
 IMAGE_VERSION?=v0.0.9
-IMAGE_TAG=$(REGISTRY_NAME)/$(IMAGE_NAME):$(IMAGE_VERSION)
-IMAGE_TAG_LATEST=$(REGISTRY_NAME)/$(IMAGE_NAME):latest
+E2E_IMAGE_VERSION = v0.1.0-e2e-$(GIT_COMMIT)
+# Use a custom version for E2E tests if we are testing in CI
+ifdef CI
+override IMAGE_VERSION := $(E2E_IMAGE_VERSION)
+endif
+IMAGE_TAG=$(REGISTRY)/$(IMAGE_NAME):$(IMAGE_VERSION)
+IMAGE_TAG_LATEST=$(REGISTRY)/$(IMAGE_NAME):latest
 LDFLAGS?='-X sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store.vendorVersion=$(IMAGE_VERSION) -extldflags "-static"'
 GO_FILES=$(shell go list ./... | grep -v /test/sanity)
 
@@ -24,6 +31,8 @@ GO_FILES=$(shell go list ./... | grep -v /test/sanity)
 
 GO111MODULE ?= on
 export GO111MODULE
+DOCKER_CLI_EXPERIMENTAL = enabled
+export GOPATH GOBIN GO111MODULE DOCKER_CLI_EXPERIMENTAL
 
 HAS_GOLANGCI := $(shell command -v golangci-lint;)
 
@@ -45,12 +54,6 @@ image: build
 	docker build --no-cache -t $(IMAGE_TAG) -f Dockerfile .
 image-windows: build-windows
 	docker build --no-cache -t $(IMAGE_TAG) -f windows.Dockerfile .
-docker-login:
-	echo $(DOCKER_PASSWORD) | docker login -u $(DOCKER_USERNAME) --password-stdin
-ci-deploy: image docker-login
-	docker push $(IMAGE_TAG)
-	docker tag $(IMAGE_TAG) $(IMAGE_TAG_LATEST)
-	docker push $(IMAGE_TAG_LATEST)
 clean:
 	-rm -rf _output
 setup: clean
@@ -65,37 +68,77 @@ endif
 mod:
 	@go mod tidy
 
-KIND_VERSION ?= 0.5.1
+KIND_VERSION ?= 0.6.0
 KUBERNETES_VERSION ?= 1.15.3
 VAULT_VERSION ?= 1.2.2
-E2E_IMAGE_VERSION = v0.0.8-e2e-$$(git rev-parse --short HEAD)
-HELM_VERSION = v2.16.1
 
+# USED for windows CI tests
+.PHONY: e2e-test
+e2e-test: e2e-bootstrap
+	make e2e-azure
+	
 .PHONY: e2e-bootstrap
-e2e-bootstrap:
-	# Download and install kubectl
-	curl -LO https://storage.googleapis.com/kubernetes-release/release/v${KUBERNETES_VERSION}/bin/linux/amd64/kubectl && chmod +x ./kubectl && mv kubectl /usr/local/bin/
-	# Download and install kind
-	curl -L https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-linux-amd64 --output kind && chmod +x kind && mv kind /usr/local/bin/
-	# Download and install Helm
-	curl https://raw.githubusercontent.com/helm/helm/master/scripts/get | bash -s -- --version ${HELM_VERSION}
+e2e-bootstrap: install-helm
+	apt-get update && apt-get install bats && apt-get install gettext-base -y
 	# Download and install Vault
 	curl -LO https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_linux_amd64.zip && unzip vault_${VAULT_VERSION}_linux_amd64.zip && chmod +x vault && mv vault /usr/local/bin/
+ifndef TEST_WINDOWS
+	curl -LO https://storage.googleapis.com/kubernetes-release/release/v${KUBERNETES_VERSION}/bin/linux/amd64/kubectl && chmod +x ./kubectl && mv kubectl /usr/local/bin/
+	make setup-kind
+endif
+	docker pull $(IMAGE_TAG) || make e2e-container
+
+.PHONY: setup-kind
+setup-kind:
+	# Download and install kind
+	curl -L https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-linux-amd64 --output kind && chmod +x kind && mv kind /usr/local/bin/
 	# Create kind cluster
 	kind create cluster --config kind-config.yaml --image kindest/node:v${KUBERNETES_VERSION}
-	# Build image
-	REGISTRY_NAME="e2e" IMAGE_VERSION=${E2E_IMAGE_VERSION} make image
-	# Load image into kind cluster
-	kind load docker-image --name kind e2e/secrets-store-csi:${E2E_IMAGE_VERSION}
-	# Set up tiller
-	kubectl --namespace kube-system --output yaml create serviceaccount tiller --dry-run | kubectl --kubeconfig $$(kind get kubeconfig-path)  apply -f -
-	kubectl create --output yaml clusterrolebinding tiller-cluster-rule --clusterrole=cluster-admin --serviceaccount=kube-system:tiller --dry-run | kubectl --kubeconfig $$(kind get kubeconfig-path) apply -f -
-	helm init --service-account tiller --upgrade --wait --kubeconfig $$(kind get kubeconfig-path)
+
+.PHONY: e2e-container
+e2e-container:
+ifdef TEST_WINDOWS
+		az acr login --name $(REGISTRY_NAME)
+		make build build-windows
+		az acr build --registry $(REGISTRY_NAME) -t $(IMAGE_TAG)-linux-amd64 -f Dockerfile --platform linux .
+		az acr build --registry $(REGISTRY_NAME) -t $(IMAGE_TAG)-windows-1809-amd64 -f windows.Dockerfile --platform windows .
+		docker manifest create $(IMAGE_TAG) $(IMAGE_TAG)-linux-amd64 $(IMAGE_TAG)-windows-1809-amd64
+		docker manifest inspect $(IMAGE_TAG)
+		docker manifest push --purge $(IMAGE_TAG)
+else
+		REGISTRY="e2e" make image
+		kind load docker-image --name kind e2e/secrets-store-csi:${IMAGE_VERSION}
+endif
+
+.PHONY: install-helm
+install-helm:
+	curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+
+.PHONY: e2e-teardown
+e2e-teardown:
+	helm delete csi-secrets-store --namespace default
+
+.PHONY: install-driver
+install-driver:
+ifdef TEST_WINDOWS
+		helm install csi-secrets-store charts/secrets-store-csi-driver --namespace default --wait --timeout=15m -v=5 --debug \
+			--set windows.image.pullPolicy="IfNotPresent" \
+			--set windows.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
+			--set windows.image.tag=$(IMAGE_VERSION) \
+			--set windows.enabled=true \
+			--set linux.enabled=false
+else
+		helm install csi-secrets-store charts/secrets-store-csi-driver --namespace default --wait --timeout=15m -v=5 --debug \
+			--set linux.image.pullPolicy="IfNotPresent" \
+			--set linux.image.repository="e2e/secrets-store-csi" \
+			--set linux.image.tag=$(IMAGE_VERSION) \
+			--set linux.image.pullPolicy="IfNotPresent"
+endif
 
 .PHONY: e2e-azure
-e2e-azure:
+e2e-azure: install-driver
 	bats -t test/bats/azure.bats
 
 .PHONY: e2e-vault
-e2e-vault:
+e2e-vault: install-driver
 	bats -t test/bats/vault.bats
