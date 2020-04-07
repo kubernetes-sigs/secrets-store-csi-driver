@@ -5,7 +5,8 @@ metadata:
 spec:
   podInfoOnMount: true
   attachRequired: false
-{{- if and ( ge (.Capabilities.KubeVersion.Major | int) 1 ) ( ge (.Capabilities.KubeVersion.Minor | int) 16 ) }}
-  volumeLifecycleModes: # Added in Kubernetes 1.16 with default mode of Persistent. Secrets store csi driver needs Ephermeral to be set.
+{{- if semverCompare ">=1.16-0" .Capabilities.KubeVersion.GitVersion }}
+  # Added in Kubernetes 1.16 with default mode of Persistent. Secrets store csi driver needs Ephermeral to be set.
+  volumeLifecycleModes: 
   - Ephemeral
 {{ end }}

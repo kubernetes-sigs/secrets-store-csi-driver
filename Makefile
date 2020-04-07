@@ -95,14 +95,14 @@ setup-kind:
 	# Create kind cluster
 	kind create cluster --config kind-config.yaml --image kindest/node:v${KUBERNETES_VERSION}
 	# Build image
-	REGISTRY="e2e" IMAGE_VERSION=${E2E_IMAGE_VERSION} make image
+	REGISTRY="e2e" make image
 	# Load image into kind cluster
-	kind load docker-image --name kind e2e/secrets-store-csi:${E2E_IMAGE_VERSION}
+	kind load docker-image --name kind e2e/secrets-store-csi:${IMAGE_VERSION}
 
 .PHONY: e2e-container
 ifdef TEST_WINDOWS
 		az acr login --name $(REGISTRY_NAME)
-		make build-windows
+		make build build-windows
 		az acr build --registry $(REGISTRY_NAME) -t $(IMAGE_TAG)-linux-amd64 -f Dockerfile --platform linux .
 		az acr build --registry $(REGISTRY_NAME) -t $(IMAGE_TAG)-windows-1809-amd64 -f windows.Dockerfile --platform windows .
 		docker manifest create $(IMAGE_TAG) $(IMAGE_TAG)-linux-amd64 $(IMAGE_TAG)-windows-1809-amd64
@@ -125,15 +125,16 @@ e2e-teardown:
 install-driver:
 ifdef TEST_WINDOWS
 		helm install csi-secrets-store charts/secrets-store-csi-driver --namespace default --wait --timeout=15m -v=5 --debug \
-          --set image.pullPolicy="IfNotPresent" \
-          --set image.repository=$(REGISTRY)/$(IMAGE_NAME) \
-          --set image.tag=$(IMAGE_VERSION) \
-		  --set windows.enabled=true
+			--set image.pullPolicy="IfNotPresent" \
+			--set image.repository=$(REGISTRY)/$(IMAGE_NAME) \
+			--set image.tag=$(IMAGE_VERSION) \
+			--set windows.enabled=true
 else
 		helm install csi-secrets-store charts/secrets-store-csi-driver --namespace default --wait --timeout=15m -v=5 --debug \
-          --set image.pullPolicy="IfNotPresent" \
-		  --set image.repository="e2e/secrets-store-csi" \
-		  --set image.tag=$(IMAGE_VERSION)
+			--set image.pullPolicy="IfNotPresent" \
+			--set image.repository="e2e/secrets-store-csi" \
+			--set image.tag=$(IMAGE_VERSION) \
+			--set image.pullPolicy="IfNotPresent"
 endif
 
 .PHONY: e2e-azure
