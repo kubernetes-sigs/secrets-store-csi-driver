@@ -14,6 +14,7 @@ The Secrets Store CSI driver `secrets-store.csi.k8s.io` allows Kubernetes to mou
 - Supports pod identity to restrict access with specific identities (Azure provider only)
 - Supports multiple secrets stores as providers. Multiple providers can run in the same cluster simultaneously.
 - Supports pod portability with the SecretProviderClass CRD
+- Supports windows containers (Kubernetes version v1.18+)
 
 #### Table of Contents
 
@@ -21,8 +22,8 @@ The Secrets Store CSI driver `secrets-store.csi.k8s.io` allows Kubernetes to mou
 - [Demo](#demo)
 - [Usage](#usage)
 - [Providers](#providers)
-  - [Azure Key Vault Provider](https://github.com/Azure/secrets-store-csi-driver-provider-azure)
-  - [HashiCorp Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault)
+  - [Azure Key Vault Provider](https://github.com/Azure/secrets-store-csi-driver-provider-azure) - Supports linux and windows
+  - [HashiCorp Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault) - Supports linux
   - [Adding a New Provider via the Provider Interface](#adding-a-new-provider-via-the-provider-interface)
 - [Testing](#testing)
   - [Unit Tests](#unit-tests)
@@ -70,74 +71,9 @@ The CSI Inline Volume feature was introduced in Kubernetes v1.15.x. We need to m
 
 ### Install the Secrets Store CSI Driver
 
-#### Using Helm Chart
+**Using Helm Chart**
 
-Make sure you already have helm CLI installed. To install the secrets store csi driver:
-
-```bash
-NAMESPACE=dev
-helm repo add secrets-store-csi-driver https://raw.githubusercontent.com/kubernetes-sigs/secrets-store-csi-driver/master/charts
-helm install csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver --namespace $NAMESPACE
-```
-
-
-Expected output:
-
-```console
-NAME:   csi-secrets-store
-NAMESPACE: dev
-STATUS: DEPLOYED
-
-RESOURCES:
-==> v1/ClusterRole
-NAME                        AGE
-secretproviderclasses-role  1s
-
-==> v1/ClusterRoleBinding
-NAME                               AGE
-secretproviderclasses-rolebinding  0s
-
-==> v1/DaemonSet
-NAME                                        AGE
-csi-secrets-store-secrets-store-csi-driver  0s
-
-==> v1/Pod(related)
-NAME                                              AGE
-csi-secrets-store-secrets-store-csi-driver-hb8gb  0s
-csi-secrets-store-secrets-store-csi-driver-rk7hg  0s
-
-==> v1/ServiceAccount
-NAME                      AGE
-secrets-store-csi-driver  1s
-
-==> v1beta1/CSIDriver
-NAME                       AGE
-secrets-store.csi.k8s.io  0s
-
-==> v1beta1/CustomResourceDefinition
-NAME                                              AGE
-secretproviderclasses.secrets-store.csi.x-k8s.io  1s
-
-
-NOTES:
-The Secrets Store CSI Driver is getting deployed to your cluster.
-
-To verify that Secrets Store CSI Driver has started, run:
-
-  kubectl --namespace=dev get pods -l "app=secrets-store-csi-driver"
-
-Now you can follow these steps https://github.com/kubernetes-sigs/secrets-store-csi-driver#use-the-secrets-store-csi-driver
-to create a SecretProviderClass resource, and a deployment using the SecretProviderClass.
-
-```
-#### Using Helm without Tiller
-
-You can also template this chart locally without Tiller and apply the result using `kubectl`.
-
-```bash
-helm template csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver --namespace $NAMESPACE > manifest.yml
-kubectl apply -f manifest.yml
-```
+Follow the [guide to install driver using Helm](charts/secrets-store-csi-driver/README.md)
 
 
 <details>
@@ -151,6 +87,9 @@ kubectl apply -f deploy/secrets-store-csi-driver.yaml --namespace $NAMESPACE
 
 # [OPTIONAL] For kubernetes version < 1.16 running `kubectl apply -f deploy/csidriver.yaml` will fail. To install the driver run
 kubectl apply -f deploy/csidriver-1.15.yaml
+
+# [OPTIONAL] To deploy driver on windows nodes
+kubectl apply -f deploy/secrets-store-csi-driver-windows.yaml --namespace $NAMESPACE
 ```
 
 To validate the installer is running as expected, run the following commands:
@@ -178,75 +117,12 @@ secretproviderclasses.secrets-store.csi.x-k8s.io
 
 ### Use the Secrets Store CSI Driver with a Provider
 
-1. Select a provider from the [list of supported providers](#providers) and deploy the provider yaml
+Select a provider from the [list of supported providers](#providers) and deploy the provider yaml
 
-    ```bash
-    # [REQUIRED FOR AZURE PROVIDER]
-    kubectl apply -f https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/deployment/provider-azure-installer.yaml --namespace $NAMESPACE
+Configuration for each individual provider and examples -
+-  [Azure Provider](https://github.com/Azure/secrets-store-csi-driver-provider-azure)
+-  [Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault)
 
-    # [REQUIRED FOR VAULT PROVIDER]
-    kubectl apply -f https://raw.githubusercontent.com/hashicorp/secrets-store-csi-driver-provider-vault/master/deployment/provider-vault-installer.yaml --namespace $NAMESPACE
-
-    ```
-
-    You should see the following pods deployed for the provider(s) you selected. For example, for the Azure Key Vault provider:
-
-    ```bash
-    csi-secrets-store-provider-azure-pksfd             2/2     Running   0          4m
-    csi-secrets-store-provider-azure-sxht2             2/2     Running   0          4m
-    ```
-
-1. Create a `secretproviderclasses` resource to provide provider-specific parameters for the Secrets Store CSI driver. Follow [specific deployment steps](#providers) for the selected provider to update all required fields [see example secretproviderclass](pkg/providers/azure/examples/v1alpha1_secretproviderclass.yaml).
-
-      ```yaml
-      apiVersion: secrets-store.csi.x-k8s.io/v1alpha1
-      kind: SecretProviderClass
-      metadata:
-        name: azure-kvname
-      spec:
-        provider: azure                   # accepted provider options: azure or vault
-        parameters:
-          usePodIdentity: "false"         # [OPTIONAL for Azure] if not provided, will default to "false"
-          keyvaultName: "kvname"          # the name of the KeyVault
-          objects:  |
-            array:
-              - |
-                objectName: secret1
-                objectType: secret        # object types: secret, key or cert
-                objectVersion: ""         # [OPTIONAL] object versions, default to latest if empty
-              - |
-                objectName: key1
-                objectType: key
-                objectVersion: ""
-          resourceGroup: "rg1"            # the resource group of the KeyVault
-          subscriptionId: "subid"         # the subscription ID of the KeyVault
-          tenantId: "tid"                 # the tenant ID of the KeyVault
-
-      ```
-1. Update your [deployment yaml](pkg/providers/azure/examples/nginx-pod-secrets-store-inline-volume-secretproviderclass.yaml) to use the Secrets Store CSI driver and reference the `secretProviderClass` resource created in the previous step
-
-    ```yaml
-    volumes:
-      - name: secrets-store-inline
-        csi:
-          driver: secrets-store.csi.k8s.io
-          readOnly: true
-          volumeAttributes:
-            secretProviderClass: "azure-kvname"
-    ```
-
-1. Deploy your resource with the inline CSI volume using the Secrets Store CSI driver
-
-    ```bash
-    kubectl apply -f pkg/providers/azure/examples/nginx-pod-secrets-store-inline-volume-secretproviderclass.yaml
-    ```
-
-1. Validate the pod has access to the secret from your secrets store instance:
-
-    ```bash
-    kubectl exec -it nginx-secrets-store-inline ls /mnt/secrets-store/
-    secret1
-    ```
 
 ## Providers
 
@@ -277,7 +153,7 @@ Run unit tests locally with `make test`.
 
 ### End-to-end Tests
 
-End-to-end tests automatically runs on Travis CI when a PR is submitted. If you want to run using a local or remote Kubernetes cluster, make sure to have `kubectl`, `helm` (with `tiller` running on the cluster) and `bats` set up in your local environment and then run `make e2e`. You can find the steps in `.travis.yml` for getting started for setting up your environment, which uses Kind to set up a cluster.
+End-to-end tests automatically runs on Prow when a PR is submitted. If you want to run using a local or remote Kubernetes cluster, make sure to have `kubectl`, `helm` and `bats` set up in your local environment and then run `make e2e-azure` or `make e2e-vault` with custom images.
 
 ## Known Issues and Workarounds
 
