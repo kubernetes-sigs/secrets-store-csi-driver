@@ -42,6 +42,7 @@ type nodeServer struct {
 	providerVolumePath  string
 	minProviderVersions map[string]string
 	mounter             mount.Interface
+	reporter            StatsReporter
 }
 
 const (
@@ -54,13 +55,23 @@ const (
 	secretProviderClassField             = "secretProviderClass"
 )
 
-func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
+func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (npvr *csi.NodePublishVolumeResponse, err error) {
 	var parameters map[string]string
 	var providerName string
 	var secretObjects []interface{}
 	var podNamespace, podUID string
 	syncK8sSecret := false
 
+	errorReason := FailedToMount
+	defer func() {
+		if err != nil {
+			ns.reporter.reportNodePublishErrorMetrics(providerName, errorReason)
+			return
+		}
+		ns.reporter.reportNodePublishMetrics(providerName)
+	}()
+
+	log.Info("NodePublishVolume")
 	// Check arguments
 	if req.GetVolumeCapability() == nil {
 		return nil, status.Error(codes.InvalidArgument, "Volume capability missing in request")
@@ -83,6 +94,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 	mnt, err := ns.ensureMountPoint(targetPath)
 	if err != nil {
+		errorReason = FailedToEnsureMountPoint
 		return nil, status.Errorf(codes.Internal, "Could not mount target %q: %v", targetPath, err)
 	}
 	if mnt {
