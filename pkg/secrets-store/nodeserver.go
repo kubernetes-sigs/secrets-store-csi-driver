@@ -256,23 +256,23 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 	}
 	targetPath := req.GetTargetPath()
 	volumeID := req.GetVolumeId()
-
-	ns.podUID = getPodUIDFromTargetPath(runtime.GOOS, targetPath)
-	if len(ns.podUID) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Cannot get podUID from Target path")
-	}
-
 	files, err := getMountedFiles(targetPath)
 
-	item, podNS, err := getItemWithPodID(ctx, ns.podUID)
-	if err != nil {
-		return nil, err
-	}
-	if len(podNS) > 0 {
-		// [optional field]
-		secretObjects, ns.syncK8sSecret, err = getSecretObjectsFromSpec(item)
+	if !isMockTargetPath(targetPath) {
+		ns.podUID = getPodUIDFromTargetPath(runtime.GOOS, targetPath)
+		if len(ns.podUID) == 0 {
+			return nil, status.Error(codes.InvalidArgument, "Cannot get podUID from Target path")
+		}
+		item, podNS, err := getItemWithPodID(ctx, ns.podUID)
 		if err != nil {
 			return nil, err
+		}
+		if len(podNS) > 0 {
+			// [optional field]
+			secretObjects, ns.syncK8sSecret, err = getSecretObjectsFromSpec(item)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
