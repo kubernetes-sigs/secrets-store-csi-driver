@@ -152,6 +152,8 @@ EOF
 }
 
 @test "Sync with K8s secrets" {
+  export VAULT_SERVICE_IP=$(kubectl get service vault -o jsonpath='{.spec.clusterIP}')
+
   envsubst < $BATS_TESTS_DIR/vault_synck8s_v1alpha1_secretproviderclass.yaml | kubectl apply -f - --validate=false
 
   cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io"
@@ -173,9 +175,9 @@ EOF
   result=$(kubectl exec -it $POD cat /mnt/secrets-store/foo1)
   [[ "$result" -eq "hello1" ]]
 
-  result=$(kubectl get secret foosecret -o jsonpath="{.data.pwd}")
-  [[ "$result" -eq "aGVsbG8=" ]]
+  result=$(kubectl get secret foosecret -o jsonpath="{.data.pwd}" | base64 -D)
+  [[ "$result" -eq "hello" ]]
 
-  result=$(kubectl exec -it $POD printenv | grep SECRET_USERNAME)
-  [[ "$result" -eq "SECRET_USERNAME=hello1" ]]
+  result=$(kubectl exec -it $POD printenv | grep SECRET_USERNAME) | awk -F"=" '{ print $2}'
+  [[ "$result" -eq "hello1" ]]
 }
