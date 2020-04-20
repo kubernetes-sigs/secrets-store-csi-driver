@@ -30,9 +30,9 @@ import (
 	version "sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"golang.org/x/net/context"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/utils/mount"
@@ -95,7 +95,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if secretProviderClass == "" && providerName == "" {
 		return nil, fmt.Errorf("secretProviderClass is not set")
 	}
-	
+
 	/// TODO: This is here for backward compatibility. Will eventually deprecate.
 	if providerName != "" {
 		parameters = attrib
@@ -136,7 +136,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		ns.namespace = parameters["csi.storage.k8s.io/pod.namespace"]
 		ns.podUID = parameters["csi.storage.k8s.io/pod.uid"]
 	}
-	
+
 	if !isMockProvider(providerName) {
 		// ensure it's read-only
 		if !req.GetReadonly() {
@@ -220,7 +220,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			ns.mounter.Unmount(targetPath)
 			log.Errorf("error invoking provider, err: %v, output: %v", err, stderr.String())
 			return nil, fmt.Errorf("error mounting secret %v", stderr.String())
-		} 
+		}
 		// create/update secrets with mounted file content
 		// add pod info to the secretProviderClass obj's byPod status field
 		if ns.syncK8sSecret {

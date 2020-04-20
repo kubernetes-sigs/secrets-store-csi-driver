@@ -17,7 +17,6 @@ limitations under the License.
 package secretsstore
 
 import (
-
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
@@ -31,9 +30,9 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"golang.org/x/net/context"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -46,7 +45,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
-
 var (
 	secretProviderClassGvk = schema.GroupVersionKind{
 		Group:   "secrets-store.csi.x-k8s.io",
@@ -54,7 +52,6 @@ var (
 		Kind:    "SecretProviderClassList",
 	}
 )
-
 
 // getProviderPath returns the absolute path to the provider binary
 func (ns *nodeServer) getProviderPath(goos string, providerName string) string {
@@ -84,7 +81,7 @@ func getMountedFiles(targetPath string) ([]string, error) {
 }
 
 // getPodUIDFromTargetPath returns podUID from targetPath
-func getPodUIDFromTargetPath(goos string, targetPath string) (string) {
+func getPodUIDFromTargetPath(goos string, targetPath string) string {
 
 	var parts []string
 	if goos == "windows" {
@@ -269,11 +266,12 @@ func syncK8sObjects(ctx context.Context, targetPath string, podUID string, names
 			return err
 		}
 	}
-	return nil	
+	return nil
 }
+
 // removeK8sObjects deletes K8s secrets based on secretProviderClass spec
 // it should also delete pod info from the secretProviderClass object's byPod status field
-func removeK8sObjects (ctx context.Context, targetPath string, podUID string, files []string, secretObjects []interface{}) error {
+func removeK8sObjects(ctx context.Context, targetPath string, podUID string, files []string, secretObjects []interface{}) error {
 	secretProviderClass := ""
 	namespace := ""
 	deleteStatusFn := func() (bool, error) {
@@ -362,7 +360,7 @@ func createOrUpdateK8sSecret(ctx context.Context, name string, namespace string,
 			Namespace: namespace,
 			Name:      name,
 		},
-		Type:          secretType,
+		Type: secretType,
 	}
 
 	if err := c.Get(ctx, secretKey, secret); err != nil {
@@ -409,13 +407,13 @@ func deleteK8sSecret(ctx context.Context, name string, namespace string) error {
 	if err := c.Get(ctx, secretKey, secret); err != nil {
 		log.Error(err, "error while getting K8s secret")
 		return err
-	} 
+	}
 
 	if err := c.Delete(ctx, secret); err != nil {
 		log.Error(err, "error while deleting K8s secret")
 		return err
 	}
-	
+
 	log.Infof("deleted k8s secret: %s", name)
 	return nil
 }
@@ -427,8 +425,8 @@ func setStatus(ctx context.Context, obj *unstructured.Unstructured, id string, n
 		return err
 	}
 	status := map[string]interface{}{
-		"id":                  id,
-		"namespace":           namespace,
+		"id":        id,
+		"namespace": namespace,
 	}
 	statuses, exists, err := unstructured.NestedSlice(obj.Object, "status", "byPod")
 	if err != nil {
@@ -473,6 +471,7 @@ func setStatus(ctx context.Context, obj *unstructured.Unstructured, id string, n
 	}
 	return nil
 }
+
 // deleteStatus deletes pod-specific information from byPod status of the secretproviderclass object
 func deleteStatus(ctx context.Context, obj *unstructured.Unstructured, id string) error {
 	c, err := getClient()
@@ -515,6 +514,7 @@ func deleteStatus(ctx context.Context, obj *unstructured.Unstructured, id string
 	}
 	return nil
 }
+
 // getNamespaceByPodID returns namespace of the pod with podUID from the status of the secretproviderclass object
 func getNamespaceByPodID(obj *unstructured.Unstructured, id string) (string, error) {
 	statuses, exists, err := unstructured.NestedSlice(obj.Object, "status", "byPod")
@@ -566,6 +566,7 @@ func getClient() (client.Client, error) {
 	}
 	return c, nil
 }
+
 // getStatusCount returns the total number of objects in the byPod status field of the secretproviderclass object
 func getStatusCount(obj *unstructured.Unstructured) int {
 	statuses, exists, err := unstructured.NestedSlice(obj.Object, "status", "byPod")
@@ -574,8 +575,9 @@ func getStatusCount(obj *unstructured.Unstructured) int {
 	}
 	return 0
 }
+
 // getSecretProviderItemByName returns the secretproviderclass object by name
-func getSecretProviderItemByName (ctx context.Context, name string) (*unstructured.Unstructured, error) {
+func getSecretProviderItemByName(ctx context.Context, name string) (*unstructured.Unstructured, error) {
 	instanceList := &unstructured.UnstructuredList{}
 	instanceList.SetGroupVersionKind(secretProviderClassGvk)
 	c, err := getClient()
@@ -594,8 +596,9 @@ func getSecretProviderItemByName (ctx context.Context, name string) (*unstructur
 	}
 	return nil, fmt.Errorf("could not find secretproviderclass %s", name)
 }
-// getItemWithPodID returns the secretproviderclass object with podUID 
-func getItemWithPodID (ctx context.Context, podUID string) (*unstructured.Unstructured, string, error) {
+
+// getItemWithPodID returns the secretproviderclass object with podUID
+func getItemWithPodID(ctx context.Context, podUID string) (*unstructured.Unstructured, string, error) {
 	c, err := getClient()
 	if err != nil {
 		return nil, "", err
@@ -618,16 +621,18 @@ func getItemWithPodID (ctx context.Context, podUID string) (*unstructured.Unstru
 	}
 	return nil, "", nil
 }
+
 // getSecretObjectsFromSpec returns secretObjects and if it exists in the spec
-func getSecretObjectsFromSpec (item *unstructured.Unstructured) ([]interface{}, bool, error) {
+func getSecretObjectsFromSpec(item *unstructured.Unstructured) ([]interface{}, bool, error) {
 	secretObjects, exists, err := unstructured.NestedSlice(item.Object, "spec", "secretObjects")
 	if err != nil {
 		return nil, false, err
 	}
 	return secretObjects, exists && len(secretObjects) > 0, nil
 }
+
 // getSecretType returns a k8s secret type, defaults to Opaque
-func getSecretType (sType string) (corev1.SecretType){
+func getSecretType(sType string) corev1.SecretType {
 	switch sType {
 	case "kubernetes.io/basic-auth":
 		return corev1.SecretTypeBasicAuth
@@ -647,6 +652,7 @@ func getSecretType (sType string) (corev1.SecretType){
 		return corev1.SecretTypeOpaque
 	}
 }
+
 // getCertPart returns the certificate or the private key part of the cert
 func getCertPart(data []byte, key string) ([]byte, error) {
 	if key == corev1.TLSPrivateKeyKey {
@@ -657,6 +663,7 @@ func getCertPart(data []byte, key string) ([]byte, error) {
 	}
 	return nil, fmt.Errorf("tls key is not supported. Only tls.key and tls.crt are supported")
 }
+
 // getCert returns the certificate part of a cert
 func getCert(data []byte) ([]byte, error) {
 	var certs []byte
@@ -673,6 +680,7 @@ func getCert(data []byte) ([]byte, error) {
 	}
 	return certs, nil
 }
+
 // getPrivateKey returns the private key part of a cert
 func getPrivateKey(data []byte) ([]byte, error) {
 	var der []byte
@@ -715,6 +723,6 @@ func getPrivateKey(data []byte) ([]byte, error) {
 		Type:  "RSA PRIVATE KEY",
 		Bytes: derKey,
 	}
-	
+
 	return pem.EncodeToMemory(block), nil
 }
