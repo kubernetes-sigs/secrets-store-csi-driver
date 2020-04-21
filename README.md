@@ -117,10 +117,8 @@ secretproviderclasses.secrets-store.csi.x-k8s.io
 
 ### Use the Secrets Store CSI Driver with a Provider
 
-Select a provider from the [list of supported providers](#providers) and deploy the provider yaml
-
-Configuration for each individual provider and examples -
--  [Azure Provider](https://github.com/Azure/secrets-store-csi-driver-provider-azure)
+Select a provider from the following list, then follow the installation steps for the provider:
+-  [Azure Provider](https://github.com/Azure/secrets-store-csi-driver-provider-azure#install-the-azure-key-vault-provider)
 -  [Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault)
 
 
