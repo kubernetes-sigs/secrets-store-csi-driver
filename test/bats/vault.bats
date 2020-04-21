@@ -151,7 +151,7 @@ EOF
   [[ "$result" -eq "hello1" ]]
 }
 
-@test "Sync with K8s secrets" {
+@test "Sync with K8s secrets - create deployment" {
   export VAULT_SERVICE_IP=$(kubectl get service vault -o jsonpath='{.spec.clusterIP}')
 
   envsubst < $BATS_TESTS_DIR/vault_synck8s_v1alpha1_secretproviderclass.yaml | kubectl apply -f - --validate=false
@@ -167,7 +167,9 @@ EOF
 
   cmd="kubectl wait --for=condition=Ready --timeout=60s pod -l app=nginx"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+}
 
+@test "Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check byPod status" {
   POD=$(kubectl get pod -l app=nginx -o jsonpath="{.items[0].metadata.name}")
   result=$(kubectl exec -it $POD cat /mnt/secrets-store/foo)
   [[ "$result" -eq "hello" ]]
@@ -175,9 +177,23 @@ EOF
   result=$(kubectl exec -it $POD cat /mnt/secrets-store/foo1)
   [[ "$result" -eq "hello1" ]]
 
-  result=$(kubectl get secret foosecret -o jsonpath="{.data.pwd}" | base64 -D)
+  result=$(kubectl get secret foosecret -o jsonpath="{.data.pwd}" | base64 -d)
   [[ "$result" -eq "hello" ]]
 
   result=$(kubectl exec -it $POD printenv | grep SECRET_USERNAME) | awk -F"=" '{ print $2}'
   [[ "$result" -eq "hello1" ]]
+
+  result=$(kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/vault-foo-sync -o json | jq '.status.byPod | length')
+  [[ "$result" -eq "2" ]]
+}
+
+@test "Sync with K8s secrets - delete deployment, check byPod status" {
+  run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-synck8s.yaml
+  assert_success
+  sleep 20
+  result=$(kubectl get secret | grep foosecret | wc -l)
+  [[ "$result" -eq "0" ]]
+
+  result=$(kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/vault-foo-sync -o json | jq '.status.byPod | length')
+  [[ "$result" -eq "0" ]]
 }

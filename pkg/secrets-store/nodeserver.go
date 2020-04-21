@@ -43,9 +43,6 @@ type nodeServer struct {
 	providerVolumePath  string
 	minProviderVersions map[string]string
 	mounter             mount.Interface
-	syncK8sSecret       bool
-	namespace           string
-	podUID              string
 }
 
 const (
@@ -56,6 +53,9 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	var parameters map[string]string
 	var providerName string
 	var secretObjects []interface{}
+	podNamespace := ""
+	podUID := ""
+	syncK8sSecret := false
 
 	// Check arguments
 	if req.GetVolumeCapability() == nil {
@@ -126,15 +126,15 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return nil, fmt.Errorf("Failed to initialize provider parameters")
 		}
 		// [optional field]
-		secretObjects, ns.syncK8sSecret, err = getSecretObjectsFromSpec(item)
+		secretObjects, syncK8sSecret, err = getSecretObjectsFromSpec(item)
 		if err != nil {
 			return nil, err
 		}
 		parameters["csi.storage.k8s.io/pod.name"] = attrib["csi.storage.k8s.io/pod.name"]
 		parameters["csi.storage.k8s.io/pod.namespace"] = attrib["csi.storage.k8s.io/pod.namespace"]
 		parameters["csi.storage.k8s.io/pod.uid"] = attrib["csi.storage.k8s.io/pod.uid"]
-		ns.namespace = parameters["csi.storage.k8s.io/pod.namespace"]
-		ns.podUID = parameters["csi.storage.k8s.io/pod.uid"]
+		podNamespace = parameters["csi.storage.k8s.io/pod.namespace"]
+		podUID = parameters["csi.storage.k8s.io/pod.uid"]
 	}
 
 	if !isMockProvider(providerName) {
@@ -223,9 +223,9 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		}
 		// create/update secrets with mounted file content
 		// add pod info to the secretProviderClass obj's byPod status field
-		if ns.syncK8sSecret {
+		if syncK8sSecret {
 			log.Debugf("syncK8sSecret is enabled")
-			err := syncK8sObjects(ctx, targetPath, ns.podUID, ns.namespace, secretProviderClass, secretObjects)
+			err := syncK8sObjects(ctx, targetPath, podUID, podNamespace, secretProviderClass, secretObjects)
 			if err != nil {
 				log.Errorf("syncK8sObjects err: %v", err)
 				return nil, err
@@ -247,6 +247,9 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
 	var secretObjects []interface{}
+	podUID := ""
+	syncK8sSecret := false
+
 	// Check arguments
 	if len(req.GetVolumeId()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
@@ -259,28 +262,28 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 	files, err := getMountedFiles(targetPath)
 
 	if !isMockTargetPath(targetPath) {
-		ns.podUID = getPodUIDFromTargetPath(runtime.GOOS, targetPath)
-		if len(ns.podUID) == 0 {
+		podUID = getPodUIDFromTargetPath(runtime.GOOS, targetPath)
+		if len(podUID) == 0 {
 			return nil, status.Error(codes.InvalidArgument, "Cannot get podUID from Target path")
 		}
-		item, podNS, err := getItemWithPodID(ctx, ns.podUID)
+		item, podNS, err := getItemWithPodID(ctx, podUID)
 		if err != nil {
 			return nil, err
 		}
 		if len(podNS) > 0 {
 			// [optional field]
-			secretObjects, ns.syncK8sSecret, err = getSecretObjectsFromSpec(item)
+			secretObjects, syncK8sSecret, err = getSecretObjectsFromSpec(item)
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	if ns.syncK8sSecret {
+	if syncK8sSecret {
 		log.Debugf("syncK8sSecret is enabled")
 		// removeK8sObjects deletes secrets mapped to each mounted file
 		// it should also delete pod info from the secretProviderClass object's byPod status field
-		err := removeK8sObjects(ctx, targetPath, ns.podUID, files, secretObjects)
+		err := removeK8sObjects(ctx, targetPath, podUID, files, secretObjects)
 		if err != nil {
 			log.Errorf("removeK8sObjects err: %v", err)
 			return nil, status.Error(codes.Internal, err.Error())

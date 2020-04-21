@@ -420,6 +420,7 @@ func deleteK8sSecret(ctx context.Context, name string, namespace string) error {
 
 // setStatus adds pod-specific info to byPod status of the secretproviderclass object
 func setStatus(ctx context.Context, obj *unstructured.Unstructured, id string, namespace string) error {
+	log.Infof("setStatus id: %s", id)
 	c, err := getClient()
 	if err != nil {
 		return err
@@ -433,12 +434,10 @@ func setStatus(ctx context.Context, obj *unstructured.Unstructured, id string, n
 		return err
 	}
 	if !exists {
-		log.Infof("doesnt exist, before set")
 		if err := unstructured.SetNestedSlice(
 			obj.Object, []interface{}{status}, "status", "byPod"); err != nil {
 			return err
 		}
-		log.Infof("doesnt exist, after set")
 	}
 
 	for _, s := range statuses {
