@@ -51,9 +51,9 @@ build: setup
 build-windows: setup
 	CGO_ENABLED=0 GOOS=windows go build -a -ldflags ${LDFLAGS} -o _output/secrets-store-csi.exe ./cmd/secrets-store-csi-driver
 image:
-	docker buildx build --no-cache --build-arg LDFLAGS=${LDFLAGS} -t $(IMAGE_TAG) -f Dockerfile --platform="linux/amd64" --output "type=docker,push=false" .
+	docker buildx build --no-cache --build-arg LDFLAGS=${LDFLAGS} -t $(IMAGE_TAG) -f docker/Dockerfile --platform="linux/amd64" --output "type=docker,push=false" .
 image-windows:
-	docker buildx build --no-cache --build-arg LDFLAGS=${LDFLAGS} -t $(IMAGE_TAG) -f windows.Dockerfile --platform="windows/amd64" --output "type=docker,push=false" .
+	docker buildx build --no-cache --build-arg LDFLAGS=${LDFLAGS} -t $(IMAGE_TAG) -f docker/windows.Dockerfile --platform="windows/amd64" --output "type=docker,push=false" .
 clean:
 	-rm -rf _output
 setup: clean
