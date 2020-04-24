@@ -250,6 +250,11 @@ func TestGetPodUIDFromTargetPath(t *testing.T) {
 			expectedPodUID: "d4fd876f-bdb3-11e9-a369-0a5d188d99c0",
 		},
 		{
+			targetPath:     `c:\\var\\lib\\kubelet\\pods\\d4fd876f-bdb3-11e9-a369-0a5d188d9934\\volumes`,
+			goos:           "windows",
+			expectedPodUID: "d4fd876f-bdb3-11e9-a369-0a5d188d9934",
+		},
+		{
 			targetPath:     "/var/lib/",
 			expectedPodUID: "",
 		},

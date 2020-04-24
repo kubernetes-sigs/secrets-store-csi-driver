@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright 2020 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -34,7 +34,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/utils/mount"
 )
 
@@ -53,8 +52,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	var parameters map[string]string
 	var providerName string
 	var secretObjects []interface{}
-	podNamespace := ""
-	podUID := ""
+	var podNamespace, podUID string
 	syncK8sSecret := false
 
 	// Check arguments
@@ -104,26 +102,14 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		if err != nil {
 			return nil, err
 		}
-		provider, exists, err := unstructured.NestedString(item.Object, "spec", "provider")
+		provider, err := getStringFromObjectSpec(item.Object, "provider")
 		if err != nil {
 			return nil, err
-		}
-		if !exists {
-			return nil, fmt.Errorf("could not get provider name from spec")
-		}
-		if provider == "" {
-			return nil, fmt.Errorf("providerName is not set")
 		}
 		providerName = provider
-		parameters, exists, err = unstructured.NestedStringMap(item.Object, "spec", "parameters")
+		parameters, err = getMapFromObjectSpec(item.Object, "parameters")
 		if err != nil {
 			return nil, err
-		}
-		if !exists {
-			return nil, fmt.Errorf("could not get parameters from spec")
-		}
-		if len(parameters) == 0 {
-			return nil, fmt.Errorf("Failed to initialize provider parameters")
 		}
 		// [optional field]
 		secretObjects, syncK8sSecret, err = getSecretObjectsFromSpec(item)
@@ -145,28 +131,28 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		// get provider volume path
 		providerVolumePath := ns.providerVolumePath
 		if providerVolumePath == "" {
-			return nil, fmt.Errorf("Providers volume path not found. Set PROVIDERS_VOLUME_PATH")
+			return nil, fmt.Errorf("Providers volume path not found. Set PROVIDERS_VOLUME_PATH for pod: %s, ns: %s", podUID, podNamespace)
 		}
 
 		providerBinary := ns.getProviderPath(runtime.GOOS, providerName)
 		if _, err := os.Stat(providerBinary); err != nil {
-			log.Errorf("failed to find provider %s, err: %v", providerName, err)
+			log.Errorf("failed to find provider %s, err: %v for pod: %s, ns: %s", providerName, err, podUID, podNamespace)
 			return nil, err
 		}
 
 		parametersStr, err := json.Marshal(parameters)
 		if err != nil {
-			log.Errorf("failed to marshal parameters, err: %v", err)
+			log.Errorf("failed to marshal parameters, err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
 			return nil, err
 		}
 		secretStr, err := json.Marshal(secrets)
 		if err != nil {
-			log.Errorf("failed to marshal secrets, err: %v", err)
+			log.Errorf("failed to marshal secrets, err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
 			return nil, err
 		}
 		permissionStr, err := json.Marshal(permission)
 		if err != nil {
-			log.Errorf("failed to marshal file permission, err: %v", err)
+			log.Errorf("failed to marshal file permission, err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
 			return nil, err
 		}
 
@@ -177,12 +163,12 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return nil, err
 		}
 
-		log.Debugf("Calling provider: %s", providerName)
+		log.Debugf("Calling provider: %s for pod: %s, ns: %s", providerName, podUID, podNamespace)
 
 		// check if minimum compatible provider version with current driver version is set
 		// if minimum version is not provided, skip check
 		if _, exists := ns.minProviderVersions[providerName]; !exists {
-			log.Warningf("minimum compatible %s provider version not set", providerName)
+			log.Warningf("minimum compatible %s provider version not set for pod: %s, ns: %s", providerName, podUID, podNamespace)
 		} else {
 			// check if provider is compatible with driver
 			providerCompatible, err := version.IsProviderCompatible(providerBinary, ns.minProviderVersions[providerName])
@@ -218,16 +204,16 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		log.Infof(string(stdout.String()))
 		if err != nil {
 			ns.mounter.Unmount(targetPath)
-			log.Errorf("error invoking provider, err: %v, output: %v", err, stderr.String())
-			return nil, fmt.Errorf("error mounting secret %v", stderr.String())
+			log.Errorf("error invoking provider, err: %v, output: %v for pod: %s, ns: %s", err, stderr.String(), podUID, podNamespace)
+			return nil, fmt.Errorf("error mounting secret %v for pod: %s, ns: %s", stderr.String(), podUID, podNamespace)
 		}
 		// create/update secrets with mounted file content
 		// add pod info to the secretProviderClass obj's byPod status field
 		if syncK8sSecret {
-			log.Debugf("syncK8sSecret is enabled")
+			log.Debugf("syncK8sSecret is enabled for pod: %s, ns: %s", podUID, podNamespace)
 			err := syncK8sObjects(ctx, targetPath, podUID, podNamespace, secretProviderClass, secretObjects)
 			if err != nil {
-				log.Errorf("syncK8sObjects err: %v", err)
+				log.Errorf("syncK8sObjects err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
 				return nil, err
 			}
 		}
@@ -236,10 +222,10 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		// mock provider is used only for running sanity tests against the driver
 		err := ns.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
 		if err != nil {
-			log.Errorf("mount err: %v", err)
+			log.Errorf("mount err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
 			return nil, err
 		}
-		log.Infof("skipping calling provider as its mock")
+		log.Infof("skipping calling provider as it's mock")
 	}
 
 	return &csi.NodePublishVolumeResponse{}, nil
@@ -247,7 +233,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
 	var secretObjects []interface{}
-	podUID := ""
+	var podUID string
 	syncK8sSecret := false
 
 	// Check arguments
@@ -261,31 +247,38 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 	volumeID := req.GetVolumeId()
 	files, err := getMountedFiles(targetPath)
 
-	if !isMockTargetPath(targetPath) {
-		podUID = getPodUIDFromTargetPath(runtime.GOOS, targetPath)
-		if len(podUID) == 0 {
-			return nil, status.Error(codes.InvalidArgument, "Cannot get podUID from Target path")
-		}
-		item, podNS, err := getItemWithPodID(ctx, podUID)
+	if isMockTargetPath(targetPath) {
+		return &csi.NodeUnpublishVolumeResponse{}, nil
+	}
+
+	podUID = getPodUIDFromTargetPath(runtime.GOOS, targetPath)
+	if len(podUID) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Cannot get podUID from Target path")
+	}
+	item, podNS, err := getItemWithPodID(ctx, podUID)
+	if err != nil {
+		return nil, err
+	}
+	if item != nil {
+		// [optional field]
+		secretObjects, syncK8sSecret, err = getSecretObjectsFromSpec(item)
 		if err != nil {
-			return nil, err
-		}
-		if len(podNS) > 0 {
-			// [optional field]
-			secretObjects, syncK8sSecret, err = getSecretObjectsFromSpec(item)
-			if err != nil {
-				return nil, err
-			}
+			log.Errorf("getSecretObjectsFromSpec err: %v for pod: %s. skipping sync", err, podUID)
+			syncK8sSecret = false
 		}
 	}
 
 	if syncK8sSecret {
-		log.Debugf("syncK8sSecret is enabled")
+		log.Debugf("syncK8sSecret is enabled for pod: %s", podUID)
+		// ensure podNS is valid as it is required for deleting secrets
+		if len(podNS) == 0 {
+			return nil, status.Error(codes.InvalidArgument, "Invalid podNS from secretproviderclasses obj")
+		}
 		// removeK8sObjects deletes secrets mapped to each mounted file
 		// it should also delete pod info from the secretProviderClass object's byPod status field
 		err := removeK8sObjects(ctx, targetPath, podUID, files, secretObjects)
 		if err != nil {
-			log.Errorf("removeK8sObjects err: %v", err)
+			log.Errorf("removeK8sObjects err: %v for pod: %s", err, podUID)
 			return nil, status.Error(codes.Internal, err.Error())
 		}
 	}
@@ -294,18 +287,18 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 		for _, file := range files {
 			err = os.RemoveAll(file)
 			if err != nil {
-				log.Errorf("failed to remove file %s, err: %v", file, err)
+				log.Errorf("failed to remove file %s, err: %v for pod: %s", file, err, podUID)
 				return nil, status.Error(codes.Internal, err.Error())
 			}
 		}
 	}
 	err = mount.CleanupMountPoint(targetPath, ns.mounter, false)
 	if err != nil {
-		log.Errorf("error cleaning and unmounting target path %s, err: %v", targetPath, err)
+		log.Errorf("error cleaning and unmounting target path %s, err: %v for pod: %s", targetPath, err, podUID)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	log.Debugf("secrets-store: targetPath %s volumeID %s has been unmounted.", targetPath, volumeID)
+	log.Debugf("secrets-store: targetPath %s volumeID %s has been unmounted for pod: %s", targetPath, volumeID, podUID)
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 
