@@ -372,11 +372,15 @@ func TestGetStatusCount(t *testing.T) {
 			if err := unstructured.SetNestedSlice(obj.Object, tc.Statuses, "status", "byPod"); err != nil {
 				t.Fatal(err)
 			}
-			actualCount := getStatusCount(obj)
+			actualCount, err := getStatusCount(obj)
+			if err != nil {
+				t.Fatal(err)
+			}
 			assert.Equal(t, tc.expectedCount, actualCount)
 		})
 	}
 }
+
 func TestGetSecretObjectsFromSpec(t *testing.T) {
 	cases := []struct {
 		Name          string
@@ -460,6 +464,7 @@ func TestGetSecretObjectsFromSpec(t *testing.T) {
 		})
 	}
 }
+
 func TestGetCert(t *testing.T) {
 	cases := []struct {
 		Name        string

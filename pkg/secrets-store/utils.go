@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright 2020 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -51,6 +51,17 @@ var (
 		Version: "v1alpha1",
 		Kind:    "SecretProviderClassList",
 	}
+)
+
+const (
+	secretNameField    = "secretName"
+	secretObjectsField = "secretObjects"
+	keyField           = "key"
+	dataField          = "data"
+	objectNameField    = "objectName"
+	typeField          = "type"
+	certType           = "CERTIFICATE"
+	privateKeyType     = "RSA PRIVATE KEY"
 )
 
 // getProviderPath returns the absolute path to the provider binary
@@ -167,31 +178,37 @@ func syncK8sObjects(ctx context.Context, targetPath string, podUID string, names
 			log.Infof("could not cast secretObject as map[string]interface{} for pod: %s, ns: %s", podUID, namespace)
 			continue
 		}
-		secretName, err := getStringFromObject(secretObject, "secretName")
+		secretName, err := getStringFromObject(secretObject, secretNameField)
 		if err != nil {
+			log.Infof("could not get secretName from secretObject for pod: %s, ns: %s", podUID, namespace)
 			continue
 		}
-		sType, err := getStringFromObject(secretObject, "type")
+		sType, err := getStringFromObject(secretObject, typeField)
 		if err != nil {
+			log.Infof("could not get type from secretObject for pod: %s, ns: %s", podUID, namespace)
 			continue
 		}
 		secretType := getSecretType(sType)
-		secretObjectDataList, err := getSliceFromObject(secretObject, "data")
+		secretObjectDataList, err := getSliceFromObject(secretObject, dataField)
 		if err != nil {
+			log.Infof("could not get data from secretObject for pod: %s, ns: %s", podUID, namespace)
 			continue
 		}
 		datamap := make(map[string][]byte)
 		for _, d := range secretObjectDataList {
 			secretObjectData, ok := d.(map[string]interface{})
 			if !ok {
+				log.Infof("could not cast secretObject data as map[string]interface{} for pod: %s, ns: %s", podUID, namespace)
 				continue
 			}
-			objectName, err := getStringFromObject(secretObjectData, "objectName")
+			objectName, err := getStringFromObject(secretObjectData, objectNameField)
 			if err != nil {
+				log.Infof("could not get objectName from secretObject data for pod: %s, ns: %s", podUID, namespace)
 				continue
 			}
-			key, err := getStringFromObject(secretObjectData, "key")
+			key, err := getStringFromObject(secretObjectData, keyField)
 			if err != nil {
+				log.Infof("could not get key from secretObject data for pod: %s, ns: %s", podUID, namespace)
 				continue
 			}
 			found := false
@@ -302,7 +319,11 @@ func removeK8sObjects(ctx context.Context, targetPath string, podUID string, fil
 				log.Errorf("failed to get secret provider item, err: %v for pod: %s, ns: %s", err, podUID, namespace)
 				return false, nil
 			}
-			count := getStatusCount(item)
+			count, err := getStatusCount(item)
+			if err != nil {
+				log.Errorf("failed to get status count, err: %v for object: %s", err, item.GetName())
+				return false, nil
+			}
 			// only delete when no more pods are associated with it
 			if count == 0 {
 				///TODO: we assume all files are mounted from a single secretsproviderclass
@@ -313,7 +334,7 @@ func removeK8sObjects(ctx context.Context, targetPath string, podUID string, fil
 						continue
 					}
 
-					secretName, err := getStringFromObject(secretObject, "secretName")
+					secretName, err := getStringFromObject(secretObject, secretNameField)
 					if err != nil {
 						continue
 					}
@@ -369,10 +390,10 @@ func createOrUpdateK8sSecret(ctx context.Context, name string, namespace string,
 				log.Error(err, "error while creating K8s secret: %s, ns: %s", name, namespace)
 				return err
 			}
-		} else {
-			log.Error(err, "error while retrieving K8s secret: %s, ns: %s", name, namespace)
-			return err
+			return nil
 		}
+		log.Error(err, "error while retrieving K8s secret: %s, ns: %s", name, namespace)
+		return err
 	}
 	secret.Data = datamap
 	if err := c.Update(ctx, secret); err != nil {
@@ -391,10 +412,6 @@ func deleteK8sSecret(ctx context.Context, name string, namespace string) error {
 	if err != nil {
 		return err
 	}
-	secretKey := types.NamespacedName{
-		Namespace: namespace,
-		Name:      name,
-	}
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -403,16 +420,11 @@ func deleteK8sSecret(ctx context.Context, name string, namespace string) error {
 		},
 	}
 
-	if err := c.Get(ctx, secretKey, secret); err != nil {
+	if err := c.Delete(ctx, secret); err != nil {
 		if errors.IsNotFound(err) {
 			log.Infof("k8s secret not found during delete. Skip. secret: %s, ns: %s", name, namespace)
 			return nil
 		}
-		log.Error(err, "error while getting K8s secret: %s, ns: %s", name, namespace)
-		return err
-	}
-
-	if err := c.Delete(ctx, secret); err != nil {
 		log.Error(err, "error while deleting K8s secret: %s, ns: %s", name, namespace)
 		return err
 	}
@@ -433,28 +445,25 @@ func setStatus(ctx context.Context, obj *unstructured.Unstructured, id string, n
 		"id":        id,
 		"namespace": namespace,
 	}
-	statuses, exists, err := unstructured.NestedSlice(obj.Object, "status", "byPod")
+	statuses, _, err := unstructured.NestedSlice(obj.Object, "status", "byPod")
 	if err != nil {
 		return err
-	}
-	if !exists {
-		if err := unstructured.SetNestedSlice(
-			obj.Object, []interface{}{status}, "status", "byPod"); err != nil {
-			return err
-		}
 	}
 
 	for _, s := range statuses {
 		curStatus, ok := s.(map[string]interface{})
 		if !ok {
+			log.Infof("could not cast status as map[string]interface{} for object: %s", obj.GetName())
 			continue
 		}
 		curID2, ok := curStatus["id"]
 		if !ok {
+			log.Infof("could not get id from status for object: %s", obj.GetName())
 			continue
 		}
 		curID, ok := curID2.(string)
 		if !ok {
+			log.Infof("could not cast id from status as string for object: %s", obj.GetName())
 			continue
 		}
 		// skip if id already exists
@@ -494,20 +503,25 @@ func deleteStatus(ctx context.Context, obj *unstructured.Unstructured, id string
 	for i, s := range statuses {
 		curStatus, ok := s.(map[string]interface{})
 		if !ok {
-			return fmt.Errorf("element %d in byPod status is malformed for pod: %s", i, id)
+			return fmt.Errorf("element %d in byPod status is malformed for object: %s", i, obj.GetName())
 		}
 		curID2, ok := curStatus["id"]
 		if !ok {
-			return fmt.Errorf("element %d in byPod status is missing an `id` field for pod: %s", i, id)
+			return fmt.Errorf("element %d in byPod status is missing an `id` field for object: %s", i, obj.GetName())
 		}
 		curID, ok := curID2.(string)
 		if !ok {
-			return fmt.Errorf("element %d in byPod status' `id` field is not a string: %v for pod: %s", i, curID2, id)
+			return fmt.Errorf("element %d in byPod status' `id` field is not a string: %v for object: %s", i, curID2, obj.GetName())
 		}
 		if id == curID {
 			continue
 		}
 		newStatus = append(newStatus, s)
+	}
+
+	if len(newStatus) == len(statuses) {
+		log.Infof("could not find pod %s in status for object: %s. Skip updating object", id, obj.GetName())
+		return nil
 	}
 	if err := unstructured.SetNestedSlice(obj.Object, newStatus, "status", "byPod"); err != nil {
 		return err
@@ -572,12 +586,15 @@ func getClient() (client.Client, error) {
 }
 
 // getStatusCount returns the total number of objects in the byPod status field of the secretproviderclass object
-func getStatusCount(obj *unstructured.Unstructured) int {
+func getStatusCount(obj *unstructured.Unstructured) (int, error) {
 	statuses, exists, err := unstructured.NestedSlice(obj.Object, "status", "byPod")
-	if err == nil && exists {
-		return len(statuses)
+	if err != nil {
+		return 0, err
 	}
-	return 0
+	if err == nil && exists {
+		return len(statuses), nil
+	}
+	return 0, nil
 }
 
 // getSecretProviderItemByName returns the secretproviderclass object by name
@@ -628,9 +645,9 @@ func getItemWithPodID(ctx context.Context, podUID string) (*unstructured.Unstruc
 	return nil, "", nil
 }
 
-// getSecretObjectsFromSpec returns secretObjects and if it exists in the spec
+// getSecretObjectsFromSpec returns secretObjects if it exists in the spec
 func getSecretObjectsFromSpec(item *unstructured.Unstructured) ([]interface{}, bool, error) {
-	secretObjects, exists, err := unstructured.NestedSlice(item.Object, "spec", "secretObjects")
+	secretObjects, exists, err := unstructured.NestedSlice(item.Object, "spec", secretObjectsField)
 	if err != nil {
 		return nil, false, err
 	}
@@ -734,7 +751,7 @@ func getCert(data []byte) ([]byte, error) {
 		if pemBlock == nil {
 			break
 		}
-		if pemBlock.Type == "CERTIFICATE" {
+		if pemBlock.Type == certType {
 			block := pem.EncodeToMemory(pemBlock)
 			certs = append(certs, block...)
 		}
@@ -752,7 +769,7 @@ func getPrivateKey(data []byte) ([]byte, error) {
 		if pemBlock == nil {
 			break
 		}
-		if pemBlock.Type != "CERTIFICATE" {
+		if pemBlock.Type != certType {
 			der = pemBlock.Bytes
 		}
 		data = rest
@@ -782,7 +799,7 @@ func getPrivateKey(data []byte) ([]byte, error) {
 		}
 	}
 	block := &pem.Block{
-		Type:  "RSA PRIVATE KEY",
+		Type:  privateKeyType,
 		Bytes: derKey,
 	}
 
