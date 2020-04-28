@@ -76,8 +76,10 @@ Make sure you already have helm CLI installed. To install the secrets store csi 
 
 ```bash
 NAMESPACE=dev
-helm install charts/secrets-store-csi-driver -n csi-secrets-store --namespace $NAMESPACE
+helm repo add secrets-store-csi-driver https://raw.githubusercontent.com/kubernetes-sigs/secrets-store-csi-driver/master/charts
+helm install csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver --namespace $NAMESPACE
 ```
+
 
 Expected output:
 
@@ -133,7 +135,7 @@ to create a SecretProviderClass resource, and a deployment using the SecretProvi
 You can also template this chart locally without Tiller and apply the result using `kubectl`.
 
 ```bash
-helm template charts/secrets-store-csi-driver --name csi-secrets-store --namespace $NAMESPACE > manifest.yml
+helm template csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver --namespace $NAMESPACE > manifest.yml
 kubectl apply -f manifest.yml
 ```
 

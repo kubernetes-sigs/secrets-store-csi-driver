@@ -1,0 +1,21 @@
+apiVersion: v1
+entries:
+  secrets-store-csi-driver:
+  - apiVersion: v1
+    appVersion: 0.0.9
+    created: "2020-04-28T22:05:38.049737+01:00"
+    description: A Helm chart to install the SecretsStore CSI Driver inside a Kubernetes
+      cluster.
+    digest: 0f74454ca36c979a352d8a7b6d847521897ebf78195527ed8946201a841887a7
+    icon: https://github.com/kubernetes/kubernetes/blob/master/logo/logo.png
+    kubeVersion: '>=1.15.0-0'
+    maintainers:
+    - email: ritazh@microsoft.com
+      name: Rita Zhang
+    name: secrets-store-csi-driver
+    sources:
+    - https://github.com/kubernetes-sigs/secrets-store-csi-driver
+    urls:
+    - https://raw.githubusercontent.com/kubernetes-sigs/secrets-store-csi-driver/master/charts/secrets-store-csi-driver-0.0.9.tgz
+    version: 0.0.9
+generated: "2020-04-28T22:05:38.04544+01:00"
