@@ -107,3 +107,48 @@ setup() {
   result=$(kubectl exec nginx-secrets-store-inline -- $EXEC_COMMAND/$KEY_NAME)
   [[ "${result//$'\r'}" == *"${KEY_VALUE_CONTAINS}"* ]]
 }
+
+@test "Sync with K8s secrets - create deployment" {
+  envsubst < $BATS_TESTS_DIR/azure_synck8s_v1alpha1_secretproviderclass.yaml | kubectl apply -f - --validate=false
+
+  cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure-sync -o yaml | grep azure"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  envsubst < $BATS_TESTS_DIR/nginx-deployment-synck8s-azure.yaml | kubectl apply -f -
+
+  cmd="kubectl wait --for=condition=Ready --timeout=60s pod -l app=nginx"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+}
+
+@test "Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check byPod status" {
+  POD=$(kubectl get pod -l app=nginx -o jsonpath="{.items[0].metadata.name}")
+
+  result=$(kubectl exec $POD -- $EXEC_COMMAND/$SECRET_NAME)
+  [[ "${result//$'\r'}" -eq "${SECRET_VALUE}" ]]
+
+  result=$(kubectl exec $POD -- $EXEC_COMMAND/$KEY_NAME)
+  [[ "${result//$'\r'}" == *"${KEY_VALUE_CONTAINS}"* ]]
+
+  result=$(kubectl get secret foosecret -o jsonpath="{.data.username}" | base64 -d)
+  [[ "${result//$'\r'}" -eq "${SECRET_VALUE}" ]]
+
+  result=$(kubectl exec -it $POD printenv | grep SECRET_USERNAME) | awk -F"=" '{ print $2}'
+  [[ "${result//$'\r'}" -eq "${SECRET_VALUE}" ]]
+
+  result=$(kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure-sync -o json | jq '.status.byPod | length')
+  [[ "$result" -eq "2" ]]
+}
+
+@test "Sync with K8s secrets - delete deployment, check byPod status" {
+  run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-synck8s-azure.yaml
+  assert_success
+  sleep 20
+  result=$(kubectl get secret | grep foosecret | wc -l)
+  [[ "$result" -eq "0" ]]
+
+  result=$(kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure-sync -o json | jq '.status.byPod | length')
+  [[ "$result" -eq "0" ]]
+}
