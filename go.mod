@@ -5,6 +5,7 @@ go 1.12
 require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/container-storage-interface/spec v1.0.0
+	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/zapr v0.1.1 // indirect
 	github.com/gogo/protobuf v1.2.2-0.20190723190241-65acae22fc9d // indirect
 	github.com/golang/protobuf v1.3.2
@@ -29,6 +30,7 @@ require (
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
 	google.golang.org/appengine v1.5.0 // indirect
 	google.golang.org/grpc v1.27.0
+	k8s.io/api v0.0.0-20190409021203-6e4e0e4f393b
 	k8s.io/apimachinery v0.0.0-20190404173353-6a84e37a896d
 	k8s.io/klog v0.4.0 // indirect
 	k8s.io/utils v0.0.0-20200229041039-0a110f9eb7ab

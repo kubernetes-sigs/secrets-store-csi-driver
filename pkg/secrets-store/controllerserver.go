@@ -139,3 +139,7 @@ func (cs *controllerServer) findVolumeInternal(key, nameOrID string) (csi.Volume
 func isMockProvider(provider string) bool {
 	return strings.EqualFold(provider, "mock_provider")
 }
+
+func isMockTargetPath(targetPath string) bool {
+	return strings.EqualFold(targetPath, "/tmp/csi/mount")
+}
