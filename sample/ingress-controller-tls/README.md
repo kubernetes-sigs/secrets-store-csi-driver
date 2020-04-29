@@ -1,5 +1,5 @@
 # Using Secrets Store CSI to Enable NGINX Ingress Controller with TLS
-This guide demonstrates steps required to setup Secrets store csi driver to enable applications to work with NGINX Ingress Controller with TLS stored in an exteranl Secrets store. 
+This guide demonstrates steps required to setup Secrets Store CSI driver to enable applications to work with NGINX Ingress Controller with TLS stored in an external Secrets store. 
 For more information on securing an Ingress with TLS, refer to: https://kubernetes.io/docs/concepts/services-networking/ingress/#tls
 
 # Generate a TLS Cert
@@ -12,7 +12,8 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
 ```
 
 # Store Cert in External Secrets Store Service
-e.g. Azure Key Vault or Vault
+- [Azure Key Vault](https://docs.microsoft.com/en-us/azure/key-vault/certificates/certificate-scenarios#import-a-certificate) 
+- [HashiCorp Vault](https://www.vaultproject.io/docs/commands#reading-and-writing-data)
 
 # Deploy Secrets-store CSI and the Provider
 https://github.com/kubernetes-sigs/secrets-store-csi-driver#usage
@@ -50,7 +51,7 @@ kubectl create secret generic secrets-store-creds --from-literal clientid=xxxx -
 
 # Deploy Test Apps with Reference to Secrets Store CSI
 
-> NOTE: These apps referece a secrets store csi volume and a `secretProviderClass` object created earlier. A Kubernetes secret `ingress-tls-csi` will be created by the CSI driver as a result of the app creation.
+> NOTE: These apps reference a Secrets Store CSI volume and a `secretProviderClass` object created earlier. A Kubernetes secret `ingress-tls-csi` will be created by the CSI driver as a result of the app creation.
 
 ```yaml
       volumes:
@@ -109,7 +110,7 @@ Replace the public IP with the external IP of the ingress controller service fro
 ```bash
 curl -v -k --resolve demo.test.com:443:52.xx.xx.xx https://demo.test.com
 
-# You should see the following in your outpout
+# You should see the following in your output
 *  subject: CN=demo.test.com; O=ingress-tls
 *  start date: Apr 15 04:23:46 2020 GMT
 *  expire date: Apr 15 04:23:46 2021 GMT
