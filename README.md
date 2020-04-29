@@ -118,7 +118,7 @@ secretproviderclasses.secrets-store.csi.x-k8s.io
 ### Use the Secrets Store CSI Driver with a Provider
 
 Select a provider from the following list, then follow the installation steps for the provider:
--  [Azure Provider](https://github.com/Azure/secrets-store-csi-driver-provider-azure#install-the-azure-key-vault-provider)
+-  [Azure Provider](https://github.com/Azure/secrets-store-csi-driver-provider-azure#usage)
 -  [Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault)
 
 
@@ -152,6 +152,8 @@ Run unit tests locally with `make test`.
 ### End-to-end Tests
 
 End-to-end tests automatically runs on Prow when a PR is submitted. If you want to run using a local or remote Kubernetes cluster, make sure to have `kubectl`, `helm` and `bats` set up in your local environment and then run `make e2e-azure` or `make e2e-vault` with custom images.
+
+Job config for test jobs run for each PR in prow can be found [here](https://github.com/kubernetes/test-infra/blob/master/config/jobs/kubernetes-sigs/secrets-store-csi-driver/secrets-store-csi-driver-config.yaml)
 
 ## Known Issues and Workarounds
 
