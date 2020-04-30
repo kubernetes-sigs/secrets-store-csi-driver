@@ -137,101 +137,103 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return nil, err
 		}
 		log.Infof("skipping calling provider as it's mock")
+		return &csi.NodePublishVolumeResponse{}, nil
+	}
+	// ensure it's read-only
+	if !req.GetReadonly() {
+		return nil, status.Error(codes.InvalidArgument, "Readonly is not true in request")
+	}
+	// get provider volume path
+	providerVolumePath := ns.providerVolumePath
+	if providerVolumePath == "" {
+		return nil, fmt.Errorf("Providers volume path not found. Set PROVIDERS_VOLUME_PATH for pod: %s, ns: %s", podUID, podNamespace)
+	}
+
+	providerBinary := ns.getProviderPath(runtime.GOOS, providerName)
+	if _, err := os.Stat(providerBinary); err != nil {
+		log.Errorf("failed to find provider %s, err: %v for pod: %s, ns: %s", providerName, err, podUID, podNamespace)
+		return nil, err
+	}
+
+	parametersStr, err := json.Marshal(parameters)
+	if err != nil {
+		log.Errorf("failed to marshal parameters, err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
+		return nil, err
+	}
+	secretStr, err := json.Marshal(secrets)
+	if err != nil {
+		log.Errorf("failed to marshal secrets, err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
+		return nil, err
+	}
+	permissionStr, err := json.Marshal(permission)
+	if err != nil {
+		log.Errorf("failed to marshal file permission, err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
+		return nil, err
+	}
+
+	// mount before providers can write content to it
+	// In linux Mount tmpfs mounts tmpfs to targetPath
+	// In windows Mount tmpfs checks if the targetPath exists and if not, will create the target path
+	// https://github.com/kubernetes/utils/blob/master/mount/mount_windows.go#L68-L71
+	err = ns.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
+	if err != nil {
+		log.Errorf("mount err: %v", err)
+		return nil, err
+	}
+
+	log.Debugf("Calling provider: %s for pod: %s, ns: %s", providerName, podUID, podNamespace)
+
+	// check if minimum compatible provider version with current driver version is set
+	// if minimum version is not provided, skip check
+	if _, exists := ns.minProviderVersions[providerName]; !exists {
+		log.Warningf("minimum compatible %s provider version not set for pod: %s, ns: %s", providerName, podUID, podNamespace)
 	} else {
-		// ensure it's read-only
-		if !req.GetReadonly() {
-			return nil, status.Error(codes.InvalidArgument, "Readonly is not true in request")
-		}
-		// get provider volume path
-		providerVolumePath := ns.providerVolumePath
-		if providerVolumePath == "" {
-			return nil, fmt.Errorf("Providers volume path not found. Set PROVIDERS_VOLUME_PATH for pod: %s, ns: %s", podUID, podNamespace)
-		}
-
-		providerBinary := ns.getProviderPath(runtime.GOOS, providerName)
-		if _, err := os.Stat(providerBinary); err != nil {
-			log.Errorf("failed to find provider %s, err: %v for pod: %s, ns: %s", providerName, err, podUID, podNamespace)
+		// check if provider is compatible with driver
+		providerCompatible, err := version.IsProviderCompatible(providerBinary, ns.minProviderVersions[providerName])
+		if err != nil {
 			return nil, err
 		}
+		if !providerCompatible {
+			return nil, fmt.Errorf("Minimum supported %s provider version with current driver is %s", providerName, ns.minProviderVersions[providerName])
+		}
+	}
 
-		parametersStr, err := json.Marshal(parameters)
+	args := []string{
+		"--attributes", string(parametersStr),
+		"--secrets", string(secretStr),
+		"--targetPath", string(targetPath),
+		"--permission", string(permissionStr),
+	}
+
+	log.Infof("provider command invoked: %s %s %v", providerBinary,
+		"--attributes [REDACTED] --secrets [REDACTED]", args[4:])
+
+	cmd := exec.Command(
+		providerBinary,
+		args...,
+	)
+
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd.Stderr, cmd.Stdout = stderr, stdout
+
+	err = cmd.Run()
+
+	log.Infof(string(stdout.String()))
+	if err != nil {
+		ns.mounter.Unmount(targetPath)
+		log.Errorf("error invoking provider, err: %v, output: %v for pod: %s, ns: %s", err, stderr.String(), podUID, podNamespace)
+		return nil, fmt.Errorf("error mounting secret %v for pod: %s, ns: %s", stderr.String(), podUID, podNamespace)
+	}
+	// create/update secrets with mounted file content
+	// add pod info to the secretProviderClass obj's byPod status field
+	if syncK8sSecret {
+		log.Debugf("[NodePublishVolume] syncK8sSecret is enabled for pod: %s, ns: %s", podUID, podNamespace)
+		err := syncK8sObjects(ctx, targetPath, podUID, podNamespace, secretProviderClass, secretObjects)
 		if err != nil {
-			log.Errorf("failed to marshal parameters, err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
+			log.Errorf("syncK8sObjects err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
 			return nil, err
 		}
-		secretStr, err := json.Marshal(secrets)
-		if err != nil {
-			log.Errorf("failed to marshal secrets, err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
-			return nil, err
-		}
-		permissionStr, err := json.Marshal(permission)
-		if err != nil {
-			log.Errorf("failed to marshal file permission, err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
-			return nil, err
-		}
-
-		// mount before providers can write content to it
-		err = ns.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
-		if err != nil {
-			log.Errorf("mount err: %v", err)
-			return nil, err
-		}
-
-		log.Debugf("Calling provider: %s for pod: %s, ns: %s", providerName, podUID, podNamespace)
-
-		// check if minimum compatible provider version with current driver version is set
-		// if minimum version is not provided, skip check
-		if _, exists := ns.minProviderVersions[providerName]; !exists {
-			log.Warningf("minimum compatible %s provider version not set for pod: %s, ns: %s", providerName, podUID, podNamespace)
-		} else {
-			// check if provider is compatible with driver
-			providerCompatible, err := version.IsProviderCompatible(providerBinary, ns.minProviderVersions[providerName])
-			if err != nil {
-				return nil, err
-			}
-			if !providerCompatible {
-				return nil, fmt.Errorf("Minimum supported %s provider version with current driver is %s", providerName, ns.minProviderVersions[providerName])
-			}
-		}
-
-		args := []string{
-			"--attributes", string(parametersStr),
-			"--secrets", string(secretStr),
-			"--targetPath", string(targetPath),
-			"--permission", string(permissionStr),
-		}
-
-		log.Infof("provider command invoked: %s %s %v", providerBinary,
-			"--attributes [REDACTED] --secrets [REDACTED]", args[4:])
-
-		cmd := exec.Command(
-			providerBinary,
-			args...,
-		)
-
-		stdout := &bytes.Buffer{}
-		stderr := &bytes.Buffer{}
-		cmd.Stderr, cmd.Stdout = stderr, stdout
-
-		err = cmd.Run()
-
-		log.Infof(string(stdout.String()))
-		if err != nil {
-			ns.mounter.Unmount(targetPath)
-			log.Errorf("error invoking provider, err: %v, output: %v for pod: %s, ns: %s", err, stderr.String(), podUID, podNamespace)
-			return nil, fmt.Errorf("error mounting secret %v for pod: %s, ns: %s", stderr.String(), podUID, podNamespace)
-		}
-		// create/update secrets with mounted file content
-		// add pod info to the secretProviderClass obj's byPod status field
-		if syncK8sSecret {
-			log.Debugf("[NodePublishVolume] syncK8sSecret is enabled for pod: %s, ns: %s", podUID, podNamespace)
-			err := syncK8sObjects(ctx, targetPath, podUID, podNamespace, secretProviderClass, secretObjects)
-			if err != nil {
-				log.Errorf("syncK8sObjects err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
-				return nil, err
-			}
-		}
-
 	}
 
 	return &csi.NodePublishVolumeResponse{}, nil
