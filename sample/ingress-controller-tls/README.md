@@ -37,7 +37,7 @@ helm install stable/nginx-ingress --generate-name \
 ```
 
 # Deploy a SecretsProviderClass Resource
-> NOTE: For this sample, we are using the `azure` provider. For more information, head over to: https://github.com/Azure/secrets-store-csi-driver-provider-azure#install-the-azure-key-vault-provider
+> NOTE: For this sample, we are using the `azure` provider. For more information, head over to: https://github.com/Azure/secrets-store-csi-driver-provider-azure#usage
 
 ```bash
 kubectl apply -f sample/ingress-controller-tls/secretproviderclass-azure-tls.yaml -n ingress-test
@@ -79,7 +79,7 @@ NAME                                             TYPE                           
 ingress-tls-csi                                  kubernetes.io/tls                     2      1m34s
 ```
 
-# Deploy an Ingress Resource Referencing the Secret created by the CSI driver
+# Deploy an Ingress Resource referencing the Secret created by the CSI driver
 
 > NOTE: The ingress resource references the Kubernetes secret `ingress-tls-csi` created by the CSI driver as a result of the app creation.
 
@@ -97,7 +97,7 @@ kubectl apply -f sample/ingress-controller-tls/ingress.yaml -n ingress-test
 # Get the External IP of the Ingress Controller
 
 ```bash
- kubectl get service -l app=nginx-ingress --namespace ingress-test                 ⎈ ritak8s116
+ kubectl get service -l app=nginx-ingress --namespace ingress-test 
 NAME                                       TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)                      AGE
 nginx-ingress-1588032400-controller        LoadBalancer   10.0.255.157   52.xx.xx.xx   80:31293/TCP,443:31265/TCP   19m
 nginx-ingress-1588032400-default-backend   ClusterIP      10.0.223.214   <none>           80/TCP                       19m
