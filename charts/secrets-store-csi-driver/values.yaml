@@ -2,14 +2,14 @@ linux:
   enabled: true
   image:
     repository: docker.io/deislabs/secrets-store-csi
-    tag: v0.0.9
+    tag: v0.0.10
     pullPolicy: Always
 
 windows:
   enabled: false
   image:
     repository: mcr.microsoft.com/k8s/csi/secrets-store/driver
-    tag: v0.0.9
+    tag: v0.0.10
     pullPolicy: IfNotPresent
 
 logLevel:

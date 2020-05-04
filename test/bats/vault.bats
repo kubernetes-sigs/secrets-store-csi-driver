@@ -154,7 +154,7 @@ EOF
 @test "Sync with K8s secrets - create deployment" {
   export VAULT_SERVICE_IP=$(kubectl get service vault -o jsonpath='{.spec.clusterIP}')
 
-  envsubst < $BATS_TESTS_DIR/vault_synck8s_v1alpha1_secretproviderclass.yaml | kubectl apply -f - --validate=false
+  envsubst < $BATS_TESTS_DIR/vault_synck8s_v1alpha1_secretproviderclass.yaml | kubectl apply -f - 
 
   cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"

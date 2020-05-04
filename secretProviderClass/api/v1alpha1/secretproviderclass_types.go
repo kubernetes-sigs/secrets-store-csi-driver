@@ -19,16 +19,44 @@ const (
 
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+// SecretObjectData defines the desired state of synced K8s secret object data
+type SecretObjectData struct {
+	// name of the object to sync
+	ObjectName string `json:"objectName,omitempty"`
+	// data field to populate
+	Key string `json:"key,omitempty"`
+}
+
+// SecretObject defines the desired state of synced K8s secret objects
+type SecretObject struct {
+	// name of the K8s secret object
+	SecretName string `json:"secretName,omitempty"`
+	// type of K8s secret object
+	Type string              `json:"type,omitempty"`
+	Data []*SecretObjectData `json:"data,omitempty"`
+}
+
 // SecretProviderClassSpec defines the desired state of SecretProviderClass
 type SecretProviderClassSpec struct {
 	// Configuration for provider name
 	Provider Provider `json:"provider,omitempty"`
 	// Configuration for specific provider
-	Parameters map[string]string `json:"parameters,omitempty"`
+	Parameters    map[string]string `json:"parameters,omitempty"`
+	SecretObjects []*SecretObject   `json:"secretObjects,omitempty"`
+}
+
+// ByPodStatus defines the state of SecretProviderClass as seen by
+// an individual controller
+type ByPodStatus struct {
+	// id of the pod that wrote the status
+	ID string `json:"id,omitempty"`
+	// namespace of the pod that wrote the status
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // SecretProviderClassStatus defines the observed state of SecretProviderClass
 type SecretProviderClassStatus struct {
+	ByPod []*ByPodStatus `json:"byPod,omitempty"`
 }
 
 // +kubebuilder:object:root=true
