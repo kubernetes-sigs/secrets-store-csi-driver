@@ -15,6 +15,7 @@ The Secrets Store CSI driver `secrets-store.csi.k8s.io` allows Kubernetes to mou
 - Supports multiple secrets stores as providers. Multiple providers can run in the same cluster simultaneously.
 - Supports pod portability with the SecretProviderClass CRD
 - Supports windows containers (Kubernetes version v1.18+)
+- Supports sync with Kubernetes Secrets (Secrets Store CSI Driver v0.0.10+)
 
 #### Table of Contents
 
@@ -22,9 +23,9 @@ The Secrets Store CSI driver `secrets-store.csi.k8s.io` allows Kubernetes to mou
 - [Demo](#demo)
 - [Usage](#usage)
 - [Providers](#providers)
-  - [Azure Key Vault Provider](https://github.com/Azure/secrets-store-csi-driver-provider-azure) - Supports linux and windows
-  - [HashiCorp Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault) - Supports linux
-  - [Adding a New Provider via the Provider Interface](#adding-a-new-provider-via-the-provider-interface)
+  - [Azure Key Vault Provider](https://github.com/Azure/secrets-store-csi-driver-provider-azure) - Supports Linux and Windows
+  - [HashiCorp Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault) - Supports Linux
+  - [Adding a New Provider via the Provider Interface](#criteria-for-supported-providers)
 - [Testing](#testing)
   - [Unit Tests](#unit-tests)
   - [End-to-end Tests](#end-to-end-tests)
@@ -120,6 +121,91 @@ secretproviderclasses.secrets-store.csi.x-k8s.io
 Select a provider from the following list, then follow the installation steps for the provider:
 -  [Azure Provider](https://github.com/Azure/secrets-store-csi-driver-provider-azure#usage)
 -  [Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault)
+
+### Create your own SecretProviderClass Object
+
+To use the Secrets Store CSI driver, create a `SecretProviderClass` custom resource to provide driver configurations and provider-specific parameters to the CSI driver.
+
+A `SecretProviderClass` custom resource should have the following components:
+```yaml
+apiVersion: secrets-store.csi.x-k8s.io/v1alpha1
+kind: SecretProviderClass
+metadata:
+  name: my-provider
+spec:
+  provider: vault                             # accepted provider options: azure or vault
+  parameters:                                 # provider-specific parameters
+```
+
+Here is a sample [`SecretProviderClass` custom resource](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/master/test/bats/tests/vault_v1alpha1_secretproviderclass.yaml)
+
+### Update your Deployment Yaml
+
+To ensure your application is using the Secrets Store CSI driver, update your deployment yaml to use the `secrets-store.csi.k8s.io` driver and reference the `SecretProviderClass` resource created in the previous step.
+
+```yaml
+volumes:
+  - name: secrets-store-inline
+    csi:
+      driver: secrets-store.csi.k8s.io
+      readOnly: true
+      volumeAttributes:
+        secretProviderClass: "my-provider"
+```
+
+Here is a sample [deployment yaml](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/master/test/bats/tests/nginx-pod-vault-inline-volume-secretproviderclass.yaml) using the Secrets Store CSI driver.
+
+### Secret Content is Mounted on Pod Start
+On pod start and restart, the driver will call the provider binary to retrieve the secret content from the external Secrets Store you have specified in the `SecretProviderClass` custom resource. Then the content will be mounted to the container's file system. 
+
+To validate, once the pod is started, you should see the new mounted content at the volume path specified in your deployment yaml.
+
+```bash
+kubectl exec -it nginx-secrets-store-inline ls /mnt/secrets-store/
+foo
+```
+
+### [OPTIONAL] Sync with Kubernetes Secrets
+
+In some cases, you may want to create a Kubernetes Secret to mirror the mounted content. Use the optional `secretObjects` field to define the desired state of the synced Kubernetes secret objects.
+
+A `SecretProviderClass` custom resource should have the following components:
+```yaml
+apiVersion: secrets-store.csi.x-k8s.io/v1alpha1
+kind: SecretProviderClass
+metadata:
+  name: my-provider
+spec:
+  provider: vault                             # accepted provider options: azure or vault
+  parameters:                                 # provider-specific parameters
+  secretObjects:                              # [OPTIONAL] SecretObject defines the desired state of synced K8s secret objects
+  - data:
+    - key: username                           # data field to populate
+      objectName: foo1                        # name of the object to sync
+    secretName: foosecret                     # name of the Kubernetes Secret object
+    type: Opaque                              # type of the Kubernetes Secret object e.g. Opaque, kubernetes.io/tls
+```
+> NOTE: Here is the list of [supported Kubernetes Secret types](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/master/pkg/secrets-store/utils.go#L660-L675). 
+
+Here is a sample [`SecretProviderClass` custom resource](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/master/test/bats/tests/vault_synck8s_v1alpha1_secretproviderclass.yaml) that syncs Kubernetes secrets.
+
+### [OPTIONAL] Set ENV VAR
+
+Once the secret is created, you may wish to set an ENV VAR in your deployment to reference the new Kubernetes secret.
+
+```yaml
+spec:
+  containers:
+  - image: nginx
+    name: nginx
+    env:
+    - name: SECRET_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: foosecret
+          key: username
+```
+Here is a sample [deployment yaml](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/master/test/bats/tests/nginx-deployment-synck8s.yaml) that creates an ENV VAR from the synced Kubernetes secret.
 
 
 ## Providers
