@@ -178,7 +178,6 @@ metadata:
   name: my-provider
 spec:
   provider: vault                             # accepted provider options: azure or vault
-  parameters:                                 # provider-specific parameters
   secretObjects:                              # [OPTIONAL] SecretObject defines the desired state of synced K8s secret objects
   - data:
     - key: username                           # data field to populate
