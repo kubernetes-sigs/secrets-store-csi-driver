@@ -126,7 +126,7 @@ setup() {
 @test "Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check byPod status" {
   POD=$(kubectl get pod -l app=nginx -o jsonpath="{.items[0].metadata.name}")
 
-  result=$(kubectl exec $POD -- $EXEC_COMMAND/$SECRET_NAME)
+  result=$(kubectl exec $POD -- $EXEC_COMMAND/secretalias)
   [[ "${result//$'\r'}" -eq "${SECRET_VALUE}" ]]
 
   result=$(kubectl exec $POD -- $EXEC_COMMAND/$KEY_NAME)
