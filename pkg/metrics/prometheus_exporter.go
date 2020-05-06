@@ -23,6 +23,11 @@ import (
 )
 
 func newPrometheusExporter() (*push.Controller, error) {
+	/*
+		Prometheus exporter for opentelemetry is under active development
+		Histogram support was added in v0.4.3 - https://github.com/open-telemetry/opentelemetry-go/pull/601
+		Defining the buckets is due to change in future release - https://github.com/open-telemetry/opentelemetry-go/issues/689
+	*/
 	pusher, hf, err := prometheus.InstallNewPipeline(prometheus.Config{
 		DefaultHistogramBoundaries: []core.Number{
 			core.NewFloat64Number(0.1),
