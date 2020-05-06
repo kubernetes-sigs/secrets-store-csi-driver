@@ -25,10 +25,13 @@ import (
 var (
 	providerKey             = "provider"
 	errorKey                = "error_type"
+	namespaceKey            = "namespace"
 	nodePublishTotal        metric.Int64Counter
 	nodeUnPublishTotal      metric.Int64Counter
 	nodePublishErrorTotal   metric.Int64Counter
 	nodeUnPublishErrorTotal metric.Int64Counter
+	syncK8sSecretTotal      metric.Int64Counter
+	syncK8sSecretDuration   metric.Float64Measure
 )
 
 type reporter struct {
@@ -36,35 +39,48 @@ type reporter struct {
 }
 
 type StatsReporter interface {
-	reportNodePublishMetrics(provider string)
-	reportNodeUnPublishMetrics()
-	reportNodePublishErrorMetrics(provider, errType string)
-	reportNodeUnPublishErrorMetrics()
+	reportNodePublishCtMetric(provider string)
+	reportNodeUnPublishCtMetric()
+	reportNodePublishErrorCtMetric(provider, errType string)
+	reportNodeUnPublishErrorCtMetric()
+	reportSyncK8SecretCtMetric(namespace string, count int)
+	reportSyncK8SecretDuration(duration float64)
 }
 
 func newStatsReporter() StatsReporter {
 	meter := global.Meter("secretsstore")
-	nodePublishTotal = metric.Must(meter).NewInt64Counter("total_node_publish", metric.WithDescription("Total number of node publish calls"), metric.WithKeys(core.Key(providerKey)))
+	nodePublishTotal = metric.Must(meter).NewInt64Counter("total_node_publish", metric.WithDescription("Total number of node publish calls"))
 	nodeUnPublishTotal = metric.Must(meter).NewInt64Counter("total_node_unpublish", metric.WithDescription("Total number of node unpublish calls"))
-	nodePublishErrorTotal = metric.Must(meter).NewInt64Counter("total_node_publish_error", metric.WithDescription("Total number of node publish calls with error"), metric.WithKeys(core.Key(providerKey), core.Key(errorKey)))
+	nodePublishErrorTotal = metric.Must(meter).NewInt64Counter("total_node_publish_error", metric.WithDescription("Total number of node publish calls with error"))
 	nodeUnPublishErrorTotal = metric.Must(meter).NewInt64Counter("total_node_unpublish_error", metric.WithDescription("Total number of node unpublish calls with error"))
+	syncK8sSecretTotal = metric.Must(meter).NewInt64Counter("total_sync_k8s_secret", metric.WithDescription("Total number of k8s secrets synced"))
+	syncK8sSecretDuration = metric.Must(meter).NewFloat64Measure("sync_k8s_secret_duration_sec", metric.WithDescription("Distribution of how long it took to sync k8s secret"))
 	return &reporter{meter: meter}
 }
 
-func (r *reporter) reportNodePublishMetrics(provider string) {
+func (r *reporter) reportNodePublishCtMetric(provider string) {
 	labels := []core.KeyValue{key.String(providerKey, provider)}
 	nodePublishTotal.Add(context.Background(), 1, labels...)
 }
 
-func (r *reporter) reportNodeUnPublishMetrics() {
-	nodeUnPublishTotal.Add(context.Background(), 1, core.KeyValue{})
+func (r *reporter) reportNodeUnPublishCtMetric() {
+	nodeUnPublishTotal.Add(context.Background(), 1, []core.KeyValue{}...)
 }
 
-func (r *reporter) reportNodePublishErrorMetrics(provider, errType string) {
+func (r *reporter) reportNodePublishErrorCtMetric(provider, errType string) {
 	labels := []core.KeyValue{key.String(providerKey, provider), key.String(errorKey, errType)}
 	nodePublishErrorTotal.Add(context.Background(), 1, labels...)
 }
 
-func (r *reporter) reportNodeUnPublishErrorMetrics() {
-	nodeUnPublishErrorTotal.Add(context.Background(), 1, core.KeyValue{})
+func (r *reporter) reportNodeUnPublishErrorCtMetric() {
+	nodeUnPublishErrorTotal.Add(context.Background(), 1, []core.KeyValue{}...)
+}
+
+func (r *reporter) reportSyncK8SecretCtMetric(namespace string, count int) {
+	labels := []core.KeyValue{key.String(namespaceKey, namespace)}
+	syncK8sSecretTotal.Add(context.Background(), int64(count), labels...)
+}
+
+func (r *reporter) reportSyncK8SecretDuration(duration float64) {
+	r.meter.RecordBatch(context.Background(), []core.KeyValue{}, syncK8sSecretDuration.Measurement(duration))
 }

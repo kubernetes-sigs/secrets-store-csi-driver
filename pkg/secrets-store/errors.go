@@ -31,4 +31,6 @@ const (
 	SecretProviderClassNotFound = "SecretProviderClassNotFound"
 	// ProviderNone error
 	ProviderNone = "ProviderNone"
+	// FailedToSyncSecret error
+	FailedToSyncSecret = "FailedToSyncSecret"
 )

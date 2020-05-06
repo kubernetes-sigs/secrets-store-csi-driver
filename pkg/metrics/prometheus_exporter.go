@@ -14,21 +14,38 @@ limitations under the License.
 package metrics
 
 import (
+	"fmt"
 	"net/http"
 
+	"go.opentelemetry.io/otel/api/core"
 	"go.opentelemetry.io/otel/exporters/metric/prometheus"
 	"go.opentelemetry.io/otel/sdk/metric/controller/push"
 )
 
-// InitMeter start
-func InitMeter() (*push.Controller, error) {
-	pusher, hf, err := prometheus.InstallNewPipeline(prometheus.Config{})
+func newPrometheusExporter() (*push.Controller, error) {
+	pusher, hf, err := prometheus.InstallNewPipeline(prometheus.Config{
+		DefaultHistogramBoundaries: []core.Number{
+			core.NewFloat64Number(0.1),
+			core.NewFloat64Number(0.2),
+			core.NewFloat64Number(0.3),
+			core.NewFloat64Number(0.4),
+			core.NewFloat64Number(0.5),
+			core.NewFloat64Number(1),
+			core.NewFloat64Number(1.5),
+			core.NewFloat64Number(2),
+			core.NewFloat64Number(2.5),
+			core.NewFloat64Number(3.0),
+			core.NewFloat64Number(5.0),
+			core.NewFloat64Number(10.0),
+			core.NewFloat64Number(15.0),
+			core.NewFloat64Number(30.0),
+		}})
 	if err != nil {
 		return nil, err
 	}
 	http.HandleFunc("/", hf)
 	go func() {
-		_ = http.ListenAndServe(":2222", nil)
+		_ = http.ListenAndServe(fmt.Sprintf(":%v", *prometheusPort), nil)
 	}()
 
 	return pusher, nil

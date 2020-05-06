@@ -61,17 +61,16 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	var secretObjects []interface{}
 	var podNamespace, podUID string
 	syncK8sSecret := false
-
 	errorReason := FailedToMount
+
 	defer func() {
 		if err != nil {
-			ns.reporter.reportNodePublishErrorMetrics(providerName, errorReason)
+			ns.reporter.reportNodePublishErrorCtMetric(providerName, errorReason)
 			return
 		}
-		ns.reporter.reportNodePublishMetrics(providerName)
+		ns.reporter.reportNodePublishCtMetric(providerName)
 	}()
 
-	log.Info("NodePublishVolume")
 	// Check arguments
 	if req.GetVolumeCapability() == nil {
 		return nil, status.Error(codes.InvalidArgument, "Volume capability missing in request")
@@ -118,6 +117,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	} else {
 		item, err := getSecretProviderItemByName(ctx, secretProviderClass)
 		if err != nil {
+			errorReason = SecretProviderClassNotFound
 			return nil, err
 		}
 		provider, err := getStringFromObjectSpec(item.Object, providerField)
@@ -163,6 +163,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 	providerBinary := ns.getProviderPath(runtime.GOOS, providerName)
 	if _, err := os.Stat(providerBinary); err != nil {
+		errorReason = ProviderBinaryNotFound
 		log.Errorf("failed to find provider %s, err: %v for pod: %s, ns: %s", providerName, err, podUID, podNamespace)
 		return nil, err
 	}
@@ -189,7 +190,8 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	// https://github.com/kubernetes/utils/blob/master/mount/mount_windows.go#L68-L71
 	err = ns.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
 	if err != nil {
-		log.Errorf("mount err: %v", err)
+		errorReason = FailedToMount
+		log.Errorf("mount err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
 		return nil, err
 	}
 
@@ -206,6 +208,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return nil, err
 		}
 		if !providerCompatible {
+			errorReason = IncompatibleProviderVersion
 			return nil, fmt.Errorf("Minimum supported %s provider version with current driver is %s", providerName, ns.minProviderVersions[providerName])
 		}
 	}
@@ -233,6 +236,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 	log.Infof(string(stdout.String()))
 	if err != nil {
+		errorReason = ProviderError
 		ns.mounter.Unmount(targetPath)
 		log.Errorf("error invoking provider, err: %v, output: %v for pod: %s, ns: %s", err, stderr.String(), podUID, podNamespace)
 		return nil, fmt.Errorf("error mounting secret %v for pod: %s, ns: %s", stderr.String(), podUID, podNamespace)
@@ -241,8 +245,9 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	// add pod info to the secretProviderClass obj's byPod status field
 	if syncK8sSecret {
 		log.Debugf("[NodePublishVolume] syncK8sSecret is enabled for pod: %s, ns: %s", podUID, podNamespace)
-		err := syncK8sObjects(ctx, targetPath, podUID, podNamespace, secretProviderClass, secretObjects)
+		err := syncK8sObjects(ctx, targetPath, podUID, podNamespace, secretProviderClass, secretObjects, ns.reporter)
 		if err != nil {
+			errorReason = FailedToSyncSecret
 			log.Errorf("syncK8sObjects err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
 			return nil, err
 		}
@@ -251,10 +256,18 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
-func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
+func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (nuvr *csi.NodeUnpublishVolumeResponse, err error) {
 	var secretObjects []interface{}
 	var podUID string
 	syncK8sSecret := false
+
+	defer func() {
+		if err != nil {
+			ns.reporter.reportNodeUnPublishErrorCtMetric()
+			return
+		}
+		ns.reporter.reportNodeUnPublishCtMetric()
+	}()
 
 	// Check arguments
 	if len(req.GetVolumeId()) == 0 {

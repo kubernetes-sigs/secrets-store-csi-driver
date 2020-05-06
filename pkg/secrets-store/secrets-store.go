@@ -97,6 +97,12 @@ func (s *SecretsStore) Run(driverName, nodeID, endpoint, providerVolumePath, min
 		csi.VolumeCapability_AccessMode_MULTI_NODE_READER_ONLY,
 	})
 
+	// initialize metrics exporter
+	m, err := metrics.NewMetricsExporter()
+	if err != nil {
+		log.Fatalf("failed to initialize metrics exporter, error: %+v", err)
+	}
+	defer m.Stop()
 	ns, err := newNodeServer(s.driver, providerVolumePath, minProviderVersions)
 	if err != nil {
 		log.Fatalf("failed to initialize node server, error: %+v", err)
@@ -104,13 +110,6 @@ func (s *SecretsStore) Run(driverName, nodeID, endpoint, providerVolumePath, min
 	s.ns = ns
 	s.cs = newControllerServer(s.driver)
 	s.ids = newIdentityServer(s.driver)
-
-	// initialize metrics exporter
-	m, err := metrics.InitMeter()
-	if err != nil {
-		log.Fatalf("failed to initialize metrics exporter, error: %+v", err)
-	}
-	defer m.Stop()
 
 	server := csicommon.NewNonBlockingGRPCServer()
 	server.Start(endpoint, s.ids, s.cs, s.ns)
