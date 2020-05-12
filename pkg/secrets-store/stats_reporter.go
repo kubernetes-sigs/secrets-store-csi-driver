@@ -15,6 +15,7 @@ package secretsstore
 
 import (
 	"context"
+	"runtime"
 
 	"go.opentelemetry.io/otel/api/core"
 	"go.opentelemetry.io/otel/api/global"
@@ -25,13 +26,14 @@ import (
 var (
 	providerKey             = "provider"
 	errorKey                = "error_type"
-	namespaceKey            = "namespace"
+	osTypeKey               = "os_type"
 	nodePublishTotal        metric.Int64Counter
 	nodeUnPublishTotal      metric.Int64Counter
 	nodePublishErrorTotal   metric.Int64Counter
 	nodeUnPublishErrorTotal metric.Int64Counter
 	syncK8sSecretTotal      metric.Int64Counter
 	syncK8sSecretDuration   metric.Float64Measure
+	runtimeOS               = runtime.GOOS
 )
 
 type reporter struct {
@@ -43,7 +45,7 @@ type StatsReporter interface {
 	reportNodeUnPublishCtMetric()
 	reportNodePublishErrorCtMetric(provider, errType string)
 	reportNodeUnPublishErrorCtMetric()
-	reportSyncK8SecretCtMetric(namespace string, count int)
+	reportSyncK8SecretCtMetric(provider string, count int)
 	reportSyncK8SecretDuration(duration float64)
 }
 
@@ -59,28 +61,28 @@ func newStatsReporter() StatsReporter {
 }
 
 func (r *reporter) reportNodePublishCtMetric(provider string) {
-	labels := []core.KeyValue{key.String(providerKey, provider)}
+	labels := []core.KeyValue{key.String(providerKey, provider), key.String(osTypeKey, runtimeOS)}
 	nodePublishTotal.Add(context.Background(), 1, labels...)
 }
 
 func (r *reporter) reportNodeUnPublishCtMetric() {
-	nodeUnPublishTotal.Add(context.Background(), 1, []core.KeyValue{}...)
+	nodeUnPublishTotal.Add(context.Background(), 1, []core.KeyValue{key.String(osTypeKey, runtimeOS)}...)
 }
 
 func (r *reporter) reportNodePublishErrorCtMetric(provider, errType string) {
-	labels := []core.KeyValue{key.String(providerKey, provider), key.String(errorKey, errType)}
+	labels := []core.KeyValue{key.String(providerKey, provider), key.String(errorKey, errType), key.String(osTypeKey, runtimeOS)}
 	nodePublishErrorTotal.Add(context.Background(), 1, labels...)
 }
 
 func (r *reporter) reportNodeUnPublishErrorCtMetric() {
-	nodeUnPublishErrorTotal.Add(context.Background(), 1, []core.KeyValue{}...)
+	nodeUnPublishErrorTotal.Add(context.Background(), 1, []core.KeyValue{key.String(osTypeKey, runtimeOS)}...)
 }
 
-func (r *reporter) reportSyncK8SecretCtMetric(namespace string, count int) {
-	labels := []core.KeyValue{key.String(namespaceKey, namespace)}
+func (r *reporter) reportSyncK8SecretCtMetric(provider string, count int) {
+	labels := []core.KeyValue{key.String(providerKey, provider), key.String(osTypeKey, runtimeOS)}
 	syncK8sSecretTotal.Add(context.Background(), int64(count), labels...)
 }
 
 func (r *reporter) reportSyncK8SecretDuration(duration float64) {
-	r.meter.RecordBatch(context.Background(), []core.KeyValue{}, syncK8sSecretDuration.Measurement(duration))
+	r.meter.RecordBatch(context.Background(), []core.KeyValue{key.String(osTypeKey, runtimeOS)}, syncK8sSecretDuration.Measurement(duration))
 }

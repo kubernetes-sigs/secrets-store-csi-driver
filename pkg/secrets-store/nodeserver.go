@@ -245,7 +245,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	// add pod info to the secretProviderClass obj's byPod status field
 	if syncK8sSecret {
 		log.Debugf("[NodePublishVolume] syncK8sSecret is enabled for pod: %s, ns: %s", podUID, podNamespace)
-		err := syncK8sObjects(ctx, targetPath, podUID, podNamespace, secretProviderClass, secretObjects, ns.reporter)
+		err := syncK8sObjects(ctx, targetPath, podUID, podNamespace, secretProviderClass, providerName, secretObjects, ns.reporter)
 		if err != nil {
 			errorReason = FailedToSyncSecret
 			log.Errorf("syncK8sObjects err: %v for pod: %s, ns: %s", err, podUID, podNamespace)

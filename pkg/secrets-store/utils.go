@@ -166,7 +166,7 @@ func (ns *nodeServer) ensureMountPoint(target string) (bool, error) {
 
 // syncK8sObjects creates or updates K8s secrets based on secretProviderClass spec and data from mounted files in targetPath
 // it should also add pod info to the secretProviderClass object's byPod status field
-func syncK8sObjects(ctx context.Context, targetPath, podUID, namespace, secretProviderClass string, secretObjects []interface{}, reporter StatsReporter) error {
+func syncK8sObjects(ctx context.Context, targetPath, podUID, namespace, secretProviderClass, provider string, secretObjects []interface{}, reporter StatsReporter) error {
 	successfulUpdates := 0
 	files, err := getMountedFiles(targetPath)
 	if err != nil {
@@ -257,7 +257,7 @@ func syncK8sObjects(ctx context.Context, targetPath, podUID, namespace, secretPr
 		}
 		reporter.reportSyncK8SecretDuration(time.Since(begin).Seconds())
 	}
-	reporter.reportSyncK8SecretCtMetric(namespace, successfulUpdates)
+	reporter.reportSyncK8SecretCtMetric(provider, successfulUpdates)
 
 	// only update status when more than one secret has been created
 	if successfulUpdates > 0 {
