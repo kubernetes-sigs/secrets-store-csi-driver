@@ -166,7 +166,7 @@ func (ns *nodeServer) ensureMountPoint(target string) (bool, error) {
 
 // syncK8sObjects creates or updates K8s secrets based on secretProviderClass spec and data from mounted files in targetPath
 // it should also add pod info to the secretProviderClass object's byPod status field
-func syncK8sObjects(ctx context.Context, targetPath string, podUID string, namespace string, secretProviderClass string, secretObjects []interface{}) error {
+func syncK8sObjects(ctx context.Context, targetPath, podUID, namespace, secretProviderClass, provider string, secretObjects []interface{}, reporter StatsReporter) error {
 	successfulUpdates := 0
 	files, err := getMountedFiles(targetPath)
 	if err != nil {
@@ -245,16 +245,20 @@ func syncK8sObjects(ctx context.Context, targetPath string, podUID string, names
 			successfulUpdates++
 			return true, nil
 		}
+		begin := time.Now()
 		if err := wait.ExponentialBackoff(wait.Backoff{
 			Steps:    5,
 			Duration: 1 * time.Millisecond,
 			Factor:   1.0,
 			Jitter:   0.1,
 		}, createFn); err != nil {
-			log.Error(err, "max retries for creating secret reached for pod: %s, ns: %s", podUID, namespace)
+			log.Errorf("max retries for creating secret reached, err: %v for pod: %s, ns: %s", err, podUID, namespace)
 			return err
 		}
+		reporter.reportSyncK8SecretDuration(time.Since(begin).Seconds())
 	}
+	reporter.reportSyncK8SecretCtMetric(provider, successfulUpdates)
+
 	// only update status when more than one secret has been created
 	if successfulUpdates > 0 {
 		/// TODO(ritazh): right now assume all files come from one secretproviderclass
@@ -277,7 +281,7 @@ func syncK8sObjects(ctx context.Context, targetPath string, podUID string, names
 			Factor:   1.0,
 			Jitter:   0.1,
 		}, setStatusFn); err != nil {
-			log.Error(err, "max retries for setting status reached for pod: %s, ns: %s", podUID, namespace)
+			log.Errorf("max retries for setting status reached, err: %v for pod: %s, ns: %s", err, podUID, namespace)
 			return err
 		}
 	}
@@ -308,7 +312,7 @@ func removeK8sObjects(ctx context.Context, targetPath string, podUID string, fil
 		Factor:   1.0,
 		Jitter:   0.1,
 	}, deleteStatusFn); err != nil {
-		log.Error(err, "max retries for deleting status reached for pod: %s, ns: %s", podUID, namespace)
+		log.Errorf("max retries for deleting status reached, err: %v for pod: %s, ns: %s", err, podUID, namespace)
 		return err
 	}
 
@@ -353,7 +357,7 @@ func removeK8sObjects(ctx context.Context, targetPath string, podUID string, fil
 			Factor:   1.0,
 			Jitter:   0.1,
 		}, deleteSecretFn); err != nil {
-			log.Error(err, "max retries for deleting secret reached for pod: %s, ns: %s", podUID, namespace)
+			log.Errorf("max retries for deleting secret reached, err: %v for pod: %s, ns: %s", err, podUID, namespace)
 			return err
 		}
 	}
@@ -383,21 +387,21 @@ func createOrUpdateK8sSecret(ctx context.Context, name string, namespace string,
 
 	err = c.Get(ctx, secretKey, secret)
 	if err != nil {
-		log.Error(err, "error from c.Get for secret: %s, ns: %s", name, namespace)
+		log.Errorf("error from c.Get: %v for secret: %s, ns: %s", err, name, namespace)
 		if errors.IsNotFound(err) {
 			secret.Data = datamap
 			if err := c.Create(ctx, secret); err != nil {
-				log.Error(err, "error while creating K8s secret: %s, ns: %s", name, namespace)
+				log.Errorf("error %v while creating K8s secret: %s, ns: %s", err, name, namespace)
 				return err
 			}
 			return nil
 		}
-		log.Error(err, "error while retrieving K8s secret: %s, ns: %s", name, namespace)
+		log.Errorf("error %v while retrieving K8s secret: %s, ns: %s", err, name, namespace)
 		return err
 	}
 	secret.Data = datamap
 	if err := c.Update(ctx, secret); err != nil {
-		log.Error(err, "error while updating K8s secret: %s, ns: %s", name, namespace)
+		log.Errorf("error %v while updating K8s secret: %s, ns: %s", err, name, namespace)
 		return err
 	}
 
@@ -425,7 +429,7 @@ func deleteK8sSecret(ctx context.Context, name string, namespace string) error {
 			log.Infof("k8s secret not found during delete. Skip. secret: %s, ns: %s", name, namespace)
 			return nil
 		}
-		log.Error(err, "error while deleting K8s secret: %s, ns: %s", name, namespace)
+		log.Errorf("error %v while deleting K8s secret: %s, ns: %s", err, name, namespace)
 		return err
 	}
 

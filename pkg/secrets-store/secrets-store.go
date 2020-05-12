@@ -21,6 +21,7 @@ import (
 	"k8s.io/utils/mount"
 
 	csicommon "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/metrics"
 	version "sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
 	log "github.com/sirupsen/logrus"
@@ -58,6 +59,7 @@ func newNodeServer(d *csicommon.CSIDriver, providerVolumePath, minProviderVersio
 		providerVolumePath:  providerVolumePath,
 		minProviderVersions: minProviderVersionsMap,
 		mounter:             mount.New(""),
+		reporter:            newStatsReporter(),
 	}, nil
 }
 
@@ -95,6 +97,12 @@ func (s *SecretsStore) Run(driverName, nodeID, endpoint, providerVolumePath, min
 		csi.VolumeCapability_AccessMode_MULTI_NODE_READER_ONLY,
 	})
 
+	// initialize metrics exporter
+	m, err := metrics.NewMetricsExporter()
+	if err != nil {
+		log.Fatalf("failed to initialize metrics exporter, error: %+v", err)
+	}
+	defer m.Stop()
 	ns, err := newNodeServer(s.driver, providerVolumePath, minProviderVersions)
 	if err != nil {
 		log.Fatalf("failed to initialize node server, error: %+v", err)
