@@ -50,10 +50,10 @@ build: setup
 	CGO_ENABLED=0 GOOS=linux go build -a -ldflags ${LDFLAGS} -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
 build-windows: setup
 	CGO_ENABLED=0 GOOS=windows go build -a -ldflags ${LDFLAGS} -o _output/secrets-store-csi.exe ./cmd/secrets-store-csi-driver
-image: build
-	docker build --no-cache -t $(IMAGE_TAG) -f Dockerfile .
-image-windows: build-windows
-	docker build --no-cache -t $(IMAGE_TAG) -f windows.Dockerfile .
+image:
+	docker buildx build --no-cache --build-arg LDFLAGS=${LDFLAGS} -t $(IMAGE_TAG) -f Dockerfile --platform="linux/amd64" --output "type=docker,push=false" .
+image-windows:
+	docker buildx build --no-cache --build-arg LDFLAGS=${LDFLAGS} -t $(IMAGE_TAG) -f windows.Dockerfile --platform="windows/amd64" --output "type=docker,push=false" .
 clean:
 	-rm -rf _output
 setup: clean
@@ -97,11 +97,12 @@ setup-kind:
 
 .PHONY: e2e-container
 e2e-container:
+	docker buildx rm container-builder || true
+	docker buildx create --use --name=container-builder
 ifdef TEST_WINDOWS
 		az acr login --name $(REGISTRY_NAME)
-		make build build-windows
-		az acr build --registry $(REGISTRY_NAME) -t $(IMAGE_TAG)-linux-amd64 -f Dockerfile --platform linux .
-		az acr build --registry $(REGISTRY_NAME) -t $(IMAGE_TAG)-windows-1809-amd64 -f windows.Dockerfile --platform windows .
+		docker buildx build --no-cache --build-arg LDFLAGS=${LDFLAGS} -t $(IMAGE_TAG)-linux-amd64 -f Dockerfile --platform="linux/amd64" --push .
+		docker buildx build --no-cache --build-arg LDFLAGS=${LDFLAGS} -t $(IMAGE_TAG)-windows-1809-amd64 -f windows.Dockerfile --platform="windows/amd64" --push .
 		docker manifest create $(IMAGE_TAG) $(IMAGE_TAG)-linux-amd64 $(IMAGE_TAG)-windows-1809-amd64
 		docker manifest inspect $(IMAGE_TAG)
 		docker manifest push --purge $(IMAGE_TAG)
