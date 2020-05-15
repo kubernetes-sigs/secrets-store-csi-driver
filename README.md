@@ -6,6 +6,12 @@ Secrets Store CSI driver for Kubernetes secrets - Integrates secrets stores with
 
 The Secrets Store CSI driver `secrets-store.csi.k8s.io` allows Kubernetes to mount multiple secrets, keys, and certs stored in enterprise-grade external secrets stores into their pods as a volume. Once the Volume is attached, the data in it is mounted into the container's file system.
 
+## Want to help?
+
+Join us to help define the direction and implementation of this project!
+- Join the [#csi-secrets-store](https://kubernetes.slack.com/messages/csi-secrets-store) channel on [Kubernetes Slack](https://kubernetes.slack.com/).
+- Use [GitHub Issues](https://github.com/kubernetes-sigs/secrets-store-csi-driver/issues) to file bugs, request features, or ask questions asynchronously.
+
 ## Features
 
 - Mounts secrets/keys/certs to pod using a CSI volume
@@ -29,8 +35,8 @@ The Secrets Store CSI driver `secrets-store.csi.k8s.io` allows Kubernetes to mou
 - [Testing](#testing)
   - [Unit Tests](#unit-tests)
   - [End-to-end Tests](#end-to-end-tests)
-- [Known Issues and Workarounds](#known-issues-and-workarounds)
-- [Contributing](#contributing)
+- [Troubleshooting](#troubleshooting)
+- [Code of conduct](#code-of-conduct)
 
 ## How It Works
 
@@ -240,9 +246,6 @@ Run unit tests locally with `make test`.
 End-to-end tests automatically runs on Prow when a PR is submitted. If you want to run using a local or remote Kubernetes cluster, make sure to have `kubectl`, `helm` and `bats` set up in your local environment and then run `make e2e-azure` or `make e2e-vault` with custom images.
 
 Job config for test jobs run for each PR in prow can be found [here](https://github.com/kubernetes/test-infra/blob/master/config/jobs/kubernetes-sigs/secrets-store-csi-driver/secrets-store-csi-driver-config.yaml)
-
-## Known Issues and Workarounds
-
 
 ## Troubleshooting
 
