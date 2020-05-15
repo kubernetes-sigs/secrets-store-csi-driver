@@ -237,7 +237,6 @@ func TestGetProviderPath(t *testing.T) {
 func TestGetPodUIDFromTargetPath(t *testing.T) {
 	cases := []struct {
 		targetPath     string
-		goos           string
 		expectedPodUID string
 	}{
 		{
@@ -246,12 +245,10 @@ func TestGetPodUIDFromTargetPath(t *testing.T) {
 		},
 		{
 			targetPath:     `c:\var\lib\kubelet\pods\d4fd876f-bdb3-11e9-a369-0a5d188d99c0\volumes`,
-			goos:           "windows",
 			expectedPodUID: "d4fd876f-bdb3-11e9-a369-0a5d188d99c0",
 		},
 		{
 			targetPath:     `c:\\var\\lib\\kubelet\\pods\\d4fd876f-bdb3-11e9-a369-0a5d188d9934\\volumes`,
-			goos:           "windows",
 			expectedPodUID: "d4fd876f-bdb3-11e9-a369-0a5d188d9934",
 		},
 		{
@@ -262,10 +259,18 @@ func TestGetPodUIDFromTargetPath(t *testing.T) {
 			targetPath:     "/var/lib/kubelet/pods",
 			expectedPodUID: "",
 		},
+		{
+			targetPath:     "/opt/new/var/lib/kubelet/pods/456457fc-d980-4191-b5eb-daf70c4ff7c1/volumes/kubernetes.io~csi/secrets-store-inline/mount",
+			expectedPodUID: "456457fc-d980-4191-b5eb-daf70c4ff7c1",
+		},
+		{
+			targetPath:     "data/kubelet/pods/456457fc-d980-4191-b5eb-daf70c4ff7c1/volumes/kubernetes.io~csi/secrets-store-inline/mount",
+			expectedPodUID: "456457fc-d980-4191-b5eb-daf70c4ff7c1",
+		},
 	}
 
 	for _, tc := range cases {
-		actualPodUID := getPodUIDFromTargetPath(tc.goos, tc.targetPath)
+		actualPodUID := getPodUIDFromTargetPath(tc.targetPath)
 		assert.Equal(t, tc.expectedPodUID, actualPodUID)
 	}
 }

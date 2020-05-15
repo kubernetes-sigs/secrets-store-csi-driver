@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -103,23 +104,13 @@ func getMountedFiles(targetPath string) ([]string, error) {
 }
 
 // getPodUIDFromTargetPath returns podUID from targetPath
-func getPodUIDFromTargetPath(goos string, targetPath string) string {
-	var parts []string
-	if goos == "windows" {
-		if strings.Contains(targetPath, `\var\lib\kubelet\pods`) {
-			parts = strings.Split(targetPath, `\`)
-		} else if strings.Contains(targetPath, `\\var\\lib\\kubelet\\pods`) {
-			parts = strings.Split(targetPath, `\\`)
-		}
-	} else {
-		if strings.Contains(targetPath, `/var/lib/kubelet/pods`) {
-			parts = strings.Split(targetPath, `/`)
-		}
+func getPodUIDFromTargetPath(targetPath string) string {
+	re := regexp.MustCompile(`[\\|\/]+pods[\\|\/]+(.+?)[\\|\/]+volumes`)
+	match := re.FindStringSubmatch(targetPath)
+	if len(match) < 2 {
+		return ""
 	}
-	if len(parts) > 6 {
-		return parts[5]
-	}
-	return ""
+	return match[1]
 }
 
 // ensureMountPoint ensures mount point is valid

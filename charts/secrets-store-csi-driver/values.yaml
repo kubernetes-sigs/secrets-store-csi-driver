@@ -4,6 +4,7 @@ linux:
     repository: docker.io/deislabs/secrets-store-csi
     tag: v0.0.10
     pullPolicy: Always
+  kubeletRootDir: /var/lib/kubelet
 
 windows:
   enabled: false
@@ -11,6 +12,7 @@ windows:
     repository: mcr.microsoft.com/k8s/csi/secrets-store/driver
     tag: v0.0.10
     pullPolicy: IfNotPresent
+  kubeletRootDir: C:\var\lib\kubelet
 
 logLevel:
   debug: true
