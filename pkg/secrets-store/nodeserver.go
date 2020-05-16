@@ -284,7 +284,7 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 		return &csi.NodeUnpublishVolumeResponse{}, nil
 	}
 
-	podUID = getPodUIDFromTargetPath(runtime.GOOS, targetPath)
+	podUID = getPodUIDFromTargetPath(targetPath)
 	if len(podUID) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Cannot get podUID from Target path")
 	}
