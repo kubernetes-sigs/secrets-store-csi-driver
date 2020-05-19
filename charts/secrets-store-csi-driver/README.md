@@ -23,7 +23,7 @@ The following table lists the configurable parameters of the csi-secrets-store-p
 | --------- | ----------- | ------- |
 | `nameOverride` | String to partially override secrets-store-csi-driver.fullname template with a string (will prepend the release name) | `""` |
 | `fullnameOverride` | String to fully override secrets-store-csi-driver.fullname template with a string | `""` |
-| `linux.image.repository` | Linux image repository | `docker.io/deislabs/secrets-store-csi` |
+| `linux.image.repository` | Linux image repository | `mcr.microsoft.com/k8s/csi/secrets-store/driver` |
 | `linux.image.pullPolicy` | Linux image pull policy | `Always` |
 | `linux.image.tag` | Linux image tag | `v0.0.10` |
 | `linux.enabled` | Install secrets store csi driver on linux nodes | true |

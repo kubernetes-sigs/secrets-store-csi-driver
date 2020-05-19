@@ -1,7 +1,7 @@
 linux:
   enabled: true
   image:
-    repository: docker.io/deislabs/secrets-store-csi
+    repository: mcr.microsoft.com/k8s/csi/secrets-store/driver
     tag: v0.0.10
     pullPolicy: Always
   kubeletRootDir: /var/lib/kubelet
