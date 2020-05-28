@@ -26,6 +26,7 @@ type SecretProviderClassPodStatusStatus struct {
 	PodUID                  string `json:"podUID,omitempty"`
 	SecretProviderClassName string `json:"secretProviderClassName,omitempty"`
 	Mounted                 bool   `json:"mounted,omitempty"`
+	TargetPath              string `json:"targetPath,omitempty"`
 }
 
 // +kubebuilder:object:root=true

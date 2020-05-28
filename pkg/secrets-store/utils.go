@@ -37,6 +37,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -799,4 +800,42 @@ func getPrivateKey(data []byte) ([]byte, error) {
 	}
 
 	return pem.EncodeToMemory(block), nil
+}
+
+func CreateSecretProviderClassPodStatus(ctx context.Context, podname, namespace, spcName, targetPath, nodeID string, mounted bool) error {
+	obj := &unstructured.Unstructured{}
+	obj.SetName(podname + "-" + namespace + "-" + spcName)
+	obj.SetNamespace(namespace)
+	obj.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "secrets-store.csi.x-k8s.io",
+		Version: "v1alpha1",
+		Kind:    "SecretProviderClassPodStatus",
+	})
+
+	status := map[string]interface{}{
+		"podName":                 podname,
+		"targetPath":              targetPath,
+		"mounted":                 mounted,
+		"secretProviderClassName": spcName,
+	}
+
+	if err := unstructured.SetNestedField(
+		obj.Object, status, "status"); err != nil {
+		return err
+	}
+
+	obj.SetLabels(map[string]string{
+		"internal.secrets-store.csi.k8s.io/node-name": nodeID,
+	})
+	// recreating client here to prevent reading from cache
+	c, err := getClient()
+	if err != nil {
+		return err
+	}
+	// create the secret provider class pod status
+	err = c.Create(ctx, obj, &client.CreateOptions{})
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return err
+	}
+	return nil
 }

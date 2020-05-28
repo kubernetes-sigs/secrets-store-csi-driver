@@ -43,6 +43,7 @@ type nodeServer struct {
 	minProviderVersions map[string]string
 	mounter             mount.Interface
 	reporter            StatsReporter
+	nodeID              string
 }
 
 const (
@@ -58,9 +59,9 @@ const (
 func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (npvr *csi.NodePublishVolumeResponse, err error) {
 	var parameters map[string]string
 	var providerName string
-	var secretObjects []interface{}
-	var podNamespace, podUID string
-	syncK8sSecret := false
+	// var secretObjects []interface{}
+	var podName, podNamespace, podUID string
+	// syncK8sSecret := false
 	errorReason := FailedToMount
 
 	defer func() {
@@ -130,13 +131,14 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return nil, err
 		}
 		// [optional field]
-		secretObjects, syncK8sSecret, err = getSecretObjectsFromSpec(item)
-		if err != nil {
-			return nil, err
-		}
+		// secretObjects, syncK8sSecret, err = getSecretObjectsFromSpec(item)
+		// if err != nil {
+		// 	return nil, err
+		// }
 		parameters[csipodname] = attrib[csipodname]
 		parameters[csipodnamespace] = attrib[csipodnamespace]
 		parameters[csipoduid] = attrib[csipoduid]
+		podName = parameters[csipodname]
 		podNamespace = parameters[csipodnamespace]
 		podUID = parameters[csipoduid]
 	}
@@ -243,14 +245,19 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	}
 	// create/update secrets with mounted file content
 	// add pod info to the secretProviderClass obj's byPod status field
-	if syncK8sSecret {
-		log.Debugf("[NodePublishVolume] syncK8sSecret is enabled for pod: %s, ns: %s", podUID, podNamespace)
-		err := syncK8sObjects(ctx, targetPath, podUID, podNamespace, secretProviderClass, providerName, secretObjects, ns.reporter)
-		if err != nil {
-			errorReason = FailedToSyncSecret
-			log.Errorf("syncK8sObjects err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
-			return nil, err
-		}
+	// if syncK8sSecret {
+	// 	log.Debugf("[NodePublishVolume] syncK8sSecret is enabled for pod: %s, ns: %s", podUID, podNamespace)
+	// 	err := syncK8sObjects(ctx, targetPath, podUID, podNamespace, secretProviderClass, providerName, secretObjects, ns.reporter)
+	// 	if err != nil {
+	// 		errorReason = FailedToSyncSecret
+	// 		log.Errorf("syncK8sObjects err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
+	// 		return nil, err
+	// 	}
+	// }
+
+	// create the secret provider class pod status object
+	if err = CreateSecretProviderClassPodStatus(ctx, podName, podNamespace, secretProviderClass, targetPath, ns.nodeID, true); err != nil {
+		return nil, fmt.Errorf("failed to create secret provider class pod status, err: %v", err)
 	}
 
 	return &csi.NodePublishVolumeResponse{}, nil

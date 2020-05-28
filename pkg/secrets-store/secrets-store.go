@@ -45,7 +45,7 @@ func GetDriver() *SecretsStore {
 	return &SecretsStore{}
 }
 
-func newNodeServer(d *csicommon.CSIDriver, providerVolumePath, minProviderVersions string) (*nodeServer, error) {
+func newNodeServer(d *csicommon.CSIDriver, providerVolumePath, minProviderVersions, nodeID string) (*nodeServer, error) {
 	// get a map of provider and compatible version
 	minProviderVersionsMap, err := version.GetMinimumProviderVersions(minProviderVersions)
 	if err != nil {
@@ -60,6 +60,7 @@ func newNodeServer(d *csicommon.CSIDriver, providerVolumePath, minProviderVersio
 		minProviderVersions: minProviderVersionsMap,
 		mounter:             mount.New(""),
 		reporter:            newStatsReporter(),
+		nodeID:              nodeID,
 	}, nil
 }
 
@@ -103,7 +104,7 @@ func (s *SecretsStore) Run(driverName, nodeID, endpoint, providerVolumePath, min
 		log.Fatalf("failed to initialize metrics exporter, error: %+v", err)
 	}
 	defer m.Stop()
-	ns, err := newNodeServer(s.driver, providerVolumePath, minProviderVersions)
+	ns, err := newNodeServer(s.driver, providerVolumePath, minProviderVersions, nodeID)
 	if err != nil {
 		log.Fatalf("failed to initialize node server, error: %+v", err)
 	}

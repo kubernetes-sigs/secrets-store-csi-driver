@@ -17,7 +17,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	secretsstorecsixk8siov1alpha1 "sigs.k8s.io/secrets-store-csi-driver/api/v1alpha1"
+	secretsstorecsixk8siov1alpha1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 
