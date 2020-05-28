@@ -1,0 +1,7 @@
+domain: secrets-store.csi.x-k8s.io
+repo: sigs.k8s.io/secrets-store-csi-driver
+resources:
+- group: secrets-store.csi.x-k8s.io
+  kind: SecretProviderClassPodStatus
+  version: v1alpha1
+version: "2"
