@@ -10,6 +10,10 @@ NAMESPACE=default
 PROVIDER_YAML=https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/deployment/provider-azure-installer.yaml
 CONTAINER_IMAGE=nginx
 EXEC_COMMAND="cat /mnt/secrets-store"
+BASE64_FLAGS="-w 0"
+if [[ "$OSTYPE" == *"darwin"* ]]; then
+  BASE64_FLAGS="-b 0"
+fi
 
 if [ $TEST_WINDOWS ]; then
   PROVIDER_YAML=https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/deployment/provider-azure-installer-windows.yaml
@@ -23,7 +27,7 @@ export SECRET_VERSION=${KEYVAULT_SECRET_VERSION:-""}
 export SECRET_VALUE=${KEYVAULT_SECRET_VALUE:-"test"}
 export KEY_NAME=${KEYVAULT_KEY_NAME:-key1}
 export KEY_VERSION=${KEYVAULT_KEY_VERSION:-7cc095105411491b84fe1b92ebbcf01a}
-export KEY_VALUE_CONTAINS=${KEYVAULT_KEY_VALUE:-"x-aZvXI7aetnCo"}
+export KEY_VALUE_CONTAINS=${KEYVAULT_KEY_VALUE:-"LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUF4K2FadlhJN2FldG5DbzI3akVScgpheklaQ2QxUlBCQVZuQU1XcDhqY05TQk5MOXVuOVJrenJHOFd1SFBXUXNqQTA2RXRIOFNSNWtTNlQvaGQwMFNRCk1aODBMTlNxYkkwTzBMcWMzMHNLUjhTQ0R1cEt5dkpkb01LSVlNWHQzUlk5R2Ywam1ucHNKOE9WbDFvZlRjOTIKd1RINXYyT2I1QjZaMFd3d25MWlNiRkFnSE1uTHJtdEtwZTVNcnRGU21nZS9SL0J5ZXNscGU0M1FubnpndzhRTwpzU3ZMNnhDU21XVW9WQURLL1MxREU0NzZBREM2a2hGTjF5ZHUzbjVBcnREVGI0c0FjUHdTeXB3WGdNM3Y5WHpnClFKSkRGT0JJOXhSTW9UM2FjUWl0Z0c2RGZibUgzOWQ3VU83M0o3dUFQWUpURG1pZGhrK0ZFOG9lbjZWUG9YRy8KNXdJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0t"}
 export CONTAINER_IMAGE=$CONTAINER_IMAGE
 
 setup() {
@@ -67,7 +71,8 @@ setup() {
 
 @test "CSI inline volume test - read azure kv key from pod" {
   result=$(kubectl exec nginx-secrets-store-inline -- $EXEC_COMMAND/$KEY_NAME)
-  [[ "${result//$'\r'}" == *"${KEY_VALUE_CONTAINS}"* ]]
+  result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
+  [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 }
 
 @test "secretproviderclasses crd is established" {
@@ -105,7 +110,8 @@ setup() {
 
 @test "CSI inline volume test with pod portability - read azure kv key from pod" {
   result=$(kubectl exec nginx-secrets-store-inline -- $EXEC_COMMAND/$KEY_NAME)
-  [[ "${result//$'\r'}" == *"${KEY_VALUE_CONTAINS}"* ]]
+  result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
+  [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 }
 
 @test "Sync with K8s secrets - create deployment" {
@@ -130,7 +136,8 @@ setup() {
   [[ "${result//$'\r'}" -eq "${SECRET_VALUE}" ]]
 
   result=$(kubectl exec $POD -- $EXEC_COMMAND/$KEY_NAME)
-  [[ "${result//$'\r'}" == *"${KEY_VALUE_CONTAINS}"* ]]
+  result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
+  [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 
   result=$(kubectl get secret foosecret -o jsonpath="{.data.username}" | base64 -d)
   [[ "${result//$'\r'}" -eq "${SECRET_VALUE}" ]]
