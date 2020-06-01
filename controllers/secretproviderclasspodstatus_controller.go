@@ -13,7 +13,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -25,6 +24,7 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 )
 
@@ -41,11 +41,10 @@ type SecretProviderClassPodStatusReconciler struct {
 
 func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	logger := log.WithFields(log.Fields{"secretproviderclasspodstatus": req.NamespacedName})
+	logger := log.WithFields(log.Fields{"secretproviderclasspodstatus": req.NamespacedName, "node": r.NodeID})
 	logger.Info("reconcile started")
 
 	var spcPodStatus v1alpha1.SecretProviderClassPodStatus
-
 	// get the secret provider class pod status object
 	if err := r.Get(ctx, req.NamespacedName, &spcPodStatus); err != nil {
 		// object not found
@@ -75,16 +74,9 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 
 	// targetPath := spcPodStatus.Status.TargetPath
 	spcName := spcPodStatus.Status.SecretProviderClassName
-
-	// recreating client here to prevent reading from cache
-	c, err := getClient(r.Scheme)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	var spc v1alpha1.SecretProviderClass
+	spc := &v1alpha1.SecretProviderClass{}
 	// get the secret provider class object
-	if err := c.Get(ctx, client.ObjectKey{Namespace: req.Namespace, Name: spcName}, &spc); err != nil {
+	if err := r.Client.Get(ctx, client.ObjectKey{Namespace: req.Namespace, Name: spcName}, spc); err != nil {
 		logger.Errorf("failed to get spc, error: %+v", err)
 		// object not found
 		if apierrors.IsNotFound(err) {
@@ -101,19 +93,25 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 	for _, secretRef := range spc.Status.SecretRef {
 		secretStatus[secretRef.Name] = true
 	}
+
 	files, err := getMountedFiles(spcPodStatus.Status.TargetPath)
 	if err != nil {
 		logger.Errorf("failed to get mounted files, err: %+v", err)
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, err
 	}
 	errs := make([]error, 0)
+	success := make([]string, 0)
 	for idx, secretObj := range spc.Spec.SecretObjects {
 		_, ok := secretStatus[secretObj.SecretName]
 		// secret has already been created
 		if ok {
+			err = r.patchSecretWithOwnerRef(ctx, secretObj.SecretName, req.Namespace, &spcPodStatus, r.Scheme)
+			if err != nil {
+				logger.Errorf("failed to set owner ref for secret, err: %+v", err)
+				return ctrl.Result{RequeueAfter: 10 * time.Second}, err
+			}
 			continue
 		}
-		// TODO logic to validate all secret params
 		if len(secretObj.SecretName) == 0 {
 			logger.Errorf("secret name is empty at index %d", idx)
 			errs = append(errs, fmt.Errorf("secret name is empty at index %d", idx))
@@ -158,7 +156,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 		}
 
 		createFn := func() (bool, error) {
-			if err := createOrUpdateK8sSecret(ctx, secretObj.SecretName, req.Namespace, datamap, secretType); err != nil {
+			if err := r.createOrUpdateK8sSecret(ctx, secretObj.SecretName, req.Namespace, datamap, secretType); err != nil {
 				log.Errorf("failed createOrUpdateK8sSecret, err: %v for secret: %s", err, secretObj.SecretName)
 				return false, nil
 			}
@@ -173,10 +171,23 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 			log.Errorf("max retries for creating secret %s reached, err: %v", secretObj.SecretName, err)
 			return ctrl.Result{}, err
 		}
-		// TODO Patch owner ref to the k8s secret with spc pod status
-		// TODO logic to update status on spc with secret reference
+		err = r.patchSecretWithOwnerRef(ctx, secretObj.SecretName, req.Namespace, &spcPodStatus, r.Scheme)
+		if err != nil {
+			logger.Errorf("failed to set owner ref for secret, err: %+v", err)
+			return ctrl.Result{RequeueAfter: 10 * time.Second}, err
+		}
+		success = append(success, secretObj.SecretName)
 	}
 
+	if len(success) > 0 {
+		err := r.updateStatusOfSPC(ctx, spc.Name, spc.Namespace, success, r.Scheme)
+		if err != nil {
+			logger.Errorf("failed to update secret ref status in spc, err: %+v", err)
+			return ctrl.Result{RequeueAfter: 10 * time.Second}, err
+		}
+	}
+
+	logger.Info("Reconcile complete")
 	return ctrl.Result{}, nil
 }
 
@@ -184,19 +195,6 @@ func (r *SecretProviderClassPodStatusReconciler) SetupWithManager(mgr ctrl.Manag
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.SecretProviderClassPodStatus{}).
 		Complete(r)
-}
-
-// getClient returns client.Client
-func getClient(scheme *runtime.Scheme) (client.Client, error) {
-	cfg, err := config.GetConfig()
-	if err != nil {
-		return nil, err
-	}
-	c, err := client.New(cfg, client.Options{Scheme: scheme, Mapper: nil})
-	if err != nil {
-		return nil, err
-	}
-	return c, nil
 }
 
 // getSecretType returns a k8s secret type, defaults to Opaque
@@ -244,12 +242,7 @@ func getMountedFiles(targetPath string) (map[string]string, error) {
 
 // createOrUpdateK8sSecret creates or updates a K8s secret with data from mounted files
 // If a secret with the same name already exists in the namespace of the pod, it's updated.
-func createOrUpdateK8sSecret(ctx context.Context, name, namespace string, datamap map[string][]byte, secretType corev1.SecretType) error {
-	// recreating client here to prevent reading from cache
-	c, err := getClient(nil)
-	if err != nil {
-		return err
-	}
+func (r *SecretProviderClassPodStatusReconciler) createOrUpdateK8sSecret(ctx context.Context, name, namespace string, datamap map[string][]byte, secretType corev1.SecretType) error {
 	secretKey := types.NamespacedName{
 		Namespace: namespace,
 		Name:      name,
@@ -263,7 +256,7 @@ func createOrUpdateK8sSecret(ctx context.Context, name, namespace string, datama
 		Type: secretType,
 	}
 
-	err = c.Get(ctx, secretKey, secret)
+	err := r.Client.Get(ctx, secretKey, secret)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
@@ -272,10 +265,70 @@ func createOrUpdateK8sSecret(ctx context.Context, name, namespace string, datama
 		return nil
 	}
 	secret.Data = datamap
-	if err := c.Create(ctx, secret); err != nil {
+	if err := r.Create(ctx, secret); err != nil {
 		log.Errorf("error %v while creating K8s secret: %s, ns: %s", err, name, namespace)
 		return err
 	}
 	log.Infof("created k8s secret: %s, ns: %s", name, namespace)
 	return nil
+}
+
+func (r *SecretProviderClassPodStatusReconciler) patchSecretWithOwnerRef(ctx context.Context, name, namespace string, spcPodStatus *v1alpha1.SecretProviderClassPodStatus, scheme *runtime.Scheme) error {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+	}
+	secretKey := types.NamespacedName{
+		Namespace: namespace,
+		Name:      name,
+	}
+	err := r.Client.Get(ctx, secretKey, secret)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	old := secret.DeepCopyObject()
+	err = controllerutil.SetOwnerReference(spcPodStatus, secret, scheme)
+	if err != nil {
+		return err
+	}
+
+	err = r.Patch(ctx, secret, client.MergeFrom(old))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *SecretProviderClassPodStatusReconciler) updateStatusOfSPC(ctx context.Context, name, namespace string, secrets []string, scheme *runtime.Scheme) error {
+	template := &v1alpha1.SecretProviderClass{}
+	if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, template); err != nil {
+		// If the template does not exist, we are done
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	var updateRequired bool
+	m := make(map[string]bool)
+	for _, s := range template.Status.SecretRef {
+		m[s.Name] = s.Created
+	}
+
+	for _, secret := range secrets {
+		created, ok := m[secret]
+		if ok && created {
+			continue
+		}
+		updateRequired = true
+		template.Status.SecretRef = append(template.Status.SecretRef, &v1alpha1.SecretRefStatus{Name: secret, Created: true})
+	}
+	if !updateRequired {
+		log.Info("secret status is already up-to date for spc")
+		return nil
+	}
+	return r.Client.Update(ctx, template)
 }
