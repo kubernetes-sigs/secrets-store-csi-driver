@@ -28,6 +28,11 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 )
 
+const (
+	certType       = "CERTIFICATE"
+	privateKeyType = "RSA PRIVATE KEY"
+)
+
 // SecretProviderClassPodStatusReconciler reconciles a SecretProviderClassPodStatus object
 type SecretProviderClassPodStatusReconciler struct {
 	client.Client
@@ -130,6 +135,8 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 		secretType := getSecretType(secretObj.Type)
 		datamap := make(map[string][]byte)
 
+		logger.Infof("secret type is %s for secret %s", secretType, secretObj.SecretName)
+
 		for _, data := range secretObj.Data {
 			if len(data.ObjectName) == 0 {
 				logger.Errorf("object name in data is empty at index %d for secret %s", idx, secretObj.SecretName)
@@ -149,10 +156,18 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 			logger.Infof("file matching objectName %s found for key %s", data.ObjectName, data.Key)
 			content, err := ioutil.ReadFile(file)
 			if err != nil {
-				log.Errorf("failed to read file %s, err: %v", data.ObjectName, err)
+				logger.Errorf("failed to read file %s, err: %v", data.ObjectName, err)
 				return ctrl.Result{}, status.Error(codes.Internal, err.Error())
 			}
 			datamap[data.Key] = content
+			if secretType == corev1.SecretTypeTLS {
+				c, err := getCertPart(content, data.Key)
+				if err != nil {
+					logger.Errorf("failed to get cert data from file %s, err: %v for secret: %s", file, err, secretObj.SecretName)
+					return ctrl.Result{RequeueAfter: 5 * time.Second}, status.Error(codes.Internal, err.Error())
+				}
+				datamap[data.Key] = c
+			}
 		}
 
 		createFn := func() (bool, error) {
@@ -180,9 +195,21 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 	}
 
 	if len(success) > 0 {
-		err := r.updateStatusOfSPC(ctx, spc.Name, spc.Namespace, success, r.Scheme)
-		if err != nil {
-			logger.Errorf("failed to update secret ref status in spc, err: %+v", err)
+		setStatusFn := func() (bool, error) {
+			err := r.updateStatusOfSPC(ctx, spc.Name, spc.Namespace, success, r.Scheme)
+			if err != nil {
+				logger.Errorf("failed to update secret ref status in spc, err: %+v", err)
+				return false, nil
+			}
+			return true, nil
+		}
+		if err := wait.ExponentialBackoff(wait.Backoff{
+			Steps:    5,
+			Duration: 1 * time.Millisecond,
+			Factor:   1.0,
+			Jitter:   0.1,
+		}, setStatusFn); err != nil {
+			log.Errorf("max retries for setting status reached, err: %v for spc: %s", err, spc.Name)
 			return ctrl.Result{RequeueAfter: 10 * time.Second}, err
 		}
 	}
@@ -195,49 +222,6 @@ func (r *SecretProviderClassPodStatusReconciler) SetupWithManager(mgr ctrl.Manag
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.SecretProviderClassPodStatus{}).
 		Complete(r)
-}
-
-// getSecretType returns a k8s secret type, defaults to Opaque
-func getSecretType(sType string) corev1.SecretType {
-	switch sType {
-	case "kubernetes.io/basic-auth":
-		return corev1.SecretTypeBasicAuth
-	case "bootstrap.kubernetes.io/token":
-		return corev1.SecretTypeBootstrapToken
-	case "kubernetes.io/dockerconfigjson":
-		return corev1.SecretTypeDockerConfigJson
-	case "kubernetes.io/dockercfg":
-		return corev1.SecretTypeDockercfg
-	case "kubernetes.io/ssh-auth":
-		return corev1.SecretTypeSSHAuth
-	case "kubernetes.io/service-account-token":
-		return corev1.SecretTypeServiceAccountToken
-	case "kubernetes.io/tls":
-		return corev1.SecretTypeTLS
-	default:
-		return corev1.SecretTypeOpaque
-	}
-}
-
-// getMountedFiles returns all the mounted files names with filepath base as key
-func getMountedFiles(targetPath string) (map[string]string, error) {
-	paths := make(map[string]string, 0)
-	// loop thru all the mounted files
-	files, err := ioutil.ReadDir(targetPath)
-	if err != nil {
-		log.Errorf("failed to list all files in target path %s, err: %v", targetPath, err)
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	sep := "/"
-	if strings.HasPrefix(targetPath, "c:\\") {
-		sep = "\\"
-	} else if strings.HasPrefix(targetPath, `c:\`) {
-		sep = `\`
-	}
-	for _, file := range files {
-		paths[file.Name()] = targetPath + sep + file.Name()
-	}
-	return paths, nil
 }
 
 // createOrUpdateK8sSecret creates or updates a K8s secret with data from mounted files

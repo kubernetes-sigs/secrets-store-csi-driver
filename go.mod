@@ -6,7 +6,6 @@ require (
 	cloud.google.com/go v0.53.0 // indirect
 	github.com/blang/semver v3.5.0+incompatible
 	github.com/container-storage-interface/spec v1.0.0
-	github.com/ghodss/yaml v1.0.0
 	github.com/golang/protobuf v1.3.4
 	github.com/kubernetes-csi/csi-test v2.2.0+incompatible
 	github.com/onsi/ginkgo v1.11.0

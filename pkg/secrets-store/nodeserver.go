@@ -238,9 +238,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 }
 
 func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (nuvr *csi.NodeUnpublishVolumeResponse, err error) {
-	var secretObjects []interface{}
 	var podUID string
-	syncK8sSecret := false
 
 	defer func() {
 		if err != nil {
@@ -268,33 +266,6 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 	podUID = getPodUIDFromTargetPath(targetPath)
 	if len(podUID) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Cannot get podUID from Target path")
-	}
-	item, podNS, err := getItemWithPodID(ctx, podUID)
-	if err != nil {
-		return nil, err
-	}
-	if item != nil {
-		// [optional field]
-		secretObjects, syncK8sSecret, err = getSecretObjectsFromSpec(item)
-		if err != nil {
-			log.Errorf("getSecretObjectsFromSpec err: %v for pod: %s. skipping sync", err, podUID)
-			syncK8sSecret = false
-		}
-	}
-
-	if syncK8sSecret {
-		log.Debugf("[NodeUnpublishVolume] syncK8sSecret is enabled for pod: %s", podUID)
-		// ensure podNS is valid as it is required for deleting secrets
-		if len(podNS) == 0 {
-			return nil, status.Error(codes.InvalidArgument, "Invalid podNS from secretproviderclasses obj")
-		}
-		// removeK8sObjects deletes secrets mapped to each mounted file
-		// it should also delete pod info from the secretProviderClass object's byPod status field
-		err := removeK8sObjects(ctx, targetPath, podUID, files, secretObjects)
-		if err != nil {
-			log.Errorf("removeK8sObjects err: %v for pod: %s", err, podUID)
-			return nil, status.Error(codes.Internal, err.Error())
-		}
 	}
 	// remove files
 	if runtime.GOOS == "windows" {
