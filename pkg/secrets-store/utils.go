@@ -45,6 +45,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+
+	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 )
 
 var (
@@ -802,14 +804,24 @@ func getPrivateKey(data []byte) ([]byte, error) {
 	return pem.EncodeToMemory(block), nil
 }
 
-func CreateSecretProviderClassPodStatus(ctx context.Context, podname, namespace, spcName, targetPath, nodeID string, mounted bool) error {
+func createSecretProviderClassPodStatus(ctx context.Context, podname, namespace, podUID, spcName, targetPath, nodeID string, mounted bool) error {
 	obj := &unstructured.Unstructured{}
 	obj.SetName(podname + "-" + namespace + "-" + spcName)
 	obj.SetNamespace(namespace)
 	obj.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "secrets-store.csi.x-k8s.io",
-		Version: "v1alpha1",
+		Group:   v1alpha1.GroupVersion.Group,
+		Version: v1alpha1.GroupVersion.Version,
 		Kind:    "SecretProviderClassPodStatus",
+	})
+	// Set owner reference to the pod as the mapping between secret provider class pod status and
+	// pod is 1 to 1. When pod is deleted, the spc pod status will automatically garbage collected
+	obj.SetOwnerReferences([]metav1.OwnerReference{
+		{
+			APIVersion: "v1",
+			Kind:       "Pod",
+			Name:       podname,
+			UID:        types.UID(podUID),
+		},
 	})
 
 	status := map[string]interface{}{

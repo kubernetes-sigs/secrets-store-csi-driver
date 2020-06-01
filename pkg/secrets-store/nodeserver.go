@@ -59,9 +59,7 @@ const (
 func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (npvr *csi.NodePublishVolumeResponse, err error) {
 	var parameters map[string]string
 	var providerName string
-	// var secretObjects []interface{}
 	var podName, podNamespace, podUID string
-	// syncK8sSecret := false
 	errorReason := FailedToMount
 
 	defer func() {
@@ -106,42 +104,30 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		targetPath, volumeID, attrib, mountFlags)
 
 	secretProviderClass := attrib[secretProviderClassField]
-	providerName = attrib["providerName"]
-	/// TODO: providerName is here for backward compatibility. Will eventually deprecate.
-	if secretProviderClass == "" && providerName == "" {
+	if secretProviderClass == "" {
 		return nil, fmt.Errorf("secretProviderClass is not set")
 	}
 
-	/// TODO: This is here for backward compatibility. Will eventually deprecate.
-	if providerName != "" {
-		parameters = attrib
-	} else {
-		item, err := getSecretProviderItemByName(ctx, secretProviderClass)
-		if err != nil {
-			errorReason = SecretProviderClassNotFound
-			return nil, err
-		}
-		provider, err := getStringFromObjectSpec(item.Object, providerField)
-		if err != nil {
-			return nil, err
-		}
-		providerName = provider
-		parameters, err = getMapFromObjectSpec(item.Object, parametersField)
-		if err != nil {
-			return nil, err
-		}
-		// [optional field]
-		// secretObjects, syncK8sSecret, err = getSecretObjectsFromSpec(item)
-		// if err != nil {
-		// 	return nil, err
-		// }
-		parameters[csipodname] = attrib[csipodname]
-		parameters[csipodnamespace] = attrib[csipodnamespace]
-		parameters[csipoduid] = attrib[csipoduid]
-		podName = parameters[csipodname]
-		podNamespace = parameters[csipodnamespace]
-		podUID = parameters[csipoduid]
+	item, err := getSecretProviderItemByName(ctx, secretProviderClass)
+	if err != nil {
+		errorReason = SecretProviderClassNotFound
+		return nil, err
 	}
+	provider, err := getStringFromObjectSpec(item.Object, providerField)
+	if err != nil {
+		return nil, err
+	}
+	providerName = provider
+	parameters, err = getMapFromObjectSpec(item.Object, parametersField)
+	if err != nil {
+		return nil, err
+	}
+	parameters[csipodname] = attrib[csipodname]
+	parameters[csipodnamespace] = attrib[csipodnamespace]
+	parameters[csipoduid] = attrib[csipoduid]
+	podName = parameters[csipodname]
+	podNamespace = parameters[csipodnamespace]
+	podUID = parameters[csipoduid]
 
 	if isMockProvider(providerName) {
 		// mock provider is used only for running sanity tests against the driver
@@ -243,20 +229,8 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		log.Errorf("error invoking provider, err: %v, output: %v for pod: %s, ns: %s", err, stderr.String(), podUID, podNamespace)
 		return nil, fmt.Errorf("error mounting secret %v for pod: %s, ns: %s", stderr.String(), podUID, podNamespace)
 	}
-	// create/update secrets with mounted file content
-	// add pod info to the secretProviderClass obj's byPod status field
-	// if syncK8sSecret {
-	// 	log.Debugf("[NodePublishVolume] syncK8sSecret is enabled for pod: %s, ns: %s", podUID, podNamespace)
-	// 	err := syncK8sObjects(ctx, targetPath, podUID, podNamespace, secretProviderClass, providerName, secretObjects, ns.reporter)
-	// 	if err != nil {
-	// 		errorReason = FailedToSyncSecret
-	// 		log.Errorf("syncK8sObjects err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
-	// 		return nil, err
-	// 	}
-	// }
-
 	// create the secret provider class pod status object
-	if err = CreateSecretProviderClassPodStatus(ctx, podName, podNamespace, secretProviderClass, targetPath, ns.nodeID, true); err != nil {
+	if err = createSecretProviderClassPodStatus(ctx, podName, podNamespace, podUID, secretProviderClass, targetPath, ns.nodeID, true); err != nil {
 		return nil, fmt.Errorf("failed to create secret provider class pod status, err: %v", err)
 	}
 

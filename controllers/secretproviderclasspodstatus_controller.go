@@ -5,13 +5,23 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	"io/ioutil"
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -45,11 +55,22 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
+	node, ok := spcPodStatus.GetLabels()["internal.secrets-store.csi.k8s.io/node-name"]
+	if !ok {
+		logger.Info("node label not found, ignoring this spc pod status")
+		return ctrl.Result{}, nil
+	}
+	if !strings.EqualFold(node, r.NodeID) {
+		logger.Infof("ignoring as spc pod status belongs to node %s", node)
+		return ctrl.Result{}, nil
+	}
+
 	// reconcile delete
 	// TODO (aramase)  what to do on delete of the spc pod status object
 	// What action to take on the spc for this
 	if !spcPodStatus.GetDeletionTimestamp().IsZero() {
 		logger.Info("reconcile delete complete")
+		return ctrl.Result{}, nil
 	}
 
 	// targetPath := spcPodStatus.Status.TargetPath
@@ -62,7 +83,6 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 	}
 
 	var spc v1alpha1.SecretProviderClass
-
 	// get the secret provider class object
 	if err := c.Get(ctx, client.ObjectKey{Namespace: req.Namespace, Name: spcName}, &spc); err != nil {
 		logger.Errorf("failed to get spc, error: %+v", err)
@@ -76,6 +96,85 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 	if len(spc.Spec.SecretObjects) == 0 {
 		logger.Infof("No secret objects defined for spc, nothing to reconcile")
 		return ctrl.Result{}, nil
+	}
+	secretStatus := make(map[string]bool, 0)
+	for _, secretRef := range spc.Status.SecretRef {
+		secretStatus[secretRef.Name] = true
+	}
+	files, err := getMountedFiles(spcPodStatus.Status.TargetPath)
+	if err != nil {
+		logger.Errorf("failed to get mounted files, err: %+v", err)
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, err
+	}
+	errs := make([]error, 0)
+	for idx, secretObj := range spc.Spec.SecretObjects {
+		_, ok := secretStatus[secretObj.SecretName]
+		// secret has already been created
+		if ok {
+			continue
+		}
+		// TODO logic to validate all secret params
+		if len(secretObj.SecretName) == 0 {
+			logger.Errorf("secret name is empty at index %d", idx)
+			errs = append(errs, fmt.Errorf("secret name is empty at index %d", idx))
+			continue
+		}
+		if len(secretObj.Type) == 0 {
+			logger.Errorf("secret type is empty at index %d for secret %s", idx, secretObj.SecretName)
+			errs = append(errs, fmt.Errorf("secret type is empty at index %d for secret %s", idx, secretObj.SecretName))
+			continue
+		}
+		if len(secretObj.Data) == 0 {
+			logger.Errorf("data is empty at index %d for secret %s", idx, secretObj.SecretName)
+			errs = append(errs, fmt.Errorf("data is empty at index %d for secret %s", idx, secretObj.SecretName))
+			continue
+		}
+		secretType := getSecretType(secretObj.Type)
+		datamap := make(map[string][]byte)
+
+		for _, data := range secretObj.Data {
+			if len(data.ObjectName) == 0 {
+				logger.Errorf("object name in data is empty at index %d for secret %s", idx, secretObj.SecretName)
+				errs = append(errs, fmt.Errorf("object name in data is empty at index %d for secret %s", idx, secretObj.SecretName))
+				continue
+			}
+			if len(data.Key) == 0 {
+				logger.Errorf("key in data is empty at index %d for secret %s", idx, secretObj.SecretName)
+				errs = append(errs, fmt.Errorf("key in data is empty at index %d for secret %s", idx, secretObj.SecretName))
+				continue
+			}
+			file, ok := files[data.ObjectName]
+			if !ok {
+				logger.Errorf("file matching objectName %s not found for secret %s", data.ObjectName, secretObj.SecretName)
+				continue
+			}
+			logger.Infof("file matching objectName %s found for key %s", data.ObjectName, data.Key)
+			content, err := ioutil.ReadFile(file)
+			if err != nil {
+				log.Errorf("failed to read file %s, err: %v", data.ObjectName, err)
+				return ctrl.Result{}, status.Error(codes.Internal, err.Error())
+			}
+			datamap[data.Key] = content
+		}
+
+		createFn := func() (bool, error) {
+			if err := createOrUpdateK8sSecret(ctx, secretObj.SecretName, req.Namespace, datamap, secretType); err != nil {
+				log.Errorf("failed createOrUpdateK8sSecret, err: %v for secret: %s", err, secretObj.SecretName)
+				return false, nil
+			}
+			return true, nil
+		}
+		if err := wait.ExponentialBackoff(wait.Backoff{
+			Steps:    5,
+			Duration: 1 * time.Millisecond,
+			Factor:   1.0,
+			Jitter:   0.1,
+		}, createFn); err != nil {
+			log.Errorf("max retries for creating secret %s reached, err: %v", secretObj.SecretName, err)
+			return ctrl.Result{}, err
+		}
+		// TODO Patch owner ref to the k8s secret with spc pod status
+		// TODO logic to update status on spc with secret reference
 	}
 
 	return ctrl.Result{}, nil
@@ -98,4 +197,85 @@ func getClient(scheme *runtime.Scheme) (client.Client, error) {
 		return nil, err
 	}
 	return c, nil
+}
+
+// getSecretType returns a k8s secret type, defaults to Opaque
+func getSecretType(sType string) corev1.SecretType {
+	switch sType {
+	case "kubernetes.io/basic-auth":
+		return corev1.SecretTypeBasicAuth
+	case "bootstrap.kubernetes.io/token":
+		return corev1.SecretTypeBootstrapToken
+	case "kubernetes.io/dockerconfigjson":
+		return corev1.SecretTypeDockerConfigJson
+	case "kubernetes.io/dockercfg":
+		return corev1.SecretTypeDockercfg
+	case "kubernetes.io/ssh-auth":
+		return corev1.SecretTypeSSHAuth
+	case "kubernetes.io/service-account-token":
+		return corev1.SecretTypeServiceAccountToken
+	case "kubernetes.io/tls":
+		return corev1.SecretTypeTLS
+	default:
+		return corev1.SecretTypeOpaque
+	}
+}
+
+// getMountedFiles returns all the mounted files names with filepath base as key
+func getMountedFiles(targetPath string) (map[string]string, error) {
+	paths := make(map[string]string, 0)
+	// loop thru all the mounted files
+	files, err := ioutil.ReadDir(targetPath)
+	if err != nil {
+		log.Errorf("failed to list all files in target path %s, err: %v", targetPath, err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	sep := "/"
+	if strings.HasPrefix(targetPath, "c:\\") {
+		sep = "\\"
+	} else if strings.HasPrefix(targetPath, `c:\`) {
+		sep = `\`
+	}
+	for _, file := range files {
+		paths[file.Name()] = targetPath + sep + file.Name()
+	}
+	return paths, nil
+}
+
+// createOrUpdateK8sSecret creates or updates a K8s secret with data from mounted files
+// If a secret with the same name already exists in the namespace of the pod, it's updated.
+func createOrUpdateK8sSecret(ctx context.Context, name, namespace string, datamap map[string][]byte, secretType corev1.SecretType) error {
+	// recreating client here to prevent reading from cache
+	c, err := getClient(nil)
+	if err != nil {
+		return err
+	}
+	secretKey := types.NamespacedName{
+		Namespace: namespace,
+		Name:      name,
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+		Type: secretType,
+	}
+
+	err = c.Get(ctx, secretKey, secret)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+	// secret already exists
+	if err == nil {
+		return nil
+	}
+	secret.Data = datamap
+	if err := c.Create(ctx, secret); err != nil {
+		log.Errorf("error %v while creating K8s secret: %s, ns: %s", err, name, namespace)
+		return err
+	}
+	log.Infof("created k8s secret: %s, ns: %s", name, namespace)
+	return nil
 }
