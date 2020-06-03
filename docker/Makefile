@@ -18,7 +18,7 @@ IMAGE_VERSION?=v0.0.11
 IMAGE_TAG=$(REGISTRY)/$(IMAGE_NAME):$(IMAGE_VERSION)
 export
 
-DOCKER_CLI_EXPERIMENTAL = enabled
+export DOCKER_CLI_EXPERIMENTAL=enabled
 
 build-and-push:
 	bash -x ./build.sh build_and_push
