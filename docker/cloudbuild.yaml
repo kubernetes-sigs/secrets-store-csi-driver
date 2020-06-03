@@ -8,7 +8,7 @@ options:
   substitution_option: ALLOW_LOOSE
 steps:
   - name: 'gcr.io/k8s-testimages/gcb-docker-gcloud:v20200422-b25d964'
-    entrypoint: make
+    entrypoint: bash
     dir: ./docker
     env:
     - DOCKER_CLI_EXPERIMENTAL=enabled
@@ -19,7 +19,10 @@ steps:
     # setting the home to /root explicitly to make docker buildx work
     - HOME=/root
     args:
-    - manifest
+    - -c
+    - |
+      gcloud auth configure-docker \
+      && make manifest
 substitutions:
   # _GIT_TAG will be filled with a git-based tag for the image, of the form vYYYYMMDD-hash, and
   # can be used as a substitution
