@@ -15,6 +15,9 @@ steps:
     - TAG=$_GIT_TAG
     - BASE_REF=$_PULL_BASE_REF
     - REGISTRY=gcr.io/k8s-staging-csi-secrets-store
+    # default cloudbuild has HOME=/builder/home and docker buildx is in /root/.docker/cli-plugins/docker-buildx
+    # setting the home to /root explicitly to make docker buildx work
+    - HOME=/root
     args:
     - manifest
 substitutions:
