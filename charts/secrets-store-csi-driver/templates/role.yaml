@@ -13,6 +13,7 @@ rules:
   - get
   - list
   - update
+  - watch
 - apiGroups:
   - secrets-store.csi.x-k8s.io
   resources:
@@ -21,6 +22,7 @@ rules:
   - get
   - patch
   - update
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -30,4 +32,24 @@ rules:
   - delete
   - get
   - update
+  - watch
+  - list
+- apiGroups:
+  - secrets-store.csi.x-k8s.io
+  resources:
+  - secretproviderclasspodstatuses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - secrets-store.csi.x-k8s.io
+  resources:
+  - secretproviderclasspodstatuses/status
+  verbs:
+  - get
 {{ end }}

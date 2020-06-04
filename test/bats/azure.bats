@@ -55,6 +55,7 @@ setup() {
 }
 
 @test "CSI inline volume test" {
+  skip
   envsubst < $BATS_TESTS_DIR/nginx-pod-secrets-store-inline-volume.yaml | kubectl apply -f -
 
   cmd="kubectl wait --for=condition=Ready --timeout=60s pod/nginx-secrets-store-inline"
@@ -65,11 +66,13 @@ setup() {
 }
 
 @test "CSI inline volume test - read azure kv secret from pod" {
+  skip
   result=$(kubectl exec nginx-secrets-store-inline -- $EXEC_COMMAND/$SECRET_NAME)
   [[ "${result//$'\r'}" -eq "${SECRET_VALUE}" ]]
 }
 
 @test "CSI inline volume test - read azure kv key from pod" {
+  skip
   result=$(kubectl exec nginx-secrets-store-inline -- $EXEC_COMMAND/$KEY_NAME)
   result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
   [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
@@ -104,12 +107,12 @@ setup() {
 }
 
 @test "CSI inline volume test with pod portability - read azure kv secret from pod" {
-  result=$(kubectl exec nginx-secrets-store-inline -- $EXEC_COMMAND/$SECRET_NAME)
+  result=$(kubectl exec nginx-secrets-store-inline-crd -- $EXEC_COMMAND/$SECRET_NAME)
   [[ "${result//$'\r'}" -eq "${SECRET_VALUE}" ]]
 }
 
 @test "CSI inline volume test with pod portability - read azure kv key from pod" {
-  result=$(kubectl exec nginx-secrets-store-inline -- $EXEC_COMMAND/$KEY_NAME)
+  result=$(kubectl exec nginx-secrets-store-inline-crd -- $EXEC_COMMAND/$KEY_NAME)
   result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
   [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 }
@@ -129,7 +132,7 @@ setup() {
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 }
 
-@test "Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check byPod status" {
+@test "Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences" {
   POD=$(kubectl get pod -l app=nginx -o jsonpath="{.items[0].metadata.name}")
 
   result=$(kubectl exec $POD -- $EXEC_COMMAND/secretalias)
@@ -145,17 +148,14 @@ setup() {
   result=$(kubectl exec -it $POD printenv | grep SECRET_USERNAME) | awk -F"=" '{ print $2}'
   [[ "${result//$'\r'}" -eq "${SECRET_VALUE}" ]]
 
-  result=$(kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure-sync -o json | jq '.status.byPod | length')
+  result=$(kubectl get secret foosecret -o json | jq '.metadata.ownerReferences | length')
   [[ "$result" -eq "2" ]]
 }
 
-@test "Sync with K8s secrets - delete deployment, check byPod status" {
+@test "Sync with K8s secrets - delete deployment, check secret deleted" {
   run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-synck8s-azure.yaml
   assert_success
   sleep 20
   result=$(kubectl get secret | grep foosecret | wc -l)
-  [[ "$result" -eq "0" ]]
-
-  result=$(kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure-sync -o json | jq '.status.byPod | length')
   [[ "$result" -eq "0" ]]
 }

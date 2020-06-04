@@ -48,17 +48,6 @@ var (
 	}
 )
 
-const (
-	secretNameField    = "secretName"
-	secretObjectsField = "secretObjects"
-	keyField           = "key"
-	dataField          = "data"
-	objectNameField    = "objectName"
-	typeField          = "type"
-	certType           = "CERTIFICATE"
-	privateKeyType     = "RSA PRIVATE KEY"
-)
-
 // getProviderPath returns the absolute path to the provider binary
 func (ns *nodeServer) getProviderPath(goos string, providerName string) string {
 	if goos == "windows" {
@@ -162,8 +151,8 @@ func getClient() (client.Client, error) {
 	return c, nil
 }
 
-// getSecretProviderItemByName returns the secretproviderclass object by name
-func getSecretProviderItemByName(ctx context.Context, name string) (*unstructured.Unstructured, error) {
+// getSecretProviderItem returns the secretproviderclass object by name and namespace
+func getSecretProviderItem(ctx context.Context, name, namespace string) (*unstructured.Unstructured, error) {
 	instanceList := &unstructured.UnstructuredList{}
 	instanceList.SetGroupVersionKind(secretProviderClassGvk)
 	// recreating client here to prevent reading from cache
@@ -171,7 +160,7 @@ func getSecretProviderItemByName(ctx context.Context, name string) (*unstructure
 	if err != nil {
 		return nil, err
 	}
-	err = c.List(ctx, instanceList)
+	err = c.List(ctx, instanceList, &client.ListOptions{Namespace: namespace})
 	if err != nil {
 		return nil, err
 	}

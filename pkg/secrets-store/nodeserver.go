@@ -104,11 +104,25 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		targetPath, volumeID, attrib, mountFlags)
 
 	secretProviderClass := attrib[secretProviderClassField]
+	providerName = attrib["providerName"]
+
+	if isMockProvider(providerName) {
+		// mock provider is used only for running sanity tests against the driver
+		err := ns.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
+		if err != nil {
+			log.Errorf("mount err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
+			return nil, err
+		}
+		log.Infof("skipping calling provider as it's mock")
+		return &csi.NodePublishVolumeResponse{}, nil
+	}
+
+	/// TODO: providerName is here for backward compatibility. Will eventually deprecate.
 	if secretProviderClass == "" {
 		return nil, fmt.Errorf("secretProviderClass is not set")
 	}
 
-	item, err := getSecretProviderItemByName(ctx, secretProviderClass)
+	item, err := getSecretProviderItem(ctx, secretProviderClass, podNamespace)
 	if err != nil {
 		errorReason = SecretProviderClassNotFound
 		return nil, err
@@ -129,16 +143,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	podNamespace = parameters[csipodnamespace]
 	podUID = parameters[csipoduid]
 
-	if isMockProvider(providerName) {
-		// mock provider is used only for running sanity tests against the driver
-		err := ns.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
-		if err != nil {
-			log.Errorf("mount err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
-			return nil, err
-		}
-		log.Infof("skipping calling provider as it's mock")
-		return &csi.NodePublishVolumeResponse{}, nil
-	}
 	// ensure it's read-only
 	if !req.GetReadonly() {
 		return nil, status.Error(codes.InvalidArgument, "Readonly is not true in request")

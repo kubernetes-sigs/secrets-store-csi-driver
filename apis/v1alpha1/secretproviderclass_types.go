@@ -54,16 +54,9 @@ type ByPodStatus struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-// SecretRefStatus defines the state of secret objects
-type SecretRefStatus struct {
-	Name    string `json:"name,omitempty"`
-	Created bool   `json:"created,omitempty"`
-}
-
 // SecretProviderClassStatus defines the observed state of SecretProviderClass
 type SecretProviderClassStatus struct {
-	ByPod     []*ByPodStatus     `json:"byPod,omitempty"`
-	SecretRef []*SecretRefStatus `json:"secretRef,omitempty"`
+	ByPod []*ByPodStatus `json:"byPod,omitempty"`
 }
 
 // +kubebuilder:object:root=true

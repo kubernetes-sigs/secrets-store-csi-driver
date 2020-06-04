@@ -77,6 +77,8 @@ func main() {
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		NodeID: *nodeID,
+		Reader: mgr.GetCache(),
+		Writer: mgr.GetClient(),
 	}).SetupWithManager(mgr); err != nil {
 		log.Fatalf("failed to create controller, error: %+v", err)
 	}
