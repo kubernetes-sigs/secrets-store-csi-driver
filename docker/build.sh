@@ -99,49 +99,16 @@ build_and_push() {
   done
 }
 
-ensure_manifest_tool() {
-  if ! [[ -x "$(command -v manifest-tool)" ]]; then
-    wget "https://github.com/estesp/manifest-tool/releases/download/v1.0.2/manifest-tool-linux-amd64" -O /usr/bin/manifest-tool
-    chmod +x /usr/bin/manifest-tool
-  fi
-}
-
 # This function will create and push the manifest list for the image
 manifest() {
-  ensure_manifest_tool
-
-  echo "Building manifest list .yaml file for ${IMAGE_TAG}"
-  echo "image: ${IMAGE_TAG}" > manifest.yaml
-  echo "manifests:" >> manifest.yaml
-  trap "rm manifest.yaml" EXIT
+  echo "Building and pushing manifest for ${IMAGE_TAG}"
 
   os_archs=$(listOsArchs)
-  for os_arch in ${os_archs}; do
-    splitOsArch "${os_arch}"
+  images=$(for os_arch in ${os_archs}; do splitOsArch "${os_arch}";echo ${IMAGE_TAG}-${suffix}; done)
 
-    echo "
-- image: ${IMAGE_TAG}-${suffix}
-  platform:
-    architecture: ${arch}
-    os: ${os_name}" >> manifest.yaml
-
-  # For Windows images, we also need to include the "os.version" in the manifest list, so the Windows node
-  # can pull the proper image it needs.
-  if [[ "$os_name" = "windows" ]]; then
-    BASEIMAGE=$(getBaseImage "${os_arch}")
-    # Getting the full OS version from the original image. The manifest-tool output looks like:
-    # 1           - OS Vers: 10.0.17763.1217
-    full_version=$(manifest-tool inspect ${BASEIMAGE} | grep 'OS Vers' | head -n 1 | awk '{print $5}') || true
-
-    # manifest-tool handles osversion as os.version
-    echo "    osversion: ${full_version}" >> manifest.yaml
-  fi
-  done
-
-  echo "Manifest list .yaml file:"
-  cat manifest.yaml
-
-  manifest-tool push from-spec manifest.yaml
+  docker manifest create --amend ${IMAGE_TAG} $images
+  docker manifest inspect ${IMAGE_TAG}
+  docker manifest push -p ${IMAGE_TAG}
 }
 
 shift
