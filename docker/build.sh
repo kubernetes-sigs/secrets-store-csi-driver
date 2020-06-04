@@ -99,49 +99,44 @@ build_and_push() {
   done
 }
 
-ensure_manifest_tool() {
-  if ! [[ -x "$(command -v manifest-tool)" ]]; then
-    wget "https://github.com/estesp/manifest-tool/releases/download/v1.0.2/manifest-tool-linux-amd64" -O /usr/bin/manifest-tool
-    chmod +x /usr/bin/manifest-tool
-  fi
-}
-
 # This function will create and push the manifest list for the image
 manifest() {
-  ensure_manifest_tool
-
-  echo "Building manifest list .yaml file for ${IMAGE_TAG}"
-  echo "image: ${IMAGE_TAG}" > manifest.yaml
-  echo "manifests:" >> manifest.yaml
-  trap "rm manifest.yaml" EXIT
-
   os_archs=$(listOsArchs)
+  # Make os_archs list into image manifest. Eg: 'linux/amd64 windows/amd64/1809' to '${IMAGE_TAG}-linux-amd64 ${IMAGE_TAG}-windows-amd64-1809'
+  while IFS='' read -r line; do manifest+=("$line"); done < <(echo "$os_archs" | sed "s~\/~-~g" | sed -e "s~[^ ]*~${IMAGE_TAG}\-&~g")
+  docker manifest create --amend "${IMAGE_TAG}" "${manifest[@]}"
+
+  # We will need the full registry name in order to set the "os.version" for Windows images.
+  # If the ${REGISTRY} dcesn't have any slashes, it means that it's on dockerhub.
+  registry_prefix=""
+  if [[ ! $REGISTRY =~ .*/.* ]]; then
+    registry_prefix="docker.io/"
+  fi
+  # The images in the manifest list are stored locally. The folder / file name is almost the same,
+  # with a few changes.
+  manifest_image_folder=$(echo "${registry_prefix}${IMAGE_TAG}" | sed "s|/|_|g" | sed "s/:/-/")
+
   for os_arch in ${os_archs}; do
     splitOsArch "${os_arch}"
+    docker manifest annotate --os "${os_name}" --arch "${arch}" "${IMAGE_TAG}" "${IMAGE_TAG}-${suffix}"
 
-    echo "
-- image: ${IMAGE_TAG}-${suffix}
-  platform:
-    architecture: ${arch}
-    os: ${os_name}" >> manifest.yaml
+    # For Windows images, we also need to include the "os.version" in the manifest list, so the Windows node
+    # can pull the proper image it needs.
+    if [[ "$os_name" = "windows" ]]; then
+      BASEIMAGE=$(getBaseImage "${os_arch}")
+      # Getting the full OS version from the original image manifest list.
+      full_version=$(docker manifest inspect ${BASEIMAGE} | grep "os.version" | head -n 1 | awk '{print $2}') || true
 
-  # For Windows images, we also need to include the "os.version" in the manifest list, so the Windows node
-  # can pull the proper image it needs.
-  if [[ "$os_name" = "windows" ]]; then
-    BASEIMAGE=$(getBaseImage "${os_arch}")
-    # Getting the full OS version from the original image. The manifest-tool output looks like:
-    # 1           - OS Vers: 10.0.17763.1217
-    full_version=$(manifest-tool inspect ${BASEIMAGE} | grep 'OS Vers' | head -n 1 | awk '{print $5}') || true
-
-    # manifest-tool handles osversion as os.version
-    echo "    osversion: ${full_version}" >> manifest.yaml
-  fi
+      # At the moment, docker manifest annotate doesn't allow us to set the os.version, so we'll have to
+      # it ourselves. The manifest list can be found locally as JSONs.
+      sed -i -r "s/(\"os\"\:\"windows\")/\0,\"os.version\":$full_version/" \
+        "${HOME}/.docker/manifests/${manifest_image_folder}/${manifest_image_folder}-${suffix}"
+    fi
   done
 
-  echo "Manifest list .yaml file:"
-  cat manifest.yaml
-
-  manifest-tool push from-spec manifest.yaml
+  echo "Manifest list:"
+  docker manifest inspect "${IMAGE_TAG}"
+  docker manifest push --purge "${IMAGE_TAG}"
 }
 
 shift
