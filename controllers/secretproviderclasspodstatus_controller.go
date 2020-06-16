@@ -23,10 +23,13 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"k8s.io/apimachinery/pkg/util/wait"
 
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -34,11 +37,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
-
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 )
 
@@ -210,7 +210,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 	}
 
 	logger.Info("reconcile complete")
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: 5 * time.Minute}, nil
 }
 
 func (r *SecretProviderClassPodStatusReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -231,7 +231,7 @@ func (r *SecretProviderClassPodStatusReconciler) createK8sSecret(ctx context.Con
 		Data: datamap,
 	}
 
-	err := r.Create(ctx, secret)
+	err := r.Writer.Create(ctx, secret)
 	if err == nil {
 		log.Infof("created k8s secret: %s/%s", namespace, name)
 		return nil
@@ -243,30 +243,22 @@ func (r *SecretProviderClassPodStatusReconciler) createK8sSecret(ctx context.Con
 }
 
 func (r *SecretProviderClassPodStatusReconciler) patchSecretWithOwnerRef(ctx context.Context, name, namespace string, spcPodStatus *v1alpha1.SecretProviderClassPodStatus) error {
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-		},
-	}
+	secret := &corev1.Secret{}
 	secretKey := types.NamespacedName{
 		Namespace: namespace,
 		Name:      name,
 	}
-	err := r.Reader.Get(ctx, secretKey, secret)
+	err := r.Client.Get(ctx, secretKey, secret)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
 
+	patch := client.MergeFromWithOptions(secret.DeepCopy(), client.MergeFromWithOptimisticLock{})
 	err = controllerutil.SetOwnerReference(spcPodStatus, secret, r.Scheme)
 	if err != nil {
 		return err
 	}
-	err = r.Writer.Update(ctx, secret)
-	if err != nil {
-		return err
-	}
-	return nil
+	return r.Writer.Patch(ctx, secret, patch)
 }
 
 func (r *SecretProviderClassPodStatusReconciler) secretExists(ctx context.Context, name, namespace string) (bool, error) {

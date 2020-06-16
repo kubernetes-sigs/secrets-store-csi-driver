@@ -49,8 +49,9 @@ func setupScheme() (*runtime.Scheme, error) {
 func newSecret(name, namespace string) *v1.Secret {
 	return &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			Name:            name,
+			Namespace:       namespace,
+			ResourceVersion: "73659",
 		},
 	}
 }
@@ -58,10 +59,11 @@ func newSecret(name, namespace string) *v1.Secret {
 func newSecretProviderClassPodStatus(name, namespace, node string) *v1alpha1.SecretProviderClassPodStatus {
 	return &v1alpha1.SecretProviderClassPodStatus{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels:    map[string]string{internalNodeLabel: node},
-			UID:       "72a0ecb8-c6e5-41e1-8da1-25e37ec61b26",
+			Name:            name,
+			Namespace:       namespace,
+			Labels:          map[string]string{internalNodeLabel: node},
+			UID:             "72a0ecb8-c6e5-41e1-8da1-25e37ec61b26",
+			ResourceVersion: "73659",
 		},
 		Status: v1alpha1.SecretProviderClassPodStatusStatus{
 			PodName:                 "pod1",

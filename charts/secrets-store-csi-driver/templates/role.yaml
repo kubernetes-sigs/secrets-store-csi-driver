@@ -32,6 +32,7 @@ rules:
   - delete
   - get
   - update
+  - patch
   - watch
   - list
 - apiGroups:
