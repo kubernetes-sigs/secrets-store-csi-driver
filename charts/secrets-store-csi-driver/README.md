@@ -28,11 +28,13 @@ The following table lists the configurable parameters of the csi-secrets-store-p
 | `linux.image.tag` | Linux image tag | `v0.0.11` |
 | `linux.enabled` | Install secrets store csi driver on linux nodes | true |
 | `linux.kubeletRootDir` | Configure the kubelet root dir | `/var/lib/kubelet` |
+| `linux.nodeSelector` | Node Selector for the daemonset on linux nodes | `{}` |
 | `windows.image.repository` | Windows image repository | `mcr.microsoft.com/k8s/csi/secrets-store/driver` |
 | `windows.image.pullPolicy` | Windows image pull policy | `IfNotPresent` |
 | `windows.image.tag` | Windows image tag | `v0.0.11` |
 | `windows.enabled` | Install secrets store csi driver on windows nodes | false |
 | `windows.kubeletRootDir` | Configure the kubelet root dir | `C:\var\lib\kubelet` |
+| `windows.nodeSelector` | Node Selector for the daemonset on windows nodes | `{}` |
 | `logLevel.debug` | Enable debug logging | true |
 | `livenessProbe.port` | Liveness probe port | `9808` |
 | `rbac.install` | Install default rbac roles and bindings | true |
