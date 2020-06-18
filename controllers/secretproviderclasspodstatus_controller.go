@@ -43,9 +43,8 @@ import (
 )
 
 const (
-	certType          = "CERTIFICATE"
-	privateKeyType    = "RSA PRIVATE KEY"
-	internalNodeLabel = "internal.secrets-store.csi.k8s.io/node-name"
+	certType       = "CERTIFICATE"
+	privateKeyType = "RSA PRIVATE KEY"
 )
 
 // SecretProviderClassPodStatusReconciler reconciles a SecretProviderClassPodStatus object
@@ -81,7 +80,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	node, ok := spcPodStatus.GetLabels()[internalNodeLabel]
+	node, ok := spcPodStatus.GetLabels()[v1alpha1.InternalNodeLabel]
 	if !ok {
 		logger.Info("node label not found, ignoring this spc pod status")
 		return ctrl.Result{}, nil
@@ -210,6 +209,9 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 	}
 
 	logger.Info("reconcile complete")
+	// requeue the spc pod status again after 5mins to check if secret and ownerRef exists
+	// and haven't been modified. If secret doesn't exist, then this requeue will ensure it's
+	// created in the next reconcile and the owner ref patched again
 	return ctrl.Result{RequeueAfter: 5 * time.Minute}, nil
 }
 
@@ -242,6 +244,7 @@ func (r *SecretProviderClassPodStatusReconciler) createK8sSecret(ctx context.Con
 	return err
 }
 
+// patchSecretWithOwnerRef patches the secret owner reference with the spc pod status
 func (r *SecretProviderClassPodStatusReconciler) patchSecretWithOwnerRef(ctx context.Context, name, namespace string, spcPodStatus *v1alpha1.SecretProviderClassPodStatus) error {
 	secret := &corev1.Secret{}
 	secretKey := types.NamespacedName{
@@ -261,6 +264,7 @@ func (r *SecretProviderClassPodStatusReconciler) patchSecretWithOwnerRef(ctx con
 	return r.Writer.Patch(ctx, secret, patch)
 }
 
+// secretExists checks if the secret with name and namespace already exists
 func (r *SecretProviderClassPodStatusReconciler) secretExists(ctx context.Context, name, namespace string) (bool, error) {
 	o := &v1.Secret{}
 	secretKey := types.NamespacedName{

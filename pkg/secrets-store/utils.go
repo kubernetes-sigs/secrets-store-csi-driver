@@ -234,7 +234,7 @@ func createSecretProviderClassPodStatus(ctx context.Context, podname, namespace,
 	}
 
 	obj.SetLabels(map[string]string{
-		"internal.secrets-store.csi.k8s.io/node-name": nodeID,
+		v1alpha1.InternalNodeLabel: nodeID,
 	})
 	// recreating client here to prevent reading from cache
 	c, err := getClient()

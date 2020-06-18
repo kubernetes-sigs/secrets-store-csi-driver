@@ -61,7 +61,7 @@ func newSecretProviderClassPodStatus(name, namespace, node string) *v1alpha1.Sec
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            name,
 			Namespace:       namespace,
-			Labels:          map[string]string{internalNodeLabel: node},
+			Labels:          map[string]string{v1alpha1.InternalNodeLabel: node},
 			UID:             "72a0ecb8-c6e5-41e1-8da1-25e37ec61b26",
 			ResourceVersion: "73659",
 		},

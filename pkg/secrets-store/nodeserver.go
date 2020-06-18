@@ -117,7 +117,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		return &csi.NodePublishVolumeResponse{}, nil
 	}
 
-	/// TODO: providerName is here for backward compatibility. Will eventually deprecate.
 	if secretProviderClass == "" {
 		return nil, fmt.Errorf("secretProviderClass is not set")
 	}

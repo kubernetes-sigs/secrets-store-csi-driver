@@ -53,4 +53,6 @@ rules:
   - secretproviderclasspodstatuses/status
   verbs:
   - get
+  - update
+  - patch
 {{ end }}

@@ -18,6 +18,11 @@ package v1alpha1
 
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+const (
+	// InternalNodeLabel used for setting the node name spc pod status belongs to
+	InternalNodeLabel = "internal.secrets-store.csi.k8s.io/node-name"
+)
+
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // SecretProviderClassPodStatusStatus defines the observed state of SecretProviderClassPodStatus
