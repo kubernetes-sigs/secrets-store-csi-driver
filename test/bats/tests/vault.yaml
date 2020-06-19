@@ -18,7 +18,7 @@ spec:
       terminationGracePeriodSeconds: 10
       containers:
       - name: vault
-        image: registry.hub.docker.com/library/vault:1.1.1
+        image: registry.hub.docker.com/library/vault:1.4.2
         imagePullPolicy: Always
         args: ['server', '-dev']
         securityContext:

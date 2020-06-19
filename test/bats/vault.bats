@@ -142,19 +142,17 @@ EOF
 }
 
 @test "CSI inline volume test with pod portability - read vault secret from pod" {
-  result=$(kubectl exec -it nginx-secrets-store-inline cat /mnt/secrets-store/foo)
-  [[ "$result" -eq "hello" ]]
-}
+  result=$(kubectl exec -it nginx-secrets-store-inline -- cat /mnt/secrets-store/foo)
+  [[ "$result" == "hello" ]]
 
-@test "CSI inline volume test with pod portability - read vault secret from pod" {
-  result=$(kubectl exec -it nginx-secrets-store-inline cat /mnt/secrets-store/foo1)
-  [[ "$result" -eq "hello1" ]]
+  result=$(kubectl exec -it nginx-secrets-store-inline -- cat /mnt/secrets-store/foo1)
+  [[ "$result" == "hello1" ]]
 }
 
 @test "Sync with K8s secrets - create deployment" {
   export VAULT_SERVICE_IP=$(kubectl get service vault -o jsonpath='{.spec.clusterIP}')
 
-  envsubst < $BATS_TESTS_DIR/vault_synck8s_v1alpha1_secretproviderclass.yaml | kubectl apply -f - 
+  envsubst < $BATS_TESTS_DIR/vault_synck8s_v1alpha1_secretproviderclass.yaml | kubectl apply -f -
 
   cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
@@ -171,20 +169,20 @@ EOF
 
 @test "Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check byPod status" {
   POD=$(kubectl get pod -l app=nginx -o jsonpath="{.items[0].metadata.name}")
-  result=$(kubectl exec -it $POD cat /mnt/secrets-store/foo)
-  [[ "$result" -eq "hello" ]]
-  
-  result=$(kubectl exec -it $POD cat /mnt/secrets-store/foo1)
-  [[ "$result" -eq "hello1" ]]
+  result=$(kubectl exec -it $POD -- cat /mnt/secrets-store/foo)
+  [[ "$result" == "hello" ]]
+
+  result=$(kubectl exec -it $POD -- cat /mnt/secrets-store/foo1)
+  [[ "$result" == "hello1" ]]
 
   result=$(kubectl get secret foosecret -o jsonpath="{.data.pwd}" | base64 -d)
-  [[ "$result" -eq "hello" ]]
+  [[ "$result" == "hello" ]]
 
-  result=$(kubectl exec -it $POD printenv | grep SECRET_USERNAME) | awk -F"=" '{ print $2}'
-  [[ "$result" -eq "hello1" ]]
+  result=$(kubectl exec -it $POD -- printenv | grep SECRET_USERNAME | awk -F"=" '{ print $2 }' | tr -d '\r\n')
+  [[ "$result" == "hello1" ]]
 
   result=$(kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/vault-foo-sync -o json | jq '.status.byPod | length')
-  [[ "$result" -eq "2" ]]
+  [[ "$result" == "2" ]]
 }
 
 @test "Sync with K8s secrets - delete deployment, check byPod status" {
@@ -192,8 +190,8 @@ EOF
   assert_success
   sleep 20
   result=$(kubectl get secret | grep foosecret | wc -l)
-  [[ "$result" -eq "0" ]]
+  [[ "$result" == "0" ]]
 
   result=$(kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/vault-foo-sync -o json | jq '.status.byPod | length')
-  [[ "$result" -eq "0" ]]
+  [[ "$result" == "0" ]]
 }
