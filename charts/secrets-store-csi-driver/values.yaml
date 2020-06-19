@@ -5,6 +5,7 @@ linux:
     tag: v0.0.11
     pullPolicy: Always
   kubeletRootDir: /var/lib/kubelet
+  nodeSelector: {}
 
 windows:
   enabled: false
@@ -13,6 +14,7 @@ windows:
     tag: v0.0.11
     pullPolicy: IfNotPresent
   kubeletRootDir: C:\var\lib\kubelet
+  nodeSelector: {}
 
 logLevel:
   debug: true

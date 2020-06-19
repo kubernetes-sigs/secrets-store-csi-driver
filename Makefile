@@ -101,8 +101,8 @@ e2e-container:
 	docker buildx create --use --name=container-builder
 ifdef TEST_WINDOWS
 		az acr login --name $(REGISTRY_NAME)
-		docker buildx build --no-cache --build-arg LDFLAGS=${LDFLAGS} -t $(IMAGE_TAG)-linux-amd64 -f Dockerfile --platform="linux/amd64" --push .
-		docker buildx build --no-cache --build-arg LDFLAGS=${LDFLAGS} -t $(IMAGE_TAG)-windows-1809-amd64 -f windows.Dockerfile --platform="windows/amd64" --push .
+		docker buildx build --no-cache --build-arg LDFLAGS=${LDFLAGS} -t $(IMAGE_TAG)-linux-amd64 -f docker/Dockerfile --platform="linux/amd64" --push .
+		docker buildx build --no-cache --build-arg LDFLAGS=${LDFLAGS} -t $(IMAGE_TAG)-windows-1809-amd64 -f docker/windows.Dockerfile --platform="windows/amd64" --push .
 		docker manifest create $(IMAGE_TAG) $(IMAGE_TAG)-linux-amd64 $(IMAGE_TAG)-windows-1809-amd64
 		docker manifest inspect $(IMAGE_TAG)
 		docker manifest push --purge $(IMAGE_TAG)
