@@ -158,11 +158,14 @@ e2e-vault: install-driver
 # Update CRDs in Helm Chart
 release: manifests
 	cp config/crd/bases/* charts/secrets-store-csi-driver/templates
-	cp config/rbac/* charts/secrets-store-csi-driver/templates
+	cp config/crd/bases/* deploy/
+
+	# generate rbac-secretproviderclass
+	$(KUSTOMIZE) build config/rbac -o deploy/rbac-secretproviderclass.yaml
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=secretproviderclasses-role paths="./..." output:crd:artifacts:config=config/crd/bases
 
 # Run go fmt against code
 fmt:
@@ -180,4 +183,14 @@ ifeq (, $(shell which controller-gen))
 CONTROLLER_GEN=$(GOBIN)/controller-gen
 else
 CONTROLLER_GEN=$(shell which controller-gen)
+endif
+
+# find or download kustomize
+# download kustomize if necessary
+kustomize:
+ifeq (, $(shell which kustomize))
+	go get sigs.k8s.io/kustomize@v3.6.1
+KUSTOMIZE=$(GOBIN)/kustomize
+else
+KUSTOMIZE=$(shell which kustomize)
 endif
