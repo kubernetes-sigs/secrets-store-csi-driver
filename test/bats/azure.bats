@@ -54,30 +54,6 @@ setup() {
   assert_success
 }
 
-@test "CSI inline volume test" {
-  skip
-  envsubst < $BATS_TESTS_DIR/nginx-pod-secrets-store-inline-volume.yaml | kubectl apply -f -
-
-  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/nginx-secrets-store-inline"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
-
-  run kubectl get pod/nginx-secrets-store-inline
-  assert_success
-}
-
-@test "CSI inline volume test - read azure kv secret from pod" {
-  skip
-  result=$(kubectl exec nginx-secrets-store-inline -- $EXEC_COMMAND/$SECRET_NAME)
-  [[ "${result//$'\r'}" -eq "${SECRET_VALUE}" ]]
-}
-
-@test "CSI inline volume test - read azure kv key from pod" {
-  skip
-  result=$(kubectl exec nginx-secrets-store-inline -- $EXEC_COMMAND/$KEY_NAME)
-  result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
-  [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
-}
-
 @test "secretproviderclasses crd is established" {
   cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
