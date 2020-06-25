@@ -167,7 +167,7 @@ EOF
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 }
 
-@test "Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check byPod status" {
+@test "Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences" {
   POD=$(kubectl get pod -l app=nginx -o jsonpath="{.items[0].metadata.name}")
   result=$(kubectl exec -it $POD -- cat /mnt/secrets-store/foo)
   [[ "$result" == "hello" ]]
@@ -181,17 +181,14 @@ EOF
   result=$(kubectl exec -it $POD -- printenv | grep SECRET_USERNAME | awk -F"=" '{ print $2 }' | tr -d '\r\n')
   [[ "$result" == "hello1" ]]
 
-  result=$(kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/vault-foo-sync -o json | jq '.status.byPod | length')
+  result=$(kubectl get secret foosecret -o json | jq '.metadata.ownerReferences | length')
   [[ "$result" == "2" ]]
 }
 
-@test "Sync with K8s secrets - delete deployment, check byPod status" {
+@test "Sync with K8s secrets - delete deployment, check secret is deleted" {
   run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-synck8s.yaml
   assert_success
   sleep 20
   result=$(kubectl get secret | grep foosecret | wc -l)
-  [[ "$result" == "0" ]]
-
-  result=$(kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/vault-foo-sync -o json | jq '.status.byPod | length')
   [[ "$result" == "0" ]]
 }

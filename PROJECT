@@ -1,0 +1,3 @@
+domain: secrets-store.csi.k8s.io
+repo: sigs.k8s.io/secrets-store-csi-driver
+version: "2"

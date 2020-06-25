@@ -1,10 +1,23 @@
-{{ if .Values.rbac.install }}
+
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  creationTimestamp: null
   name: secretproviderclasses-role
 rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - secrets-store.csi.x-k8s.io
   resources:
@@ -24,18 +37,6 @@ rules:
   - update
   - watch
 - apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - create
-  - delete
-  - get
-  - update
-  - patch
-  - watch
-  - list
-- apiGroups:
   - secrets-store.csi.x-k8s.io
   resources:
   - secretproviderclasspodstatuses
@@ -53,6 +54,5 @@ rules:
   - secretproviderclasspodstatuses/status
   verbs:
   - get
-  - update
   - patch
-{{ end }}
+  - update
