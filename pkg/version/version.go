@@ -15,6 +15,7 @@ package version
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -37,9 +38,9 @@ type providerVersion struct {
 
 // IsProviderCompatible checks if the provider version is compatible with
 // current driver version.
-func IsProviderCompatible(provider string, minProviderVersion string) (bool, error) {
+func IsProviderCompatible(ctx context.Context, provider string, minProviderVersion string) (bool, error) {
 	// get current provider version
-	currProviderVersion, err := getProviderVersion(provider)
+	currProviderVersion, err := getProviderVersion(ctx, provider)
 	if err != nil {
 		return false, err
 	}
@@ -89,8 +90,8 @@ func GetMinimumProviderVersions(minProviderVersions string) (map[string]string, 
 	return providerVersionMap, nil
 }
 
-func getProviderVersion(providerName string) (string, error) {
-	cmd := exec.Command(providerName, "--version")
+func getProviderVersion(ctx context.Context, providerName string) (string, error) {
+	cmd := exec.CommandContext(ctx, providerName, "--version")
 
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
