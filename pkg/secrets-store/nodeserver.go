@@ -47,13 +47,14 @@ type nodeServer struct {
 }
 
 const (
-	permission               os.FileMode = 0644
-	csipodname                           = "csi.storage.k8s.io/pod.name"
-	csipodnamespace                      = "csi.storage.k8s.io/pod.namespace"
-	csipoduid                            = "csi.storage.k8s.io/pod.uid"
-	providerField                        = "provider"
-	parametersField                      = "parameters"
-	secretProviderClassField             = "secretProviderClass"
+	permission                        os.FileMode = 0644
+	csipodname                                    = "csi.storage.k8s.io/pod.name"
+	csipodnamespace                               = "csi.storage.k8s.io/pod.namespace"
+	csipoduid                                     = "csi.storage.k8s.io/pod.uid"
+	providerField                                 = "provider"
+	parametersField                               = "parameters"
+	secretProviderClassField                      = "secretProviderClass"
+	secretProviderClassNamespaceField             = "secretProviderClassNamespace"
 )
 
 func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (npvr *csi.NodePublishVolumeResponse, err error) {
@@ -104,7 +105,12 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		targetPath, volumeID, attrib, mountFlags)
 
 	secretProviderClass := attrib[secretProviderClassField]
+	secretProviderClassNamespace := attrib[secretProviderClassNamespaceField]
 	providerName = attrib["providerName"]
+
+	if secretProviderClassNamespace == "" {
+		secretProviderClassNamespace = podNamespace
+	}
 
 	if isMockProvider(providerName) {
 		// mock provider is used only for running sanity tests against the driver
@@ -121,7 +127,8 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		return nil, fmt.Errorf("secretProviderClass is not set")
 	}
 
-	item, err := getSecretProviderItem(ctx, secretProviderClass, podNamespace)
+	item, err := getSecretProviderItem(ctx, secretProviderClass, secretProviderClassNamespace)
+
 	if err != nil {
 		errorReason = SecretProviderClassNotFound
 		return nil, err
