@@ -60,10 +60,19 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	var parameters map[string]string
 	var providerName string
 	var podName, podNamespace, podUID string
+	var targetPath string
+	var mounted bool
 	errorReason := FailedToMount
 
 	defer func() {
 		if err != nil {
+			// if there is an error at any stage during node publish volume and if the path
+			// has already been mounted, unmount the target path so the next time kubelet calls
+			// again for mount, entire node publish volume is retried
+			if targetPath != "" && mounted {
+				log.Infof("unmounting target path %s as node publish volume failed", targetPath)
+				ns.mounter.Unmount(targetPath)
+			}
 			ns.reporter.reportNodePublishErrorCtMetric(providerName, errorReason)
 			return
 		}
@@ -84,18 +93,18 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		return nil, status.Error(codes.InvalidArgument, "Volume attributes missing in request")
 	}
 
-	targetPath := req.GetTargetPath()
+	targetPath = req.GetTargetPath()
 	volumeID := req.GetVolumeId()
 	attrib := req.GetVolumeContext()
 	mountFlags := req.GetVolumeCapability().GetMount().GetMountFlags()
 	secrets := req.GetSecrets()
 
-	mnt, err := ns.ensureMountPoint(targetPath)
+	mounted, err = ns.ensureMountPoint(targetPath)
 	if err != nil {
 		errorReason = FailedToEnsureMountPoint
 		return nil, status.Errorf(codes.Internal, "Could not mount target %q: %v", targetPath, err)
 	}
-	if mnt {
+	if mounted {
 		log.Infof("NodePublishVolume: %s is already mounted", targetPath)
 		return &csi.NodePublishVolumeResponse{}, nil
 	}
@@ -185,6 +194,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		log.Errorf("mount err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
 		return nil, err
 	}
+	mounted = true
 
 	log.Debugf("Calling provider: %s for pod: %s, ns: %s", providerName, podUID, podNamespace)
 
@@ -194,7 +204,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		log.Warningf("minimum compatible %s provider version not set for pod: %s, ns: %s", providerName, podUID, podNamespace)
 	} else {
 		// check if provider is compatible with driver
-		providerCompatible, err := version.IsProviderCompatible(providerBinary, ns.minProviderVersions[providerName])
+		providerCompatible, err := version.IsProviderCompatible(ctx, providerBinary, ns.minProviderVersions[providerName])
 		if err != nil {
 			return nil, err
 		}
@@ -214,7 +224,10 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	log.Infof("provider command invoked: %s %s %v", providerBinary,
 		"--attributes [REDACTED] --secrets [REDACTED]", args[4:])
 
-	cmd := exec.Command(
+	// using exec.CommandContext will ensure if the parent context deadlines, the call to provider is terminated
+	// and the process is killed
+	cmd := exec.CommandContext(
+		ctx,
 		providerBinary,
 		args...,
 	)
@@ -228,7 +241,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	log.Infof(string(stdout.String()))
 	if err != nil {
 		errorReason = ProviderError
-		ns.mounter.Unmount(targetPath)
 		log.Errorf("error invoking provider, err: %v, output: %v for pod: %s, ns: %s", err, stderr.String(), podUID, podNamespace)
 		return nil, fmt.Errorf("error mounting secret %v for pod: %s, ns: %s", stderr.String(), podUID, podNamespace)
 	}

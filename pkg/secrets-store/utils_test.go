@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"k8s.io/utils/mount"
 )
 
 func TestGetProviderPath(t *testing.T) {
@@ -43,7 +44,7 @@ func TestGetProviderPath(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		testNodeServer, err := newNodeServer(NewFakeDriver(), tc.providerVolumePath, "", "test-node")
+		testNodeServer, err := newNodeServer(NewFakeDriver(), tc.providerVolumePath, "", "test-node", &mount.FakeMounter{})
 		assert.NoError(t, err)
 		assert.NotNil(t, testNodeServer)
 
