@@ -11,13 +11,16 @@ The Secrets Store CSI driver `secrets-store.csi.k8s.io` allows Kubernetes to mou
 Join us to help define the direction and implementation of this project!
 - Join the [#csi-secrets-store](https://kubernetes.slack.com/messages/csi-secrets-store) channel on [Kubernetes Slack](https://kubernetes.slack.com/).
 - Use [GitHub Issues](https://github.com/kubernetes-sigs/secrets-store-csi-driver/issues) to file bugs, request features, or ask questions asynchronously.
+- Join our community calls
+  - Bi-weekly on Thursdays @ 10:00 PT on [Zoom](https://us02web.zoom.us/j/3605132394) starting on 07/09
+  - Previous meetings: [ [notes](https://docs.google.com/document/d/1q74nboAg0GSPcom3kLWCIoWg43Qg3mr306KNL58f2hg/edit?usp=sharing) ]
+
 
 ## Features
 
 - Mounts secrets/keys/certs to pod using a CSI volume
 - Supports CSI Inline volume (Kubernetes version v1.15+)
 - Supports mounting multiple secrets store objects as a single volume
-- Supports pod identity to restrict access with specific identities (Azure provider only)
 - Supports multiple secrets stores as providers. Multiple providers can run in the same cluster simultaneously.
 - Supports pod portability with the SecretProviderClass CRD
 - Supports windows containers (Kubernetes version v1.18+)
