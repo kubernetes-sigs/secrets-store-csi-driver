@@ -153,7 +153,7 @@ e2e-azure: install-driver
 
 .PHONY: e2e-vault
 e2e-vault: install-driver
-	bats -t test/bats/vault.bats
+	go test -v ./test/e2e/vault
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
