@@ -21,6 +21,7 @@ logLevel:
 
 livenessProbe:
   port: 9808
+  logLevel: 2
 
 ## Install Default RBAC roles and bindings
 rbac:
