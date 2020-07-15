@@ -37,5 +37,6 @@ The following table lists the configurable parameters of the csi-secrets-store-p
 | `windows.nodeSelector` | Node Selector for the daemonset on windows nodes | `{}` |
 | `logLevel.debug` | Enable debug logging | true |
 | `livenessProbe.port` | Liveness probe port | `9808` |
+| `livenessProbe.logLevel` | Liveness probe container logging verbosity level | `2` |
 | `rbac.install` | Install default rbac roles and bindings | true |
 | `minimumProviderVersions` | A comma delimited list of key-value pairs of minimum provider versions with driver | `""` |
