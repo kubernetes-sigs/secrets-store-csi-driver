@@ -11,10 +11,7 @@ The Secrets Store CSI driver `secrets-store.csi.k8s.io` allows Kubernetes to mou
 Join us to help define the direction and implementation of this project!
 - Join the [#csi-secrets-store](https://kubernetes.slack.com/messages/csi-secrets-store) channel on [Kubernetes Slack](https://kubernetes.slack.com/).
 - Use [GitHub Issues](https://github.com/kubernetes-sigs/secrets-store-csi-driver/issues) to file bugs, request features, or ask questions asynchronously.
-- Join our community calls
-  - Bi-weekly on Thursdays @ 10:00 PT on [Zoom](https://us02web.zoom.us/j/3605132394) starting on 07/09
-  - Previous meetings: [ [notes](https://docs.google.com/document/d/1q74nboAg0GSPcom3kLWCIoWg43Qg3mr306KNL58f2hg/edit?usp=sharing) ]
-
+- Join [biweekly community meetings](https://docs.google.com/document/d/1q74nboAg0GSPcom3kLWCIoWg43Qg3mr306KNL58f2hg/edit?usp=sharing) to discuss development, issues, use cases, etc.
 
 ## Features
 
