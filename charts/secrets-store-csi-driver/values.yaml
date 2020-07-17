@@ -1,8 +1,8 @@
 linux:
   enabled: true
   image:
-    repository: docker.io/deislabs/secrets-store-csi
-    tag: v0.0.11
+    repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
+    tag: v0.0.12
     pullPolicy: Always
   kubeletRootDir: /var/lib/kubelet
   nodeSelector: {}
@@ -10,8 +10,8 @@ linux:
 windows:
   enabled: false
   image:
-    repository: mcr.microsoft.com/k8s/csi/secrets-store/driver
-    tag: v0.0.11
+    repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
+    tag: v0.0.12
     pullPolicy: IfNotPresent
   kubeletRootDir: C:\var\lib\kubelet
   nodeSelector: {}
