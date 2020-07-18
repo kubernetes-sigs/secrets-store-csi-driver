@@ -6,6 +6,7 @@ linux:
     pullPolicy: Always
   kubeletRootDir: /var/lib/kubelet
   nodeSelector: {}
+  metricsAddr: ":8080"
 
 windows:
   enabled: false
@@ -15,6 +16,7 @@ windows:
     pullPolicy: IfNotPresent
   kubeletRootDir: C:\var\lib\kubelet
   nodeSelector: {}
+  metricsAddr: ":8080"
 
 logLevel:
   debug: true
