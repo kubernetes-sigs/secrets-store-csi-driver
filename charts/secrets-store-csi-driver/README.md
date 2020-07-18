@@ -23,15 +23,15 @@ The following table lists the configurable parameters of the csi-secrets-store-p
 | --------- | ----------- | ------- |
 | `nameOverride` | String to partially override secrets-store-csi-driver.fullname template with a string (will prepend the release name) | `""` |
 | `fullnameOverride` | String to fully override secrets-store-csi-driver.fullname template with a string | `""` |
-| `linux.image.repository` | Linux image repository | `docker.io/deislabs/secrets-store-csi` |
+| `linux.image.repository` | Linux image repository | `us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver` |
 | `linux.image.pullPolicy` | Linux image pull policy | `Always` |
-| `linux.image.tag` | Linux image tag | `v0.0.11` |
+| `linux.image.tag` | Linux image tag | `v0.0.12` |
 | `linux.enabled` | Install secrets store csi driver on linux nodes | true |
 | `linux.kubeletRootDir` | Configure the kubelet root dir | `/var/lib/kubelet` |
 | `linux.nodeSelector` | Node Selector for the daemonset on linux nodes | `{}` |
-| `windows.image.repository` | Windows image repository | `mcr.microsoft.com/k8s/csi/secrets-store/driver` |
+| `windows.image.repository` | Windows image repository | `us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver` |
 | `windows.image.pullPolicy` | Windows image pull policy | `IfNotPresent` |
-| `windows.image.tag` | Windows image tag | `v0.0.11` |
+| `windows.image.tag` | Windows image tag | `v0.0.12` |
 | `windows.enabled` | Install secrets store csi driver on windows nodes | false |
 | `windows.kubeletRootDir` | Configure the kubelet root dir | `C:\var\lib\kubelet` |
 | `windows.nodeSelector` | Node Selector for the daemonset on windows nodes | `{}` |
