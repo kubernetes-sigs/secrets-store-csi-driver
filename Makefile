@@ -155,17 +155,14 @@ e2e-azure: install-driver
 e2e-vault: install-driver
 	bats -t test/bats/vault.bats
 
-# Update CRDs in Helm Chart
-release: manifests
-	cp config/crd/bases/* charts/secrets-store-csi-driver/templates
-	cp config/crd/bases/* deploy/
-
-	# generate rbac-secretproviderclass
-	$(KUSTOMIZE) build config/rbac -o deploy/rbac-secretproviderclass.yaml
-
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=secretproviderclasses-role paths="./..." output:crd:artifacts:config=config/crd/bases
+	cp config/crd/bases/* manifest_staging/charts/secrets-store-csi-driver/templates
+	cp config/crd/bases/* manifest_staging/deploy/
+
+	# generate rbac-secretproviderclass
+	$(KUSTOMIZE) build config/rbac -o manifest_staging/deploy/rbac-secretproviderclass.yaml
 
 # Run go fmt against code
 fmt:
@@ -194,3 +191,18 @@ KUSTOMIZE=$(GOBIN)/kustomize
 else
 KUSTOMIZE=$(shell which kustomize)
 endif
+
+release-manifest:
+	@sed -i "s/version: .*/version: ${NEWVERSION}/" charts/secrets-store-csi-driver/Chart.yaml
+	@sed -i "s/appVersion: .*/appVersion: ${NEWVERSION}/" charts/secrets-store-csi-driver/Chart.yaml
+	@sed -i "s/tag: .*/tag: ${NEWVERSION}/" charts/secrets-store-csi-driver/values.yaml
+	@sed -i "s/image tag | .*/image tag | \`${NEWVERSION}\` |/" charts/secrets-store-csi-driver/README.md
+	$(MAKE) manifests
+
+promote-staging-manifest:
+	@rm -rf deploy
+	@cp -r manifest_staging/deploy .
+	@rm -rf charts/secrets-store-csi-driver
+	@cp -r manifest_staging/charts/secrets-store-csi-driver .
+	@helm package ./charts/secrets-store-csi-driver -d ./charts/
+	@helm repo index ./charts --url https://raw.githubusercontent.com/kubernetes-sigs/secrets-store-csi-driver/master/charts
