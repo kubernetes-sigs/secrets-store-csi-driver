@@ -10,7 +10,7 @@ linux:
       repository: quay.io/k8scsi/csi-node-driver-registrar
       tag: v1.2.0
       pullPolicy: IfNotPresent
-  livelinessProbe:
+  livenessProbe:
     image:
       repository: quay.io/k8scsi/livenessprobe
       tag: v2.0.0
@@ -31,7 +31,7 @@ windows:
       repository: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar
       tag: v1.2.1-alpha.1-windows-1809-amd64
       pullPolicy: IfNotPresent
-  livelinessProbe:
+  livenessProbe:
     image:
       repository: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe
       tag: v2.0.1-alpha.1-windows-1809-amd64
