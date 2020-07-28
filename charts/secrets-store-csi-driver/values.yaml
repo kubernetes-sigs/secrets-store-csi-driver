@@ -1,19 +1,41 @@
 linux:
   enabled: true
-  image:
-    repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
-    tag: v0.0.12
-    pullPolicy: IfNotPresent
+  secretStore:
+    image:
+      repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
+      tag: v0.0.12
+      pullPolicy: IfNotPresent
+  registrar:
+    image:
+      repository: quay.io/k8scsi/csi-node-driver-registrar
+      tag: v1.2.0
+      pullPolicy: IfNotPresent
+  livelinessProbe:
+    image:
+      repository: quay.io/k8scsi/livenessprobe
+      tag: v2.0.0
+      pullPolicy: IfNotPresent
   kubeletRootDir: /var/lib/kubelet
   nodeSelector: {}
   metricsAddr: ":8080"
 
 windows:
   enabled: false
-  image:
-    repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
-    tag: v0.0.12
-    pullPolicy: IfNotPresent
+  secretStore:
+    image:
+      repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
+      tag: v0.0.12
+      pullPolicy: IfNotPresent
+  registrar:
+    image:
+      repository: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar
+      tag: v1.2.1-alpha.1-windows-1809-amd64
+      pullPolicy: IfNotPresent
+  livelinessProbe:
+    image:
+      repository: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe
+      tag: v2.0.1-alpha.1-windows-1809-amd64
+      pullPolicy: IfNotPresent
   kubeletRootDir: C:\var\lib\kubelet
   nodeSelector: {}
   metricsAddr: ":8080"
@@ -21,17 +43,7 @@ windows:
 logLevel:
   debug: true
 
-registrar:
-  image:
-    repository: quay.io/k8scsi/csi-node-driver-registrar
-    tag: v1.2.0
-    pullPolicy: IfNotPresent
-
-livenessProbe:
-  image:
-    repository: quay.io/k8scsi/livenessprobe
-    tag: v2.0.0
-    pullPolicy: IfNotPresent
+livenessProbe:  
   port: 9808
   logLevel: 2
 
