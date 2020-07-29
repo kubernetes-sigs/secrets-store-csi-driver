@@ -133,14 +133,14 @@ e2e-teardown:
 .PHONY: install-driver
 install-driver:
 ifdef TEST_WINDOWS
-		helm install csi-secrets-store charts/secrets-store-csi-driver --namespace default --wait --timeout=15m -v=5 --debug \
+		helm install csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace default --wait --timeout=15m -v=5 --debug \
 			--set windows.image.pullPolicy="IfNotPresent" \
 			--set windows.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
 			--set windows.image.tag=$(IMAGE_VERSION) \
 			--set windows.enabled=true \
 			--set linux.enabled=false
 else
-		helm install csi-secrets-store charts/secrets-store-csi-driver --namespace default --wait --timeout=15m -v=5 --debug \
+		helm install csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace default --wait --timeout=15m -v=5 --debug \
 			--set linux.image.pullPolicy="IfNotPresent" \
 			--set linux.image.repository="e2e/secrets-store-csi" \
 			--set linux.image.tag=$(IMAGE_VERSION) \
@@ -163,6 +163,10 @@ manifests: controller-gen
 
 	# generate rbac-secretproviderclass
 	$(KUSTOMIZE) build config/rbac -o manifest_staging/deploy/rbac-secretproviderclass.yaml
+	cp config/rbac/role.yaml config/rbac/role_binding.yaml config/rbac/serviceaccount.yaml manifest_staging/charts/secrets-store-csi-driver/templates/
+	@sed -i '1s/^/{{ if .Values.rbac.install }}\n/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role.yaml
+	@sed -i '1s/^/{{ if .Values.rbac.install }}\n/gm; s/namespace: .*/namespace: {{ .Release.Namespace }}/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role_binding.yaml
+	@sed -i '1s/^/{{ if .Values.rbac.install }}\n/gm; s/namespace: .*/namespace: {{ .Release.Namespace }}/gm; $$s/$$/\n{{ include "sscd.labels" . | indent 2 }}\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/serviceaccount.yaml
 
 # Run go fmt against code
 fmt:
@@ -193,16 +197,17 @@ KUSTOMIZE=$(shell which kustomize)
 endif
 
 release-manifest:
-	@sed -i "s/version: .*/version: ${NEWVERSION}/" charts/secrets-store-csi-driver/Chart.yaml
-	@sed -i "s/appVersion: .*/appVersion: ${NEWVERSION}/" charts/secrets-store-csi-driver/Chart.yaml
-	@sed -i "s/tag: .*/tag: ${NEWVERSION}/" charts/secrets-store-csi-driver/values.yaml
-	@sed -i "s/image tag | .*/image tag | \`${NEWVERSION}\` |/" charts/secrets-store-csi-driver/README.md
 	$(MAKE) manifests
+	@sed -i "s/version: .*/version: ${NEWVERSION}/" manifest_staging/charts/secrets-store-csi-driver/Chart.yaml
+	@sed -i "s/appVersion: .*/appVersion: ${NEWVERSION}/" manifest_staging/charts/secrets-store-csi-driver/Chart.yaml
+	@sed -i "s/tag: .*/tag: ${NEWVERSION}/" manifest_staging/charts/secrets-store-csi-driver/values.yaml
+	@sed -i "s/image tag | .*/image tag | \`${NEWVERSION}\` |/" manifest_staging/charts/secrets-store-csi-driver/README.md
 
 promote-staging-manifest:
+	$(MAKE) release-manifest
 	@rm -rf deploy
 	@cp -r manifest_staging/deploy .
 	@rm -rf charts/secrets-store-csi-driver
-	@cp -r manifest_staging/charts/secrets-store-csi-driver .
+	@cp -r manifest_staging/charts/secrets-store-csi-driver ./charts
 	@helm package ./charts/secrets-store-csi-driver -d ./charts/
 	@helm repo index ./charts --url https://raw.githubusercontent.com/kubernetes-sigs/secrets-store-csi-driver/master/charts

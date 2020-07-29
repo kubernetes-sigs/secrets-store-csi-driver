@@ -43,25 +43,21 @@ Publishing involves creating a release tag and creating a new Release on GitHub.
   
 ## Building and releasing
 
-1. Execute the release-patch target to generate patch. Give the semantic version of the release:
-    ```
-   make release-manifests NEWVERSION=v0.0.12
-    ```
-2. Promote staging manifest to release
+1. Execute the promote-staging-manifest target to generate patch and promote staging manifest to release
     ```
    make promote-staging-manifest NEWVERSION=v0.0.12
     ```
-3. Preview the changes
+2. Preview the changes
     ```bash
    git diff
     ```
-4. Commit the changes and push to remote repository to create a pull request
+3. Commit the changes and push to remote repository to create a pull request
     ```
     git checkout -b release-<NEW VERSION>
     git commit -a -s -m "release: update manifests and helm chart for <NEW VERSION>"
     git push <YOUR FORK>
     ```
-5. Once the PR is merged to master, tag master with release version and push tags to remote repository.
+4. Once the PR is merged to master, tag master with release version and push tags to remote repository.
     - An [OWNER](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/master/OWNERS) runs git tag and pushes the tag with git push
    ```
    git checkout master
