@@ -26,6 +26,7 @@ import (
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	csicommon "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
 	version "sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
@@ -44,6 +45,7 @@ type nodeServer struct {
 	mounter             mount.Interface
 	reporter            StatsReporter
 	nodeID              string
+	client              client.Client
 }
 
 const (
@@ -115,6 +117,9 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 	secretProviderClass := attrib[secretProviderClassField]
 	providerName = attrib["providerName"]
+	podName = attrib[csipodname]
+	podNamespace = attrib[csipodnamespace]
+	podUID = attrib[csipoduid]
 
 	if isMockProvider(providerName) {
 		// mock provider is used only for running sanity tests against the driver
@@ -131,17 +136,17 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		return nil, fmt.Errorf("secretProviderClass is not set")
 	}
 
-	item, err := getSecretProviderItem(ctx, secretProviderClass, podNamespace)
+	spc, err := getSecretProviderItem(ctx, ns.client, secretProviderClass, podNamespace)
 	if err != nil {
 		errorReason = SecretProviderClassNotFound
 		return nil, err
 	}
-	provider, err := getStringFromObjectSpec(item.Object, providerField)
+	provider, err := getProviderFromSPC(spc)
 	if err != nil {
 		return nil, err
 	}
 	providerName = provider
-	parameters, err = getMapFromObjectSpec(item.Object, parametersField)
+	parameters, err = getParametersFromSPC(spc)
 	if err != nil {
 		return nil, err
 	}
@@ -160,29 +165,29 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	// get provider volume path
 	providerVolumePath := ns.providerVolumePath
 	if providerVolumePath == "" {
-		return nil, fmt.Errorf("Providers volume path not found. Set PROVIDERS_VOLUME_PATH for pod: %s, ns: %s", podUID, podNamespace)
+		return nil, fmt.Errorf("Providers volume path not found. Set PROVIDERS_VOLUME_PATH for pod: %s/%s", podNamespace, podName)
 	}
 
 	providerBinary := ns.getProviderPath(runtime.GOOS, providerName)
 	if _, err := os.Stat(providerBinary); err != nil {
 		errorReason = ProviderBinaryNotFound
-		log.Errorf("failed to find provider %s, err: %v for pod: %s, ns: %s", providerName, err, podUID, podNamespace)
+		log.Errorf("failed to find provider %s, err: %v for pod: %s/%s", providerName, err, podNamespace, podName)
 		return nil, err
 	}
 
 	parametersStr, err := json.Marshal(parameters)
 	if err != nil {
-		log.Errorf("failed to marshal parameters, err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
+		log.Errorf("failed to marshal parameters, err: %v for pod: %s/%s", err, podNamespace, podName)
 		return nil, err
 	}
 	secretStr, err := json.Marshal(secrets)
 	if err != nil {
-		log.Errorf("failed to marshal secrets, err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
+		log.Errorf("failed to marshal secrets, err: %v for pod: %s/%s", err, podNamespace, podName)
 		return nil, err
 	}
 	permissionStr, err := json.Marshal(permission)
 	if err != nil {
-		log.Errorf("failed to marshal file permission, err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
+		log.Errorf("failed to marshal file permission, err: %v for pod: %s/%s", err, podNamespace, podName)
 		return nil, err
 	}
 
@@ -193,12 +198,12 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	err = ns.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
 	if err != nil {
 		errorReason = FailedToMount
-		log.Errorf("mount err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
+		log.Errorf("mount err: %v for pod: %s/%s", err, podNamespace, podName)
 		return nil, err
 	}
 	mounted = true
 
-	log.Debugf("Calling provider: %s for pod: %s, ns: %s", providerName, podUID, podNamespace)
+	log.Debugf("Calling provider: %s for pod: %s/%s", providerName, podNamespace, podName)
 
 	// check if minimum compatible provider version with current driver version is set
 	// if minimum version is not provided, skip check
@@ -243,12 +248,12 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	log.Infof(string(stdout.String()))
 	if err != nil {
 		errorReason = ProviderError
-		log.Errorf("error invoking provider, err: %v, output: %v for pod: %s, ns: %s", err, stderr.String(), podUID, podNamespace)
-		return nil, fmt.Errorf("error mounting secret %v for pod: %s, ns: %s", stderr.String(), podUID, podNamespace)
+		log.Errorf("error invoking provider, err: %v, output: %v for pod: %s/%s", err, stderr.String(), podNamespace, podName)
+		return nil, fmt.Errorf("error mounting secret %v for pod: %s/%s", stderr.String(), podNamespace, podName)
 	}
 	// create the secret provider class pod status object
-	if err = createSecretProviderClassPodStatus(ctx, podName, podNamespace, podUID, secretProviderClass, targetPath, ns.nodeID, true); err != nil {
-		return nil, fmt.Errorf("failed to create secret provider class pod status, err: %v", err)
+	if err = createSecretProviderClassPodStatus(ctx, ns.client, podName, podNamespace, podUID, secretProviderClass, targetPath, ns.nodeID, true); err != nil {
+		return nil, fmt.Errorf("failed to create secret provider class pod status for pod %s/%s, err: %v", podNamespace, podName, err)
 	}
 
 	return &csi.NodePublishVolumeResponse{}, nil

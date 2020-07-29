@@ -40,6 +40,7 @@ setup() {
 @test "install azure provider" {	
   run kubectl apply -f $PROVIDER_YAML --namespace $NAMESPACE	
   assert_success	
+  sleep 5
 
   cmd="kubectl wait --for=condition=Ready --timeout=60s pod -l app=csi-secrets-store-provider-azure --namespace $NAMESPACE"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
