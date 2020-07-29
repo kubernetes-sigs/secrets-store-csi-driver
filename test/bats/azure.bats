@@ -9,7 +9,7 @@ IMAGE_TAG=v0.0.8-e2e-$(git rev-parse --short HEAD)
 NAMESPACE=default
 PROVIDER_YAML=https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/deployment/provider-azure-installer.yaml
 CONTAINER_IMAGE=nginx
-EXEC_COMMAND="cat /mnt/secrets-store"
+EXEC_COMMAND="cat"
 BASE64_FLAGS="-w 0"
 if [[ "$OSTYPE" == *"darwin"* ]]; then
   BASE64_FLAGS="-b 0"
@@ -18,7 +18,7 @@ fi
 if [ $TEST_WINDOWS ]; then
   PROVIDER_YAML=https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/deployment/provider-azure-installer-windows.yaml
   CONTAINER_IMAGE=mcr.microsoft.com/windows/servercore/iis:windowsservercore-ltsc2019
-  EXEC_COMMAND="powershell.exe cat /mnt/secrets-store"
+  EXEC_COMMAND="powershell.exe cat"
 fi
 
 export KEYVAULT_NAME=${KEYVAULT_NAME:-csi-secrets-store-e2e}
@@ -40,7 +40,6 @@ setup() {
 @test "install azure provider" {	
   run kubectl apply -f $PROVIDER_YAML --namespace $NAMESPACE	
   assert_success	
-  sleep 5
 
   cmd="kubectl wait --for=condition=Ready --timeout=60s pod -l app=csi-secrets-store-provider-azure --namespace $NAMESPACE"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
@@ -85,12 +84,12 @@ setup() {
 }
 
 @test "CSI inline volume test with pod portability - read azure kv secret from pod" {
-  result=$(kubectl exec nginx-secrets-store-inline-crd -- $EXEC_COMMAND/$SECRET_NAME)
+  result=$(kubectl exec nginx-secrets-store-inline-crd -- $EXEC_COMMAND /mnt/secrets-store/$SECRET_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 }
 
 @test "CSI inline volume test with pod portability - read azure kv key from pod" {
-  result=$(kubectl exec nginx-secrets-store-inline-crd -- $EXEC_COMMAND/$KEY_NAME)
+  result=$(kubectl exec nginx-secrets-store-inline-crd -- $EXEC_COMMAND /mnt/secrets-store/$KEY_NAME)
   result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
   [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 }
@@ -113,10 +112,10 @@ setup() {
 @test "Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences" {
   POD=$(kubectl get pod -l app=nginx -o jsonpath="{.items[0].metadata.name}")
 
-  result=$(kubectl exec $POD -- $EXEC_COMMAND/secretalias)
+  result=$(kubectl exec $POD -- $EXEC_COMMAND /mnt/secrets-store/secretalias)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl exec $POD -- $EXEC_COMMAND/$KEY_NAME)
+  result=$(kubectl exec $POD -- $EXEC_COMMAND /mnt/secrets-store/$KEY_NAME)
   result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
   [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 
@@ -169,10 +168,10 @@ setup() {
 @test "Test Namespaced scope SecretProviderClass - Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences" {
   POD=$(kubectl get pod -l app=nginx -n test-ns -o jsonpath="{.items[0].metadata.name}")
 
-  result=$(kubectl exec -n test-ns $POD -- $EXEC_COMMAND/secretalias)
+  result=$(kubectl exec -n test-ns $POD -- $EXEC_COMMAND /mnt/secrets-store/secretalias)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl exec -n test-ns $POD -- $EXEC_COMMAND/$KEY_NAME)
+  result=$(kubectl exec -n test-ns $POD -- $EXEC_COMMAND /mnt/secrets-store/$KEY_NAME)
   result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
   [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 
@@ -214,4 +213,61 @@ setup() {
 
   run kubectl delete ns negative-test-ns
   assert_success
+}
+
+@test "deploy multiple azure secretproviderclass crd" {
+  envsubst < $BATS_TESTS_DIR/azure_v1alpha1_multiple_secretproviderclass.yaml | kubectl apply -f -
+
+  cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure-spc-0 -o yaml | grep azure-spc-0"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure-spc-1 -o yaml | grep azure-spc-1"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+}
+
+@test "deploy pod with multiple secret provider class" {
+  envsubst < $BATS_TESTS_DIR/nginx-pod-azure-inline-volume-multiple-spc.yaml | kubectl apply -f -
+  
+  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/nginx-secrets-store-inline-multiple-crd"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  run kubectl get pod/nginx-secrets-store-inline-multiple-crd
+  assert_success
+}
+
+@test "CSI inline volume test with multiple secret provider class" {
+  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- $EXEC_COMMAND /mnt/secrets-store-0/secretalias)
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+
+  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- $EXEC_COMMAND /mnt/secrets-store-0/$KEY_NAME)
+  result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
+  [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
+
+  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- $EXEC_COMMAND /mnt/secrets-store-1/secretalias)
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+
+  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- $EXEC_COMMAND /mnt/secrets-store-1/$KEY_NAME)
+  result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
+  [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
+
+  result=$(kubectl get secret foosecret-0 -o jsonpath="{.data.username}" | base64 -d)
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+
+  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- printenv | grep SECRET_USERNAME_0) | awk -F"=" '{ print $2}'
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+
+  result=$(kubectl get secret foosecret-0 -o json | jq '.metadata.ownerReferences | length')
+  [[ "$result" -eq 1 ]]
+
+  result=$(kubectl get secret foosecret-1 -o jsonpath="{.data.username}" | base64 -d)
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+
+  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- printenv | grep SECRET_USERNAME_1) | awk -F"=" '{ print $2}'
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+
+  result=$(kubectl get secret foosecret-1 -o json | jq '.metadata.ownerReferences | length')
+  [[ "$result" -eq 1 ]]
 }
