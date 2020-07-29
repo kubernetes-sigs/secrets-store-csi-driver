@@ -191,7 +191,61 @@ EOF
 @test "Sync with K8s secrets - delete deployment, check secret is deleted" {
   run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-synck8s.yaml
   assert_success
+
+  run kubectl delete -f $BATS_TESTS_DIR/vault_synck8s_v1alpha1_secretproviderclass.yaml
+  assert_success
+
   sleep 20
   result=$(kubectl get secret | grep foosecret | wc -l)
   [[ "$result" == "0" ]]
+}
+
+@test "Test Namespaced scope SecretProviderClass - create deployment" {
+  export VAULT_SERVICE_IP=$(kubectl get service vault -o jsonpath='{.spec.clusterIP}')
+
+  run kubectl create ns test-ns
+  assert_success
+
+  envsubst < $BATS_TESTS_DIR/vault_v1alpha1_secretproviderclass_ns.yaml | kubectl apply -f -
+
+  cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/vault-foo-sync -o yaml | grep vault"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/vault-foo-sync -n test-ns -o yaml | grep vault"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  envsubst < $BATS_TESTS_DIR/nginx-deployment-synck8s.yaml | kubectl apply -n test-ns -f -
+
+  cmd="kubectl wait --for=condition=Ready --timeout=60s pod -l app=nginx -n test-ns"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+}
+
+@test "Test Namespaced scope SecretProviderClass - Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences" {
+  POD=$(kubectl get pod -l app=nginx -n test-ns -o jsonpath="{.items[0].metadata.name}")
+  result=$(kubectl exec -n test-ns -it $POD -- cat /mnt/secrets-store/foo)
+  [[ "$result" == "hello" ]]
+
+  result=$(kubectl exec -n test-ns -it $POD -- cat /mnt/secrets-store/foo1)
+  [[ "$result" == "hello1" ]]
+
+  result=$(kubectl get secret foosecret -n test-ns -o jsonpath="{.data.pwd}" | base64 -d)
+  [[ "$result" == "hello" ]]
+
+  result=$(kubectl exec -n test-ns -it $POD -- printenv | grep SECRET_USERNAME | awk -F"=" '{ print $2 }' | tr -d '\r\n')
+  [[ "$result" == "hello1" ]]
+
+  result=$(kubectl get secret -n test-ns foosecret -o json | jq '.metadata.ownerReferences | length')
+  [[ "$result" == "2" ]]
+}
+
+@test "Test Namespaced scope SecretProviderClass - Sync with K8s secrets - delete deployment, check secret deleted" {
+  run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-synck8s.yaml -n test-ns
+  assert_success
+  sleep 20
+
+  result=$(kubectl get secret -n test-ns | grep foosecret | wc -l)
+  [[ "$result" -eq "0" ]]
 }
