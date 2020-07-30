@@ -51,6 +51,7 @@ const (
 	csipodname                           = "csi.storage.k8s.io/pod.name"
 	csipodnamespace                      = "csi.storage.k8s.io/pod.namespace"
 	csipoduid                            = "csi.storage.k8s.io/pod.uid"
+	csipodsa                             = "csi.storage.k8s.io/serviceAccount.name"
 	providerField                        = "provider"
 	parametersField                      = "parameters"
 	secretProviderClassField             = "secretProviderClass"
@@ -147,6 +148,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	parameters[csipodname] = attrib[csipodname]
 	parameters[csipodnamespace] = attrib[csipodnamespace]
 	parameters[csipoduid] = attrib[csipoduid]
+	parameters[csipodsa] = attrib[csipodsa]
 	podName = parameters[csipodname]
 	podNamespace = parameters[csipodnamespace]
 	podUID = parameters[csipoduid]
