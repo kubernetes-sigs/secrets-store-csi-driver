@@ -1,0 +1,33 @@
+linux:
+  enabled: true
+  image:
+    repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
+    tag: v0.0.12
+    pullPolicy: Always
+  kubeletRootDir: /var/lib/kubelet
+  nodeSelector: {}
+
+windows:
+  enabled: false
+  image:
+    repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
+    tag: v0.0.12
+    pullPolicy: IfNotPresent
+  kubeletRootDir: C:\var\lib\kubelet
+  nodeSelector: {}
+
+logLevel:
+  debug: true
+
+livenessProbe:
+  port: 9808
+  logLevel: 2
+
+## Install Default RBAC roles and bindings
+rbac:
+  install: true
+
+## Minimum Provider Versions (optional)
+## A comma delimited list of key-value pairs of minimum provider versions
+## e.g. provider1=0.0.2,provider2=0.0.3
+minimumProviderVersions:
