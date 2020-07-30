@@ -86,7 +86,7 @@ setup() {
 
 @test "CSI inline volume test with pod portability - read azure kv secret from pod" {
   result=$(kubectl exec nginx-secrets-store-inline-crd -- $EXEC_COMMAND/$SECRET_NAME)
-  [[ "${result//$'\r'}" -eq "${SECRET_VALUE}" ]]
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 }
 
 @test "CSI inline volume test with pod portability - read azure kv key from pod" {
@@ -114,20 +114,20 @@ setup() {
   POD=$(kubectl get pod -l app=nginx -o jsonpath="{.items[0].metadata.name}")
 
   result=$(kubectl exec $POD -- $EXEC_COMMAND/secretalias)
-  [[ "${result//$'\r'}" -eq "${SECRET_VALUE}" ]]
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   result=$(kubectl exec $POD -- $EXEC_COMMAND/$KEY_NAME)
   result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
   [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 
   result=$(kubectl get secret foosecret -o jsonpath="{.data.username}" | base64 -d)
-  [[ "${result//$'\r'}" -eq "${SECRET_VALUE}" ]]
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   result=$(kubectl exec -it $POD printenv | grep SECRET_USERNAME) | awk -F"=" '{ print $2}'
-  [[ "${result//$'\r'}" -eq "${SECRET_VALUE}" ]]
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   result=$(kubectl get secret foosecret -o json | jq '.metadata.ownerReferences | length')
-  [[ "$result" == "2" ]]
+  [[ "$result" -eq 2 ]]
 }
 
 @test "Sync with K8s secrets - delete deployment, check secret deleted" {
@@ -139,7 +139,7 @@ setup() {
 
   sleep 20
   result=$(kubectl get secret | grep foosecret | wc -l)
-  [[ "$result" -eq "0" ]]
+  [[ "$result" -eq 0 ]]
 }
 
 @test "Test Namespaced scope SecretProviderClass - create deployment" {
@@ -170,20 +170,20 @@ setup() {
   POD=$(kubectl get pod -l app=nginx -n test-ns -o jsonpath="{.items[0].metadata.name}")
 
   result=$(kubectl exec -n test-ns $POD -- $EXEC_COMMAND/secretalias)
-  [[ "${result//$'\r'}" -eq "${SECRET_VALUE}" ]]
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   result=$(kubectl exec -n test-ns $POD -- $EXEC_COMMAND/$KEY_NAME)
   result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
   [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 
   result=$(kubectl get secret foosecret -n test-ns -o jsonpath="{.data.username}" | base64 -d)
-  [[ "${result//$'\r'}" -eq "${SECRET_VALUE}" ]]
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   result=$(kubectl exec -n test-ns $POD -- printenv | grep SECRET_USERNAME) | awk -F"=" '{ print $2}'
-  [[ "${result//$'\r'}" -eq "${SECRET_VALUE}" ]]
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   result=$(kubectl get secret foosecret -n test-ns -o json | jq '.metadata.ownerReferences | length')
-  [[ "$result" -eq "2" ]]
+  [[ "$result" -eq 2 ]]
 }
 
 @test "Test Namespaced scope SecretProviderClass - Sync with K8s secrets - delete deployment, check secret deleted" {
@@ -192,5 +192,26 @@ setup() {
   sleep 20
 
   result=$(kubectl get secret -n test-ns | grep foosecret | wc -l)
-  [[ "$result" -eq "0" ]]
+  [[ "$result" -eq 0 ]]
+}
+
+@test "Test Namespaced scope SecretProviderClass - Should fail when no secret provider class in same namespace" {
+  run kubectl create ns negative-test-ns
+  assert_success
+
+  run kubectl create secret generic secrets-store-creds --from-literal clientid=${AZURE_CLIENT_ID} --from-literal clientsecret=${AZURE_CLIENT_SECRET} -n negative-test-ns
+  assert_success
+
+  envsubst < $BATS_TESTS_DIR/nginx-deployment-synck8s-azure.yaml | kubectl apply -n negative-test-ns -f -
+  sleep 5
+
+  POD=$(kubectl get pod -l app=nginx -n negative-test-ns -o jsonpath="{.items[0].metadata.name}")
+  cmd="kubectl describe pod $POD -n negative-test-ns | grep 'FailedMount.*failed to get secretproviderclass negative-test-ns/azure-sync.*not found'"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-synck8s-azure.yaml -n negative-test-ns
+  assert_success
+
+  run kubectl delete ns negative-test-ns
+  assert_success
 }

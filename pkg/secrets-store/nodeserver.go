@@ -154,9 +154,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	parameters[csipodnamespace] = attrib[csipodnamespace]
 	parameters[csipoduid] = attrib[csipoduid]
 	parameters[csipodsa] = attrib[csipodsa]
-	podName = parameters[csipodname]
-	podNamespace = parameters[csipodnamespace]
-	podUID = parameters[csipoduid]
 
 	// ensure it's read-only
 	if !req.GetReadonly() {

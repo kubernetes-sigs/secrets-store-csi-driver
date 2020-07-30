@@ -185,7 +185,7 @@ EOF
   [[ "$result" == "hello1" ]]
 
   result=$(kubectl get secret foosecret -o json | jq '.metadata.ownerReferences | length')
-  [[ "$result" == "2" ]]
+  [[ "$result" -eq 2 ]]
 }
 
 @test "Sync with K8s secrets - delete deployment, check secret is deleted" {
@@ -197,7 +197,7 @@ EOF
 
   sleep 20
   result=$(kubectl get secret | grep foosecret | wc -l)
-  [[ "$result" == "0" ]]
+  [[ "$result" -eq 0 ]]
 }
 
 @test "Test Namespaced scope SecretProviderClass - create deployment" {
@@ -238,7 +238,7 @@ EOF
   [[ "$result" == "hello1" ]]
 
   result=$(kubectl get secret -n test-ns foosecret -o json | jq '.metadata.ownerReferences | length')
-  [[ "$result" == "2" ]]
+  [[ "$result" -eq 2 ]]
 }
 
 @test "Test Namespaced scope SecretProviderClass - Sync with K8s secrets - delete deployment, check secret deleted" {
@@ -247,5 +247,23 @@ EOF
   sleep 20
 
   result=$(kubectl get secret -n test-ns | grep foosecret | wc -l)
-  [[ "$result" -eq "0" ]]
+  [[ "$result" -eq 0 ]]
+}
+
+@test "Test Namespaced scope SecretProviderClass - Should fail when no secret provider class in same namespace" {
+  run kubectl create ns negative-test-ns
+  assert_success
+
+  envsubst < $BATS_TESTS_DIR/nginx-deployment-synck8s.yaml | kubectl apply -n negative-test-ns -f -
+  sleep 5
+
+  POD=$(kubectl get pod -l app=nginx -n negative-test-ns -o jsonpath="{.items[0].metadata.name}")
+  cmd="kubectl describe pod $POD -n negative-test-ns | grep 'FailedMount.*failed to get secretproviderclass negative-test-ns/vault-foo-sync.*not found'"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-synck8s.yaml -n negative-test-ns
+  assert_success
+
+  run kubectl delete ns negative-test-ns
+  assert_success
 }

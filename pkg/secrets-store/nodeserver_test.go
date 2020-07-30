@@ -51,23 +51,26 @@ func getTestTargetPath(t *testing.T) string {
 
 func TestNodePublishVolume(t *testing.T) {
 	tests := []struct {
-		name              string
-		nodePublishVolReq csi.NodePublishVolumeRequest
-		mountPoints       []mount.MountPoint
-		initObjects       []runtime.Object
-		expectedErr       bool
+		name               string
+		nodePublishVolReq  csi.NodePublishVolumeRequest
+		mountPoints        []mount.MountPoint
+		initObjects        []runtime.Object
+		expectedErr        bool
+		shouldRetryRemount bool
 	}{
 		{
-			name:              "volume capabilities nil",
-			nodePublishVolReq: csi.NodePublishVolumeRequest{},
-			expectedErr:       true,
+			name:               "volume capabilities nil",
+			nodePublishVolReq:  csi.NodePublishVolumeRequest{},
+			expectedErr:        true,
+			shouldRetryRemount: true,
 		},
 		{
 			name: "volume id is empty",
 			nodePublishVolReq: csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 			},
-			expectedErr: true,
+			expectedErr:        true,
+			shouldRetryRemount: true,
 		},
 		{
 			name: "target path is empty",
@@ -75,7 +78,8 @@ func TestNodePublishVolume(t *testing.T) {
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
 			},
-			expectedErr: true,
+			expectedErr:        true,
+			shouldRetryRemount: true,
 		},
 		{
 			name: "volume context is not set",
@@ -84,7 +88,8 @@ func TestNodePublishVolume(t *testing.T) {
 				VolumeId:         "testvolid1",
 				TargetPath:       getTestTargetPath(t),
 			},
-			expectedErr: true,
+			expectedErr:        true,
+			shouldRetryRemount: true,
 		},
 		{
 			name: "secret provider class not found",
@@ -94,7 +99,8 @@ func TestNodePublishVolume(t *testing.T) {
 				TargetPath:       getTestTargetPath(t),
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1"},
 			},
-			expectedErr: true,
+			expectedErr:        true,
+			shouldRetryRemount: true,
 		},
 		{
 			name: "secret provider class in pod namespace not found",
@@ -112,7 +118,8 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				},
 			},
-			expectedErr: true,
+			expectedErr:        true,
+			shouldRetryRemount: true,
 		},
 		{
 			name: "provider not set in secret provider class",
@@ -130,7 +137,8 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				},
 			},
-			expectedErr: true,
+			expectedErr:        true,
+			shouldRetryRemount: true,
 		},
 		{
 			name: "parameters not set in secret provider class",
@@ -151,7 +159,8 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				},
 			},
-			expectedErr: true,
+			expectedErr:        true,
+			shouldRetryRemount: true,
 		},
 		{
 			name: "read only is not set to true",
@@ -173,7 +182,8 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				},
 			},
-			expectedErr: true,
+			expectedErr:        true,
+			shouldRetryRemount: true,
 		},
 		{
 			name: "failed to invoke provider, unmounted to force retry",
@@ -196,7 +206,8 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				},
 			},
-			expectedErr: true,
+			expectedErr:        true,
+			shouldRetryRemount: true,
 		},
 		{
 			name: "volume already mounted, no remount",
@@ -219,8 +230,9 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				},
 			},
-			mountPoints: []mount.MountPoint{},
-			expectedErr: false,
+			mountPoints:        []mount.MountPoint{},
+			expectedErr:        false,
+			shouldRetryRemount: true,
 		},
 	}
 
@@ -248,16 +260,25 @@ func TestNodePublishVolume(t *testing.T) {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
 
-			_, err = ns.NodePublishVolume(context.TODO(), &test.nodePublishVolReq)
-			if test.expectedErr && err == nil || !test.expectedErr && err != nil {
-				t.Fatalf("expected err: %v, got: %+v", test.expectedErr, err)
+			numberOfAttempts := 1
+			// to ensure the remount is tried after previous failure and still fails
+			if test.shouldRetryRemount {
+				numberOfAttempts = 2
 			}
-			mnts, err := ns.mounter.List()
-			if err != nil {
-				t.Fatalf("expected err to be nil, got: %v", err)
-			}
-			if test.expectedErr && len(test.mountPoints) == 0 && len(mnts) != 0 {
-				t.Fatalf("expected mount points to be 0")
+
+			for numberOfAttempts > 0 {
+				_, err = ns.NodePublishVolume(context.TODO(), &test.nodePublishVolReq)
+				if test.expectedErr && err == nil || !test.expectedErr && err != nil {
+					t.Fatalf("expected err: %v, got: %+v", test.expectedErr, err)
+				}
+				mnts, err := ns.mounter.List()
+				if err != nil {
+					t.Fatalf("expected err to be nil, got: %v", err)
+				}
+				if test.expectedErr && len(test.mountPoints) == 0 && len(mnts) != 0 {
+					t.Fatalf("expected mount points to be 0")
+				}
+				numberOfAttempts--
 			}
 		})
 	}
