@@ -15,9 +15,10 @@ export CONTAINER_IMAGE=nginx
   run kubectl apply -f $PROVIDER_YAML --namespace $NAMESPACE
   assert_success
 
-  VAULT_PROVIDER_POD=$(kubectl get pod --namespace $NAMESPACE -l app=csi-secrets-store-provider-vault -o jsonpath="{.items[0].metadata.name}")
-  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/$VAULT_PROVIDER_POD --namespace $NAMESPACE"
+  cmd="kubectl wait --for=condition=Ready --timeout=60s pod -l app=csi-secrets-store-provider-vault --namespace $NAMESPACE"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  VAULT_PROVIDER_POD=$(kubectl get pod --namespace $NAMESPACE -l app=csi-secrets-store-provider-vault -o jsonpath="{.items[0].metadata.name}")
 
   run kubectl get pod/$VAULT_PROVIDER_POD --namespace $NAMESPACE
   assert_success
@@ -49,9 +50,10 @@ EOF
   run kubectl apply -f $BATS_TESTS_DIR/vault.yaml
   assert_success
 
-  VAULT_POD=$(kubectl get pod -l app=vault -o jsonpath="{.items[0].metadata.name}")
-  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/$VAULT_POD"
+  cmd="kubectl wait --for=condition=Ready --timeout=60s pod -l app=vault"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  VAULT_POD=$(kubectl get pod -l app=vault -o jsonpath="{.items[0].metadata.name}")
 
   run kubectl get pod/$VAULT_POD
   assert_success
