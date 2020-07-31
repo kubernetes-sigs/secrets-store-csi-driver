@@ -23,6 +23,8 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	pbSanitizer "github.com/kubernetes-csi/csi-lib-utils/protosanitizer"
+
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
@@ -95,30 +97,12 @@ func RunControllerandNodePublishServer(endpoint string, d *CSIDriver, cs csi.Con
 
 func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	log.Debugf("GRPC call: %s", info.FullMethod)
-	logRedactedRequest(req)
+	log.Debugf("GRPC request: %s", pbSanitizer.StripSecrets(req).String())
 	resp, err := handler(ctx, req)
 	if err != nil {
 		log.Errorf("GRPC error: %v", err)
 	} else {
-		log.Debugf("GRPC response: %+v", resp)
+		log.Debugf("GRPC response: %s", pbSanitizer.StripSecrets(resp).String())
 	}
 	return resp, err
-}
-
-func logRedactedRequest(req interface{}) {
-	r, ok := req.(*csi.NodePublishVolumeRequest)
-	if !ok {
-		log.Debugf("GRPC request: %+v", req)
-		return
-	}
-
-	req1 := *r
-	redactedSecrets := make(map[string]string)
-
-	secrets := req1.GetSecrets()
-	for k := range secrets {
-		redactedSecrets[k] = "[REDACTED]"
-	}
-	req1.Secrets = redactedSecrets
-	log.Debugf("GRPC request: %+v", req1)
 }
