@@ -29,12 +29,16 @@ The following table lists the configurable parameters of the csi-secrets-store-p
 | `linux.enabled` | Install secrets store csi driver on linux nodes | true |
 | `linux.kubeletRootDir` | Configure the kubelet root dir | `/var/lib/kubelet` |
 | `linux.nodeSelector` | Node Selector for the daemonset on linux nodes | `{}` |
+| `linux.tolerations` | Tolerations for the daemonset on linux nodes | `[]` |
+| `linux.metricsAddr` | The address the metric endpoint binds to | `:8080` |
 | `windows.image.repository` | Windows image repository | `us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver` |
 | `windows.image.pullPolicy` | Windows image pull policy | `IfNotPresent` |
 | `windows.image.tag` | Windows image tag | `v0.0.12` |
 | `windows.enabled` | Install secrets store csi driver on windows nodes | false |
 | `windows.kubeletRootDir` | Configure the kubelet root dir | `C:\var\lib\kubelet` |
 | `windows.nodeSelector` | Node Selector for the daemonset on windows nodes | `{}` |
+| `windows.tolerations` | Tolerations for the daemonset on windows nodes | `[]` |
+| `windows.metricsAddr` | The address the metric endpoint binds to | `:8080` |
 | `logLevel.debug` | Enable debug logging | true |
 | `livenessProbe.port` | Liveness probe port | `9808` |
 | `livenessProbe.logLevel` | Liveness probe container logging verbosity level | `2` |
