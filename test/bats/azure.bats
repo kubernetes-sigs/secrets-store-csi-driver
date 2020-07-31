@@ -41,9 +41,10 @@ setup() {
   run kubectl apply -f $PROVIDER_YAML --namespace $NAMESPACE	
   assert_success	
 
-  AZURE_PROVIDER_POD=$(kubectl get pod --namespace $NAMESPACE -l app=csi-secrets-store-provider-azure -o jsonpath="{.items[0].metadata.name}")	
-  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/$AZURE_PROVIDER_POD --namespace $NAMESPACE"
+  cmd="kubectl wait --for=condition=Ready --timeout=60s pod -l app=csi-secrets-store-provider-azure --namespace $NAMESPACE"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  AZURE_PROVIDER_POD=$(kubectl get pod --namespace $NAMESPACE -l app=csi-secrets-store-provider-azure -o jsonpath="{.items[0].metadata.name}")	
 
   run kubectl get pod/$AZURE_PROVIDER_POD --namespace $NAMESPACE
   assert_success
