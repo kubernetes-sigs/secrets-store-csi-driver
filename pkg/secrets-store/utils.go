@@ -31,11 +31,9 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 )
@@ -138,81 +136,37 @@ func (ns *nodeServer) ensureMountPoint(target string) (bool, error) {
 	return false, nil
 }
 
-// getClient returns client.Client
-func getClient() (client.Client, error) {
-	cfg, err := config.GetConfig()
-	if err != nil {
-		return nil, err
-	}
-	c, err := client.New(cfg, client.Options{Scheme: nil, Mapper: nil})
-	if err != nil {
-		return nil, err
-	}
-	return c, nil
-}
-
 // getSecretProviderItem returns the secretproviderclass object by name and namespace
-func getSecretProviderItem(ctx context.Context, name, namespace string) (*unstructured.Unstructured, error) {
-	instanceList := &unstructured.UnstructuredList{}
-	instanceList.SetGroupVersionKind(secretProviderClassGvk)
-	// recreating client here to prevent reading from cache
-	c, err := getClient()
-	if err != nil {
-		return nil, err
+func getSecretProviderItem(ctx context.Context, c client.Client, name, namespace string) (*v1alpha1.SecretProviderClass, error) {
+	spc := &v1alpha1.SecretProviderClass{}
+	spcKey := types.NamespacedName{
+		Namespace: namespace,
+		Name:      name,
 	}
-	err = c.List(ctx, instanceList, &client.ListOptions{Namespace: namespace})
-	if err != nil {
-		return nil, err
+	if err := c.Get(ctx, spcKey, spc); err != nil {
+		return nil, fmt.Errorf("failed to get secretproviderclass %s/%s, error: %+v", namespace, name, err)
 	}
-
-	for _, item := range instanceList.Items {
-		if item.GetName() == name {
-			return &item, nil
-		}
-	}
-	return nil, fmt.Errorf("could not find secretproviderclass %s", name)
+	return spc, nil
 }
 
-func getStringFromObjectSpec(object map[string]interface{}, key string) (string, error) {
-	value, exists, err := unstructured.NestedString(object, "spec", key)
-	if err != nil {
-		return "", err
+// createSecretProviderClassPodStatus creates secret provider class pod status
+func createSecretProviderClassPodStatus(ctx context.Context, c client.Client, podname, namespace, podUID, spcName, targetPath, nodeID string, mounted bool) error {
+	spcPodStatus := &v1alpha1.SecretProviderClassPodStatus{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podname + "-" + namespace + "-" + spcName,
+			Namespace: namespace,
+			Labels:    map[string]string{v1alpha1.InternalNodeLabel: nodeID},
+		},
+		Status: v1alpha1.SecretProviderClassPodStatusStatus{
+			PodName:                 podname,
+			TargetPath:              targetPath,
+			Mounted:                 mounted,
+			SecretProviderClassName: spcName,
+		},
 	}
-	if !exists {
-		return "", fmt.Errorf("could not get field %s from spec", key)
-	}
-	if len(value) == 0 {
-		return "", fmt.Errorf("field %s is not set", key)
-	}
-	return value, nil
-}
-
-func getMapFromObjectSpec(object map[string]interface{}, key string) (map[string]string, error) {
-	value, exists, err := unstructured.NestedStringMap(object, "spec", key)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, fmt.Errorf("could not get field %s from spec", key)
-	}
-	if len(value) == 0 {
-		return nil, fmt.Errorf("field %s is not set", key)
-	}
-	return value, nil
-}
-
-func createSecretProviderClassPodStatus(ctx context.Context, podname, namespace, podUID, spcName, targetPath, nodeID string, mounted bool) error {
-	obj := &unstructured.Unstructured{}
-	obj.SetName(podname + "-" + namespace + "-" + spcName)
-	obj.SetNamespace(namespace)
-	obj.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   v1alpha1.GroupVersion.Group,
-		Version: v1alpha1.GroupVersion.Version,
-		Kind:    "SecretProviderClassPodStatus",
-	})
 	// Set owner reference to the pod as the mapping between secret provider class pod status and
-	// pod is 1 to 1. When pod is deleted, the spc pod status will automatically garbage collected
-	obj.SetOwnerReferences([]metav1.OwnerReference{
+	// pod is 1 to 1. When pod is deleted, the spc pod status will automatically be garbage collected
+	spcPodStatus.SetOwnerReferences([]metav1.OwnerReference{
 		{
 			APIVersion: "v1",
 			Kind:       "Pod",
@@ -221,30 +175,26 @@ func createSecretProviderClassPodStatus(ctx context.Context, podname, namespace,
 		},
 	})
 
-	status := map[string]interface{}{
-		"podName":                 podname,
-		"targetPath":              targetPath,
-		"mounted":                 mounted,
-		"secretProviderClassName": spcName,
-	}
-
-	if err := unstructured.SetNestedField(
-		obj.Object, status, "status"); err != nil {
-		return err
-	}
-
-	obj.SetLabels(map[string]string{
-		v1alpha1.InternalNodeLabel: nodeID,
-	})
-	// recreating client here to prevent reading from cache
-	c, err := getClient()
-	if err != nil {
-		return err
-	}
 	// create the secret provider class pod status
-	err = c.Create(ctx, obj, &client.CreateOptions{})
+	err := c.Create(ctx, spcPodStatus, &client.CreateOptions{})
 	if err != nil && !apierrors.IsAlreadyExists(err) {
 		return err
 	}
 	return nil
+}
+
+// getProviderFromSPC returns the provider as defined in SecretProviderClass
+func getProviderFromSPC(spc *v1alpha1.SecretProviderClass) (string, error) {
+	if len(spc.Spec.Provider) == 0 {
+		return "", fmt.Errorf("provider not set in %s/%s", spc.Namespace, spc.Name)
+	}
+	return string(spc.Spec.Provider), nil
+}
+
+// getParametersFromSPC returns the parameters map as defined in SecretProviderClass
+func getParametersFromSPC(spc *v1alpha1.SecretProviderClass) (map[string]string, error) {
+	if len(spc.Spec.Parameters) == 0 {
+		return nil, fmt.Errorf("parameters not set in %s/%s", spc.Namespace, spc.Name)
+	}
+	return spc.Spec.Parameters, nil
 }

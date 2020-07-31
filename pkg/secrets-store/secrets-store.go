@@ -20,6 +20,7 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"k8s.io/utils/mount"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	csicommon "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/metrics"
 	version "sigs.k8s.io/secrets-store-csi-driver/pkg/version"
@@ -45,7 +46,7 @@ func GetDriver() *SecretsStore {
 	return &SecretsStore{}
 }
 
-func newNodeServer(d *csicommon.CSIDriver, providerVolumePath, minProviderVersions, nodeID string, mounter mount.Interface) (*nodeServer, error) {
+func newNodeServer(d *csicommon.CSIDriver, providerVolumePath, minProviderVersions, nodeID string, mounter mount.Interface, client client.Client) (*nodeServer, error) {
 	// get a map of provider and compatible version
 	minProviderVersionsMap, err := version.GetMinimumProviderVersions(minProviderVersions)
 	if err != nil {
@@ -61,6 +62,7 @@ func newNodeServer(d *csicommon.CSIDriver, providerVolumePath, minProviderVersio
 		mounter:             mounter,
 		reporter:            newStatsReporter(),
 		nodeID:              nodeID,
+		client:              client,
 	}, nil
 }
 
@@ -78,7 +80,7 @@ func newIdentityServer(d *csicommon.CSIDriver) *identityServer {
 }
 
 // Run starts the CSI plugin
-func (s *SecretsStore) Run(driverName, nodeID, endpoint, providerVolumePath, minProviderVersions string) {
+func (s *SecretsStore) Run(driverName, nodeID, endpoint, providerVolumePath, minProviderVersions string, client client.Client) {
 	log.Infof("Driver: %v ", driverName)
 	log.Infof("Version: %s", vendorVersion)
 	log.Infof("Provider Volume Path: %s", providerVolumePath)
@@ -104,7 +106,8 @@ func (s *SecretsStore) Run(driverName, nodeID, endpoint, providerVolumePath, min
 		log.Fatalf("failed to initialize metrics exporter, error: %+v", err)
 	}
 	defer m.Stop()
-	ns, err := newNodeServer(s.driver, providerVolumePath, minProviderVersions, nodeID, mount.New(""))
+
+	ns, err := newNodeServer(s.driver, providerVolumePath, minProviderVersions, nodeID, mount.New(""), client)
 	if err != nil {
 		log.Fatalf("failed to initialize node server, error: %+v", err)
 	}

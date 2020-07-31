@@ -24,6 +24,8 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	"sigs.k8s.io/secrets-store-csi-driver/controllers"
@@ -96,5 +98,13 @@ func main() {
 
 func handle() {
 	driver := secretsstore.GetDriver()
-	driver.Run(*driverName, *nodeID, *endpoint, *providerVolumePath, *minProviderVersion)
+	cfg, err := config.GetConfig()
+	if err != nil {
+		log.Fatalf("failed to initialize driver, error getting config: %+v", err)
+	}
+	c, err := client.New(cfg, client.Options{Scheme: scheme, Mapper: nil})
+	if err != nil {
+		log.Fatalf("failed to initialize driver, error creating client: %+v", err)
+	}
+	driver.Run(*driverName, *nodeID, *endpoint, *providerVolumePath, *minProviderVersion, c)
 }
