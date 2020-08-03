@@ -14,10 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package secretutil
 
 import (
+	"fmt"
+	"reflect"
 	"testing"
+
+	corev1 "k8s.io/api/core/v1"
+
+	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -156,8 +162,122 @@ func TestGetCert(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		actualPEM, err := getCertPart([]byte(tc.data), tc.part)
+		actualPEM, err := GetCertPart([]byte(tc.data), tc.part)
 		assert.Equal(t, tc.expectedErr, err != nil)
 		assert.Equal(t, tc.expectedPEM, actualPEM)
+	}
+}
+
+func TestValidateSecretObject(t *testing.T) {
+	tests := []struct {
+		name          string
+		secretObj     v1alpha1.SecretObject
+		expectedError bool
+	}{
+		{
+			name:          "secret name is empty",
+			secretObj:     v1alpha1.SecretObject{},
+			expectedError: true,
+		},
+		{
+			name:          "secret type is empty",
+			secretObj:     v1alpha1.SecretObject{SecretName: "secret1"},
+			expectedError: true,
+		},
+		{
+			name:          "data is empty",
+			secretObj:     v1alpha1.SecretObject{SecretName: "secret1", Type: "Opaque"},
+			expectedError: true,
+		},
+		{
+			name: "valid secret object",
+			secretObj: v1alpha1.SecretObject{
+				SecretName: "secret1",
+				Type:       "Opaque",
+				Data:       []*v1alpha1.SecretObjectData{{ObjectName: "obj1", Key: "file1"}}},
+			expectedError: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := ValidateSecretObject(test.secretObj)
+			if test.expectedError && err == nil {
+				t.Fatalf("expected err: %+v, got: %+v", test.expectedError, err)
+			}
+		})
+	}
+}
+
+func TestGetSecretData(t *testing.T) {
+	tests := []struct {
+		name            string
+		secretObjData   []*v1alpha1.SecretObjectData
+		secretType      corev1.SecretType
+		currentFiles    map[string]string
+		expectedDataMap map[string][]byte
+		expectedError   bool
+	}{
+		{
+			name: "object name not set",
+			secretObjData: []*v1alpha1.SecretObjectData{
+				{
+					ObjectName: "",
+				},
+			},
+			secretType:      corev1.SecretTypeOpaque,
+			expectedDataMap: make(map[string][]byte),
+			expectedError:   true,
+		},
+		{
+			name: "key not set",
+			secretObjData: []*v1alpha1.SecretObjectData{
+				{
+					ObjectName: "obj1",
+				},
+			},
+			secretType:      corev1.SecretTypeOpaque,
+			expectedDataMap: make(map[string][]byte),
+			expectedError:   true,
+		},
+		{
+			name: "file matching object doesn't exist in map",
+			secretObjData: []*v1alpha1.SecretObjectData{
+				{
+					ObjectName: "obj1",
+					Key:        "file1",
+				},
+			},
+			secretType:      corev1.SecretTypeOpaque,
+			currentFiles:    map[string]string{"obj2": ""},
+			expectedDataMap: make(map[string][]byte),
+			expectedError:   true,
+		},
+		{
+			name: "file matching object doesn't exist in the fs",
+			secretObjData: []*v1alpha1.SecretObjectData{
+				{
+					ObjectName: "obj1",
+					Key:        "file1",
+				},
+			},
+			secretType:      corev1.SecretTypeOpaque,
+			currentFiles:    map[string]string{"obj1": ""},
+			expectedDataMap: make(map[string][]byte),
+			expectedError:   true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			datamap, err := GetSecretData(test.secretObjData, test.secretType, test.currentFiles)
+			if test.expectedError && err == nil {
+				t.Fatalf("expected err: %+v, got: %+v", test.expectedError, err)
+			}
+			fmt.Println(err)
+			if !reflect.DeepEqual(datamap, test.expectedDataMap) {
+				t.Fatalf("expected data map doesn't match actual")
+			}
+		})
 	}
 }

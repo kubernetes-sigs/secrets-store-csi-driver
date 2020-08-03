@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package secretutil
 
 import (
 	"crypto/ecdsa"
@@ -23,16 +23,20 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
-	"strings"
 
-	log "github.com/sirupsen/logrus"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
+
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+)
+
+const (
+	certType       = "CERTIFICATE"
+	privateKeyType = "RSA PRIVATE KEY"
 )
 
 // getCertPart returns the certificate or the private key part of the cert
-func getCertPart(data []byte, key string) ([]byte, error) {
+func GetCertPart(data []byte, key string) ([]byte, error) {
 	if key == corev1.TLSPrivateKeyKey {
 		return getPrivateKey(data)
 	}
@@ -105,8 +109,8 @@ func getPrivateKey(data []byte) ([]byte, error) {
 	return pem.EncodeToMemory(block), nil
 }
 
-// getSecretType returns a k8s secret type, defaults to Opaque
-func getSecretType(sType string) corev1.SecretType {
+// GetSecretType returns a k8s secret type, defaults to Opaque
+func GetSecretType(sType string) corev1.SecretType {
 	switch sType {
 	case "kubernetes.io/basic-auth":
 		return corev1.SecretTypeBasicAuth
@@ -127,23 +131,48 @@ func getSecretType(sType string) corev1.SecretType {
 	}
 }
 
-// getMountedFiles returns all the mounted files names with filepath base as key
-func getMountedFiles(targetPath string) (map[string]string, error) {
-	paths := make(map[string]string)
-	// loop thru all the mounted files
-	files, err := ioutil.ReadDir(targetPath)
-	if err != nil {
-		log.Errorf("failed to list all files in target path %s, err: %v", targetPath, err)
-		return nil, status.Error(codes.Internal, err.Error())
+// ValidateSecretObject performs basic validation of the secret provider class
+// secret object to check if the mandatory fields - name, type and data are defined
+func ValidateSecretObject(secretObj v1alpha1.SecretObject) error {
+	if len(secretObj.SecretName) == 0 {
+		return fmt.Errorf("secret name is empty")
 	}
-	sep := "/"
-	if strings.HasPrefix(targetPath, "c:\\") {
-		sep = "\\"
-	} else if strings.HasPrefix(targetPath, `c:\`) {
-		sep = `\`
+	if len(secretObj.Type) == 0 {
+		return fmt.Errorf("secret type is empty")
 	}
-	for _, file := range files {
-		paths[file.Name()] = targetPath + sep + file.Name()
+	if len(secretObj.Data) == 0 {
+		return fmt.Errorf("data is empty")
 	}
-	return paths, nil
+	return nil
+}
+
+// GetSecretData gets the object contents from the pods target path and returns a
+// map that will be populated in the Kubernetes secret data field
+func GetSecretData(secretObjData []*v1alpha1.SecretObjectData, secretType corev1.SecretType, files map[string]string) (map[string][]byte, error) {
+	datamap := make(map[string][]byte)
+	for _, data := range secretObjData {
+		if len(data.ObjectName) == 0 {
+			return datamap, fmt.Errorf("object name in secretObjects.data")
+		}
+		if len(data.Key) == 0 {
+			return datamap, fmt.Errorf("key in secretObjects.data is empty")
+		}
+		file, ok := files[data.ObjectName]
+		if !ok {
+			return datamap, fmt.Errorf("file matching objectName %s not found in the pod", data.ObjectName)
+		}
+		content, err := ioutil.ReadFile(file)
+		if err != nil {
+			return datamap, fmt.Errorf("failed to read file %s, err: %v", data.ObjectName, err)
+		}
+		datamap[data.Key] = content
+		if secretType == v1.SecretTypeTLS {
+			c, err := GetCertPart(content, data.Key)
+			if err != nil {
+				return datamap, fmt.Errorf("failed to get cert data from file %s, err: %+v", file, err)
+			}
+			datamap[data.Key] = c
+		}
+	}
+	return datamap, nil
 }

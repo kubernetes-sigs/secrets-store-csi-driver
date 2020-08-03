@@ -29,7 +29,8 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	csicommon "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
-	version "sigs.k8s.io/secrets-store-csi-driver/pkg/version"
+	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
@@ -65,7 +66,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	var podName, podNamespace, podUID string
 	var targetPath string
 	var mounted bool
-	errorReason := FailedToMount
+	errorReason := internalerrors.FailedToMount
 
 	defer func() {
 		if err != nil {
@@ -104,7 +105,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 	mounted, err = ns.ensureMountPoint(targetPath)
 	if err != nil {
-		errorReason = FailedToEnsureMountPoint
+		errorReason = internalerrors.FailedToEnsureMountPoint
 		return nil, status.Errorf(codes.Internal, "Could not mount target %q: %v", targetPath, err)
 	}
 	if mounted {
@@ -138,7 +139,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 	spc, err := getSecretProviderItem(ctx, ns.client, secretProviderClass, podNamespace)
 	if err != nil {
-		errorReason = SecretProviderClassNotFound
+		errorReason = internalerrors.SecretProviderClassNotFound
 		return nil, err
 	}
 	provider, err := getProviderFromSPC(spc)
@@ -182,7 +183,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	// https://github.com/kubernetes/utils/blob/master/mount/mount_windows.go#L68-L71
 	err = ns.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
 	if err != nil {
-		errorReason = FailedToMount
+		errorReason = internalerrors.FailedToMount
 		log.Errorf("mount err: %v for pod: %s/%s", err, podNamespace, podName)
 		return nil, err
 	}
@@ -296,16 +297,16 @@ func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, provid
 	_, exists := ns.grpcSupportedProviders[providerName]
 	if exists {
 		log.Infof("Using grpc client for provider: %s", providerName)
-		providerClient, err := newProviderClient(csiProviderName(providerName), ns.providerVolumePath)
+		providerClient, err := NewProviderClient(CSIProviderName(providerName), ns.providerVolumePath)
 		if err != nil {
-			return nil, FailedToCreateProviderGRPCClient, fmt.Errorf("failed to create provider client, err: %+v", err)
+			return nil, internalerrors.FailedToCreateProviderGRPCClient, fmt.Errorf("failed to create provider client, err: %+v", err)
 		}
-		return providerClient.MountContent(ctx, attributes, secrets, targetPath, permission)
+		return providerClient.MountContent(ctx, attributes, secrets, targetPath, permission, nil)
 	}
 
 	providerBinary := ns.getProviderPath(runtime.GOOS, providerName)
 	if _, err := os.Stat(providerBinary); err != nil {
-		return nil, ProviderBinaryNotFound, fmt.Errorf("failed to find provider binary %s, err: %v", providerName, err)
+		return nil, internalerrors.ProviderBinaryNotFound, fmt.Errorf("failed to find provider binary %s, err: %v", providerName, err)
 	}
 
 	// check if minimum compatible provider version with current driver version is set
@@ -319,7 +320,7 @@ func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, provid
 			return nil, "", err
 		}
 		if !providerCompatible {
-			return nil, IncompatibleProviderVersion, fmt.Errorf("Minimum supported %s provider version with current driver is %s", providerName, ns.minProviderVersions[providerName])
+			return nil, internalerrors.IncompatibleProviderVersion, fmt.Errorf("Minimum supported %s provider version with current driver is %s", providerName, ns.minProviderVersions[providerName])
 		}
 	}
 
@@ -348,7 +349,7 @@ func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, provid
 	err := cmd.Run()
 	log.Infof(stdout.String())
 	if err != nil {
-		return nil, ProviderError, fmt.Errorf("failed to mount objects, err: %s", err.Error()+"\n"+stderr.String())
+		return nil, internalerrors.ProviderError, fmt.Errorf("failed to mount objects, err: %s", err.Error()+"\n"+stderr.String())
 	}
 	return nil, "", nil
 }

@@ -23,6 +23,8 @@ import (
 	"io"
 	"net"
 
+	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
+
 	"google.golang.org/grpc"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 )
@@ -31,7 +33,7 @@ import (
 type providerAddr string
 
 // Strongly typed provider name
-type csiProviderName string
+type CSIProviderName string
 
 type csiProviderClientCreator func(addr providerAddr) (
 	providerClient v1alpha1.CSIDriverProviderClient,
@@ -40,17 +42,17 @@ type csiProviderClientCreator func(addr providerAddr) (
 )
 
 // csiProviderClient encapsulates all csi-provider methods
-type csiProviderClient struct {
-	providerName             csiProviderName
+type CSIProviderClient struct {
+	providerName             CSIProviderName
 	addr                     providerAddr
 	csiProviderClientCreator csiProviderClientCreator
 }
 
-func newProviderClient(providerName csiProviderName, socketPath string) (*csiProviderClient, error) {
+func NewProviderClient(providerName CSIProviderName, socketPath string) (*CSIProviderClient, error) {
 	if providerName == "" {
 		return nil, fmt.Errorf("provider name is empty")
 	}
-	return &csiProviderClient{
+	return &CSIProviderClient{
 		providerName:             providerName,
 		addr:                     providerAddr(fmt.Sprintf("%s/%s.sock", socketPath, providerName)),
 		csiProviderClientCreator: newCSIProviderClient,
@@ -79,31 +81,37 @@ func newGrpcConn(addr providerAddr) (*grpc.ClientConn, error) {
 	)
 }
 
-func (c *csiProviderClient) MountContent(ctx context.Context, attributes, secrets, targetPath, permission string) (map[string]string, string, error) {
+func (c *CSIProviderClient) MountContent(ctx context.Context, attributes, secrets, targetPath, permission string, oldObjectVersions map[string]string) (map[string]string, string, error) {
 	client, closer, err := c.csiProviderClientCreator(c.addr)
 	if err != nil {
-		return nil, FailedToCreateProviderGRPCClient, err
+		return nil, internalerrors.FailedToCreateProviderGRPCClient, err
 	}
 	defer closer.Close()
 
+	var objVersions []*v1alpha1.ObjectVersion
+	for obj, version := range oldObjectVersions {
+		objVersions = append(objVersions, &v1alpha1.ObjectVersion{Id: obj, Version: version})
+	}
+
 	req := &v1alpha1.MountRequest{
-		Attributes: attributes,
-		Secrets:    secrets,
-		TargetPath: targetPath,
-		Permission: permission,
+		Attributes:           attributes,
+		Secrets:              secrets,
+		TargetPath:           targetPath,
+		Permission:           permission,
+		CurrentObjectVersion: objVersions,
 	}
 
 	resp, err := client.Mount(ctx, req)
-	if resp != nil && resp.GetError() != nil && len(resp.GetError().Code) > 0 {
-		return nil, resp.GetError().Code, fmt.Errorf("mount request failed with provider error code %s, err: %+v", resp.GetError().Code, err)
-	}
 	if err != nil {
-		return nil, GRPCProviderError, err
+		return nil, internalerrors.GRPCProviderError, err
+	}
+	if resp != nil && resp.GetError() != nil && len(resp.GetError().Code) > 0 {
+		return nil, resp.GetError().Code, fmt.Errorf("mount request failed with provider error code %s", resp.GetError().Code)
 	}
 
 	ov := resp.GetObjectVersion()
 	if ov == nil {
-		return nil, GRPCProviderError, errors.New("missing object versions")
+		return nil, internalerrors.GRPCProviderError, errors.New("missing object versions")
 	}
 	objectVersions := make(map[string]string)
 	for _, v := range ov {

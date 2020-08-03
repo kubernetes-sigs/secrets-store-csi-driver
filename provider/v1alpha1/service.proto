@@ -51,6 +51,9 @@ message MountRequest {
     string target_path = 3;
     // Permission is the file permissions
     string permission = 4;
+    // CurrentObjectVersion is the list of objects and their versions that's
+    // currently mounted in the pod
+    repeated ObjectVersion current_object_version = 5;
 }
 
 message MountResponse {

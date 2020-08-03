@@ -39,7 +39,7 @@ func getTempTestDir(t *testing.T) string {
 func TestMountContent(t *testing.T) {
 	cases := []struct {
 		name                  string
-		providerName          csiProviderName
+		providerName          CSIProviderName
 		socketPath            string
 		attributes            string
 		secrets               string
@@ -62,7 +62,7 @@ func TestMountContent(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			client, err := newProviderClient(test.providerName, test.socketPath)
+			client, err := NewProviderClient(test.providerName, test.socketPath)
 			if err != nil {
 				t.Fatalf("expected err to be nil, got: %+v", err)
 			}
@@ -78,7 +78,7 @@ func TestMountContent(t *testing.T) {
 			server.SetProviderErrorCode(test.expectedErrorCode)
 			server.Start()
 
-			objectVersions, errorCode, err := client.MountContent(context.TODO(), test.attributes, test.secrets, test.targetPath, test.permission)
+			objectVersions, errorCode, err := client.MountContent(context.TODO(), test.attributes, test.secrets, test.targetPath, test.permission, nil)
 			if err != nil {
 				t.Errorf("expected err to be nil, got: %+v", err)
 			}
@@ -95,7 +95,7 @@ func TestMountContent(t *testing.T) {
 func TestMountContentError(t *testing.T) {
 	cases := []struct {
 		name                  string
-		providerName          csiProviderName
+		providerName          CSIProviderName
 		socketPath            string
 		attributes            string
 		secrets               string
@@ -167,7 +167,7 @@ func TestMountContentError(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			client, err := newProviderClient(test.providerName, test.socketPath)
+			client, err := NewProviderClient(test.providerName, test.socketPath)
 			if err != nil {
 				t.Fatalf("expected err to be nil, got: %+v", err)
 			}
@@ -183,7 +183,7 @@ func TestMountContentError(t *testing.T) {
 			server.SetProviderErrorCode(test.expectedErrorCode)
 			server.Start()
 
-			objectVersions, errorCode, err := client.MountContent(context.TODO(), test.attributes, test.secrets, test.targetPath, test.permission)
+			objectVersions, errorCode, err := client.MountContent(context.TODO(), test.attributes, test.secrets, test.targetPath, test.permission, nil)
 			if err == nil {
 				t.Errorf("expected err to be not nil")
 			}

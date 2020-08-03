@@ -18,6 +18,9 @@ package main
 
 import (
 	"flag"
+	"sync"
+
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/rotation"
 
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,6 +49,8 @@ var (
 	// grpcSupportedProviders is a ; separated string that can contain a list of providers. The reason it's a string is to allow scenarios
 	// where the driver is being used with 2 providers, one which supports grpc and other using binary for provider.
 	grpcSupportedProviders = flag.String("grpc-supported-providers", "", "set list of providers that support grpc for driver-provider [alpha]")
+	enableSecretRotation   = flag.Bool("enable-secret-rotation", false, "Enable secret rotation feature [alpha]")
+	rotationPollInterval   = flag.Duration("rotation-poll-interval", 60, "Secret rotation poll interval duration")
 
 	scheme = runtime.NewScheme()
 )
@@ -69,7 +74,10 @@ func main() {
 
 	log.SetReportCaller(*logReportCaller)
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	config := ctrl.GetConfigOrDie()
+	config.UserAgent = "csi-secrets-store/controller"
+
+	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: *metricsAddr,
 		LeaderElection:     false,
@@ -78,23 +86,40 @@ func main() {
 		log.Fatalf("failed to start manager, error: %+v", err)
 	}
 
-	if err = (&controllers.SecretProviderClassPodStatusReconciler{
+	reconciler := &controllers.SecretProviderClassPodStatusReconciler{
 		Client: mgr.GetClient(),
+		Mutex:  &sync.Mutex{},
 		Scheme: mgr.GetScheme(),
 		NodeID: *nodeID,
 		Reader: mgr.GetCache(),
 		Writer: mgr.GetClient(),
-	}).SetupWithManager(mgr); err != nil {
+	}
+
+	if err = reconciler.SetupWithManager(mgr); err != nil {
 		log.Fatalf("failed to create controller, error: %+v", err)
 	}
 	// +kubebuilder:scaffold:builder
 
+	stopCh := ctrl.SetupSignalHandler()
 	go func() {
 		log.Infof("starting manager")
-		if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-			log.Fatalf("failed to run manager, eror: %+v", err)
+		if err := mgr.Start(stopCh); err != nil {
+			log.Fatalf("failed to run manager, error: %+v", err)
 		}
 	}()
+
+	go func() {
+		reconciler.RunPatcher(stopCh)
+	}()
+
+	if *enableSecretRotation {
+		rec, err := rotation.NewReconciler(scheme, *providerVolumePath, *nodeID, *rotationPollInterval)
+		if err != nil {
+			log.Fatalf("failed to initialize rotation reconciler, error: %+v", err)
+		}
+		stopCh := make(<-chan struct{})
+		go rec.Run(stopCh)
+	}
 
 	handle()
 }
