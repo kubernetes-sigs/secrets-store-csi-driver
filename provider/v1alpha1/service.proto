@@ -1,0 +1,76 @@
+/*
+Copyright 2020 The Kubernetes Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+syntax = "proto3";
+
+package v1alpha1;
+
+service CSIDriverProvider {
+    // Version returns the runtime name and runtime version of the Secrets Store CSI Driver Provider
+    // TODO (aramase) This will be used later to ensure the provider the driver is talking to supports
+    // the current version
+    rpc Version(VersionRequest) returns (VersionResponse) {}
+
+    // Execute mount operation in provider
+    rpc Mount(MountRequest) returns (MountResponse) {}
+}
+
+message VersionRequest {
+    // Version of the Secrets Store CSI Driver
+    string version = 1;
+}
+
+message VersionResponse {
+    // Version of the Secrets Store CSI Driver
+    string version = 1;
+    // Name of the Secrets Store CSI Driver Provider
+    string runtime_name = 2;
+    // Version of the Secrets Store CSI Driver Provider. The string must be semver-compatible.
+    string runtime_version = 3;
+}
+
+message MountRequest {
+    // Attributes is the parameters field defined in the SecretProviderClass
+    string attributes = 1;
+    // Secrets is the secret content referenced in nodePublishSecretRef secret data
+    string secrets = 2;
+    // TargetPath is the path to which the volume will be published
+    string target_path = 3;
+    // Permission is the file permissions
+    string permission = 4;
+}
+
+message MountResponse {
+    repeated ObjectVersion object_version = 1;
+    Error error = 2;
+}
+
+message ObjectVersion {
+    // Id is the object UID that is fetched from external secrets store
+    // The Id should be unique. If multiple objects fetched from the secrets
+    // store contain the same name, the provider should return a uid. This will
+    // be populated in the SecretProviderClassPodStatus and sent back to the
+    // provider as part of rotation reconcile
+    // Example: secret/secret1, key/secret1, projects/$PROJECT_ID/secrets/secret1
+    string id = 1;
+    // Version is the object version that is fetched from external secrets store
+    string version = 2;
+}
+
+message Error {
+    // Code is the error code that the provider can return which will be used for publishing metrics
+    string code = 1;
+}

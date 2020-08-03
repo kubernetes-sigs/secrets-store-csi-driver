@@ -150,7 +150,12 @@ func getSecretProviderItem(ctx context.Context, c client.Client, name, namespace
 }
 
 // createSecretProviderClassPodStatus creates secret provider class pod status
-func createSecretProviderClassPodStatus(ctx context.Context, c client.Client, podname, namespace, podUID, spcName, targetPath, nodeID string, mounted bool) error {
+func createSecretProviderClassPodStatus(ctx context.Context, c client.Client, podname, namespace, podUID, spcName, targetPath, nodeID string, mounted bool, objects map[string]string) error {
+	var o []v1alpha1.SecretProviderClassObject
+	for k, v := range objects {
+		o = append(o, v1alpha1.SecretProviderClassObject{ID: k, Version: v})
+	}
+
 	spcPodStatus := &v1alpha1.SecretProviderClassPodStatus{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      podname + "-" + namespace + "-" + spcName,
@@ -162,6 +167,7 @@ func createSecretProviderClassPodStatus(ctx context.Context, c client.Client, po
 			TargetPath:              targetPath,
 			Mounted:                 mounted,
 			SecretProviderClassName: spcName,
+			Objects:                 o,
 		},
 	}
 	// Set owner reference to the pod as the mapping between secret provider class pod status and

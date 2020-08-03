@@ -17,6 +17,8 @@ limitations under the License.
 package secretsstore
 
 import (
+	"strings"
+
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"k8s.io/utils/mount"
 
@@ -46,23 +48,34 @@ func GetDriver() *SecretsStore {
 	return &SecretsStore{}
 }
 
-func newNodeServer(d *csicommon.CSIDriver, providerVolumePath, minProviderVersions, nodeID string, mounter mount.Interface, client client.Client) (*nodeServer, error) {
+func newNodeServer(d *csicommon.CSIDriver, providerVolumePath, minProviderVersions, grpcSupportedProviders, nodeID string, mounter mount.Interface, client client.Client) (*nodeServer, error) {
 	// get a map of provider and compatible version
 	minProviderVersionsMap, err := version.GetMinimumProviderVersions(minProviderVersions)
 	if err != nil {
 		return nil, err
 	}
+	grpcSupportedProvidersMap := make(map[string]bool)
+	for _, provider := range strings.Split(grpcSupportedProviders, ";") {
+		if len(provider) != 0 {
+			grpcSupportedProvidersMap[provider] = true
+		}
+	}
+
 	if len(minProviderVersionsMap) == 0 {
 		log.Infof("minimum compatible provider versions not specified with --min-provider-version")
 	}
+	if len(grpcSupportedProvidersMap) == 0 {
+		log.Infof("grpc supported providers not enabled")
+	}
 	return &nodeServer{
-		DefaultNodeServer:   csicommon.NewDefaultNodeServer(d),
-		providerVolumePath:  providerVolumePath,
-		minProviderVersions: minProviderVersionsMap,
-		mounter:             mounter,
-		reporter:            newStatsReporter(),
-		nodeID:              nodeID,
-		client:              client,
+		DefaultNodeServer:      csicommon.NewDefaultNodeServer(d),
+		providerVolumePath:     providerVolumePath,
+		minProviderVersions:    minProviderVersionsMap,
+		mounter:                mounter,
+		reporter:               newStatsReporter(),
+		nodeID:                 nodeID,
+		client:                 client,
+		grpcSupportedProviders: grpcSupportedProvidersMap,
 	}, nil
 }
 
@@ -80,11 +93,12 @@ func newIdentityServer(d *csicommon.CSIDriver) *identityServer {
 }
 
 // Run starts the CSI plugin
-func (s *SecretsStore) Run(driverName, nodeID, endpoint, providerVolumePath, minProviderVersions string, client client.Client) {
+func (s *SecretsStore) Run(driverName, nodeID, endpoint, providerVolumePath, minProviderVersions, grpcSupportedProviders string, client client.Client) {
 	log.Infof("Driver: %v ", driverName)
 	log.Infof("Version: %s", vendorVersion)
 	log.Infof("Provider Volume Path: %s", providerVolumePath)
 	log.Infof("Minimum provider versions: %s", minProviderVersions)
+	log.Infof("GRPC supported providers: %s", grpcSupportedProviders)
 
 	// Initialize default library driver
 	s.driver = csicommon.NewCSIDriver(driverName, vendorVersion, nodeID)
@@ -107,7 +121,7 @@ func (s *SecretsStore) Run(driverName, nodeID, endpoint, providerVolumePath, min
 	}
 	defer m.Stop()
 
-	ns, err := newNodeServer(s.driver, providerVolumePath, minProviderVersions, nodeID, mount.New(""), client)
+	ns, err := newNodeServer(s.driver, providerVolumePath, minProviderVersions, grpcSupportedProviders, nodeID, mount.New(""), client)
 	if err != nil {
 		log.Fatalf("failed to initialize node server, error: %+v", err)
 	}

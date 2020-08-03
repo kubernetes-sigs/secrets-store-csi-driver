@@ -17,6 +17,7 @@ limitations under the License.
 package secretsstore
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -33,12 +34,12 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 )
 
-func testNodeServer(mountPoints []mount.MountPoint, client client.Client) (*nodeServer, error) {
+func testNodeServer(mountPoints []mount.MountPoint, client client.Client, grpcSupportProviders string) (*nodeServer, error) {
 	tmpDir, err := ioutil.TempDir("", "ut")
 	if err != nil {
 		return nil, err
 	}
-	return newNodeServer(NewFakeDriver(), tmpDir, "", "testnode", mount.NewFakeMounter(mountPoints), client)
+	return newNodeServer(NewFakeDriver(), tmpDir, "", grpcSupportProviders, "testnode", mount.NewFakeMounter(mountPoints), client)
 }
 
 func getTestTargetPath(t *testing.T) string {
@@ -51,12 +52,13 @@ func getTestTargetPath(t *testing.T) string {
 
 func TestNodePublishVolume(t *testing.T) {
 	tests := []struct {
-		name               string
-		nodePublishVolReq  csi.NodePublishVolumeRequest
-		mountPoints        []mount.MountPoint
-		initObjects        []runtime.Object
-		expectedErr        bool
-		shouldRetryRemount bool
+		name                 string
+		nodePublishVolReq    csi.NodePublishVolumeRequest
+		mountPoints          []mount.MountPoint
+		initObjects          []runtime.Object
+		grpcSupportProviders string
+		expectedErr          bool
+		shouldRetryRemount   bool
 	}{
 		{
 			name:               "volume capabilities nil",
@@ -255,7 +257,7 @@ func TestNodePublishVolume(t *testing.T) {
 				}
 				test.mountPoints = append(test.mountPoints, mount.MountPoint{Path: absFile})
 			}
-			ns, err := testNodeServer(test.mountPoints, fake.NewFakeClientWithScheme(s, test.initObjects...))
+			ns, err := testNodeServer(test.mountPoints, fake.NewFakeClientWithScheme(s, test.initObjects...), test.grpcSupportProviders)
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
@@ -279,6 +281,68 @@ func TestNodePublishVolume(t *testing.T) {
 					t.Fatalf("expected mount points to be 0")
 				}
 				numberOfAttempts--
+			}
+		})
+	}
+}
+
+func TestMountSecretsStoreObjectContent(t *testing.T) {
+	tests := []struct {
+		name                 string
+		attributes           string
+		secrets              string
+		targetPath           string
+		permission           string
+		grpcSupportProviders string
+		expectedErrorReason  string
+		expectedErr          bool
+	}{
+		{
+			name:        "attributes empty",
+			expectedErr: true,
+		},
+		{
+			name:        "target path empty",
+			attributes:  "{}",
+			expectedErr: true,
+		},
+		{
+			name:        "permission not set",
+			attributes:  "{}",
+			targetPath:  getTestTargetPath(t),
+			expectedErr: true,
+		},
+		{
+			name:                "provider binary not found",
+			attributes:          "{}",
+			targetPath:          getTestTargetPath(t),
+			permission:          fmt.Sprint(permission),
+			expectedErrorReason: ProviderBinaryNotFound,
+			expectedErr:         true,
+		},
+		{
+			name:                 "failed to create provider grpc client",
+			attributes:           "{}",
+			targetPath:           getTestTargetPath(t),
+			permission:           fmt.Sprint(permission),
+			grpcSupportProviders: "provider1",
+			expectedErrorReason:  "GRPCProviderError",
+			expectedErr:          true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ns, err := testNodeServer(nil, fake.NewFakeClientWithScheme(nil), test.grpcSupportProviders)
+			if err != nil {
+				t.Fatalf("expected error to be nil, got: %+v", err)
+			}
+			_, errorReason, err := ns.mountSecretsStoreObjectContent(context.TODO(), "provider1", test.attributes, test.secrets, test.targetPath, test.permission)
+			if errorReason != test.expectedErrorReason {
+				t.Fatalf("expected error reason to be %s, got: %s", test.expectedErrorReason, errorReason)
+			}
+			if test.expectedErr && err == nil || !test.expectedErr && err != nil {
+				t.Fatalf("expected err: %v, got: %+v", test.expectedErr, err)
 			}
 		})
 	}

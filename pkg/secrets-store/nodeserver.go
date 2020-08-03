@@ -19,6 +19,7 @@ package secretsstore
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -40,12 +41,13 @@ import (
 
 type nodeServer struct {
 	*csicommon.DefaultNodeServer
-	providerVolumePath  string
-	minProviderVersions map[string]string
-	mounter             mount.Interface
-	reporter            StatsReporter
-	nodeID              string
-	client              client.Client
+	providerVolumePath     string
+	minProviderVersions    map[string]string
+	mounter                mount.Interface
+	reporter               StatsReporter
+	nodeID                 string
+	client                 client.Client
+	grpcSupportedProviders map[string]bool
 }
 
 const (
@@ -54,8 +56,6 @@ const (
 	csipodnamespace                      = "csi.storage.k8s.io/pod.namespace"
 	csipoduid                            = "csi.storage.k8s.io/pod.uid"
 	csipodsa                             = "csi.storage.k8s.io/serviceAccount.name"
-	providerField                        = "provider"
-	parametersField                      = "parameters"
 	secretProviderClassField             = "secretProviderClass"
 )
 
@@ -159,18 +159,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if !req.GetReadonly() {
 		return nil, status.Error(codes.InvalidArgument, "Readonly is not true in request")
 	}
-	// get provider volume path
-	providerVolumePath := ns.providerVolumePath
-	if providerVolumePath == "" {
-		return nil, fmt.Errorf("Providers volume path not found. Set PROVIDERS_VOLUME_PATH for pod: %s/%s", podNamespace, podName)
-	}
-
-	providerBinary := ns.getProviderPath(runtime.GOOS, providerName)
-	if _, err := os.Stat(providerBinary); err != nil {
-		errorReason = ProviderBinaryNotFound
-		log.Errorf("failed to find provider %s, err: %v for pod: %s/%s", providerName, err, podNamespace, podName)
-		return nil, err
-	}
 
 	parametersStr, err := json.Marshal(parameters)
 	if err != nil {
@@ -199,57 +187,13 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		return nil, err
 	}
 	mounted = true
-
-	log.Debugf("Calling provider: %s for pod: %s/%s", providerName, podNamespace, podName)
-
-	// check if minimum compatible provider version with current driver version is set
-	// if minimum version is not provided, skip check
-	if _, exists := ns.minProviderVersions[providerName]; !exists {
-		log.Warningf("minimum compatible %s provider version not set for pod: %s, ns: %s", providerName, podUID, podNamespace)
-	} else {
-		// check if provider is compatible with driver
-		providerCompatible, err := version.IsProviderCompatible(ctx, providerBinary, ns.minProviderVersions[providerName])
-		if err != nil {
-			return nil, err
-		}
-		if !providerCompatible {
-			errorReason = IncompatibleProviderVersion
-			return nil, fmt.Errorf("Minimum supported %s provider version with current driver is %s", providerName, ns.minProviderVersions[providerName])
-		}
+	var objectVersions map[string]string
+	if objectVersions, errorReason, err = ns.mountSecretsStoreObjectContent(ctx, providerName, string(parametersStr), string(secretStr), targetPath, string(permissionStr)); err != nil {
+		return nil, fmt.Errorf("failed to mount secrets store objects for pod %s/%s, err: %v", podNamespace, podName, err)
 	}
 
-	args := []string{
-		"--attributes", string(parametersStr),
-		"--secrets", string(secretStr),
-		"--targetPath", string(targetPath),
-		"--permission", string(permissionStr),
-	}
-
-	log.Infof("provider command invoked: %s %s %v", providerBinary,
-		"--attributes [REDACTED] --secrets [REDACTED]", args[4:])
-
-	// using exec.CommandContext will ensure if the parent context deadlines, the call to provider is terminated
-	// and the process is killed
-	cmd := exec.CommandContext(
-		ctx,
-		providerBinary,
-		args...,
-	)
-
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
-	cmd.Stderr, cmd.Stdout = stderr, stdout
-
-	err = cmd.Run()
-
-	log.Infof(string(stdout.String()))
-	if err != nil {
-		errorReason = ProviderError
-		log.Errorf("error invoking provider, err: %v, output: %v for pod: %s/%s", err, stderr.String(), podNamespace, podName)
-		return nil, fmt.Errorf("error mounting secret %v for pod: %s/%s", stderr.String(), podNamespace, podName)
-	}
 	// create the secret provider class pod status object
-	if err = createSecretProviderClassPodStatus(ctx, ns.client, podName, podNamespace, podUID, secretProviderClass, targetPath, ns.nodeID, true); err != nil {
+	if err = createSecretProviderClassPodStatus(ctx, ns.client, podName, podNamespace, podUID, secretProviderClass, targetPath, ns.nodeID, true, objectVersions); err != nil {
 		return nil, fmt.Errorf("failed to create secret provider class pod status for pod %s/%s, err: %v", podNamespace, podName, err)
 	}
 
@@ -328,4 +272,83 @@ func (ns *nodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstag
 	}
 
 	return &csi.NodeUnstageVolumeResponse{}, nil
+}
+
+func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, providerName, attributes, secrets, targetPath, permission string) (map[string]string, string, error) {
+	if len(attributes) == 0 {
+		return nil, "", errors.New("missing attributes")
+	}
+	if len(targetPath) == 0 {
+		return nil, "", errors.New("missing target path")
+	}
+	if len(permission) == 0 {
+		return nil, "", errors.New("missing file permissions")
+	}
+	// get provider volume path
+	providerVolumePath := ns.providerVolumePath
+	if providerVolumePath == "" {
+		return nil, "", fmt.Errorf("providers volume path not found. Set PROVIDERS_VOLUME_PATH")
+	}
+
+	// if the provider supports and is running grpc server, then communicate with
+	// provider using the grpc client, otherwise fallback to invoking the provider
+	// binary which is how it was initially implemented
+	_, exists := ns.grpcSupportedProviders[providerName]
+	if exists {
+		log.Infof("Using grpc client for provider: %s", providerName)
+		providerClient, err := newProviderClient(csiProviderName(providerName), ns.providerVolumePath)
+		if err != nil {
+			return nil, FailedToCreateProviderGRPCClient, fmt.Errorf("failed to create provider client, err: %+v", err)
+		}
+		return providerClient.MountContent(ctx, attributes, secrets, targetPath, permission)
+	}
+
+	providerBinary := ns.getProviderPath(runtime.GOOS, providerName)
+	if _, err := os.Stat(providerBinary); err != nil {
+		return nil, ProviderBinaryNotFound, fmt.Errorf("failed to find provider binary %s, err: %v", providerName, err)
+	}
+
+	// check if minimum compatible provider version with current driver version is set
+	// if minimum version is not provided, skip check
+	if _, exists := ns.minProviderVersions[providerName]; !exists {
+		log.Warningf("minimum compatible %s provider version not set", providerName)
+	} else {
+		// check if provider is compatible with driver
+		providerCompatible, err := version.IsProviderCompatible(ctx, providerBinary, ns.minProviderVersions[providerName])
+		if err != nil {
+			return nil, "", err
+		}
+		if !providerCompatible {
+			return nil, IncompatibleProviderVersion, fmt.Errorf("Minimum supported %s provider version with current driver is %s", providerName, ns.minProviderVersions[providerName])
+		}
+	}
+
+	args := []string{
+		"--attributes", attributes,
+		"--secrets", secrets,
+		"--targetPath", targetPath,
+		"--permission", permission,
+	}
+
+	log.Infof("provider command invoked: %s %s %v", providerBinary,
+		"--attributes [REDACTED] --secrets [REDACTED]", args[4:])
+
+	// using exec.CommandContext will ensure if the parent context deadlines, the call to provider is terminated
+	// and the process is killed
+	cmd := exec.CommandContext(
+		ctx,
+		providerBinary,
+		args...,
+	)
+
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd.Stderr, cmd.Stdout = stderr, stdout
+
+	err := cmd.Run()
+	log.Infof(stdout.String())
+	if err != nil {
+		return nil, ProviderError, fmt.Errorf("failed to mount objects, err: %s", err.Error()+"\n"+stderr.String())
+	}
+	return nil, "", nil
 }
