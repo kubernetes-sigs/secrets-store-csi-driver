@@ -2,7 +2,7 @@
 
 load helpers
 
-BATS_TESTS_DIR=test/bats/tests
+BATS_TESTS_DIR=test/bats/tests/azure
 WAIT_TIME=60
 SLEEP_TIME=1
 IMAGE_TAG=v0.0.8-e2e-$(git rev-parse --short HEAD)
