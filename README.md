@@ -1,6 +1,9 @@
 # Kubernetes-Secrets-Store-CSI-Driver
 
 [![Build status](https://prow.k8s.io/badge.svg?jobs=secrets-store-csi-driver-e2e-vault-postsubmit)](https://testgrid.k8s.io/sig-auth-secrets-store-csi-driver#secrets-store-csi-driver-e2e-vault-postsubmit)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/kubernetes-sigs/secrets-store-csi-driver)
+[![Go Report Card](https://goreportcard.com/badge/kubernetes-sigs/secrets-store-csi-driver)](https://goreportcard.com/report/kubernetes-sigs/secrets-store-csi-driver)
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/kubernetes-sigs/secrets-store-csi-driver)
 
 Secrets Store CSI driver for Kubernetes secrets - Integrates secrets stores with Kubernetes via a [Container Storage Interface (CSI)](https://kubernetes-csi.github.io/docs/) volume.
 
@@ -25,18 +28,30 @@ Join us to help define the direction and implementation of this project!
 
 #### Table of Contents
 
-- [How It Works](#how-it-works)
-- [Demo](#demo)
-- [Usage](#usage)
-- [Providers](#providers)
-  - [Azure Key Vault Provider](https://github.com/Azure/secrets-store-csi-driver-provider-azure) - Supports Linux and Windows
-  - [HashiCorp Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault) - Supports Linux
-  - [Adding a New Provider via the Provider Interface](#criteria-for-supported-providers)
-- [Testing](#testing)
-  - [Unit Tests](#unit-tests)
-  - [End-to-end Tests](#end-to-end-tests)
-- [Troubleshooting](#troubleshooting)
-- [Code of conduct](#code-of-conduct)
+- [Kubernetes-Secrets-Store-CSI-Driver](#kubernetes-secrets-store-csi-driver)
+  - [Want to help?](#want-to-help)
+  - [Features](#features)
+      - [Table of Contents](#table-of-contents)
+  - [How It Works](#how-it-works)
+  - [Demo](#demo)
+  - [Usage](#usage)
+    - [Prerequisites](#prerequisites)
+      - [Supported kubernetes versions](#supported-kubernetes-versions)
+    - [Install the Secrets Store CSI Driver](#install-the-secrets-store-csi-driver)
+    - [Use the Secrets Store CSI Driver with a Provider](#use-the-secrets-store-csi-driver-with-a-provider)
+    - [Create your own SecretProviderClass Object](#create-your-own-secretproviderclass-object)
+    - [Update your Deployment Yaml](#update-your-deployment-yaml)
+    - [Secret Content is Mounted on Pod Start](#secret-content-is-mounted-on-pod-start)
+    - [[OPTIONAL] Sync with Kubernetes Secrets](#optional-sync-with-kubernetes-secrets)
+    - [[OPTIONAL] Set ENV VAR](#optional-set-env-var)
+  - [Providers](#providers)
+    - [Criteria for Supported Providers](#criteria-for-supported-providers)
+    - [Removal from Supported Providers](#removal-from-supported-providers)
+  - [Testing](#testing)
+    - [Unit Tests](#unit-tests)
+    - [End-to-end Tests](#end-to-end-tests)
+  - [Troubleshooting](#troubleshooting)
+  - [Code of conduct](#code-of-conduct)
 
 ## How It Works
 
