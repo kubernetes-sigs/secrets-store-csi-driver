@@ -25,16 +25,6 @@ rules:
   verbs:
   - get
   - list
-  - update
-  - watch
-- apiGroups:
-  - secrets-store.csi.x-k8s.io
-  resources:
-  - secretproviderclasses/status
-  verbs:
-  - get
-  - patch
-  - update
   - watch
 - apiGroups:
   - secrets-store.csi.x-k8s.io
