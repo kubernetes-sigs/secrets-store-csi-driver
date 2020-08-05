@@ -175,7 +175,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 			}
 
 			createFn := func() (bool, error) {
-				if err := r.createK8sSecret(ctx, secretObj.SecretName, req.Namespace, datamap, secretType); err != nil {
+				if err := r.createK8sSecret(ctx, secretObj.SecretName, req.Namespace, datamap, secretObj.Labels, secretType); err != nil {
 					logger.Errorf("failed createK8sSecret, err: %v for secret: %s", err, secretObj.SecretName)
 					return false, nil
 				}
@@ -225,11 +225,12 @@ func (r *SecretProviderClassPodStatusReconciler) SetupWithManager(mgr ctrl.Manag
 
 // createK8sSecret creates K8s secret with data from mounted files
 // If a secret with the same name already exists in the namespace of the pod, the error is nil.
-func (r *SecretProviderClassPodStatusReconciler) createK8sSecret(ctx context.Context, name, namespace string, datamap map[string][]byte, secretType corev1.SecretType) error {
+func (r *SecretProviderClassPodStatusReconciler) createK8sSecret(ctx context.Context, name, namespace string, datamap map[string][]byte, labelsmap map[string]string, secretType corev1.SecretType) error {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,
+			Labels:    labelsmap,
 		},
 		Type: secretType,
 		Data: datamap,

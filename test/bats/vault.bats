@@ -10,6 +10,7 @@ NAMESPACE=default
 PROVIDER_YAML=https://raw.githubusercontent.com/hashicorp/secrets-store-csi-driver-provider-vault/master/deployment/provider-vault-installer.yaml
 
 export CONTAINER_IMAGE=nginx
+export LABEL_VALUE=${LABEL_VALUE:-"test"}
 
 @test "install vault provider" {
   run kubectl apply -f $PROVIDER_YAML --namespace $NAMESPACE
@@ -182,6 +183,9 @@ EOF
 
   result=$(kubectl exec -it $POD -- printenv | grep SECRET_USERNAME | awk -F"=" '{ print $2 }' | tr -d '\r\n')
   [[ "$result" == "hello1" ]]
+
+  result=$(kubectl get secret foosecret -o jsonpath="{.metadata.labels.environment}")
+  [[ "${result//$'\r'}" == "${LABEL_VALUE}" ]]
 
   result=$(kubectl get secret foosecret -o json | jq '.metadata.ownerReferences | length')
   [[ "$result" -eq 2 ]]
