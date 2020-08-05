@@ -130,51 +130,64 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 			errs = append(errs, fmt.Errorf("data is empty at index %d for secret %s", idx, secretObj.SecretName))
 			continue
 		}
-		exists, err := r.secretExists(ctx, secretObj.SecretName, req.Namespace)
+		exists, currentData, err := r.secretExists(ctx, secretObj.SecretName, req.Namespace)
 		if err != nil {
 			logger.Errorf("failed to check if secret %s exists, err: %+v", secretObj.SecretName, err)
 			errs = append(errs, fmt.Errorf("failed to check if secret %s exists, err: %+v", secretObj.SecretName, err))
 			continue
 		}
 		funcs := []func() (bool, error){}
+		oldSHAData, err := getSHAfromSecret(currentData)
+		if err != nil {
+			logger.Errorf("failed to generate SHA for secret %s, err: %+v", secretObj.SecretName, err)
+			errs = append(errs, fmt.Errorf("failed to generate SHA for secret %s, err: %+v", secretObj.SecretName, err))
+			continue
+		}
+
+		secretType := getSecretType(secretObj.Type)
+		datamap := make(map[string][]byte)
+
+		for _, data := range secretObj.Data {
+			if len(data.ObjectName) == 0 {
+				logger.Errorf("object name in data is empty at index %d for secret %s", idx, secretObj.SecretName)
+				errs = append(errs, fmt.Errorf("object name in data is empty at index %d for secret %s", idx, secretObj.SecretName))
+				continue
+			}
+			if len(data.Key) == 0 {
+				logger.Errorf("key in data is empty at index %d for secret %s", idx, secretObj.SecretName)
+				errs = append(errs, fmt.Errorf("key in data is empty at index %d for secret %s", idx, secretObj.SecretName))
+				continue
+			}
+			file, ok := files[data.ObjectName]
+			if !ok {
+				logger.Errorf("file matching objectName %s not found for secret %s", data.ObjectName, secretObj.SecretName)
+				continue
+			}
+			logger.Infof("file matching objectName %s found for key %s, secret %s", data.ObjectName, data.Key, secretObj.SecretName)
+			content, err := ioutil.ReadFile(file)
+			if err != nil {
+				logger.Errorf("failed to read file %s, err: %v", data.ObjectName, err)
+				return ctrl.Result{}, status.Error(codes.Internal, err.Error())
+			}
+			datamap[data.Key] = content
+			if secretType == corev1.SecretTypeTLS {
+				c, err := getCertPart(content, data.Key)
+				if err != nil {
+					logger.Errorf("failed to get cert data from file %s, err: %v for secret: %s", file, err, secretObj.SecretName)
+					return ctrl.Result{RequeueAfter: 5 * time.Second}, status.Error(codes.Internal, err.Error())
+				}
+				datamap[data.Key] = c
+			}
+		}
+
+		newSHAData, err := getSHAfromSecret(datamap)
+		if err != nil {
+			logger.Errorf("failed to generate SHA for secret %s, err: %+v", secretObj.SecretName, err)
+			errs = append(errs, fmt.Errorf("failed to generate SHA for secret %s, err: %+v", secretObj.SecretName, err))
+			continue
+		}
 
 		if !exists {
-			secretType := getSecretType(secretObj.Type)
-			datamap := make(map[string][]byte)
-
-			for _, data := range secretObj.Data {
-				if len(data.ObjectName) == 0 {
-					logger.Errorf("object name in data is empty at index %d for secret %s", idx, secretObj.SecretName)
-					errs = append(errs, fmt.Errorf("object name in data is empty at index %d for secret %s", idx, secretObj.SecretName))
-					continue
-				}
-				if len(data.Key) == 0 {
-					logger.Errorf("key in data is empty at index %d for secret %s", idx, secretObj.SecretName)
-					errs = append(errs, fmt.Errorf("key in data is empty at index %d for secret %s", idx, secretObj.SecretName))
-					continue
-				}
-				file, ok := files[data.ObjectName]
-				if !ok {
-					logger.Errorf("file matching objectName %s not found for secret %s", data.ObjectName, secretObj.SecretName)
-					continue
-				}
-				logger.Infof("file matching objectName %s found for key %s, secret %s", data.ObjectName, data.Key, secretObj.SecretName)
-				content, err := ioutil.ReadFile(file)
-				if err != nil {
-					logger.Errorf("failed to read file %s, err: %v", data.ObjectName, err)
-					return ctrl.Result{}, status.Error(codes.Internal, err.Error())
-				}
-				datamap[data.Key] = content
-				if secretType == corev1.SecretTypeTLS {
-					c, err := getCertPart(content, data.Key)
-					if err != nil {
-						logger.Errorf("failed to get cert data from file %s, err: %v for secret: %s", file, err, secretObj.SecretName)
-						return ctrl.Result{RequeueAfter: 5 * time.Second}, status.Error(codes.Internal, err.Error())
-					}
-					datamap[data.Key] = c
-				}
-			}
-
 			createFn := func() (bool, error) {
 				if err := r.createK8sSecret(ctx, secretObj.SecretName, req.Namespace, datamap, secretType); err != nil {
 					logger.Errorf("failed createK8sSecret, err: %v for secret: %s", err, secretObj.SecretName)
@@ -185,9 +198,15 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 			funcs = append(funcs, createFn)
 		}
 
+		var dataPatchBytes map[string][]byte
+		if exists && oldSHAData != newSHAData {
+			logger.Infof("patching secret data for %s", secretObj.SecretName)
+			dataPatchBytes = datamap
+		}
+
 		// patch the secret with the owner reference
 		patchFn := func() (bool, error) {
-			if err := r.patchSecretWithOwnerRef(ctx, secretObj.SecretName, req.Namespace, &spcPodStatus); err != nil {
+			if err := r.patchSecret(ctx, secretObj.SecretName, req.Namespace, &spcPodStatus, dataPatchBytes); err != nil {
 				logger.Errorf("failed to set owner ref for secret, err: %+v", err)
 				return false, nil
 			}
@@ -248,7 +267,8 @@ func (r *SecretProviderClassPodStatusReconciler) createK8sSecret(ctx context.Con
 }
 
 // patchSecretWithOwnerRef patches the secret owner reference with the spc pod status
-func (r *SecretProviderClassPodStatusReconciler) patchSecretWithOwnerRef(ctx context.Context, name, namespace string, spcPodStatus *v1alpha1.SecretProviderClassPodStatus) error {
+// and patches the data if data is provided
+func (r *SecretProviderClassPodStatusReconciler) patchSecret(ctx context.Context, name, namespace string, spcPodStatus *v1alpha1.SecretProviderClassPodStatus, data map[string][]byte) error {
 	secret := &corev1.Secret{}
 	secretKey := types.NamespacedName{
 		Namespace: namespace,
@@ -264,11 +284,16 @@ func (r *SecretProviderClassPodStatusReconciler) patchSecretWithOwnerRef(ctx con
 	if err != nil {
 		return err
 	}
+	// Patching data replaces values for existing data keys
+	// and appends new keys if it doesn't already exist
+	if len(data) > 0 {
+		secret.Data = data
+	}
 	return r.Writer.Patch(ctx, secret, patch)
 }
 
 // secretExists checks if the secret with name and namespace already exists
-func (r *SecretProviderClassPodStatusReconciler) secretExists(ctx context.Context, name, namespace string) (bool, error) {
+func (r *SecretProviderClassPodStatusReconciler) secretExists(ctx context.Context, name, namespace string) (bool, map[string][]byte, error) {
 	o := &v1.Secret{}
 	secretKey := types.NamespacedName{
 		Namespace: namespace,
@@ -276,10 +301,10 @@ func (r *SecretProviderClassPodStatusReconciler) secretExists(ctx context.Contex
 	}
 	err := r.Client.Get(ctx, secretKey, o)
 	if err == nil {
-		return true, nil
+		return true, o.Data, nil
 	}
 	if apierrors.IsNotFound(err) {
-		return false, nil
+		return false, nil, nil
 	}
-	return false, err
+	return false, nil, err
 }

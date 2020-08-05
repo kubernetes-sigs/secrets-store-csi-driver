@@ -161,3 +161,41 @@ func TestGetCert(t *testing.T) {
 		assert.Equal(t, tc.expectedPEM, actualPEM)
 	}
 }
+
+func TestGenerateSHAFromSecret(t *testing.T) {
+	cases := []struct {
+		desc             string
+		data1            map[string][]byte
+		data2            map[string][]byte
+		expectedSHAMatch bool
+	}{
+		{
+			desc:             "SHA mismatch as data1 missing key",
+			data1:            map[string][]byte{},
+			data2:            map[string][]byte{"key": []byte("value")},
+			expectedSHAMatch: false,
+		},
+		{
+			desc:             "SHA mismatch as data1 key different",
+			data1:            map[string][]byte{"key": []byte("oldvalue")},
+			data2:            map[string][]byte{"key": []byte("newvalue")},
+			expectedSHAMatch: false,
+		},
+		{
+			desc:             "SHA match",
+			data1:            map[string][]byte{"key": []byte("value")},
+			data2:            map[string][]byte{"key": []byte("value")},
+			expectedSHAMatch: true,
+		},
+	}
+
+	for _, tc := range cases {
+		sha1, err := getSHAfromSecret(tc.data1)
+		assert.NoError(t, err)
+
+		sha2, err := getSHAfromSecret(tc.data2)
+		assert.NoError(t, err)
+
+		assert.Equal(t, tc.expectedSHAMatch, sha1 == sha2)
+	}
+}

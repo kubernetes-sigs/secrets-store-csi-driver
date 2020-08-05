@@ -97,16 +97,16 @@ func TestSecretExists(t *testing.T) {
 	client := fake.NewFakeClientWithScheme(scheme, initObjects...)
 	reconciler := newReconciler(client, scheme)
 
-	exists, err := reconciler.secretExists(context.TODO(), "my-secret", "default")
+	exists, _, err := reconciler.secretExists(context.TODO(), "my-secret", "default")
 	g.Expect(exists).To(Equal(true))
 	g.Expect(err).NotTo(HaveOccurred())
 
-	exists, err = reconciler.secretExists(context.TODO(), "my-secret2", "default")
+	exists, _, err = reconciler.secretExists(context.TODO(), "my-secret2", "default")
 	g.Expect(exists).To(Equal(false))
 	g.Expect(err).NotTo(HaveOccurred())
 }
 
-func TestPatchSecretWithOwnerRef(t *testing.T) {
+func TestPatchSecret(t *testing.T) {
 	g := NewWithT(t)
 
 	scheme, err := setupScheme()
@@ -121,13 +121,32 @@ func TestPatchSecretWithOwnerRef(t *testing.T) {
 	client := fake.NewFakeClientWithScheme(scheme, initObjects...)
 	reconciler := newReconciler(client, scheme)
 
-	err = reconciler.patchSecretWithOwnerRef(context.TODO(), "my-secret", "default", spcPodStatus)
+	err = reconciler.patchSecret(context.TODO(), "my-secret", "default", spcPodStatus, nil)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	secret := &v1.Secret{}
 	err = client.Get(context.TODO(), types.NamespacedName{Name: "my-secret", Namespace: "default"}, secret)
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(secret.GetOwnerReferences()).To(HaveLen(1))
+
+	err = reconciler.patchSecret(context.TODO(), "my-secret", "default", spcPodStatus, map[string][]byte{"key": []byte("value")})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	err = client.Get(context.TODO(), types.NamespacedName{Name: "my-secret", Namespace: "default"}, secret)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(secret.GetOwnerReferences()).To(HaveLen(1))
+	g.Expect(secret.Data).To(HaveLen(1))
+	g.Expect(string(secret.Data["key"])).To(Equal("value"))
+
+	err = reconciler.patchSecret(context.TODO(), "my-secret", "default", spcPodStatus, map[string][]byte{"key": []byte("newvalue"), "foo": []byte("bar")})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	err = client.Get(context.TODO(), types.NamespacedName{Name: "my-secret", Namespace: "default"}, secret)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(secret.GetOwnerReferences()).To(HaveLen(1))
+	g.Expect(secret.Data).To(HaveLen(2))
+	g.Expect(string(secret.Data["key"])).To(Equal("newvalue"))
+	g.Expect(string(secret.Data["foo"])).To(Equal("bar"))
 }
 
 func TestCreateK8sSecret(t *testing.T) {

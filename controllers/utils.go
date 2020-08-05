@@ -19,10 +19,13 @@ package controllers
 import (
 	"crypto/ecdsa"
 	"crypto/rsa"
+	"crypto/sha1"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"sort"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -146,4 +149,25 @@ func getMountedFiles(targetPath string) (map[string]string, error) {
 		paths[file.Name()] = targetPath + sep + file.Name()
 	}
 	return paths, nil
+}
+
+// getSHAfromSecret gets SHA for the secret data
+func getSHAfromSecret(data map[string][]byte) (string, error) {
+	values := []string{}
+	for k, v := range data {
+		values = append(values, k+"="+string(v[:]))
+	}
+	sort.Strings(values)
+	return generateSHA(strings.Join(values, ";"))
+}
+
+// generateSHA generates SHA from string
+func generateSHA(data string) (string, error) {
+	hasher := sha1.New()
+	_, err := io.WriteString(hasher, data)
+	if err != nil {
+		return "", err
+	}
+	sha := hasher.Sum(nil)
+	return fmt.Sprintf("%x", sha), nil
 }
