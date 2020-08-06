@@ -16,6 +16,7 @@ linux:
   nodeSelector: {}
   tolerations: []
   metricsAddr: ":8080"
+  env: []
 
 windows:
   enabled: false
@@ -35,6 +36,7 @@ windows:
   nodeSelector: {}
   tolerations: []
   metricsAddr: ":8080"
+  env: []
 
 logLevel:
   debug: true

@@ -37,6 +37,7 @@ The following table lists the configurable parameters of the csi-secrets-store-p
 | `linux.livenessProbeImage.repository` | Linux liveness-probe image repository | `quay.io/k8scsi/livenessprobe` |
 | `linux.livenessProbeImage.pullPolicy` | Linux liveness-probe image pull policy | `Always` |
 | `linux.livenessProbeImage.tag` | Linux liveness-probe image tag | `v2.0.0` |
+| `linux.env` | Environment variables to be passed for the daemonset on linux nodes  | `[]` |
 | `windows.image.repository` | Windows image repository | `us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver` |
 | `windows.image.pullPolicy` | Windows image pull policy | `IfNotPresent` |
 | `windows.image.tag` | Windows image tag | `v0.0.12` |
@@ -51,6 +52,7 @@ The following table lists the configurable parameters of the csi-secrets-store-p
 | `windows.livenessProbeImage.repository` | Windows liveness-probe image repository | `mcr.microsoft.com/oss/kubernetes-csi/livenessprobe` |
 | `windows.livenessProbeImage.pullPolicy` | Windows liveness-probe image pull policy | `Always` |
 | `windows.livenessProbeImage.tag` | Windows liveness-probe image tag | `v2.0.1-alpha.1-windows-1809-amd64` |
+| `windows.env` | Environment variables to be passed for the daemonset on windows nodes  | `[]` |
 | `logLevel.debug` | Enable debug logging | true |
 | `livenessProbe.port` | Liveness probe port | `9808` |
 | `livenessProbe.logLevel` | Liveness probe container logging verbosity level | `2` |
