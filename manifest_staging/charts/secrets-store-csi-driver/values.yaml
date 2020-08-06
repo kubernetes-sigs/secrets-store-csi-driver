@@ -4,6 +4,14 @@ linux:
     repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
     tag: v0.0.12
     pullPolicy: Always
+  registrarImage:
+    repository: quay.io/k8scsi/csi-node-driver-registrar
+    tag: v1.2.0
+    pullPolicy: Always
+  livenessProbeImage:
+    repository: quay.io/k8scsi/livenessprobe
+    tag: v2.0.0
+    pullPolicy: Always
   kubeletRootDir: /var/lib/kubelet
   nodeSelector: {}
   tolerations: []
@@ -15,6 +23,14 @@ windows:
     repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
     tag: v0.0.12
     pullPolicy: IfNotPresent
+  registrarImage:
+    repository: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar
+    tag: v1.2.1-alpha.1-windows-1809-amd64
+    pullPolicy: Always
+  livenessProbeImage:
+    repository: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe
+    tag: v2.0.1-alpha.1-windows-1809-amd64
+    pullPolicy: Always
   kubeletRootDir: C:\var\lib\kubelet
   nodeSelector: {}
   tolerations: []
