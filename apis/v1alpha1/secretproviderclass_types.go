@@ -32,8 +32,10 @@ type SecretObject struct {
 	// name of the K8s secret object
 	SecretName string `json:"secretName,omitempty"`
 	// type of K8s secret object
-	Type string              `json:"type,omitempty"`
-	Data []*SecretObjectData `json:"data,omitempty"`
+	Type string `json:"type,omitempty"`
+	// labels of K8s secret object
+	Labels map[string]string   `json:"labels,omitempty"`
+	Data   []*SecretObjectData `json:"data,omitempty"`
 }
 
 // SecretProviderClassSpec defines the desired state of SecretProviderClass
