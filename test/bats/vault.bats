@@ -14,7 +14,6 @@ export CONTAINER_IMAGE=nginx
 @test "install vault provider" {
   run kubectl apply -f $PROVIDER_YAML --namespace $NAMESPACE
   assert_success
-  sleep 5
 
   cmd="kubectl wait --for=condition=Ready --timeout=60s pod -l app=csi-secrets-store-provider-vault --namespace $NAMESPACE"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
@@ -251,6 +250,8 @@ EOF
 }
 
 @test "Test Namespaced scope SecretProviderClass - Should fail when no secret provider class in same namespace" {
+  export VAULT_SERVICE_IP=$(kubectl get service vault -o jsonpath='{.spec.clusterIP}')
+
   run kubectl create ns negative-test-ns
   assert_success
 
@@ -266,4 +267,61 @@ EOF
 
   run kubectl delete ns negative-test-ns
   assert_success
+}
+
+@test "deploy multiple azure secretproviderclass crd" {
+  export VAULT_SERVICE_IP=$(kubectl get service vault -o jsonpath='{.spec.clusterIP}')
+
+  envsubst < $BATS_TESTS_DIR/vault_v1alpha1_multiple_secretproviderclass.yaml | kubectl apply -f -
+
+  cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/vault-foo-sync-0 -o yaml | grep vault-foo-sync-0"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/vault-foo-sync-1 -o yaml | grep vault-foo-sync-1"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+}
+
+@test "deploy pod with multiple secret provider class" {
+  envsubst < $BATS_TESTS_DIR/nginx-pod-vault-inline-volume-multiple-spc.yaml | kubectl apply -f -
+  
+  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/nginx-secrets-store-inline-multiple-crd"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  run kubectl get pod/nginx-secrets-store-inline-multiple-crd
+  assert_success
+}
+
+@test "CSI inline volume test with multiple secret provider class" {
+  result=$(kubectl exec -it nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/foo)
+  [[ "$result" == "hello" ]]
+
+  result=$(kubectl exec -it nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/foo1)
+  [[ "$result" == "hello1" ]]
+
+  result=$(kubectl get secret foosecret-0 -o jsonpath="{.data.pwd}" | base64 -d)
+  [[ "$result" == "hello" ]]
+
+  result=$(kubectl exec -it nginx-secrets-store-inline-multiple-crd -- printenv | grep SECRET_USERNAME_0 | awk -F"=" '{ print $2 }' | tr -d '\r\n')
+  [[ "$result" == "hello1" ]]
+
+  result=$(kubectl get secret foosecret-0 -o json | jq '.metadata.ownerReferences | length')
+  [[ "$result" -eq 1 ]]
+
+  result=$(kubectl exec -it nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/foo)
+  [[ "$result" == "hello" ]]
+
+  result=$(kubectl exec -it nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/foo1)
+  [[ "$result" == "hello1" ]]
+
+  result=$(kubectl get secret foosecret-1 -o jsonpath="{.data.pwd}" | base64 -d)
+  [[ "$result" == "hello" ]]
+
+  result=$(kubectl exec -it nginx-secrets-store-inline-multiple-crd -- printenv | grep SECRET_USERNAME_1 | awk -F"=" '{ print $2 }' | tr -d '\r\n')
+  [[ "$result" == "hello1" ]]
+
+  result=$(kubectl get secret foosecret-1 -o json | jq '.metadata.ownerReferences | length')
+  [[ "$result" -eq 1 ]]
 }
