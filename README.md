@@ -159,7 +159,7 @@ spec:
   parameters:                                 # provider-specific parameters
 ```
 
-Here is a sample [`SecretProviderClass` custom resource](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/master/test/bats/tests/vault_v1alpha1_secretproviderclass.yaml)
+Here is a sample [`SecretProviderClass` custom resource](test/bats/tests/vault/vault_v1alpha1_secretproviderclass.yaml)
 
 ### Update your Deployment Yaml
 
@@ -175,7 +175,7 @@ volumes:
         secretProviderClass: "my-provider"
 ```
 
-Here is a sample [deployment yaml](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/master/test/bats/tests/nginx-pod-vault-inline-volume-secretproviderclass.yaml) using the Secrets Store CSI driver.
+Here is a sample [deployment yaml](test/bats/tests/vault/nginx-pod-vault-inline-volume-secretproviderclass.yaml) using the Secrets Store CSI driver.
 
 ### Secret Content is Mounted on Pod Start
 On pod start and restart, the driver will call the provider binary to retrieve the secret content from the external Secrets Store you have specified in the `SecretProviderClass` custom resource. Then the content will be mounted to the container's file system. 
@@ -209,7 +209,7 @@ spec:
 ```
 > NOTE: Here is the list of supported Kubernetes Secret types: `Opaque`, `kubernetes.io/basic-auth`, `bootstrap.kubernetes.io/token`, `kubernetes.io/dockerconfigjson`, `kubernetes.io/dockercfg`, `kubernetes.io/ssh-auth`, `kubernetes.io/service-account-token`, `kubernetes.io/tls`.  
 
-Here is a sample [`SecretProviderClass` custom resource](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/master/test/bats/tests/vault_synck8s_v1alpha1_secretproviderclass.yaml) that syncs Kubernetes secrets.
+Here is a sample [`SecretProviderClass` custom resource](test/bats/tests/vault/vault_synck8s_v1alpha1_secretproviderclass.yaml) that syncs Kubernetes secrets.
 
 ### [OPTIONAL] Set ENV VAR
 
@@ -227,7 +227,7 @@ spec:
           name: foosecret
           key: username
 ```
-Here is a sample [deployment yaml](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/master/test/bats/tests/nginx-deployment-synck8s.yaml) that creates an ENV VAR from the synced Kubernetes secret.
+Here is a sample [deployment yaml](test/bats/tests/vault/nginx-deployment-synck8s.yaml) that creates an ENV VAR from the synced Kubernetes secret.
 
 
 ## Providers
