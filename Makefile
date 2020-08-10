@@ -53,8 +53,8 @@ test: test-style
 	go vet $(GO_FILES)
 test-style: setup
 	@echo "==> Running static validations and linters <=="
-	# Setting deadline to 5m as deafult is 1m
-	golangci-lint run --deadline=5m
+	# Setting timeout to 5m as deafult is 1m
+	golangci-lint run --timeout=5m
 sanity-test:
 	go test -v ./test/sanity
 build: setup
