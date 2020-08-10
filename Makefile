@@ -53,8 +53,8 @@ test: test-style
 	go vet $(GO_FILES)
 test-style: setup
 	@echo "==> Running static validations and linters <=="
-	# Setting deadline to 5m as deafult is 1m
-	golangci-lint run --deadline=5m
+	# Setting timeout to 5m as deafult is 1m
+	golangci-lint run --timeout=5m
 sanity-test:
 	go test -v ./test/sanity
 build: setup
@@ -72,7 +72,7 @@ setup: clean
 	$Q go env
 
 ifndef HAS_GOLANGCI
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(GOPATH)/bin v1.19.1
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOPATH)/bin v1.30.0
 endif
 
 .PHONY: mod
