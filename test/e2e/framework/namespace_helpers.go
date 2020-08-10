@@ -1,0 +1,178 @@
+// copied from https://github.com/kubernetes-sigs/cluster-api/blob/v0.3.6/test/framework/namespace_helpers.go
+// and modified
+
+package framework
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path"
+	"path/filepath"
+	"time"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+// CreateNamespaceInput is the input type for CreateNamespace.
+type CreateNamespaceInput struct {
+	Creator Creator
+	Name    string
+}
+
+// CreateNamespace is used to create a namespace object.
+// If name is empty, a "test-" + time.Now().Unix() name will be generated.
+func CreateNamespace(ctx context.Context, input CreateNamespaceInput, intervals ...interface{}) *corev1.Namespace {
+	Expect(ctx).NotTo(BeNil(), "ctx is required for DeleteNamespace")
+	Expect(input.Creator).NotTo(BeNil(), "input.Creator is required for CreateNamespace")
+	if input.Name == "" {
+		input.Name = fmt.Sprintf("test-%d", time.Now().Unix())
+	}
+
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: input.Name,
+		},
+	}
+	fmt.Fprintf(GinkgoWriter, "Creating namespace %s\n", input.Name)
+	Eventually(func() error {
+		return input.Creator.Create(context.TODO(), ns)
+	}, intervals...).Should(Succeed())
+
+	return ns
+}
+
+// EnsureNamespace verifies if a namespaces exists. If it doesn't it will
+// create the namespace.
+func EnsureNamespace(ctx context.Context, mgmt client.Client, namespace string) {
+	ns := &corev1.Namespace{}
+	err := mgmt.Get(ctx, client.ObjectKey{Name: namespace}, ns)
+	if err != nil && apierrors.IsNotFound(err) {
+		ns = &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespace,
+			},
+		}
+		Expect(mgmt.Create(ctx, ns)).To(Succeed())
+	} else {
+		Fail(err.Error())
+	}
+}
+
+// DeleteNamespaceInput is the input type for DeleteNamespace.
+type DeleteNamespaceInput struct {
+	Deleter Deleter
+	Name    string
+}
+
+// DeleteNamespace is used to delete namespace object.
+func DeleteNamespace(ctx context.Context, input DeleteNamespaceInput, intervals ...interface{}) {
+	Expect(ctx).NotTo(BeNil(), "ctx is required for DeleteNamespace")
+	Expect(input.Deleter).NotTo(BeNil(), "input.Deleter is required for DeleteNamespace")
+	Expect(input.Name).NotTo(BeEmpty(), "input.Name is required for DeleteNamespace")
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: input.Name,
+		},
+	}
+	fmt.Fprintf(GinkgoWriter, "Deleting namespace %s\n", input.Name)
+	Eventually(func() error {
+		return input.Deleter.Delete(context.TODO(), ns)
+	}, intervals...).Should(Succeed())
+}
+
+// WatchNamespaceEventsInput is the input type for WatchNamespaceEvents.
+type WatchNamespaceEventsInput struct {
+	ClientSet *kubernetes.Clientset
+	Name      string
+	LogFolder string
+}
+
+// WatchNamespaceEvents creates a watcher that streams namespace events into a file.
+// Example usage:
+//    ctx, cancelWatches := context.WithCancel(context.Background())
+//    go func() {
+//    	defer GinkgoRecover()
+//    	framework.WatchNamespaceEvents(ctx, framework.WatchNamespaceEventsInput{
+//    		ClientSet: clientSet,
+//    		Name: namespace.Name,
+//    		LogFolder:   logFolder,
+//    	})
+//    }()
+//    defer cancelWatches()
+func WatchNamespaceEvents(ctx context.Context, input WatchNamespaceEventsInput) {
+	Expect(ctx).NotTo(BeNil(), "ctx is required for WatchNamespaceEvents")
+	Expect(input.ClientSet).NotTo(BeNil(), "input.ClientSet is required for WatchNamespaceEvents")
+	Expect(input.Name).NotTo(BeEmpty(), "input.Name is required for WatchNamespaceEvents")
+
+	logFile := path.Join(input.LogFolder, "resources", input.Name, "events.log")
+	Expect(os.MkdirAll(filepath.Dir(logFile), 0755)).To(Succeed())
+
+	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	Expect(err).NotTo(HaveOccurred())
+	defer f.Close()
+
+	informerFactory := informers.NewSharedInformerFactoryWithOptions(
+		input.ClientSet,
+		10*time.Minute,
+		informers.WithNamespace(input.Name),
+	)
+	eventInformer := informerFactory.Core().V1().Events().Informer()
+	eventInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			e := obj.(*corev1.Event)
+			f.WriteString(fmt.Sprintf("[New Event] %s/%s\n\tresource: %s/%s/%s\n\treason: %s\n\tmessage: %s\n\tfull: %#v\n",
+				e.Namespace, e.Name, e.InvolvedObject.APIVersion, e.InvolvedObject.Kind, e.InvolvedObject.Name, e.Reason, e.Message, e))
+		},
+		UpdateFunc: func(_, obj interface{}) {
+			e := obj.(*corev1.Event)
+			f.WriteString(fmt.Sprintf("[Updated Event] %s/%s\n\tresource: %s/%s/%s\n\treason: %s\n\tmessage: %s\n\tfull: %#v\n",
+				e.Namespace, e.Name, e.InvolvedObject.APIVersion, e.InvolvedObject.Kind, e.InvolvedObject.Name, e.Reason, e.Message, e))
+		},
+		DeleteFunc: func(obj interface{}) {},
+	})
+
+	stopInformer := make(chan struct{})
+	defer close(stopInformer)
+	informerFactory.Start(stopInformer)
+	<-ctx.Done()
+	stopInformer <- struct{}{}
+}
+
+// CreateNamespaceAndWatchEventsInput is the input type for CreateNamespaceAndWatchEvents.
+type CreateNamespaceAndWatchEventsInput struct {
+	Creator   Creator
+	ClientSet *kubernetes.Clientset
+	Name      string
+}
+
+// CreateNamespaceAndWatchEvents creates a namespace and setups a watch for the namespace events.
+func CreateNamespaceAndWatchEvents(ctx context.Context, input CreateNamespaceAndWatchEventsInput) (*corev1.Namespace, context.CancelFunc) {
+	Expect(ctx).NotTo(BeNil(), "ctx is required for CreateNamespaceAndWatchEvents")
+	Expect(input.Creator).ToNot(BeNil(), "Invalid argument. input.Creator can't be nil when calling CreateNamespaceAndWatchEvents")
+	Expect(input.ClientSet).ToNot(BeNil(), "Invalid argument. input.ClientSet can't be nil when calling ClientSet")
+	Expect(input.Name).ToNot(BeEmpty(), "Invalid argument. input.Name can't be empty when calling ClientSet")
+
+	namespace := CreateNamespace(ctx, CreateNamespaceInput{Creator: input.Creator, Name: input.Name}, "40s", "10s")
+	Expect(namespace).ToNot(BeNil(), "Failed to create namespace %q", input.Name)
+
+	fmt.Fprintf(GinkgoWriter, "Creating event watcher for namespace %q\n", input.Name)
+	watchesCtx, cancelWatches := context.WithCancel(ctx)
+	go func() {
+		defer GinkgoRecover()
+		WatchNamespaceEvents(watchesCtx, WatchNamespaceEventsInput{
+			ClientSet: input.ClientSet,
+			Name:      namespace.Name,
+		})
+	}()
+	return namespace, cancelWatches
+}

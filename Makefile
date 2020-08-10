@@ -118,7 +118,7 @@ ifdef TEST_WINDOWS
 		docker manifest inspect $(IMAGE_TAG)
 		docker manifest push --purge $(IMAGE_TAG)
 else
-		REGISTRY="e2e" make image
+		REGISTRY="e2e" $(MAKE) image
 		kind load docker-image --name kind e2e/secrets-store-csi:$(IMAGE_VERSION)
 endif
 
@@ -151,9 +151,13 @@ endif
 e2e-azure: install-driver
 	bats -t test/bats/azure.bats
 
+.PHONY: e2e-image
+e2e-image:
+	docker buildx build --no-cache --build-arg LDFLAGS=$(LDFLAGS) -t secrets-store-csi:e2e  -f docker/Dockerfile --platform="linux/amd64" --output "type=docker,push=false" .
+
 .PHONY: e2e-vault
-e2e-vault: install-driver
-	go test -v ./test/e2e/vault
+e2e-vault:  # e2e-image
+	$(MAKE) -C test/e2e run PROVIDER=vault
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen

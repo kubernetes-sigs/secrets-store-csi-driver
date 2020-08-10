@@ -76,3 +76,5 @@ cscope.*
 *.pyc
 
 demo/
+
+hack/tools/bin
