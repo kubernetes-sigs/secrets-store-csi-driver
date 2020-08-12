@@ -75,8 +75,8 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	By("Tearing down the kind cluster")
 	if !skipCleanup {
+		By("Tearing down the kind cluster")
 		tearDown(clusterProvider, clusterProxy)
 	}
 })

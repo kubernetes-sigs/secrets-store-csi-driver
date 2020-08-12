@@ -36,7 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	spcv1alpha1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	"sigs.k8s.io/secrets-store-csi-driver/test/e2e/framework"
-	"sigs.k8s.io/secrets-store-csi-driver/test/e2e/framework/csidriver"
 	"sigs.k8s.io/secrets-store-csi-driver/test/e2e/framework/exec"
 	"sigs.k8s.io/secrets-store-csi-driver/test/e2e/framework/vault"
 )
@@ -44,7 +43,8 @@ import (
 // VaultSpecInput is the input for VaultSpec.
 type VaultSpecInput struct {
 	clusterProxy framework.ClusterProxy
-	SkipCleanup  bool
+	csiNamespace string
+	skipCleanup  bool
 	chartPath    string
 	manifestsDir string
 }
@@ -52,7 +52,7 @@ type VaultSpecInput struct {
 // VaultSpec implements a spec that testing Vault provider
 func VaultSpec(ctx context.Context, inputGetter func() VaultSpecInput) {
 	var (
-		specName      = "vault-provider"
+		specName      = "provider"
 		input         VaultSpecInput
 		namespace     *corev1.Namespace
 		cancelWatches context.CancelFunc
@@ -71,24 +71,6 @@ func VaultSpec(ctx context.Context, inputGetter func() VaultSpecInput) {
 		codecs = serializer.NewCodecFactory(input.clusterProxy.GetScheme())
 
 		cli = input.clusterProxy.GetClient()
-		csidriver.InstallAndWait(ctx, csidriver.InstallAndWaitInput{
-			Getter:         cli,
-			KubeConfigPath: input.clusterProxy.GetKubeconfigPath(),
-			ChartPath:      input.chartPath,
-			Namespace:      namespace.Name,
-		})
-		vault.InstallAndWaitProvider(ctx, vault.InstallAndWaitProviderInput{
-			Creator:   cli,
-			Getter:    cli,
-			Namespace: namespace.Name,
-		})
-		vault.SetupVault(ctx, vault.SetupVaultInput{
-			Creator:        cli,
-			GetLister:      cli,
-			Namespace:      namespace.Name,
-			ManifestsDir:   input.manifestsDir,
-			KubeconfigPath: input.clusterProxy.GetKubeconfigPath(),
-		})
 	})
 
 	It("test CSI inline volume with pod portability", func() {
@@ -96,7 +78,7 @@ func VaultSpec(ctx context.Context, inputGetter func() VaultSpecInput) {
 
 		service := &corev1.Service{}
 		Expect(cli.Get(ctx, client.ObjectKey{
-			Namespace: namespace.Name,
+			Namespace: input.csiNamespace,
 			Name:      "vault",
 		}, service)).To(Succeed(), "Failed to get service %#v", service)
 
@@ -183,7 +165,7 @@ func VaultSpec(ctx context.Context, inputGetter func() VaultSpecInput) {
 
 		service := &corev1.Service{}
 		Expect(cli.Get(ctx, client.ObjectKey{
-			Namespace: namespace.Name,
+			Namespace: input.csiNamespace,
 			Name:      "vault",
 		}, service)).To(Succeed(), "Failed to get service %#v", service)
 
@@ -285,10 +267,9 @@ func VaultSpec(ctx context.Context, inputGetter func() VaultSpecInput) {
 				return err
 			}
 
-			// TODO: Check owner reference is not updated
-			//	if len(secret.ObjectMeta.OwnerReferences) != 2 {
-			//		return errors.New("OwnerReferences is not 2")
-			//	}
+			if len(secret.ObjectMeta.OwnerReferences) != 2 {
+				return errors.New("OwnerReferences is not 2")
+			}
 
 			return nil
 		}, framework.WaitTimeout, framework.WaitPolling).Should(Succeed())
@@ -296,6 +277,11 @@ func VaultSpec(ctx context.Context, inputGetter func() VaultSpecInput) {
 		pwd, ok := secret.Data["pwd"]
 		Expect(ok).To(BeTrue())
 		Expect(string(pwd)).To(Equal("hello"))
+
+		// TODO: Check labels of SecretObject
+		// l, ok := secret.ObjectMeta.Labels["environment"]
+		// Expect(ok).To(BeTrue())
+		// Expect(string(l)).To(Equal("test"))
 
 		framework.Byf("%s: Reading environment variable of nginx pod", namespace.Name)
 
@@ -323,20 +309,8 @@ func VaultSpec(ctx context.Context, inputGetter func() VaultSpecInput) {
 	})
 
 	AfterEach(func() {
-		vault.TeardownVault(ctx, vault.TeardownVaultInput{
-			Deleter:        cli,
-			Namespace:      namespace.Name,
-			ManifestsDir:   input.manifestsDir,
-			KubeconfigPath: input.clusterProxy.GetKubeconfigPath(),
-		})
-		vault.UninstallProvider(ctx, vault.UninstallProviderInput{
-			Deleter:   cli,
-			Namespace: namespace.Name})
-		csidriver.Uninstall(csidriver.UninstallInput{
-			KubeConfigPath: input.clusterProxy.GetKubeconfigPath(),
-			Namespace:      namespace.Name,
-		})
-
-		cleanup(ctx, specName, input.clusterProxy, namespace, cancelWatches, input.SkipCleanup)
+		if !input.skipCleanup {
+			cleanup(ctx, specName, input.clusterProxy, namespace, cancelWatches)
+		}
 	})
 }

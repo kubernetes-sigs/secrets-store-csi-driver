@@ -156,7 +156,7 @@ e2e-image:
 	docker buildx build --no-cache --build-arg LDFLAGS=$(LDFLAGS) -t secrets-store-csi:e2e  -f docker/Dockerfile --platform="linux/amd64" --output "type=docker,push=false" .
 
 .PHONY: e2e-vault
-e2e-vault:  # e2e-image
+e2e-vault: e2e-image
 	$(MAKE) -C test/e2e run PROVIDER=vault
 
 # Generate manifests e.g. CRD, RBAC etc.

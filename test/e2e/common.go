@@ -45,13 +45,11 @@ func setupSpecNamespace(ctx context.Context, specName string, clusterProxy frame
 	return namespace, cancelWatches
 }
 
-func cleanup(ctx context.Context, specName string, clusterProxy framework.ClusterProxy, namespace *corev1.Namespace, cancelWatches context.CancelFunc, skipCleanup bool) {
-	if !skipCleanup {
-		Byf("Deleting namespace used for hosting the %q test spec", specName)
-		framework.DeleteNamespace(ctx, framework.DeleteNamespaceInput{
-			Deleter: clusterProxy.GetClient(),
-			Name:    namespace.Name,
-		})
-	}
+func cleanup(ctx context.Context, specName string, clusterProxy framework.ClusterProxy, namespace *corev1.Namespace, cancelWatches context.CancelFunc) {
+	Byf("Deleting namespace used for hosting the %q test spec", specName)
+	framework.DeleteNamespace(ctx, framework.DeleteNamespaceInput{
+		Deleter: clusterProxy.GetClient(),
+		Name:    namespace.Name,
+	})
 	cancelWatches()
 }
