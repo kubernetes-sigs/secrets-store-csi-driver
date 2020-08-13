@@ -57,4 +57,5 @@ The following table lists the configurable parameters of the csi-secrets-store-p
 | `livenessProbe.port` | Liveness probe port | `9808` |
 | `livenessProbe.logLevel` | Liveness probe container logging verbosity level | `2` |
 | `rbac.install` | Install default rbac roles and bindings | true |
+| `syncSecret.enabled` | Enable rbac roles and bindings required for syncing to Kubernetes native secrets (the default will change to false after v0.0.14) | true |
 | `minimumProviderVersions` | A comma delimited list of key-value pairs of minimum provider versions with driver | `""` |
