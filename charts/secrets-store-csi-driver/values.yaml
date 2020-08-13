@@ -7,7 +7,14 @@ linux:
   kubeletRootDir: /var/lib/kubelet
   nodeSelector: {}
   metricsAddr: ":8080"
-
+  nodeDriverRegistrar:
+    image:
+      repository: quay.io/k8scsi/csi-node-driver-registrar
+      tag: v1.2.0
+  livenessProbe:
+    image:
+      repository: quay.io/k8scsi/livenessprobe
+      tag: v2.0.0
 windows:
   enabled: false
   image:
@@ -17,6 +24,17 @@ windows:
   kubeletRootDir: C:\var\lib\kubelet
   nodeSelector: {}
   metricsAddr: ":8080"
+  nodeDriverRegistrar:
+    image:
+      repository: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar
+      tag: v1.2.1-alpha.1-windows-1809-amd64
+  livenessProbe:
+    image:
+      repository: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe
+      tag: v2.0.1-alpha.1-windows-1809-amd64
+# .e.g: imagePullSecrets: ["nexus"] 
+#         where nexus is a secret of type dockerconfig
+imagePullSecrets: []
 
 logLevel:
   debug: true
@@ -33,3 +51,5 @@ rbac:
 ## A comma delimited list of key-value pairs of minimum provider versions
 ## e.g. provider1=0.0.2,provider2=0.0.3
 minimumProviderVersions:
+
+
