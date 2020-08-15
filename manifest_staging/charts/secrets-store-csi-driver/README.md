@@ -6,13 +6,29 @@ Quick start instructions for the setup and configuration of secrets-store-csi-dr
 
 ### Prerequisites
 
-- [Helm v3.0+](https://helm.sh/docs/intro/quickstart/#install-helm)
+- [Helm](https://helm.sh/docs/intro/quickstart/#install-helm)
 
 ### Installing the chart
 
+Add the chart repo
 ```bash
 $ helm repo add secrets-store-csi-driver https://raw.githubusercontent.com/kubernetes-sigs/secrets-store-csi-driver/master/charts
+```
+
+Helm v2.x
+```bash
+$ helm install csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver --set installCRDs=true
+```
+
+Helm v3.0+
+```bash
 $ helm install csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver
+```
+
+Install CRDs after installing the chart
+```bash
+$ kubectl apply -f deploy/secrets-store.csi.x-k8s.io_secretproviderclasses.yaml
+$ kubectl apply -f deploy/secrets-store.csi.x-k8s.io_secretproviderclasspodstatuses.yaml
 ```
 
 ### Configuration

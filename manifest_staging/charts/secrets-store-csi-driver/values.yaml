@@ -203,3 +203,6 @@ providerHealthCheck: false
 providerHealthCheckInterval: 2m
 
 imagePullSecrets: []
+
+## Install CustomResourceDefinitions
+installCRDs: false
