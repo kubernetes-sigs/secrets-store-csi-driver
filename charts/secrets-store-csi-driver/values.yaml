@@ -4,6 +4,12 @@ linux:
     repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
     tag: v0.0.12
     pullPolicy: Always
+  nodeDriverRegistrarImage:
+    repository: "quay.io/k8scsi/csi-node-driver-registrar"
+    tag: "v1.2.0"
+  livenessProbeImage:
+    repository: "quay.io/k8scsi/livenessprobe"
+    tag: "v2.0.0"
   kubeletRootDir: /var/lib/kubelet
   nodeSelector: {}
   metricsAddr: ":8080"

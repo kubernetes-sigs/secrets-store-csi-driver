@@ -26,6 +26,10 @@ The following table lists the configurable parameters of the csi-secrets-store-p
 | `linux.image.repository` | Linux image repository | `us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver` |
 | `linux.image.pullPolicy` | Linux image pull policy | `Always` |
 | `linux.image.tag` | Linux image tag | `v0.0.12` |
+| `linux.nodeDriverRegistrarImage.repository` | Linux image repository | `quay.io/k8scsi/csi-node-driver-registrar` |
+| `linux.nodeDriverRegistrarImage.tag` | Linux image tag | `v1.2.0` |
+| `linux.livenessProbeImage.repository` | Linux image repository | `quay.io/k8scsi/livenessprobe` |
+| `linux.livenessProbeImage.tag` | Linux image tag | `v2.0.0` |
 | `linux.enabled` | Install secrets store csi driver on linux nodes | true |
 | `linux.kubeletRootDir` | Configure the kubelet root dir | `/var/lib/kubelet` |
 | `linux.nodeSelector` | Node Selector for the daemonset on linux nodes | `{}` |
