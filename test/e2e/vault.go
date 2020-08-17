@@ -1,3 +1,5 @@
+// +build vault
+
 /*
 Copyright 2020 The Kubernetes Authors.
 

@@ -1,6 +1,3 @@
-// copied from https://github.com/kubernetes-sigs/cluster-api/blob/v0.3.6/test/framework/bootstrap/kind_util.go
-// and modified
-
 /*
 Copyright 2020 The Kubernetes Authors.
 
@@ -16,6 +13,9 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
+// copied from https://github.com/kubernetes-sigs/cluster-api/blob/v0.3.6/test/framework/bootstrap/kind_util.go
+// and modified
 
 package bootstrap
 
