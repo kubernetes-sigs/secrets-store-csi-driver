@@ -58,10 +58,15 @@ PROVIDER ?=
 CHART_PATH ?= $(REPO_ROOT)/charts/secrets-store-csi-driver
 MANIFESTS_DIR ?= $(REPO_ROOT)/test/e2e/data
 KINDCONFIG_PATH ?= $(MANIFESTS_DIR)/kind-config.yaml
+ifeq ($(PROVIDER),azure)
+TRY_LOAD_IMAGES ?= \
+	nginx
+else ($(PROVIDER),vault)
 TRY_LOAD_IMAGES ?= \
 	registry.hub.docker.com/library/vault:1.4.2 \
 	hashicorp/secrets-store-csi-driver-provider-vault:0.0.4 \
 	nginx
+endif
 MUST_LOAD_IMAGES ?= secrets-store-csi:e2e
 
 .PHONY: run

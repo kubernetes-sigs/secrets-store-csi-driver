@@ -25,7 +25,7 @@ endif
 IMAGE_TAG=$(REGISTRY)/$(IMAGE_NAME):$(IMAGE_VERSION)
 IMAGE_TAG_LATEST=$(REGISTRY)/$(IMAGE_NAME):latest
 LDFLAGS?='-X sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store.vendorVersion=$(IMAGE_VERSION) -extldflags "-static"'
-GO_FILES=$(shell go list ./... | grep -v /test/sanity)
+GO_FILES=$(shell go list ./... | grep -vE "/test/sanity|/test/e2e")
 
 .PHONY: all build image clean test-style
 
@@ -48,13 +48,14 @@ endif
 
 all: build
 
+.PHONY: test
 test: test-style
 	go test $(GO_FILES) -v
 	go vet $(GO_FILES)
 test-style: setup
 	@echo "==> Running static validations and linters <=="
 	# Setting timeout to 5m as deafult is 1m
-	golangci-lint run --timeout=5m
+	golangci-lint run --timeout=5m --skip-dirs test/e2e
 sanity-test:
 	go test -v ./test/sanity
 build: setup
@@ -147,13 +148,13 @@ else
 			--set linux.image.pullPolicy="IfNotPresent"
 endif
 
-.PHONY: e2e-azure
-e2e-azure: install-driver
-	bats -t test/bats/azure.bats
-
 .PHONY: e2e-image
 e2e-image:
 	docker buildx build --no-cache --build-arg LDFLAGS=$(LDFLAGS) -t secrets-store-csi:e2e  -f docker/Dockerfile --platform="linux/amd64" --output "type=docker,push=false" .
+
+.PHONY: e2e-azure
+e2e-azure: e2e-image
+	$(MAKE) -C test/e2e run PROVIDER=azure
 
 .PHONY: e2e-vault
 e2e-vault: e2e-image
