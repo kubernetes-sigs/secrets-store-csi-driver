@@ -49,6 +49,11 @@ livenessProbe:
 rbac:
   install: true
 
+## Install RBAC roles and bindings required for K8S Secrets syncing. Change this
+## to false after v0.0.14
+syncSecret:
+  enabled: true
+
 ## Minimum Provider Versions (optional)
 ## A comma delimited list of key-value pairs of minimum provider versions
 ## e.g. provider1=0.0.2,provider2=0.0.3
