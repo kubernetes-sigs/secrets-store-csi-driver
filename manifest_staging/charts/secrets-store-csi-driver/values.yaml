@@ -2,7 +2,7 @@ linux:
   enabled: true
   image:
     repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
-    tag: v0.0.12
+    tag: v0.0.13
     pullPolicy: Always
   registrarImage:
     repository: quay.io/k8scsi/csi-node-driver-registrar
@@ -22,7 +22,7 @@ windows:
   enabled: false
   image:
     repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
-    tag: v0.0.12
+    tag: v0.0.13
     pullPolicy: IfNotPresent
   registrarImage:
     repository: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar
