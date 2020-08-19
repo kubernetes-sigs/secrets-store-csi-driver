@@ -2,21 +2,41 @@ linux:
   enabled: true
   image:
     repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
-    tag: v0.0.12
+    tag: v0.0.13
+    pullPolicy: Always
+  registrarImage:
+    repository: quay.io/k8scsi/csi-node-driver-registrar
+    tag: v1.2.0
+    pullPolicy: Always
+  livenessProbeImage:
+    repository: quay.io/k8scsi/livenessprobe
+    tag: v2.0.0
     pullPolicy: Always
   kubeletRootDir: /var/lib/kubelet
   nodeSelector: {}
+  tolerations: []
   metricsAddr: ":8080"
+  env: []
 
 windows:
   enabled: false
   image:
     repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
-    tag: v0.0.12
+    tag: v0.0.13
     pullPolicy: IfNotPresent
+  registrarImage:
+    repository: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar
+    tag: v1.2.1-alpha.1-windows-1809-amd64
+    pullPolicy: Always
+  livenessProbeImage:
+    repository: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe
+    tag: v2.0.1-alpha.1-windows-1809-amd64
+    pullPolicy: Always
   kubeletRootDir: C:\var\lib\kubelet
   nodeSelector: {}
+  tolerations: []
   metricsAddr: ":8080"
+  env: []
 
 logLevel:
   debug: true
@@ -28,6 +48,11 @@ livenessProbe:
 ## Install Default RBAC roles and bindings
 rbac:
   install: true
+
+## Install RBAC roles and bindings required for K8S Secrets syncing. Change this
+## to false after v0.0.14
+syncSecret:
+  enabled: true
 
 ## Minimum Provider Versions (optional)
 ## A comma delimited list of key-value pairs of minimum provider versions
