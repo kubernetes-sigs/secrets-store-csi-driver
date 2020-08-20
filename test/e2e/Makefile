@@ -60,6 +60,7 @@ MANIFESTS_DIR ?= $(REPO_ROOT)/test/e2e/data
 KINDCONFIG_PATH ?= $(MANIFESTS_DIR)/kind-config.yaml
 ifeq ($(PROVIDER),azure)
 TRY_LOAD_IMAGES ?= \
+	mcr.microsoft.com/k8s/csi/secrets-store/provider-azure:0.0.8 \
 	nginx
 else ($(PROVIDER),vault)
 TRY_LOAD_IMAGES ?= \

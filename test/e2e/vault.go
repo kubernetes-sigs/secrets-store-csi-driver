@@ -280,10 +280,9 @@ func VaultSpec(ctx context.Context, inputGetter func() VaultSpecInput) {
 		Expect(ok).To(BeTrue())
 		Expect(string(pwd)).To(Equal("hello"))
 
-		// TODO: Check labels of SecretObject
-		// l, ok := secret.ObjectMeta.Labels["environment"]
-		// Expect(ok).To(BeTrue())
-		// Expect(string(l)).To(Equal("test"))
+		l, ok := secret.ObjectMeta.Labels["environment"]
+		Expect(ok).To(BeTrue())
+		Expect(string(l)).To(Equal("test"))
 
 		framework.Byf("%s: Reading environment variable of nginx pod", namespace.Name)
 
@@ -308,6 +307,146 @@ func VaultSpec(ctx context.Context, inputGetter func() VaultSpecInput) {
 
 			return nil
 		}, framework.WaitTimeout, framework.WaitPolling).Should(Succeed())
+	})
+
+	It("test CSI inline volume with multiple secret provider class", func() {
+		framework.Byf("%s: Installing secretproviderclasses", namespace.Name)
+
+		spcValues := []struct {
+			spcName          string
+			secretObjectName string
+		}{
+			{
+				spcName:          "vault-foo-sync-0",
+				secretObjectName: "foosecret-0",
+			},
+			{
+				spcName:          "vault-foo-sync-1",
+				secretObjectName: "foosecret-1",
+			},
+		}
+
+		service := &corev1.Service{}
+		Expect(cli.Get(ctx, client.ObjectKey{
+			Namespace: input.csiNamespace,
+			Name:      "vault",
+		}, service)).To(Succeed(), "Failed to get service %#v", service)
+
+		for _, spcv := range spcValues {
+			data, err := ioutil.ReadFile(filepath.Join(input.manifestsDir, "vault/vault_v1alpha1_multiple_secretproviderclass.yaml"))
+			Expect(err).To(Succeed())
+
+			buf := new(bytes.Buffer)
+			err = template.Must(template.New("").Parse(string(data))).Execute(buf, struct {
+				Name             string
+				Namespace        string
+				SecretObjectName string
+				RoleName         string
+				VaultAddress     string
+			}{
+				Name:             spcv.spcName,
+				Namespace:        namespace.Name,
+				SecretObjectName: spcv.secretObjectName,
+				RoleName:         vault.RoleName,
+				VaultAddress:     fmt.Sprintf("http://%s:8200", service.Spec.ClusterIP),
+			})
+			Expect(err).To(Succeed())
+
+			obj, _, err := codecs.UniversalDeserializer().Decode(buf.Bytes(), nil, nil)
+			Expect(err).To(Succeed())
+
+			Expect(cli.Create(ctx, obj)).To(Succeed())
+		}
+
+		for _, spcv := range spcValues {
+			spc := &spcv1alpha1.SecretProviderClass{}
+			Expect(cli.Get(ctx, client.ObjectKey{
+				Namespace: namespace.Name,
+				Name:      spcv.spcName,
+			}, spc)).To(Succeed(), "Failed to get secretproviderclass %#v", spc)
+		}
+
+		framework.Byf("%s: Installing nginx pod", namespace.Name)
+
+		data, err := ioutil.ReadFile(filepath.Join(input.manifestsDir, "vault/nginx-pod-vault-inline-volume-multiple-spc.yaml"))
+		Expect(err).To(Succeed())
+
+		buf := new(bytes.Buffer)
+		err = template.Must(template.New("").Parse(string(data))).Execute(buf, struct {
+			Namespace string
+			Image     string
+		}{
+			Namespace: namespace.Name,
+			Image:     "nginx",
+		})
+		Expect(err).To(Succeed())
+
+		obj, _, err := codecs.UniversalDeserializer().Decode(buf.Bytes(), nil, nil)
+		Expect(err).To(Succeed())
+
+		Expect(cli.Create(ctx, obj)).To(Succeed())
+
+		framework.Byf("%s: Waiting for nginx pod is running", namespace.Name)
+
+		pod := &corev1.Pod{}
+		podName := "nginx-secrets-store-inline-multiple-crd"
+		Eventually(func() error {
+			err := cli.Get(ctx, client.ObjectKey{
+				Namespace: namespace.Name,
+				Name:      podName,
+			}, pod)
+			if err != nil {
+				return err
+			}
+
+			for _, cond := range pod.Status.Conditions {
+				if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
+					return nil
+				}
+			}
+			return errors.New("pod is not ready")
+		}, framework.WaitTimeout, framework.WaitPolling).Should(Succeed())
+
+		framework.Byf("%s: Reading secret from pod", namespace.Name)
+
+		for i, spcv := range spcValues {
+			stdout, stderr, err := exec.KubectlExec(input.clusterProxy.GetKubeconfigPath(), podName, namespace.Name, "cat", fmt.Sprintf("/mnt/secrets-store-%d/foo", i))
+			Expect(err).To(Succeed(), "stdout=%s, stderr=%s", stdout, stderr)
+			Expect(strings.TrimSpace(string(stdout))).To(Equal("hello"))
+
+			stdout, stderr, err = exec.KubectlExec(input.clusterProxy.GetKubeconfigPath(), podName, namespace.Name, "cat", fmt.Sprintf("/mnt/secrets-store-%d/foo1", i))
+			Expect(err).To(Succeed(), "stdout=%s, stderr=%s", stdout, stderr)
+			Expect(strings.TrimSpace(string(stdout))).To(Equal("hello1"))
+
+			framework.Byf("%s: Reading generated secret", namespace.Name)
+
+			secret := &corev1.Secret{}
+			Eventually(func() error {
+				err := cli.Get(ctx, client.ObjectKey{
+					Namespace: namespace.Name,
+					Name:      spcv.secretObjectName,
+				}, secret)
+				if err != nil {
+					return err
+				}
+
+				if len(secret.ObjectMeta.OwnerReferences) != 1 {
+					return errors.New("OwnerReferences is not 1")
+				}
+
+				return nil
+			}, framework.WaitTimeout, framework.WaitPolling).Should(Succeed())
+
+			pwd, ok := secret.Data["pwd"]
+			Expect(ok).To(BeTrue())
+			Expect(string(pwd)).To(Equal("hello"))
+
+			framework.Byf("%s: Reading environment variable of nginx pod", namespace.Name)
+
+			stdout, stderr, err = exec.KubectlExec(input.clusterProxy.GetKubeconfigPath(), podName, namespace.Name, "printenv", fmt.Sprintf("SECRET_USERNAME_%d", i))
+			Expect(err).To(Succeed(), "stdout=%s, stderr=%s", stdout, stderr)
+			Expect(strings.TrimSpace(string(stdout))).To(Equal("hello1"))
+		}
 	})
 
 	AfterEach(func() {

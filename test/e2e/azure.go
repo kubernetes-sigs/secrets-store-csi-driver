@@ -411,7 +411,7 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 				secretObjectName: "foosecret-0",
 			},
 			{
-				spcName:          "azure-spc-0",
+				spcName:          "azure-spc-1",
 				secretObjectName: "foosecret-1",
 			},
 		}
