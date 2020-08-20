@@ -84,7 +84,7 @@ func VaultSpec(ctx context.Context, inputGetter func() VaultSpecInput) {
 			Name:      "vault",
 		}, service)).To(Succeed(), "Failed to get service %#v", service)
 
-		data, err := ioutil.ReadFile(filepath.Join(input.manifestsDir, "vault_v1alpha1_secretproviderclass.yaml"))
+		data, err := ioutil.ReadFile(filepath.Join(input.manifestsDir, "vault/vault_v1alpha1_secretproviderclass.yaml"))
 		Expect(err).To(Succeed())
 
 		buf := new(bytes.Buffer)
@@ -108,11 +108,11 @@ func VaultSpec(ctx context.Context, inputGetter func() VaultSpecInput) {
 		Expect(cli.Get(ctx, client.ObjectKey{
 			Namespace: namespace.Name,
 			Name:      "vault-foo",
-		}, spc)).To(Succeed(), "Failed to get service %#v", service)
+		}, spc)).To(Succeed(), "Failed to get secretproviderclass %#v", spc)
 
 		framework.Byf("%s: Installing nginx pod", namespace.Name)
 
-		data, err = ioutil.ReadFile(filepath.Join(input.manifestsDir, "nginx-pod-vault-inline-volume-secretproviderclass.yaml"))
+		data, err = ioutil.ReadFile(filepath.Join(input.manifestsDir, "vault/nginx-pod-vault-inline-volume-secretproviderclass.yaml"))
 		Expect(err).To(Succeed())
 
 		buf = new(bytes.Buffer)
@@ -171,7 +171,7 @@ func VaultSpec(ctx context.Context, inputGetter func() VaultSpecInput) {
 			Name:      "vault",
 		}, service)).To(Succeed(), "Failed to get service %#v", service)
 
-		data, err := ioutil.ReadFile(filepath.Join(input.manifestsDir, "vault_synck8s_v1alpha1_secretproviderclass.yaml"))
+		data, err := ioutil.ReadFile(filepath.Join(input.manifestsDir, "vault/vault_synck8s_v1alpha1_secretproviderclass.yaml"))
 		Expect(err).To(Succeed())
 
 		buf := new(bytes.Buffer)
@@ -199,7 +199,7 @@ func VaultSpec(ctx context.Context, inputGetter func() VaultSpecInput) {
 
 		framework.Byf("%s: Installing nginx deployment", namespace.Name)
 
-		data, err = ioutil.ReadFile(filepath.Join(input.manifestsDir, "nginx-deployment-synck8s.yaml"))
+		data, err = ioutil.ReadFile(filepath.Join(input.manifestsDir, "vault/nginx-deployment-synck8s.yaml"))
 		Expect(err).To(Succeed())
 
 		buf = new(bytes.Buffer)

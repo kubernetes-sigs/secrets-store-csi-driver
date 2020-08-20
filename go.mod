@@ -19,6 +19,7 @@ require (
 	github.com/imdario/mergo v0.3.9 // indirect
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
+	github.com/kubernetes-csi/csi-lib-utils v0.6.1
 	github.com/kubernetes-csi/csi-test v1.1.0
 	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/onsi/ginkgo v1.12.1
@@ -41,7 +42,6 @@ require (
 	google.golang.org/grpc v1.27.1
 	google.golang.org/protobuf v1.25.0
 	k8s.io/api v0.17.2
-	k8s.io/apiextensions-apiserver v0.17.2
 	k8s.io/apimachinery v0.17.2
 	k8s.io/client-go v0.17.2
 	k8s.io/klog v1.0.0
@@ -50,4 +50,5 @@ require (
 	k8s.io/utils v0.0.0-20200619165400-6e3d28b6ed19
 	rsc.io/letsencrypt v0.0.3 // indirect
 	sigs.k8s.io/controller-runtime v0.5.5
+	sigs.k8s.io/kind v0.7.1-0.20200303021537-981bd80d3802
 )

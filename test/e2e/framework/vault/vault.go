@@ -37,12 +37,12 @@ import (
 )
 
 const (
-	vaultAuthServiceAccountFile = "vault-auth.yaml"
-	tokenReviewBindingFile      = "tokenreview-binding.yaml"
-	vaultDeploymentFile         = "vault-deployment.yaml"
-	vaultServiceFile            = "vault-service.yaml"
+	vaultAuthServiceAccountFile = "vault/vault-auth.yaml"
+	tokenReviewBindingFile      = "vault/tokenreview-binding.yaml"
+	vaultDeploymentFile         = "vault/vault-deployment.yaml"
+	vaultServiceFile            = "vault/vault-service.yaml"
 	policyName                  = "example-readonly"
-	policyFile                  = "example-readonly.hcl"
+	policyFile                  = "vault/example-readonly.hcl"
 	RoleName                    = "example-role"
 )
 

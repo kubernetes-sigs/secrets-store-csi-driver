@@ -121,7 +121,6 @@ func InstallAndWaitProvider(ctx context.Context, input InstallAndWaitProviderInp
 		Getter:    input.Getter,
 		Namespace: input.Namespace,
 	})
-
 }
 
 type UninstallProviderInput struct {
