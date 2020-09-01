@@ -29,8 +29,8 @@ const (
 	FailedToMount = "FailedToMount"
 	// SecretProviderClassNotFound error
 	SecretProviderClassNotFound = "SecretProviderClassNotFound"
-	// ProviderNone error
-	ProviderNone = "ProviderNone"
-	// FailedToSyncSecret error
-	FailedToSyncSecret = "FailedToSyncSecret"
+	// FailedToCreateProviderGRPCClient error
+	FailedToCreateProviderGRPCClient = "FailedToCreateProviderGRPCClient"
+	// GRPCProviderError error
+	GRPCProviderError = "GRPCProviderError"
 )

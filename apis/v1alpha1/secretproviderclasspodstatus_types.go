@@ -27,11 +27,18 @@ const (
 
 // SecretProviderClassPodStatusStatus defines the observed state of SecretProviderClassPodStatus
 type SecretProviderClassPodStatusStatus struct {
-	PodName                 string `json:"podName,omitempty"`
-	PodUID                  string `json:"podUID,omitempty"`
-	SecretProviderClassName string `json:"secretProviderClassName,omitempty"`
-	Mounted                 bool   `json:"mounted,omitempty"`
-	TargetPath              string `json:"targetPath,omitempty"`
+	PodName                 string                      `json:"podName,omitempty"`
+	PodUID                  string                      `json:"podUID,omitempty"`
+	SecretProviderClassName string                      `json:"secretProviderClassName,omitempty"`
+	Mounted                 bool                        `json:"mounted,omitempty"`
+	TargetPath              string                      `json:"targetPath,omitempty"`
+	Objects                 []SecretProviderClassObject `json:"objects,omitempty"`
+}
+
+// SecretProviderClassObject defines the object fetched from external secrets store
+type SecretProviderClassObject struct {
+	ID      string `json:"id,omitempty"`
+	Version string `json:"version,omitempty"`
 }
 
 // +kubebuilder:object:root=true

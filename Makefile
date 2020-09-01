@@ -177,6 +177,9 @@ manifests: controller-gen
 	@sed -i '1s/^/{{ if .Values.syncSecret.enabled }}\n/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-syncsecret.yaml
 	@sed -i '1s/^/{{ if .Values.syncSecret.enabled }}\n/gm; s/namespace: .*/namespace: {{ .Release.Namespace }}/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-syncsecret_binding.yaml
 
+generate-protobuf:
+	protoc -I . provider/v1alpha1/service.proto --go_out=plugins=grpc:.
+
 # Run go fmt against code
 fmt:
 	go fmt ./...
