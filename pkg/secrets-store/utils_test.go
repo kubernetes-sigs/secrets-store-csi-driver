@@ -45,7 +45,7 @@ func TestGetProviderPath(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		testNodeServer, err := newNodeServer(NewFakeDriver(), tc.providerVolumePath, "", "", "test-node", &mount.FakeMounter{}, fake.NewFakeClientWithScheme(nil))
+		testNodeServer, err := newNodeServer(NewFakeDriver(), tc.providerVolumePath, "", "", "test-node", &mount.FakeMounter{}, fake.NewFakeClientWithScheme(nil), NewStatsReporter())
 		assert.NoError(t, err)
 		assert.NotNil(t, testNodeServer)
 

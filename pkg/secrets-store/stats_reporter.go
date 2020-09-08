@@ -41,15 +41,15 @@ type reporter struct {
 }
 
 type StatsReporter interface {
-	reportNodePublishCtMetric(provider string)
-	reportNodeUnPublishCtMetric()
-	reportNodePublishErrorCtMetric(provider, errType string)
-	reportNodeUnPublishErrorCtMetric()
-	reportSyncK8SecretCtMetric(provider string, count int)
-	reportSyncK8SecretDuration(duration float64)
+	ReportNodePublishCtMetric(provider string)
+	ReportNodeUnPublishCtMetric()
+	ReportNodePublishErrorCtMetric(provider, errType string)
+	ReportNodeUnPublishErrorCtMetric()
+	ReportSyncK8SecretCtMetric(provider string, count int)
+	ReportSyncK8SecretDuration(duration float64)
 }
 
-func newStatsReporter() StatsReporter {
+func NewStatsReporter() StatsReporter {
 	meter := global.Meter("secretsstore")
 	nodePublishTotal = metric.Must(meter).NewInt64Counter("total_node_publish", metric.WithDescription("Total number of node publish calls"))
 	nodeUnPublishTotal = metric.Must(meter).NewInt64Counter("total_node_unpublish", metric.WithDescription("Total number of node unpublish calls"))
@@ -60,29 +60,29 @@ func newStatsReporter() StatsReporter {
 	return &reporter{meter: meter}
 }
 
-func (r *reporter) reportNodePublishCtMetric(provider string) {
+func (r *reporter) ReportNodePublishCtMetric(provider string) {
 	labels := []core.KeyValue{key.String(providerKey, provider), key.String(osTypeKey, runtimeOS)}
 	nodePublishTotal.Add(context.Background(), 1, labels...)
 }
 
-func (r *reporter) reportNodeUnPublishCtMetric() {
+func (r *reporter) ReportNodeUnPublishCtMetric() {
 	nodeUnPublishTotal.Add(context.Background(), 1, []core.KeyValue{key.String(osTypeKey, runtimeOS)}...)
 }
 
-func (r *reporter) reportNodePublishErrorCtMetric(provider, errType string) {
+func (r *reporter) ReportNodePublishErrorCtMetric(provider, errType string) {
 	labels := []core.KeyValue{key.String(providerKey, provider), key.String(errorKey, errType), key.String(osTypeKey, runtimeOS)}
 	nodePublishErrorTotal.Add(context.Background(), 1, labels...)
 }
 
-func (r *reporter) reportNodeUnPublishErrorCtMetric() {
+func (r *reporter) ReportNodeUnPublishErrorCtMetric() {
 	nodeUnPublishErrorTotal.Add(context.Background(), 1, []core.KeyValue{key.String(osTypeKey, runtimeOS)}...)
 }
 
-func (r *reporter) reportSyncK8SecretCtMetric(provider string, count int) {
+func (r *reporter) ReportSyncK8SecretCtMetric(provider string, count int) {
 	labels := []core.KeyValue{key.String(providerKey, provider), key.String(osTypeKey, runtimeOS)}
 	syncK8sSecretTotal.Add(context.Background(), int64(count), labels...)
 }
 
-func (r *reporter) reportSyncK8SecretDuration(duration float64) {
+func (r *reporter) ReportSyncK8SecretDuration(duration float64) {
 	r.meter.RecordBatch(context.Background(), []core.KeyValue{key.String(osTypeKey, runtimeOS)}, syncK8sSecretDuration.Measurement(duration))
 }
