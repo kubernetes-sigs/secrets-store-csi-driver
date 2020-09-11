@@ -166,11 +166,14 @@ EOF
   run kubectl apply -f $BATS_TESTS_DIR/nginx-deployment-synck8s.yaml
   assert_success
 
+  run kubectl apply -f $BATS_TESTS_DIR/nginx-deployment-two-synck8s.yaml
+  assert_success
+
   cmd="kubectl wait --for=condition=Ready --timeout=60s pod -l app=nginx"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 }
 
-@test "Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences" {
+@test "Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences with multiple owners" {
   POD=$(kubectl get pod -l app=nginx -o jsonpath="{.items[0].metadata.name}")
   result=$(kubectl exec -it $POD -- cat /mnt/secrets-store/foo)
   [[ "$result" == "hello" ]]
@@ -188,19 +191,26 @@ EOF
   [[ "${result//$'\r'}" == "${LABEL_VALUE}" ]]
 
   result=$(kubectl get secret foosecret -o json | jq '.metadata.ownerReferences | length')
-  [[ "$result" -eq 2 ]]
+  [[ "$result" -eq 4 ]]
 }
 
 @test "Sync with K8s secrets - delete deployment, check secret is deleted" {
   run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-synck8s.yaml
   assert_success
+  
+  sleep 20
+  result=$(kubectl get secret foosecret -o json | jq '.metadata.ownerReferences | length')
+  [[ "$result" -eq 2 ]]
 
-  run kubectl delete -f $BATS_TESTS_DIR/vault_synck8s_v1alpha1_secretproviderclass.yaml
+  run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-two-synck8s.yaml
   assert_success
 
   sleep 20
   result=$(kubectl get secret | grep foosecret | wc -l)
   [[ "$result" -eq 0 ]]
+
+  run kubectl delete -f $BATS_TESTS_DIR/vault_synck8s_v1alpha1_secretproviderclass.yaml
+  assert_success
 }
 
 @test "Test Namespaced scope SecretProviderClass - create deployment" {
