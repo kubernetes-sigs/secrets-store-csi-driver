@@ -80,7 +80,7 @@ mod:
 	@go mod tidy
 
 KIND_VERSION ?= 0.8.1
-KUBERNETES_VERSION ?= 1.15.11
+KUBERNETES_VERSION ?= 1.18.2
 VAULT_VERSION ?= 1.4.2
 
 # USED for windows CI tests
@@ -105,7 +105,7 @@ setup-kind:
 	kind --version | grep -q $(KIND_VERSION) || (curl -L https://github.com/kubernetes-sigs/kind/releases/download/v$(KIND_VERSION)/kind-linux-amd64 --output kind && chmod +x kind && mv kind /usr/local/bin/)
 	# Create kind cluster
 	kind delete cluster || true
-	kind create cluster --config kind-config.yaml --image kindest/node:v$(KUBERNETES_VERSION)
+	kind create cluster --image kindest/node:v$(KUBERNETES_VERSION)
 
 .PHONY: e2e-container
 e2e-container:
@@ -158,7 +158,7 @@ e2e-vault: install-driver
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
 	# Generate the base CRD/RBAC
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=secretproviderclasses-role paths="./controllers" output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=secretproviderclasses-role paths="./apis/..." paths="./controllers" output:crd:artifacts:config=config/crd/bases
 	cp config/crd/bases/* manifest_staging/charts/secrets-store-csi-driver/templates
 	cp config/crd/bases/* manifest_staging/deploy/
 
@@ -190,9 +190,10 @@ vet:
 
 # find or download controller-gen
 # download controller-gen if necessary
+# using v0.4.0 by default generates v1 CRDs
 controller-gen:
 ifeq (, $(shell which controller-gen))
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.3.0
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.0
 CONTROLLER_GEN=$(GOBIN)/controller-gen
 else
 CONTROLLER_GEN=$(shell which controller-gen)
