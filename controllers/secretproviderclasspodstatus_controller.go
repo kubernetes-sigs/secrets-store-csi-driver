@@ -45,6 +45,8 @@ import (
 const (
 	certType       = "CERTIFICATE"
 	privateKeyType = "RSA PRIVATE KEY"
+
+	secretManagedLabel = "secrets-store.csi.k8s.io/managed"
 )
 
 // SecretProviderClassPodStatusReconciler reconciles a SecretProviderClassPodStatus object
@@ -173,8 +175,17 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 				}
 			}
 
+			labelsMap := make(map[string]string)
+			if secretObj.Labels != nil {
+				labelsMap = secretObj.Labels
+			}
+			// Set secrets-store.csi.k8s.io/managed=true label on the secret that's created and managed
+			// by the secrets-store-csi-driver. This label will be used to perform a filtered list watch
+			// only on secrets created and managed by the driver
+			labelsMap[secretManagedLabel] = "true"
+
 			createFn := func() (bool, error) {
-				if err := r.createK8sSecret(ctx, secretObj.SecretName, req.Namespace, datamap, secretObj.Labels, secretType); err != nil {
+				if err := r.createK8sSecret(ctx, secretObj.SecretName, req.Namespace, datamap, labelsMap, secretType); err != nil {
 					logger.Errorf("failed createK8sSecret, err: %v for secret: %s", err, secretObj.SecretName)
 					return false, nil
 				}
