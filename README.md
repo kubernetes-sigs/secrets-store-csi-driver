@@ -50,6 +50,7 @@ Join us to help define the direction and implementation of this project!
   - [Testing](#testing)
     - [Unit Tests](#unit-tests)
     - [End-to-end Tests](#end-to-end-tests)
+  - [Known Limitations](#known-limitations)
   - [Troubleshooting](#troubleshooting)
   - [Code of conduct](#code-of-conduct)
 
@@ -128,8 +129,8 @@ kubectl get po --namespace $NAMESPACE
 You should see the Secrets Store CSI driver pods running on each agent node:
 
 ```bash
-csi-secrets-store-qp9r8         2/2     Running   0          4m
-csi-secrets-store-zrjt2         2/2     Running   0          4m
+csi-secrets-store-qp9r8         3/3     Running   0          4m
+csi-secrets-store-zrjt2         3/3     Running   0          4m
 ```
 
 You should see the following CRDs deployed:
@@ -193,7 +194,7 @@ foo
 
 ### [OPTIONAL] Sync with Kubernetes Secrets
 
-In some cases, you may want to create a Kubernetes Secret to mirror the mounted content. Use the optional `secretObjects` field to define the desired state of the synced Kubernetes secret objects.
+In some cases, you may want to create a Kubernetes Secret to mirror the mounted content. Use the optional `secretObjects` field to define the desired state of the synced Kubernetes secret objects. **The volume mount is required for the Sync With Kubernetes Secrets** 
 > NOTE: If the provider supports object alias for the mounted file, then make sure the `objectName` in `secretObjects` matches the name of the mounted content. This could be the object name or the object alias.
 
 A `SecretProviderClass` custom resource should have the following components:
@@ -266,6 +267,10 @@ Run unit tests locally with `make test`.
 End-to-end tests automatically runs on Prow when a PR is submitted. If you want to run using a local or remote Kubernetes cluster, make sure to have `kubectl`, `helm` and `bats` set up in your local environment and then run `make e2e-azure` or `make e2e-vault` with custom images.
 
 Job config for test jobs run for each PR in prow can be found [here](https://github.com/kubernetes/test-infra/blob/master/config/jobs/kubernetes-sigs/secrets-store-csi-driver/secrets-store-csi-driver-config.yaml)
+
+## Known Limitations
+
+- [Mounted content and Kubernetes Secret not updated after secret is updated in external secrets-store](docs/README.limitations.md#mounted-content-and-kubernetes-secret-not-updated-after-secret-is-updated-in-external-secrets-store)
 
 ## Troubleshooting
 
