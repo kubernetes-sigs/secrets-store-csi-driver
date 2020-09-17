@@ -130,6 +130,9 @@ setup() {
   result=$(kubectl get secret foosecret -o jsonpath="{.metadata.labels.environment}")
   [[ "${result//$'\r'}" == "${LABEL_VALUE}" ]]
 
+  result=$(kubectl get secret foosecret -o jsonpath="{.metadata.labels.secrets-store\.csi\.k8s\.io/managed}")
+  [[ "${result//$'\r'}" == "true" ]]
+
   result=$(kubectl get secret foosecret -o json | jq '.metadata.ownerReferences | length')
   [[ "$result" -eq 4 ]]
 }
