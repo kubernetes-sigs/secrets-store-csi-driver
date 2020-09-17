@@ -2,16 +2,46 @@ linux:
   enabled: true
   image:
     repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
-    tag: v0.0.13
+    tag: v0.0.14
     pullPolicy: Always
+
+  driver:
+    resources:
+      limits:
+        cpu: 200m
+        memory: 200Mi
+      requests:
+        cpu: 50m
+        memory: 100Mi
+
   registrarImage:
     repository: quay.io/k8scsi/csi-node-driver-registrar
     tag: v1.2.0
     pullPolicy: Always
+
+  registrar:
+    resources:
+      limits:
+        cpu: 100m
+        memory: 100Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+
   livenessProbeImage:
     repository: quay.io/k8scsi/livenessprobe
     tag: v2.0.0
     pullPolicy: Always
+
+  livenessProbe:
+    resources:
+      limits:
+        cpu: 100m
+        memory: 100Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+
   kubeletRootDir: /var/lib/kubelet
   nodeSelector: {}
   tolerations: []
@@ -22,16 +52,46 @@ windows:
   enabled: false
   image:
     repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
-    tag: v0.0.13
+    tag: v0.0.14
     pullPolicy: IfNotPresent
+
+  driver:
+    resources:
+      limits:
+        cpu: 400m
+        memory: 400Mi
+      requests:
+        cpu: 50m
+        memory: 100Mi
+
   registrarImage:
     repository: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar
     tag: v1.2.1-alpha.1-windows-1809-amd64
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
+
+  registrar:
+    resources:
+      limits:
+        cpu: 200m
+        memory: 200Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+
   livenessProbeImage:
     repository: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe
     tag: v2.0.1-alpha.1-windows-1809-amd64
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
+
+  livenessProbe:
+    resources:
+      limits:
+        cpu: 200m
+        memory: 200Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+
   kubeletRootDir: C:\var\lib\kubelet
   nodeSelector: {}
   tolerations: []
@@ -58,3 +118,6 @@ syncSecret:
 ## A comma delimited list of key-value pairs of minimum provider versions
 ## e.g. provider1=0.0.2,provider2=0.0.3
 minimumProviderVersions:
+
+## ; delimited list of providers that support grpc for driver-provider [alpha]
+grpcSupportedProviders:
