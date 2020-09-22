@@ -42,6 +42,7 @@ type SecretProviderClassObject struct {
 }
 
 // +kubebuilder:object:root=true
+// +genclient
 
 // SecretProviderClassPodStatus is the Schema for the secretproviderclassespodstatus API
 type SecretProviderClassPodStatus struct {
@@ -58,8 +59,4 @@ type SecretProviderClassPodStatusList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []SecretProviderClassPodStatus `json:"items"`
-}
-
-func init() {
-	SchemeBuilder.Register(&SecretProviderClassPodStatus{}, &SecretProviderClassPodStatusList{})
 }

@@ -121,3 +121,9 @@ minimumProviderVersions:
 
 ## ; delimited list of providers that support grpc for driver-provider [alpha]
 grpcSupportedProviders:
+
+## Enable secret rotation feature [alpha]
+enableSecretRotation: false
+
+## Secret rotation poll interval duration
+rotationPollInterval:

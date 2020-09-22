@@ -23,6 +23,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"golang.org/x/net/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,6 +42,12 @@ func testNodeServer(mountPoints []mount.MountPoint, client client.Client, grpcSu
 	tmpDir, err := ioutil.TempDir("", "ut")
 	if err != nil {
 		return nil, err
+	}
+	if grpcSupportProviders != "" {
+		err = ioutil.WriteFile(fmt.Sprintf("%s/%s.sock", tmpDir, grpcSupportProviders), nil, permission)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return newNodeServer(NewFakeDriver(), tmpDir, "", grpcSupportProviders, "testnode", mount.NewFakeMounter(mountPoints), client)
 }
@@ -239,7 +249,7 @@ func TestNodePublishVolume(t *testing.T) {
 	}
 
 	s := scheme.Scheme
-	s.AddKnownTypes(v1alpha1.GroupVersion,
+	s.AddKnownTypes(schema.GroupVersion{Group: v1alpha1.GroupVersion.Group, Version: v1alpha1.GroupVersion.Version},
 		&v1alpha1.SecretProviderClass{},
 		&v1alpha1.SecretProviderClassList{},
 	)
@@ -317,7 +327,7 @@ func TestMountSecretsStoreObjectContent(t *testing.T) {
 			attributes:          "{}",
 			targetPath:          getTestTargetPath(t),
 			permission:          fmt.Sprint(permission),
-			expectedErrorReason: ProviderBinaryNotFound,
+			expectedErrorReason: internalerrors.ProviderBinaryNotFound,
 			expectedErr:         true,
 		},
 		{

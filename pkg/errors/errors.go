@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package secretsstore
+package errors
 
 const (
 	// ProviderBinaryNotFound error
@@ -33,4 +33,10 @@ const (
 	FailedToCreateProviderGRPCClient = "FailedToCreateProviderGRPCClient"
 	// GRPCProviderError error
 	GRPCProviderError = "GRPCProviderError"
+	// FailedToRotate error
+	FailedToRotate = "FailedToRotate"
+	// PodNotFound error
+	PodNotFound = "PodNotFound"
+	// NodePublishSecretRefNotFound error
+	NodePublishSecretRefNotFound = "NodePublishSecretRefNotFound"
 )

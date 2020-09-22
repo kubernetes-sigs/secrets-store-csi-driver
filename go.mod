@@ -3,7 +3,6 @@ module sigs.k8s.io/secrets-store-csi-driver
 go 1.13
 
 require (
-	cloud.google.com/go v0.53.0 // indirect
 	github.com/blang/semver v3.5.0+incompatible
 	github.com/container-storage-interface/spec v1.0.0
 	github.com/golang/protobuf v1.4.2
