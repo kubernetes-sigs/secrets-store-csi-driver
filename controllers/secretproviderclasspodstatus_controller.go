@@ -19,13 +19,21 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
 
+	"k8s.io/client-go/kubernetes"
+
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	"k8s.io/client-go/tools/record"
+
 	log "github.com/sirupsen/logrus"
 
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned/scheme"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/secretutil"
 
@@ -35,27 +43,48 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 const (
-	secretManagedLabel = "secrets-store.csi.k8s.io/managed"
+	secretManagedLabel         = "secrets-store.csi.k8s.io/managed"
+	secretCreationFailedReason = "FailedToCreateSecret"
 )
 
 // SecretProviderClassPodStatusReconciler reconciles a SecretProviderClassPodStatus object
 type SecretProviderClassPodStatusReconciler struct {
 	client.Client
-	Mutex  *sync.Mutex
-	Log    *log.Logger
-	Scheme *runtime.Scheme
-	NodeID string
-	Reader client.Reader
-	Writer client.Writer
+	mutex         *sync.Mutex
+	log           *log.Logger
+	scheme        *apiruntime.Scheme
+	nodeID        string
+	reader        client.Reader
+	writer        client.Writer
+	eventRecorder record.EventRecorder
+}
+
+// New creates a new SecretProviderClassPodStatusReconciler
+func New(mgr manager.Manager, nodeID string) (*SecretProviderClassPodStatusReconciler, error) {
+	eventBroadcaster := record.NewBroadcaster()
+	kubeClient := kubernetes.NewForConfigOrDie(mgr.GetConfig())
+	eventBroadcaster.StartRecordingToSink(&clientcorev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
+	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "csi-secrets-store-controller"})
+
+	return &SecretProviderClassPodStatusReconciler{
+		Client:        mgr.GetClient(),
+		mutex:         &sync.Mutex{},
+		scheme:        mgr.GetScheme(),
+		nodeID:        nodeID,
+		reader:        mgr.GetCache(),
+		writer:        mgr.GetClient(),
+		eventRecorder: recorder,
+	}, nil
 }
 
 func (r *SecretProviderClassPodStatusReconciler) RunPatcher(stopCh <-chan struct{}) {
@@ -76,15 +105,15 @@ func (r *SecretProviderClassPodStatusReconciler) RunPatcher(stopCh <-chan struct
 
 func (r *SecretProviderClassPodStatusReconciler) Patcher() error {
 	log.Debugf("patcher started")
-	r.Mutex.Lock()
-	defer r.Mutex.Unlock()
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
 	ctx := context.Background()
 	spcPodStatusList := &v1alpha1.SecretProviderClassPodStatusList{}
 	spcMap := make(map[string]v1alpha1.SecretProviderClass)
 	secretOwnerMap := make(map[types.NamespacedName][]*v1alpha1.SecretProviderClassPodStatus)
 	// get a list of all spc pod status that belong to the node
-	err := r.Reader.List(ctx, spcPodStatusList, r.ListOptionsLabelSelector())
+	err := r.reader.List(ctx, spcPodStatusList, r.ListOptionsLabelSelector())
 	if err != nil {
 		return fmt.Errorf("failed to list secret provider class pod status, err: %+v", err)
 	}
@@ -96,7 +125,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher() error {
 		if val, exists := spcMap[spcPodStatuses[i].Namespace+"/"+spcName]; exists {
 			spc = &val
 		} else {
-			if err := r.Reader.Get(ctx, client.ObjectKey{Namespace: spcPodStatuses[i].Namespace, Name: spcName}, spc); err != nil {
+			if err := r.reader.Get(ctx, client.ObjectKey{Namespace: spcPodStatuses[i].Namespace, Name: spcName}, spc); err != nil {
 				log.Errorf("failed to get spc %s, err: %+v", spcName, err)
 				return err
 			}
@@ -140,7 +169,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher() error {
 // ListOptionsLabelSelector returns a ListOptions with a label selector for node name.
 func (r *SecretProviderClassPodStatusReconciler) ListOptionsLabelSelector() client.ListOption {
 	return client.MatchingLabels(map[string]string{
-		v1alpha1.InternalNodeLabel: r.NodeID,
+		v1alpha1.InternalNodeLabel: r.nodeID,
 	})
 }
 
@@ -148,17 +177,18 @@ func (r *SecretProviderClassPodStatusReconciler) ListOptionsLabelSelector() clie
 // +kubebuilder:rbac:groups=secrets-store.csi.x-k8s.io,resources=secretproviderclasspodstatuses/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=secrets-store.csi.x-k8s.io,resources=secretproviderclasses,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	r.Mutex.Lock()
-	defer r.Mutex.Unlock()
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
 	ctx := context.Background()
-	logger := log.WithFields(log.Fields{"secretproviderclasspodstatus": req.NamespacedName, "node": r.NodeID})
+	logger := log.WithFields(log.Fields{"secretproviderclasspodstatus": req.NamespacedName, "node": r.nodeID})
 	logger.Info("reconcile started")
 
 	var spcPodStatus v1alpha1.SecretProviderClassPodStatus
-	if err := r.Get(ctx, req.NamespacedName, &spcPodStatus); err != nil {
+	if err := r.reader.Get(ctx, req.NamespacedName, &spcPodStatus); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
@@ -177,14 +207,14 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 		logger.Info("node label not found, ignoring this spc pod status")
 		return ctrl.Result{}, nil
 	}
-	if !strings.EqualFold(node, r.NodeID) {
+	if !strings.EqualFold(node, r.nodeID) {
 		logger.Infof("ignoring as spc pod status belongs to node %s", node)
 		return ctrl.Result{}, nil
 	}
 
 	spcName := spcPodStatus.Status.SecretProviderClassName
 	spc := &v1alpha1.SecretProviderClass{}
-	if err := r.Reader.Get(ctx, client.ObjectKey{Namespace: req.Namespace, Name: spcName}, spc); err != nil {
+	if err := r.reader.Get(ctx, client.ObjectKey{Namespace: req.Namespace, Name: spcName}, spc); err != nil {
 		logger.Errorf("failed to get spc %s, err: %+v", spcName, err)
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
@@ -197,8 +227,18 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
+	// podObjectReference is an object reference to the pod that spc pod status
+	// is created for. The object reference is created with minimal required fields
+	// name, namespace and UID. By doing this we can skip an additional client call
+	// to fetch the pod object
+	podObjectReference, err := getPodObjectReference(spcPodStatus)
+	if err != nil {
+		logger.Errorf("failed to get pod object reference, error: %+v", err)
+	}
+
 	files, err := fileutil.GetMountedFiles(spcPodStatus.Status.TargetPath)
 	if err != nil {
+		r.generateEvent(podObjectReference, corev1.EventTypeWarning, secretCreationFailedReason, fmt.Sprintf("failed to get mounted files, err: %+v", err))
 		logger.Errorf("failed to get mounted files, err: %+v", err)
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, err
 	}
@@ -225,6 +265,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 
 			datamap := make(map[string][]byte)
 			if datamap, err = secretutil.GetSecretData(secretObj.Data, secretType, files); err != nil {
+				r.generateEvent(podObjectReference, corev1.EventTypeWarning, secretCreationFailedReason, fmt.Sprintf("failed to get data in spc %s/%s for secret %s, err: %+v", req.Namespace, spcName, secretName, err))
 				log.Errorf("failed to get data in spc %s/%s for secret %s, err: %+v", req.Namespace, spcName, secretName, err)
 				errs = append(errs, fmt.Errorf("failed to get data in spc %s/%s for secret %s, err: %+v", req.Namespace, spcName, secretName, err))
 				continue
@@ -256,6 +297,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 				Factor:   1.0,
 				Jitter:   0.1,
 			}, f); err != nil {
+				r.generateEvent(podObjectReference, corev1.EventTypeWarning, secretCreationFailedReason, err.Error())
 				return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 			}
 		}
@@ -291,7 +333,7 @@ func (r *SecretProviderClassPodStatusReconciler) createK8sSecret(ctx context.Con
 		Data: datamap,
 	}
 
-	err := r.Writer.Create(ctx, secret)
+	err := r.writer.Create(ctx, secret)
 	if err == nil {
 		log.Infof("created k8s secret: %s/%s", namespace, name)
 		return nil
@@ -309,8 +351,11 @@ func (r *SecretProviderClassPodStatusReconciler) patchSecretWithOwnerRef(ctx con
 		Namespace: namespace,
 		Name:      name,
 	}
-	err := r.Client.Get(ctx, secretKey, secret)
-	if err != nil && !errors.IsNotFound(err) {
+	if err := r.Client.Get(ctx, secretKey, secret); err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Debugf("secret %s/%s not found for patching", namespace, name)
+			return nil
+		}
 		return err
 	}
 
@@ -327,14 +372,14 @@ func (r *SecretProviderClassPodStatusReconciler) patchSecretWithOwnerRef(ctx con
 			continue
 		}
 		needsPatch = true
-		err = controllerutil.SetOwnerReference(spcPodStatus[i], secret, r.Scheme)
+		err := controllerutil.SetOwnerReference(spcPodStatus[i], secret, r.scheme)
 		if err != nil {
 			return err
 		}
 	}
 
 	if needsPatch {
-		return r.Writer.Patch(ctx, secret, patch)
+		return r.writer.Patch(ctx, secret, patch)
 	}
 	return nil
 }
@@ -354,4 +399,36 @@ func (r *SecretProviderClassPodStatusReconciler) secretExists(ctx context.Contex
 		return false, nil
 	}
 	return false, err
+}
+
+// getPodObjectReference returns a v1.ObjectReference for the pod object
+func getPodObjectReference(spcPodStatus v1alpha1.SecretProviderClassPodStatus) (*v1.ObjectReference, error) {
+	podName := spcPodStatus.Status.PodName
+	podNamespace := spcPodStatus.Namespace
+	podUID := getPodUIDFromTargetPath(spcPodStatus.Status.TargetPath)
+	if podUID == "" {
+		return nil, fmt.Errorf("failed to get pod UID from target path")
+	}
+	return &v1.ObjectReference{
+		Name:      podName,
+		Namespace: podNamespace,
+		UID:       types.UID(podUID),
+	}, nil
+}
+
+// getPodUIDFromTargetPath returns podUID from targetPath
+func getPodUIDFromTargetPath(targetPath string) string {
+	re := regexp.MustCompile(`[\\|\/]+pods[\\|\/]+(.+?)[\\|\/]+volumes`)
+	match := re.FindStringSubmatch(targetPath)
+	if len(match) < 2 {
+		return ""
+	}
+	return match[1]
+}
+
+// generateEvent generates an event
+func (r *SecretProviderClassPodStatusReconciler) generateEvent(obj runtime.Object, eventType, reason, message string) {
+	if obj != nil {
+		r.eventRecorder.Eventf(obj, eventType, reason, message)
+	}
 }

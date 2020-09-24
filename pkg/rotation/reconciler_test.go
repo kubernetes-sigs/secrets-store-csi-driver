@@ -18,41 +18,44 @@ package rotation
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
 	"time"
 
+	"k8s.io/client-go/tools/record"
+
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/workqueue"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
 
 	v1 "k8s.io/api/core/v1"
 
-	"k8s.io/apimachinery/pkg/util/wait"
-
-	"k8s.io/client-go/kubernetes"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	. "github.com/onsi/gomega"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
 	"k8s.io/client-go/kubernetes/fake"
 
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	secretsStoreFakeClient "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned/fake"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
 	providerfake "sigs.k8s.io/secrets-store-csi-driver/provider/fake"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrlRuntimeFake "sigs.k8s.io/controller-runtime/pkg/client/fake"
+)
 
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
+var (
+	fakeRecorder = record.NewFakeRecorder(20)
 )
 
 func setupScheme() (*runtime.Scheme, error) {
@@ -82,6 +85,7 @@ func newTestReconciler(s *runtime.Scheme, kubeClient kubernetes.Interface, crdCl
 		providerClients:      map[string]*secretsstore.CSIProviderClient{},
 		queue:                workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		reporter:             newStatsReporter(),
+		eventRecorder:        fakeRecorder,
 	}, nil
 }
 
@@ -98,6 +102,7 @@ func TestReconcileError(t *testing.T) {
 		secretToAdd                           *v1.Secret
 		expectedObjectVersions                map[string]string
 		expectedErr                           bool
+		expectedErrorEvents                   bool
 	}{
 		{
 			name:                 "secret provider class not found",
@@ -211,9 +216,10 @@ func TestReconcileError(t *testing.T) {
 					},
 				},
 			},
-			socketPath:  getTempTestDir(t),
-			secretToAdd: &v1.Secret{},
-			expectedErr: true,
+			socketPath:          getTempTestDir(t),
+			secretToAdd:         &v1.Secret{},
+			expectedErr:         true,
+			expectedErrorEvents: true,
 		},
 		{
 			name:                 "failed to create provider client",
@@ -279,7 +285,8 @@ func TestReconcileError(t *testing.T) {
 				},
 				Data: map[string][]byte{"clientid": []byte("clientid")},
 			},
-			expectedErr: true,
+			expectedErr:         true,
+			expectedErrorEvents: true,
 		},
 	}
 
@@ -307,6 +314,12 @@ func TestReconcileError(t *testing.T) {
 
 			err = testReconciler.reconcile(context.TODO(), test.secretProviderClassPodStatusToProcess)
 			g.Expect(err).To(HaveOccurred())
+			if test.expectedErrorEvents {
+				g.Expect(len(fakeRecorder.Events)).ToNot(BeNumerically("==", 0))
+				for len(fakeRecorder.Events) > 0 {
+					fmt.Println(<-fakeRecorder.Events)
+				}
+			}
 		})
 	}
 }
@@ -429,6 +442,126 @@ func TestReconcileNoError(t *testing.T) {
 	err = ctrlClient.Get(context.TODO(), types.NamespacedName{Name: "foosecret", Namespace: "default"}, updatedSecret)
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(updatedSecret.Data["foo"]).To(Equal([]byte("newdata")))
+
+	// 2 normal events - one for successfully updating the mounted contents and
+	// second for successfully rotating the K8s secret
+	g.Expect(len(fakeRecorder.Events)).To(BeNumerically("==", 2))
+}
+
+func TestPatchSecret(t *testing.T) {
+	g := NewWithT(t)
+
+	tests := []struct {
+		name               string
+		secretToAdd        *v1.Secret
+		secretName         string
+		expectedSecretData map[string][]byte
+		expectedErr        bool
+	}{
+		{
+			name:        "secret is not found",
+			secretToAdd: &v1.Secret{},
+			secretName:  "secret1",
+			expectedErr: true,
+		},
+		{
+			name: "secret is found and data already matches",
+			secretToAdd: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "secret1",
+					Namespace:       "default",
+					ResourceVersion: "16172",
+				},
+				Data: map[string][]byte{"key1": []byte("value1")},
+			},
+			secretName:         "secret1",
+			expectedSecretData: map[string][]byte{"key1": []byte("value1")},
+			expectedErr:        false,
+		},
+		{
+			name: "secret is found and data is updated to latest",
+			secretToAdd: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "secret1",
+					Namespace:       "default",
+					ResourceVersion: "16172",
+				},
+				Data: map[string][]byte{"key1": []byte("value1")},
+			},
+			secretName:         "secret1",
+			expectedSecretData: map[string][]byte{"key2": []byte("value2")},
+			expectedErr:        false,
+		},
+		{
+			name: "secret is found and new data is appended to existing",
+			secretToAdd: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "secret1",
+					Namespace:       "default",
+					ResourceVersion: "16172",
+				},
+				Data: map[string][]byte{"key1": []byte("value1")},
+			},
+			secretName:         "secret1",
+			expectedSecretData: map[string][]byte{"key1": []byte("value1"), "key2": []byte("value2")},
+			expectedErr:        false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			scheme, err := setupScheme()
+			g.Expect(err).NotTo(HaveOccurred())
+
+			kubeClient := fake.NewSimpleClientset()
+			crdClient := secretsStoreFakeClient.NewSimpleClientset()
+			ctrlClient := ctrlRuntimeFake.NewFakeClientWithScheme(scheme, test.secretToAdd)
+
+			testReconciler, err := newTestReconciler(scheme, kubeClient, crdClient, ctrlClient, 60*time.Second, "")
+			g.Expect(err).NotTo(HaveOccurred())
+
+			err = testReconciler.patchSecret(context.TODO(), test.secretName, v1.NamespaceDefault, test.expectedSecretData)
+			if test.expectedErr {
+				g.Expect(err).To(HaveOccurred())
+			} else {
+				g.Expect(err).NotTo(HaveOccurred())
+			}
+
+			if !test.expectedErr {
+				secret := &v1.Secret{}
+				// check the secret data is what we expect it to
+				err = testReconciler.ctrlReaderClient.Get(context.TODO(), types.NamespacedName{Name: test.secretName, Namespace: v1.NamespaceDefault}, secret)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(secret.Data).To(Equal(test.expectedSecretData))
+			}
+		})
+	}
+}
+
+func TestHandleError(t *testing.T) {
+	g := NewWithT(t)
+
+	testReconciler, err := newTestReconciler(nil, nil, nil, nil, 60*time.Second, "")
+	g.Expect(err).NotTo(HaveOccurred())
+
+	testReconciler.handleError(errors.New("failed error"), "key1", false)
+	// wait for the object to be requeued
+	time.Sleep(11 * time.Second)
+	g.Expect(testReconciler.queue.Len()).To(Equal(1))
+
+	for i := 0; i < 5; i++ {
+		time.Sleep(1 * time.Second)
+		testReconciler.handleError(errors.New("failed error"), "key1", true)
+		g.Expect(testReconciler.queue.NumRequeues("key1")).To(Equal(i + 1))
+
+		testReconciler.queue.Get()
+		testReconciler.queue.Done("key1")
+	}
+
+	// max number of requeues complete for key2, so now it should be removed from queue
+	testReconciler.handleError(errors.New("failed error"), "key1", true)
+	time.Sleep(1 * time.Second)
+	g.Expect(testReconciler.queue.Len()).To(Equal(1))
 }
 
 func getTempTestDir(t *testing.T) string {

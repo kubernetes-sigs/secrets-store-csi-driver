@@ -20,6 +20,8 @@ import (
 	"context"
 	"testing"
 
+	"k8s.io/client-go/tools/record"
+
 	. "github.com/onsi/gomega"
 
 	log "github.com/sirupsen/logrus"
@@ -32,7 +34,12 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
+)
+
+var (
+	fakeRecorder = record.NewFakeRecorder(10)
 )
 
 func setupScheme() (*runtime.Scheme, error) {
@@ -77,11 +84,12 @@ func newSecretProviderClassPodStatus(name, namespace, node string) *v1alpha1.Sec
 
 func newReconciler(client client.Client, scheme *runtime.Scheme) *SecretProviderClassPodStatusReconciler {
 	return &SecretProviderClassPodStatusReconciler{
-		Client: client,
-		Reader: client,
-		Writer: client,
-		Log:    log.New(),
-		Scheme: scheme,
+		Client:        client,
+		reader:        client,
+		writer:        client,
+		log:           log.New(),
+		scheme:        scheme,
+		eventRecorder: fakeRecorder,
 	}
 }
 
@@ -162,4 +170,71 @@ func TestCreateK8sSecret(t *testing.T) {
 	g.Expect(secret.Labels).To(Equal(labels))
 
 	g.Expect(secret.Name).To(Equal("my-secret2"))
+}
+
+func TestGetPodUIDFromTargetPath(t *testing.T) {
+	g := NewWithT(t)
+
+	cases := []struct {
+		targetPath     string
+		expectedPodUID string
+	}{
+		{
+			targetPath:     "/var/lib/kubelet/pods/7e7686a1-56c4-4c67-a6fd-4656ac484f0a/volumes/",
+			expectedPodUID: "7e7686a1-56c4-4c67-a6fd-4656ac484f0a",
+		},
+		{
+			targetPath:     `c:\var\lib\kubelet\pods\d4fd876f-bdb3-11e9-a369-0a5d188d99c0\volumes`,
+			expectedPodUID: "d4fd876f-bdb3-11e9-a369-0a5d188d99c0",
+		},
+		{
+			targetPath:     `c:\\var\\lib\\kubelet\\pods\\d4fd876f-bdb3-11e9-a369-0a5d188d9934\\volumes`,
+			expectedPodUID: "d4fd876f-bdb3-11e9-a369-0a5d188d9934",
+		},
+		{
+			targetPath:     "/var/lib/",
+			expectedPodUID: "",
+		},
+		{
+			targetPath:     "/var/lib/kubelet/pods",
+			expectedPodUID: "",
+		},
+		{
+			targetPath:     "/opt/new/var/lib/kubelet/pods/456457fc-d980-4191-b5eb-daf70c4ff7c1/volumes/kubernetes.io~csi/secrets-store-inline/mount",
+			expectedPodUID: "456457fc-d980-4191-b5eb-daf70c4ff7c1",
+		},
+		{
+			targetPath:     "data/kubelet/pods/456457fc-d980-4191-b5eb-daf70c4ff7c1/volumes/kubernetes.io~csi/secrets-store-inline/mount",
+			expectedPodUID: "456457fc-d980-4191-b5eb-daf70c4ff7c1",
+		},
+	}
+
+	for _, tc := range cases {
+		actualPodUID := getPodUIDFromTargetPath(tc.targetPath)
+		g.Expect(actualPodUID).To(Equal(tc.expectedPodUID))
+	}
+}
+
+func TestGenerateEvent(t *testing.T) {
+	g := NewWithT(t)
+
+	scheme, err := setupScheme()
+	g.Expect(err).NotTo(HaveOccurred())
+
+	client := fake.NewFakeClientWithScheme(scheme)
+	reconciler := newReconciler(client, scheme)
+
+	obj := &v1.ObjectReference{
+		Name:      "pod1",
+		Namespace: "default",
+		UID:       "481ab824-1f07-4611-bc08-c41f5cbb5a8d",
+	}
+
+	reconciler.generateEvent(obj, v1.EventTypeWarning, "reason", "message")
+	reconciler.generateEvent(obj, v1.EventTypeWarning, "reason2", "message2")
+
+	event := <-fakeRecorder.Events
+	g.Expect(event).To(Equal("Warning reason message"))
+	event = <-fakeRecorder.Events
+	g.Expect(event).To(Equal("Warning reason2 message2"))
 }

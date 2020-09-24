@@ -345,3 +345,43 @@ func createTestFile(tmpDir, fileName string) (string, error) {
 	}
 	return "", nil
 }
+
+func TestGenerateSHAFromSecret(t *testing.T) {
+	tests := []struct {
+		name             string
+		data1            map[string][]byte
+		data2            map[string][]byte
+		expectedSHAMatch bool
+	}{
+		{
+			name:             "SHA mismatch as data1 missing key",
+			data1:            map[string][]byte{},
+			data2:            map[string][]byte{"key": []byte("value")},
+			expectedSHAMatch: false,
+		},
+		{
+			name:             "SHA mismatch as data1 key different",
+			data1:            map[string][]byte{"key": []byte("oldvalue")},
+			data2:            map[string][]byte{"key": []byte("newvalue")},
+			expectedSHAMatch: false,
+		},
+		{
+			name:             "SHA match for multiple data keys in different order",
+			data1:            map[string][]byte{"key1": []byte("value1"), "key2": []byte("value2")},
+			data2:            map[string][]byte{"key2": []byte("value2"), "key1": []byte("value1")},
+			expectedSHAMatch: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			sha1, err := GetSHAFromSecret(test.data1)
+			assert.NoError(t, err)
+
+			sha2, err := GetSHAFromSecret(test.data2)
+			assert.NoError(t, err)
+
+			assert.Equal(t, test.expectedSHAMatch, sha1 == sha2)
+		})
+	}
+}

@@ -18,7 +18,6 @@ package main
 
 import (
 	"flag"
-	"sync"
 	"time"
 
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/metrics"
@@ -98,15 +97,10 @@ func main() {
 		log.Fatalf("failed to start manager, error: %+v", err)
 	}
 
-	reconciler := &controllers.SecretProviderClassPodStatusReconciler{
-		Client: mgr.GetClient(),
-		Mutex:  &sync.Mutex{},
-		Scheme: mgr.GetScheme(),
-		NodeID: *nodeID,
-		Reader: mgr.GetCache(),
-		Writer: mgr.GetClient(),
+	reconciler, err := controllers.New(mgr, *nodeID)
+	if err != nil {
+		log.Fatalf("failed to create secret provider class pod status reconciler, error: %+v", err)
 	}
-
 	if err = reconciler.SetupWithManager(mgr); err != nil {
 		log.Fatalf("failed to create controller, error: %+v", err)
 	}

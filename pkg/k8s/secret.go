@@ -20,6 +20,8 @@ import (
 	"fmt"
 
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -35,7 +37,7 @@ func (sl *SecretLister) GetWithKey(key string) (*v1.Secret, error) {
 		return nil, err
 	}
 	if !exists {
-		return nil, fmt.Errorf("secret not found in informer cache")
+		return nil, apierrors.NewNotFound(schema.GroupResource{Group: v1.GroupName, Resource: "secrets"}, key)
 	}
 	secret, ok := sec.(*v1.Secret)
 	if !ok {

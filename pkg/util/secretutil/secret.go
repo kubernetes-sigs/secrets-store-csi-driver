@@ -19,10 +19,13 @@ package secretutil
 import (
 	"crypto/ecdsa"
 	"crypto/rsa"
+	"crypto/sha1"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"sort"
 	"strings"
 
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
@@ -179,4 +182,27 @@ func GetSecretData(secretObjData []*v1alpha1.SecretObjectData, secretType corev1
 		}
 	}
 	return datamap, nil
+}
+
+// GetSHAFromSecret gets SHA for the secret data
+func GetSHAFromSecret(data map[string][]byte) (string, error) {
+	var values []string
+	for k, v := range data {
+		values = append(values, k+"="+string(v[:]))
+	}
+	// sort the values to always obtain a deterministic SHA for
+	// same content in different order
+	sort.Strings(values)
+	return generateSHA(strings.Join(values, ";"))
+}
+
+// generateSHA generates SHA from string
+func generateSHA(data string) (string, error) {
+	hasher := sha1.New()
+	_, err := io.WriteString(hasher, data)
+	if err != nil {
+		return "", err
+	}
+	sha := hasher.Sum(nil)
+	return fmt.Sprintf("%x", sha), nil
 }

@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -48,6 +50,7 @@ func TestGetPod(t *testing.T) {
 	// Get a pod that's not found
 	_, err = testStore.GetPod("pod1", "default")
 	g.Expect(err).To(HaveOccurred())
+	g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 
 	// add pod and then perform a get to ensure the correct pod is returned
 	podToCreate := &v1.Pod{
@@ -81,6 +84,11 @@ func TestListSecretProviderClassPodStatus(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 	err = testStore.Run(wait.NeverStop)
 	g.Expect(err).NotTo(HaveOccurred())
+
+	// Get a secretproviderclasspodstatus that's not found
+	_, err = testStore.GetSecretProviderClassPodStatus("spcps1")
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 
 	secretProviderClassPodStatusToAdd := []*v1alpha1.SecretProviderClassPodStatus{
 		{
@@ -126,6 +134,7 @@ func TestGetSecret(t *testing.T) {
 	// Get a secret that's not found
 	_, err = testStore.GetSecret("secret1", "default")
 	g.Expect(err).To(HaveOccurred())
+	g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 
 	secretToAdd := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -159,6 +168,7 @@ func TestGetSecretProviderClass(t *testing.T) {
 	// Get a spc that's not found
 	_, err = testStore.GetSecretProviderClass("spc1", "default")
 	g.Expect(err).To(HaveOccurred())
+	g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 
 	secretProviderClassToAdd := &v1alpha1.SecretProviderClass{
 		ObjectMeta: metav1.ObjectMeta{
