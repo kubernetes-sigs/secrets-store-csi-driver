@@ -48,7 +48,7 @@ func GetDriver() *SecretsStore {
 	return &SecretsStore{}
 }
 
-func newNodeServer(d *csicommon.CSIDriver, providerVolumePath, minProviderVersions, grpcSupportedProviders, nodeID string, mounter mount.Interface, client client.Client) (*nodeServer, error) {
+func newNodeServer(d *csicommon.CSIDriver, providerVolumePath, minProviderVersions, grpcSupportedProviders, nodeID string, mounter mount.Interface, client client.Client, statsReporter StatsReporter) (*nodeServer, error) {
 	// get a map of provider and compatible version
 	minProviderVersionsMap, err := version.GetMinimumProviderVersions(minProviderVersions)
 	if err != nil {
@@ -72,7 +72,7 @@ func newNodeServer(d *csicommon.CSIDriver, providerVolumePath, minProviderVersio
 		providerVolumePath:     providerVolumePath,
 		minProviderVersions:    minProviderVersionsMap,
 		mounter:                mounter,
-		reporter:               newStatsReporter(),
+		reporter:               statsReporter,
 		nodeID:                 nodeID,
 		client:                 client,
 		grpcSupportedProviders: grpcSupportedProvidersMap,
@@ -121,7 +121,7 @@ func (s *SecretsStore) Run(driverName, nodeID, endpoint, providerVolumePath, min
 	}
 	defer m.Stop()
 
-	ns, err := newNodeServer(s.driver, providerVolumePath, minProviderVersions, grpcSupportedProviders, nodeID, mount.New(""), client)
+	ns, err := newNodeServer(s.driver, providerVolumePath, minProviderVersions, grpcSupportedProviders, nodeID, mount.New(""), client, NewStatsReporter())
 	if err != nil {
 		log.Fatalf("failed to initialize node server, error: %+v", err)
 	}

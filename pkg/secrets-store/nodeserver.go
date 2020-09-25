@@ -77,10 +77,10 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 				log.Infof("unmounting target path %s as node publish volume failed", targetPath)
 				ns.mounter.Unmount(targetPath)
 			}
-			ns.reporter.reportNodePublishErrorCtMetric(providerName, errorReason)
+			ns.reporter.ReportNodePublishErrorCtMetric(providerName, errorReason)
 			return
 		}
-		ns.reporter.reportNodePublishCtMetric(providerName)
+		ns.reporter.ReportNodePublishCtMetric(providerName)
 	}()
 
 	// Check arguments
@@ -206,10 +206,10 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 
 	defer func() {
 		if err != nil {
-			ns.reporter.reportNodeUnPublishErrorCtMetric()
+			ns.reporter.ReportNodeUnPublishErrorCtMetric()
 			return
 		}
-		ns.reporter.reportNodeUnPublishCtMetric()
+		ns.reporter.ReportNodeUnPublishCtMetric()
 	}()
 
 	// Check arguments
