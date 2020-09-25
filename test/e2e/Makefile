@@ -53,7 +53,7 @@ GINKGO_FOCUS  ?=
 GINKGO_NODES  ?= 1
 SKIP_RESOURCE_CLEANUP ?= false
 GINKGO_NOCOLOR ?= false
-NODE_IMAGE ?= kindest/node:v1.15.11
+NODE_IMAGE ?= kindest/node:v1.16.15
 PROVIDER ?=
 CHART_PATH ?= $(REPO_ROOT)/charts/secrets-store-csi-driver
 MANIFESTS_DIR ?= $(REPO_ROOT)/test/e2e/data
@@ -64,7 +64,7 @@ TRY_LOAD_IMAGES ?= \
 	nginx
 else ($(PROVIDER),vault)
 TRY_LOAD_IMAGES ?= \
-	registry.hub.docker.com/library/vault:1.4.2 \
+	registry.hub.docker.com/library/vault:1.5.3 \
 	hashicorp/secrets-store-csi-driver-provider-vault:0.0.4 \
 	nginx
 endif
