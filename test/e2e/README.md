@@ -5,6 +5,6 @@ E2E for Secret Store CSI Driver provides end-to-end test environment. Test frame
 ## Get Started
 
 ```shell
-cd ..
+cd ../..
 make e2e-<provider name>
 ```

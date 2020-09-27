@@ -30,10 +30,12 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	"sigs.k8s.io/secrets-store-csi-driver/test/e2e/framework"
 	"sigs.k8s.io/secrets-store-csi-driver/test/e2e/framework/bootstrap"
+	"sigs.k8s.io/secrets-store-csi-driver/test/e2e/framework/csidriver"
 )
 
 // Test suite flags
@@ -70,6 +72,8 @@ var (
 	clusterProxy framework.ClusterProxy
 )
 
+const csiNamespace = "secrets-store-csi-driver"
+
 func init() {
 	flag.BoolVar(&skipCleanup, "e2e.skip-resource-cleanup", false, "if true, the resource cleanup after tests will be skipped")
 	flag.StringVar(&nodeImage, "e2e.node-image", "", "kindest/node image tag")
@@ -88,6 +92,26 @@ func TestE2E(t *testing.T) {
 var _ = BeforeSuite(func() {
 	By("Setting up the cluster")
 	clusterProvider, clusterProxy = setupCluster(initScheme())
+
+	ctx := context.TODO()
+
+	By("Install CSI driver")
+	cli := clusterProxy.GetClient()
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: csiNamespace,
+		},
+	}
+	Eventually(func() error {
+		return cli.Create(ctx, ns)
+	}, framework.CreateTimeout, framework.CreatePolling).Should(Succeed())
+
+	csidriver.InstallAndWait(ctx, csidriver.InstallAndWaitInput{
+		Getter:         cli,
+		KubeConfigPath: clusterProxy.GetKubeconfigPath(),
+		ChartPath:      chartPath,
+		Namespace:      csiNamespace,
+	})
 })
 
 var _ = AfterSuite(func() {

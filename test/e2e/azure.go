@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"html/template"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -63,8 +62,6 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 		cancelWatches    context.CancelFunc
 		cli              client.Client
 		codecs           serializer.CodecFactory
-		clientID         = os.Getenv("AZURE_CLIENT_ID")
-		clientSecret     = os.Getenv("AZURE_CLIENT_SECRET")
 		secretName       = "secret1"
 		secretVersion    = ""
 		secretValue      = "test"
@@ -81,8 +78,6 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 		Expect(ctx).NotTo(BeNil(), "ctx is required for %s spec", specName)
 		input = inputGetter()
 		Expect(input.clusterProxy).ToNot(BeNil(), "Invalid argument. input.clusterProxy can't be nil when calling %s spec", specName)
-		Expect(clientID).ToNot(Equal(""), "Azure service principal is not provided")
-		Expect(clientSecret).ToNot(Equal(""), "Azure service principal is not provided")
 
 		// Setup a Namespace where to host objects for this spec and create a watcher for the namespace events.
 		namespace, cancelWatches = setupSpecNamespace(ctx, specName, input.clusterProxy)
@@ -94,26 +89,6 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 		}
 
 		cli = input.clusterProxy.GetClient()
-		csidriver.InstallAndWait(ctx, csidriver.InstallAndWaitInput{
-			Getter:         cli,
-			KubeConfigPath: input.clusterProxy.GetKubeconfigPath(),
-			ChartPath:      input.chartPath,
-			Namespace:      namespace.Name,
-		})
-		azure.InstallAndWaitProvider(ctx, azure.InstallAndWaitProviderInput{
-			Creator:   cli,
-			Getter:    cli,
-			Namespace: namespace.Name,
-		})
-		azure.SetupAzure(ctx, azure.SetupAzureInput{
-			Creator:        cli,
-			GetLister:      cli,
-			Namespace:      namespace.Name,
-			ManifestsDir:   input.manifestsDir,
-			KubeconfigPath: input.clusterProxy.GetKubeconfigPath(),
-			ClientID:       clientID,
-			ClientSecret:   clientSecret,
-		})
 	})
 
 	It("test CSI inline volume with pod portability", func() {

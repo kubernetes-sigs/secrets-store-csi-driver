@@ -20,12 +20,34 @@ package e2e
 
 import (
 	"context"
+	"os"
 
 	. "github.com/onsi/ginkgo"
+	"sigs.k8s.io/secrets-store-csi-driver/test/e2e/framework/azure"
 )
 
 var _ = Describe("Testing CSI Driver with Azure provider", func() {
-	AzureSpec(context.TODO(), func() AzureSpecInput {
+	ctx := context.TODO()
+
+	It("Install Azure provider and setup Azure", func() {
+		cli := clusterProxy.GetClient()
+		azure.InstallAndWaitProvider(ctx, azure.InstallAndWaitProviderInput{
+			Creator:   cli,
+			Getter:    cli,
+			Namespace: csiNamespace,
+		})
+		azure.SetupAzure(ctx, azure.SetupAzureInput{
+			Creator:        cli,
+			GetLister:      cli,
+			Namespace:      csiNamespace,
+			ManifestsDir:   manifestsDir,
+			KubeconfigPath: clusterProxy.GetKubeconfigPath(),
+			ClientID:       os.Getenv("AZURE_CLIENT_ID"),
+			ClientSecret:   os.Getenv("AZURE_CLIENT_SECRET"),
+		})
+	})
+
+	AzureSpec(ctx, func() AzureSpecInput {
 		return AzureSpecInput{
 			clusterProxy: clusterProxy,
 			skipCleanup:  skipCleanup,

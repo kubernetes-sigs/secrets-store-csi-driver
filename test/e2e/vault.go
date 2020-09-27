@@ -45,7 +45,6 @@ import (
 // VaultSpecInput is the input for VaultSpec.
 type VaultSpecInput struct {
 	clusterProxy framework.ClusterProxy
-	csiNamespace string
 	skipCleanup  bool
 	chartPath    string
 	manifestsDir string
@@ -80,7 +79,7 @@ func VaultSpec(ctx context.Context, inputGetter func() VaultSpecInput) {
 
 		service := &corev1.Service{}
 		Expect(cli.Get(ctx, client.ObjectKey{
-			Namespace: input.csiNamespace,
+			Namespace: csiNamespace,
 			Name:      "vault",
 		}, service)).To(Succeed(), "Failed to get service %#v", service)
 
@@ -167,7 +166,7 @@ func VaultSpec(ctx context.Context, inputGetter func() VaultSpecInput) {
 
 		service := &corev1.Service{}
 		Expect(cli.Get(ctx, client.ObjectKey{
-			Namespace: input.csiNamespace,
+			Namespace: csiNamespace,
 			Name:      "vault",
 		}, service)).To(Succeed(), "Failed to get service %#v", service)
 
@@ -328,7 +327,7 @@ func VaultSpec(ctx context.Context, inputGetter func() VaultSpecInput) {
 
 		service := &corev1.Service{}
 		Expect(cli.Get(ctx, client.ObjectKey{
-			Namespace: input.csiNamespace,
+			Namespace: csiNamespace,
 			Name:      "vault",
 		}, service)).To(Succeed(), "Failed to get service %#v", service)
 
