@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
@@ -204,7 +205,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 	// read the Kubernetes secret referenced in NodePublishSecretRef and marshal it
 	// This comprises the secret parameter in the MountRequest to the provider
 	if nodePublishSecretRef != nil {
-		secretName := nodePublishSecretRef.Name
+		secretName := strings.TrimSpace(nodePublishSecretRef.Name)
 		secretNamespace := spcps.Namespace
 
 		// read secret from the informer cache
@@ -247,8 +248,8 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 	// compare the old object versions and new object versions to check if any of the objects
 	// have been updated by the provider
 	for k, v := range newObjectVersions {
-		version, ok := oldObjectVersions[k]
-		if ok && version == v {
+		version, ok := oldObjectVersions[strings.TrimSpace(k)]
+		if ok && strings.TrimSpace(version) == strings.TrimSpace(v) {
 			continue
 		}
 		requiresUpdate = true
@@ -263,7 +264,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 	if requiresUpdate {
 		var ov []v1alpha1.SecretProviderClassObject
 		for k, v := range newObjectVersions {
-			ov = append(ov, v1alpha1.SecretProviderClassObject{ID: k, Version: v})
+			ov = append(ov, v1alpha1.SecretProviderClassObject{ID: strings.TrimSpace(k), Version: strings.TrimSpace(v)})
 		}
 		spcps.Status.Objects = ov
 
@@ -295,21 +296,23 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 			return fmt.Errorf("failed to get mounted files, err: %+v", err)
 		}
 		for _, secretObj := range spc.Spec.SecretObjects {
+			secretName := strings.TrimSpace(secretObj.SecretName)
+
 			if err = secretutil.ValidateSecretObject(*secretObj); err != nil {
 				log.Errorf("failed validation for secret object in spc %s/%s, err: %+v", spcNamespace, spcName, err)
 				continue
 			}
 
-			secretType := secretutil.GetSecretType(secretObj.Type)
+			secretType := secretutil.GetSecretType(strings.TrimSpace(secretObj.Type))
 			var datamap map[string][]byte
 			if datamap, err = secretutil.GetSecretData(secretObj.Data, secretType, files); err != nil {
-				log.Errorf("failed to get data in spc %s/%s for secret %s, err: %+v", spcNamespace, spcName, secretObj.SecretName, err)
+				log.Errorf("failed to get data in spc %s/%s for secret %s, err: %+v", spcNamespace, spcName, secretName, err)
 				continue
 			}
 
 			patchFn := func() (bool, error) {
 				// patch secret data with the new contents
-				if err := r.patchSecret(ctx, secretObj.SecretName, spcps.Namespace, datamap); err != nil {
+				if err := r.patchSecret(ctx, secretName, spcps.Namespace, datamap); err != nil {
 					log.Errorf("failed to patch secret %s/%s, err: %+v", spcps.Namespace, secretObj.SecretName, err)
 					return false, nil
 				}

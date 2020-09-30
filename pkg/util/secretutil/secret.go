@@ -23,6 +23,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
+	"strings"
 
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 
@@ -151,27 +152,30 @@ func ValidateSecretObject(secretObj v1alpha1.SecretObject) error {
 func GetSecretData(secretObjData []*v1alpha1.SecretObjectData, secretType corev1.SecretType, files map[string]string) (map[string][]byte, error) {
 	datamap := make(map[string][]byte)
 	for _, data := range secretObjData {
-		if len(data.ObjectName) == 0 {
+		objectName := strings.TrimSpace(data.ObjectName)
+		dataKey := strings.TrimSpace(data.Key)
+
+		if len(objectName) == 0 {
 			return datamap, fmt.Errorf("object name in secretObjects.data")
 		}
-		if len(data.Key) == 0 {
+		if len(dataKey) == 0 {
 			return datamap, fmt.Errorf("key in secretObjects.data is empty")
 		}
-		file, ok := files[data.ObjectName]
+		file, ok := files[objectName]
 		if !ok {
-			return datamap, fmt.Errorf("file matching objectName %s not found in the pod", data.ObjectName)
+			return datamap, fmt.Errorf("file matching objectName %s not found in the pod", objectName)
 		}
 		content, err := ioutil.ReadFile(file)
 		if err != nil {
-			return datamap, fmt.Errorf("failed to read file %s, err: %v", data.ObjectName, err)
+			return datamap, fmt.Errorf("failed to read file %s, err: %v", objectName, err)
 		}
-		datamap[data.Key] = content
+		datamap[dataKey] = content
 		if secretType == v1.SecretTypeTLS {
-			c, err := GetCertPart(content, data.Key)
+			c, err := GetCertPart(content, dataKey)
 			if err != nil {
 				return datamap, fmt.Errorf("failed to get cert data from file %s, err: %+v", file, err)
 			}
-			datamap[data.Key] = c
+			datamap[dataKey] = c
 		}
 	}
 	return datamap, nil
