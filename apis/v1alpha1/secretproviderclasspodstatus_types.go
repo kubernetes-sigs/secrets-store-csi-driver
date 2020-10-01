@@ -28,7 +28,6 @@ const (
 // SecretProviderClassPodStatusStatus defines the observed state of SecretProviderClassPodStatus
 type SecretProviderClassPodStatusStatus struct {
 	PodName                 string                      `json:"podName,omitempty"`
-	PodUID                  string                      `json:"podUID,omitempty"`
 	SecretProviderClassName string                      `json:"secretProviderClassName,omitempty"`
 	Mounted                 bool                        `json:"mounted,omitempty"`
 	TargetPath              string                      `json:"targetPath,omitempty"`
