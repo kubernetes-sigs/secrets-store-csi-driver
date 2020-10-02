@@ -204,27 +204,29 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 	}
 	errs := make([]error, 0)
 	for _, secretObj := range spc.Spec.SecretObjects {
+		secretName := strings.TrimSpace(secretObj.SecretName)
+
 		if err = secretutil.ValidateSecretObject(*secretObj); err != nil {
 			logger.Errorf("failed to validate secret object in spc %s/%s, err: %+v", spc.Namespace, spc.Name, err)
 			errs = append(errs, fmt.Errorf("failed to validate secret object in spc %s/%s, err: %+v", spc.Namespace, spc.Name, err))
 			continue
 		}
-		exists, err := r.secretExists(ctx, secretObj.SecretName, req.Namespace)
+		exists, err := r.secretExists(ctx, secretName, req.Namespace)
 		if err != nil {
-			logger.Errorf("failed to check if secret %s exists, err: %+v", secretObj.SecretName, err)
-			errs = append(errs, fmt.Errorf("failed to check if secret %s exists, err: %+v", secretObj.SecretName, err))
+			logger.Errorf("failed to check if secret %s exists, err: %+v", secretName, err)
+			errs = append(errs, fmt.Errorf("failed to check if secret %s exists, err: %+v", secretName, err))
 			continue
 		}
 
 		var funcs []func() (bool, error)
 
 		if !exists {
-			secretType := secretutil.GetSecretType(secretObj.Type)
+			secretType := secretutil.GetSecretType(strings.TrimSpace(secretObj.Type))
 
 			datamap := make(map[string][]byte)
 			if datamap, err = secretutil.GetSecretData(secretObj.Data, secretType, files); err != nil {
-				log.Errorf("failed to get data in spc %s/%s for secret %s, err: %+v", req.Namespace, spcName, secretObj.SecretName, err)
-				errs = append(errs, fmt.Errorf("failed to get data in spc %s/%s for secret %s, err: %+v", req.Namespace, spcName, secretObj.SecretName, err))
+				log.Errorf("failed to get data in spc %s/%s for secret %s, err: %+v", req.Namespace, spcName, secretName, err)
+				errs = append(errs, fmt.Errorf("failed to get data in spc %s/%s for secret %s, err: %+v", req.Namespace, spcName, secretName, err))
 				continue
 			}
 
@@ -238,8 +240,8 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 			labelsMap[secretManagedLabel] = "true"
 
 			createFn := func() (bool, error) {
-				if err := r.createK8sSecret(ctx, secretObj.SecretName, req.Namespace, datamap, labelsMap, secretType); err != nil {
-					logger.Errorf("failed createK8sSecret, err: %v for secret: %s", err, secretObj.SecretName)
+				if err := r.createK8sSecret(ctx, secretName, req.Namespace, datamap, labelsMap, secretType); err != nil {
+					logger.Errorf("failed createK8sSecret, err: %v for secret: %s", err, secretName)
 					return false, nil
 				}
 				return true, nil

@@ -18,6 +18,8 @@ package secretutil
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 
@@ -262,22 +264,84 @@ func TestGetSecretData(t *testing.T) {
 				},
 			},
 			secretType:      corev1.SecretTypeOpaque,
-			currentFiles:    map[string]string{"obj1": ""},
+			currentFiles:    map[string]string{"obj2": ""},
 			expectedDataMap: make(map[string][]byte),
 			expectedError:   true,
+		},
+		{
+			name: "file matching object found in fs",
+			secretObjData: []*v1alpha1.SecretObjectData{
+				{
+					ObjectName: "obj1",
+					Key:        "file1",
+				},
+			},
+			secretType:      corev1.SecretTypeOpaque,
+			currentFiles:    map[string]string{"obj1": ""},
+			expectedDataMap: map[string][]byte{"file1": []byte("test")},
+			expectedError:   false,
+		},
+		{
+			name: "file matching object found in fs after trimming spaces in object name",
+			secretObjData: []*v1alpha1.SecretObjectData{
+				{
+					ObjectName: "obj1     ",
+					Key:        "file1",
+				},
+			},
+			secretType:      corev1.SecretTypeOpaque,
+			currentFiles:    map[string]string{"obj1": ""},
+			expectedDataMap: map[string][]byte{"file1": []byte("test")},
+			expectedError:   false,
+		},
+		{
+			name: "file matching object found in fs after trimming spaces in key",
+			secretObjData: []*v1alpha1.SecretObjectData{
+				{
+					ObjectName: "obj1     ",
+					Key:        "   file1",
+				},
+			},
+			secretType:      corev1.SecretTypeOpaque,
+			currentFiles:    map[string]string{"obj1": ""},
+			expectedDataMap: map[string][]byte{"file1": []byte("test")},
+			expectedError:   false,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			tmpDir, err := ioutil.TempDir("", "ut")
+			if err != nil {
+				t.Fatalf("expected err to be nil, got: %+v", err)
+			}
+			defer os.RemoveAll(tmpDir)
+
+			for fileName := range test.currentFiles {
+				filePath, err := createTestFile(tmpDir, fileName)
+				if err != nil {
+					t.Fatalf("expected err to be nil, got: %+v", err)
+				}
+				test.currentFiles[fileName] = filePath
+			}
 			datamap, err := GetSecretData(test.secretObjData, test.secretType, test.currentFiles)
 			if test.expectedError && err == nil {
 				t.Fatalf("expected err: %+v, got: %+v", test.expectedError, err)
 			}
-			fmt.Println(err)
 			if !reflect.DeepEqual(datamap, test.expectedDataMap) {
 				t.Fatalf("expected data map doesn't match actual")
 			}
 		})
 	}
+}
+
+func createTestFile(tmpDir, fileName string) (string, error) {
+	if fileName != "" {
+		filePath := fmt.Sprintf("%s/%s", tmpDir, fileName)
+		f, err := os.Create(filePath)
+		f.Write([]byte("test"))
+		defer f.Close()
+		return filePath, err
+	}
+	return "", nil
 }
