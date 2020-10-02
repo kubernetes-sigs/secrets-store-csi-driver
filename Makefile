@@ -138,13 +138,15 @@ ifdef TEST_WINDOWS
 			--set windows.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
 			--set windows.image.tag=$(IMAGE_VERSION) \
 			--set windows.enabled=true \
-			--set linux.enabled=false
+			--set linux.enabled=false \
+			--set grpcSupportedProviders=azure
 else
 		helm install csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace default --wait --timeout=15m -v=5 --debug \
 			--set linux.image.pullPolicy="IfNotPresent" \
 			--set linux.image.repository="e2e/secrets-store-csi" \
 			--set linux.image.tag=$(IMAGE_VERSION) \
-			--set linux.image.pullPolicy="IfNotPresent"
+			--set linux.image.pullPolicy="IfNotPresent" \
+			--set grpcSupportedProviders=azure
 endif
 
 .PHONY: e2e-azure
