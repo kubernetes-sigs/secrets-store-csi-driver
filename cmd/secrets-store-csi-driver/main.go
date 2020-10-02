@@ -20,6 +20,7 @@ import (
 	"flag"
 	"sync"
 
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/metrics"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/rotation"
 
 	log "github.com/sirupsen/logrus"
@@ -73,6 +74,16 @@ func main() {
 	}
 
 	log.SetReportCaller(*logReportCaller)
+
+	// initialize metrics exporter before creating measurements
+	// Issue: https://github.com/open-telemetry/opentelemetry-go/issues/677
+	// this has been resolved in otel release v0.5.0
+	// TODO (aramase) update to latest version of otel and deps
+	m, err := metrics.NewMetricsExporter()
+	if err != nil {
+		log.Fatalf("failed to initialize metrics exporter, error: %+v", err)
+	}
+	defer m.Stop()
 
 	config := ctrl.GetConfigOrDie()
 	config.UserAgent = "csi-secrets-store/controller"

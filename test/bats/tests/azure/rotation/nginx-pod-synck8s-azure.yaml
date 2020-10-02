@@ -1,12 +1,18 @@
 kind: Pod
 apiVersion: v1
 metadata:
-  name: nginx-secrets-store-inline-crd
+  name: nginx-secrets-store-inline-rotation
 spec:
   terminationGracePeriodSeconds: 0
   containers:
   - image: $CONTAINER_IMAGE
     name: nginx
+    env:
+    - name: SECRET_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: rotationsecret
+          key: username
     volumeMounts:
     - name: secrets-store-inline
       mountPath: "/mnt/secrets-store"
@@ -17,6 +23,6 @@ spec:
         driver: secrets-store.csi.k8s.io
         readOnly: true
         volumeAttributes:
-          secretProviderClass: "azure"
+          secretProviderClass: "azure-auto-rotation"
         nodePublishSecretRef:
           name: secrets-store-creds

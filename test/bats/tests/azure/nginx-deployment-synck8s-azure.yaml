@@ -14,6 +14,7 @@ spec:
       labels:
         app: nginx
     spec:
+      terminationGracePeriodSeconds: 0
       containers:
       - image: $CONTAINER_IMAGE
         name: nginx

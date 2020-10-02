@@ -21,6 +21,10 @@ if [ $TEST_WINDOWS ]; then
   EXEC_COMMAND="powershell.exe cat"
 fi
 
+if [ -z "$AUTO_ROTATE_SECRET_NAME" ]; then
+    export AUTO_ROTATE_SECRET_NAME=secret-$(openssl rand -hex 6)
+fi
+
 export KEYVAULT_NAME=${KEYVAULT_NAME:-csi-secrets-store-e2e}
 export SECRET_NAME=${KEYVAULT_SECRET_NAME:-secret1}
 export SECRET_VERSION=${KEYVAULT_SECRET_VERSION:-""}
@@ -285,4 +289,60 @@ setup() {
 
   result=$(kubectl get secret foosecret-1 -o json | jq '.metadata.ownerReferences | length')
   [[ "$result" -eq 1 ]]
+}
+
+@test "Test auto rotation of mount contents and K8s secrets - Create deployment" {
+  run kubectl create ns rotation
+  assert_success
+
+  run kubectl create secret generic secrets-store-creds --from-literal clientid=${AZURE_CLIENT_ID} --from-literal clientsecret=${AZURE_CLIENT_SECRET} -n rotation
+  assert_success
+
+  run az login -u ${AZURE_CLIENT_ID} -p ${AZURE_CLIENT_SECRET} -t ${TENANT_ID} --service-principal
+  assert_success
+
+  run az keyvault secret set --vault-name ${KEYVAULT_NAME} --name ${AUTO_ROTATE_SECRET_NAME} --value secret
+  assert_success
+
+  envsubst < $BATS_TESTS_DIR/rotation/azure_synck8s_v1alpha1_secretproviderclass.yaml | kubectl apply -n rotation -f -
+  envsubst < $BATS_TESTS_DIR/rotation/nginx-pod-synck8s-azure.yaml | kubectl apply -n rotation -f -
+
+  cmd="kubectl wait -n rotation --for=condition=Ready --timeout=60s pod/nginx-secrets-store-inline-rotation"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  run kubectl get pod/nginx-secrets-store-inline-rotation -n rotation
+  assert_success
+}
+
+@test "Test auto rotation of mount contents and K8s secrets" {
+  run kubectl cp -n rotation nginx-secrets-store-inline-rotation:/mnt/secrets-store/secretalias $BATS_TMPDIR/before_rotation
+  assert_success
+
+  result=$(cat $BATS_TMPDIR/before_rotation)
+  [[ "${result//$'\r'}" == "secret" ]]
+  rm $BATS_TMPDIR/before_rotation
+
+  result=$(kubectl get secret -n rotation rotationsecret -o jsonpath="{.data.username}" | base64 -d)
+  [[ "${result//$'\r'}" == "secret" ]]
+
+  run az keyvault secret set --vault-name ${KEYVAULT_NAME} --name ${AUTO_ROTATE_SECRET_NAME} --value rotated
+  assert_success
+
+  sleep 60
+
+  run kubectl cp -n rotation nginx-secrets-store-inline-rotation:/mnt/secrets-store/secretalias $BATS_TMPDIR/after_rotation
+  assert_success
+
+  result=$(cat $BATS_TMPDIR/after_rotation)
+  [[ "${result//$'\r'}" == "rotated" ]]
+  rm $BATS_TMPDIR/after_rotation
+
+  result=$(kubectl get secret -n rotation rotationsecret -o jsonpath="{.data.username}" | base64 -d)
+  [[ "${result//$'\r'}" == "rotated" ]]
+
+  run az keyvault secret delete --vault-name ${KEYVAULT_NAME} --name ${AUTO_ROTATE_SECRET_NAME}
+  assert_success
+
+  run az logout
+  assert_success
 }
