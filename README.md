@@ -44,6 +44,7 @@ Join us to help define the direction and implementation of this project!
     - [Secret Content is Mounted on Pod Start](#secret-content-is-mounted-on-pod-start)
     - [[OPTIONAL] Sync with Kubernetes Secrets](#optional-sync-with-kubernetes-secrets)
     - [[OPTIONAL] Set ENV VAR](#optional-set-env-var)
+    - [[OPTIONAL] Enable Auto Rotation of Secrets](#optional-enable-auto-rotation-of-secrets)
   - [Providers](#providers)
     - [Criteria for Supported Providers](#criteria-for-supported-providers)
     - [Removal from Supported Providers](#removal-from-supported-providers)
@@ -233,6 +234,12 @@ spec:
           key: username
 ```
 Here is a sample [deployment yaml](test/bats/tests/vault/nginx-deployment-synck8s.yaml) that creates an ENV VAR from the synced Kubernetes secret.
+
+### [OPTIONAL] Enable Auto Rotation of Secrets
+
+You can setup the Secrets Store CSI Driver to periodically update the pod mount and Kubernetes Secret with the latest content from external secrets-store. Refer to [doc](docs/README.rotation.md) for steps on enabling auto rotation.
+
+**NOTE** The CSI driver **does not restart** the application pods. It only handles updating the pod mount and Kubernetes secret similar to how Kubernetes handles updates to Kubernetes secret mounted as volumes.
 
 
 ## Providers
