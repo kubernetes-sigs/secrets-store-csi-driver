@@ -93,6 +93,8 @@ e2e-bootstrap: install-helm
 	apt-get update && apt-get install bats && apt-get install gettext-base -y
 	# Download and install Vault
 	vault -v | grep -q v$(VAULT_VERSION) || (curl -LO https://releases.hashicorp.com/vault/$(VAULT_VERSION)/vault_$(VAULT_VERSION)_linux_amd64.zip && unzip vault_$(VAULT_VERSION)_linux_amd64.zip && chmod +x vault && mv vault /usr/local/bin/)
+	# Download and install Azure CLI
+	curl -sL https://aka.ms/InstallAzureCLIDeb | bash
 ifndef TEST_WINDOWS
 	curl -LO https://storage.googleapis.com/kubernetes-release/release/v$(KUBERNETES_VERSION)/bin/linux/amd64/kubectl && chmod +x ./kubectl && mv kubectl /usr/local/bin/
 	make setup-kind
@@ -139,14 +141,18 @@ ifdef TEST_WINDOWS
 			--set windows.image.tag=$(IMAGE_VERSION) \
 			--set windows.enabled=true \
 			--set linux.enabled=false \
-			--set grpcSupportedProviders=azure
+			--set grpcSupportedProviders=azure \
+			--set enableSecretRotation=true \
+			--set rotationPollInterval=30s
 else
 		helm install csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace default --wait --timeout=15m -v=5 --debug \
 			--set linux.image.pullPolicy="IfNotPresent" \
 			--set linux.image.repository="e2e/secrets-store-csi" \
 			--set linux.image.tag=$(IMAGE_VERSION) \
 			--set linux.image.pullPolicy="IfNotPresent" \
-			--set grpcSupportedProviders=azure
+			--set grpcSupportedProviders=azure \
+			--set enableSecretRotation=true \
+			--set rotationPollInterval=30s
 endif
 
 .PHONY: e2e-azure
