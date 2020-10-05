@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"sync"
+	"time"
 
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/rotation"
 
@@ -50,7 +51,7 @@ var (
 	// where the driver is being used with 2 providers, one which supports grpc and other using binary for provider.
 	grpcSupportedProviders = flag.String("grpc-supported-providers", "", "set list of providers that support grpc for driver-provider [alpha]")
 	enableSecretRotation   = flag.Bool("enable-secret-rotation", false, "Enable secret rotation feature [alpha]")
-	rotationPollInterval   = flag.Duration("rotation-poll-interval", 60, "Secret rotation poll interval duration")
+	rotationPollInterval   = flag.Duration("rotation-poll-interval", 2*time.Minute, "Secret rotation poll interval duration")
 
 	scheme = runtime.NewScheme()
 )
