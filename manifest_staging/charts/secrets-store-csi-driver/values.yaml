@@ -45,7 +45,7 @@ linux:
   kubeletRootDir: /var/lib/kubelet
   nodeSelector: {}
   tolerations: []
-  metricsAddr: ":8080"
+  metricsAddr: ":8095"
   env: []
 
 windows:
@@ -95,7 +95,7 @@ windows:
   kubeletRootDir: C:\var\lib\kubelet
   nodeSelector: {}
   tolerations: []
-  metricsAddr: ":8080"
+  metricsAddr: ":8095"
   env: []
 
 logLevel:
