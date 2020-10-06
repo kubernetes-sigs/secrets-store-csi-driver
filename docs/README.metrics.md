@@ -6,14 +6,17 @@ Prometheus is the only exporter that's currently supported with the driver.
 
 ## List of metrics provided by the driver
 
-| Metric | Description | Tags |
-|--------|-------------|------|
-| total_node_publish | Total number of successful volume mount requests | `os_type=<runtime os>`<br>`provider=<provider name>` |
-| total_node_unpublish | Total number of successful volume unmount requests | `os_type=<runtime os>` |
-| total_node_publish_error | Total number of errors with volume mount requests | `os_type=<runtime os>`<br>`provider=<provider name>`<br>`error_type=<error code>` |
-| total_node_unpublish_error | Total number of errors with volume unmount requests | `os_type=<runtime os>` |
-| total_sync_k8s_secret | Total number of k8s secrets synced | `os_type=<runtime os>`<br>`provider=<provider name>` |
-| sync_k8s_secret_duration_sec | Distribution of how long it took to sync k8s secret | `os_type=<runtime os>` |
+| Metric                          | Description                                                               | Tags                                                                              |
+| ------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| total_node_publish              | Total number of successful volume mount requests                          | `os_type=<runtime os>`<br>`provider=<provider name>`                              |
+| total_node_unpublish            | Total number of successful volume unmount requests                        | `os_type=<runtime os>`                                                            |
+| total_node_publish_error        | Total number of errors with volume mount requests                         | `os_type=<runtime os>`<br>`provider=<provider name>`<br>`error_type=<error code>` |
+| total_node_unpublish_error      | Total number of errors with volume unmount requests                       | `os_type=<runtime os>`                                                            |
+| total_sync_k8s_secret           | Total number of k8s secrets synced                                        | `os_type=<runtime os>`<br>`provider=<provider name>`                              |
+| sync_k8s_secret_duration_sec    | Distribution of how long it took to sync k8s secret                       | `os_type=<runtime os>`                                                            |
+| total_rotation_reconcile        | Total number of rotation reconciles                                       | `os_type=<runtime os>`<br>`rotated=<true|false>`                                  |
+| total_rotation_reconcile_error  | Total number of rotation reconciles with error                            | `os_type=<runtime os>`<br>`rotated=<true|false>`<br>`error_type=<error code>`     |
+| rotation_reconcile_duration_sec | Distribution of how long it took to rotate secrets-store content for pods | `os_type=<runtime os>`                                                            |
 
 **Sample Metrics output**
 
