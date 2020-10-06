@@ -47,7 +47,7 @@ var (
 	logReportCaller    = flag.Bool("log-report-caller", false, "include the calling method as fields in the log")
 	providerVolumePath = flag.String("provider-volume", "/etc/kubernetes/secrets-store-csi-providers", "Volume path for provider")
 	minProviderVersion = flag.String("min-provider-version", "", "set minimum supported provider versions with current driver")
-	metricsAddr        = flag.String("metrics-addr", ":8080", "The address the metric endpoint binds to")
+	metricsAddr        = flag.String("metrics-addr", ":8095", "The address the metric endpoint binds to")
 	// grpcSupportedProviders is a ; separated string that can contain a list of providers. The reason it's a string is to allow scenarios
 	// where the driver is being used with 2 providers, one which supports grpc and other using binary for provider.
 	grpcSupportedProviders = flag.String("grpc-supported-providers", "", "set list of providers that support grpc for driver-provider [alpha]")
