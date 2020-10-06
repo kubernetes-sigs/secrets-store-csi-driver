@@ -19,6 +19,9 @@ package k8s
 import (
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 
 	"k8s.io/client-go/tools/cache"
@@ -36,7 +39,7 @@ func (spcl *SecretProviderClassLister) GetWithKey(key string) (*v1alpha1.SecretP
 		return nil, err
 	}
 	if !exists {
-		return nil, fmt.Errorf("secret provider class not found in informer cache")
+		return nil, apierrors.NewNotFound(schema.GroupResource{Group: v1alpha1.GroupName, Resource: "secretproviderclasses"}, key)
 	}
 	spc, ok := s.(*v1alpha1.SecretProviderClass)
 	if !ok {

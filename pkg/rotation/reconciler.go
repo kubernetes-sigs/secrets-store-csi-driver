@@ -24,7 +24,13 @@ import (
 	"strings"
 	"time"
 
+	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+
+	"k8s.io/client-go/tools/record"
+
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/secretutil"
 
 	"k8s.io/client-go/tools/cache"
 
@@ -38,26 +44,30 @@ import (
 
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
 
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/secretutil"
-
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	log "github.com/sirupsen/logrus"
+
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	secretsStoreClient "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned"
-
-	log "github.com/sirupsen/logrus"
 )
 
 const (
-	permission os.FileMode = 0644
+	permission       os.FileMode = 0644
+	maxNumOfRequeues int         = 5
+
+	mountRotationFailedReason       = "MountRotationFailed"
+	mountRotationCompleteReason     = "MountRotationComplete"
+	k8sSecretRotationFailedReason   = "SecretRotationFailed"
+	k8sSecretRotationCompleteReason = "SecretRotationComplete"
 )
 
 // Reconciler reconciles and rotates contents in the pod
@@ -72,6 +82,7 @@ type Reconciler struct {
 	providerClients      map[string]*secretsstore.CSIProviderClient
 	queue                workqueue.RateLimitingInterface
 	reporter             StatsReporter
+	eventRecorder        record.EventRecorder
 }
 
 // NewReconciler returns a new reconciler for rotation
@@ -90,6 +101,9 @@ func NewReconciler(s *runtime.Scheme, providerVolumePath, nodeName string, rotat
 	if err != nil {
 		return nil, err
 	}
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartRecordingToSink(&clientcorev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
+	recorder := eventBroadcaster.NewRecorder(s, v1.EventSource{Component: "csi-secrets-store-rotation"})
 
 	return &Reconciler{
 		store:                store,
@@ -101,6 +115,7 @@ func NewReconciler(s *runtime.Scheme, providerVolumePath, nodeName string, rotat
 		providerClients:      make(map[string]*secretsstore.CSIProviderClient),
 		reporter:             newStatsReporter(),
 		queue:                workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		eventRecorder:        recorder,
 	}, nil
 }
 
@@ -212,6 +227,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 		secret, err := r.store.GetSecret(secretName, secretNamespace)
 		if err != nil {
 			errorReason = internalerrors.NodePublishSecretRefNotFound
+			r.generateEvent(pod, v1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to get node publish secret %s/%s, err: %+v", secretNamespace, secretName, err))
 			return fmt.Errorf("failed to get node publish secret %s/%s, err: %+v", secretNamespace, secretName, err)
 		}
 
@@ -221,6 +237,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 		}
 		secretsJSON, err = json.Marshal(nodePublishSecretData)
 		if err != nil {
+			r.generateEvent(pod, v1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to marshal node publish secret data, err: %+v", err))
 			return fmt.Errorf("failed to marshal node publish secret data, err: %+v", err)
 		}
 	}
@@ -238,10 +255,12 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 	providerClient, err := r.getProviderClient(providerName)
 	if err != nil {
 		errorReason = internalerrors.FailedToCreateProviderGRPCClient
+		r.generateEvent(pod, v1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to create provider client, err: %+v", err))
 		return fmt.Errorf("failed to create provider client, err: %+v", err)
 	}
 	newObjectVersions, errorReason, err := providerClient.MountContent(ctx, string(paramsJSON), string(secretsJSON), spcps.Status.TargetPath, string(permissionJSON), oldObjectVersions)
 	if err != nil {
+		r.generateEvent(pod, v1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("provider mount err: %+v", err))
 		return fmt.Errorf("failed to rotate objects for pod %s/%s, err: %+v", spcps.Namespace, spcps.Status.PodName, err)
 	}
 
@@ -255,20 +274,29 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 		requiresUpdate = true
 		break
 	}
+	// if the spc was updated after initial deployment to remove an existing object, then we
+	// need to update the objects list with the current list to reflect only what's in the pod
+	if len(oldObjectVersions) != len(newObjectVersions) {
+		requiresUpdate = true
+	}
 
+	var errs []error
 	// this loop is executed if there is a difference in the current versions cached in
 	// the secret provider class pod status and the new versions returned by the provider.
 	// the diff in versions is populated in the secret provider class pod status and if the
 	// secret provider class contains secret objects, then the corresponding kubernetes secrets
 	// data is updated with the latest versions
 	if requiresUpdate {
+		// generate an event for successful mount update
+		r.generateEvent(pod, v1.EventTypeNormal, mountRotationCompleteReason, fmt.Sprintf("successfully rotated mounted contents for spc %s/%s", spcNamespace, spcName))
+		log.Infof("updating versions in secret provider class pod status %s/%s", spcps.Namespace, spcps.Name)
+
 		var ov []v1alpha1.SecretProviderClassObject
 		for k, v := range newObjectVersions {
 			ov = append(ov, v1alpha1.SecretProviderClassObject{ID: strings.TrimSpace(k), Version: strings.TrimSpace(v)})
 		}
 		spcps.Status.Objects = ov
 
-		log.Debugf("updating versions in secret provider class pod status %s/%s", spcps.Namespace, spcps.Name)
 		updateFn := func() (bool, error) {
 			err = r.updateSecretProviderClassPodStatus(ctx, spcps)
 			if err != nil {
@@ -284,52 +312,68 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 			Factor:   1.0,
 			Jitter:   0.1,
 		}, updateFn); err != nil {
+			r.generateEvent(pod, v1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to update versions in spc pod status %s, err: %+v", spcName, err))
 			return fmt.Errorf("failed to update spc pod status, err: %+v", err)
 		}
+	}
 
-		if len(spc.Spec.SecretObjects) == 0 {
-			log.Debugf("spc %s/%s doesn't contain secret objects for pod %s/%s", spcNamespace, spcName, podNamespace, podName)
-			return nil
+	if len(spc.Spec.SecretObjects) == 0 {
+		log.Debugf("spc %s/%s doesn't contain secret objects for pod %s/%s", spcNamespace, spcName, podNamespace, podName)
+		return nil
+	}
+	files, err := fileutil.GetMountedFiles(spcps.Status.TargetPath)
+	if err != nil {
+		r.generateEvent(pod, v1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed to get mounted files, err: %+v", err))
+		return fmt.Errorf("failed to get mounted files, err: %+v", err)
+	}
+	for _, secretObj := range spc.Spec.SecretObjects {
+		secretName := strings.TrimSpace(secretObj.SecretName)
+
+		if err = secretutil.ValidateSecretObject(*secretObj); err != nil {
+			r.generateEvent(pod, v1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed validation for secret object in spc %s/%s, err: %+v", spcNamespace, spcName, err))
+			log.Errorf("failed validation for secret object in spc %s/%s, err: %+v", spcNamespace, spcName, err)
+			errs = append(errs, err)
+			continue
 		}
-		files, err := fileutil.GetMountedFiles(spcps.Status.TargetPath)
-		if err != nil {
-			return fmt.Errorf("failed to get mounted files, err: %+v", err)
+
+		secretType := secretutil.GetSecretType(strings.TrimSpace(secretObj.Type))
+		var datamap map[string][]byte
+		if datamap, err = secretutil.GetSecretData(secretObj.Data, secretType, files); err != nil {
+			r.generateEvent(pod, v1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed to get data in spc %s/%s for secret %s, err: %+v", spcNamespace, spcName, secretName, err))
+			log.Errorf("failed to get data in spc %s/%s for secret %s, err: %+v", spcNamespace, spcName, secretName, err)
+			errs = append(errs, err)
+			continue
 		}
-		for _, secretObj := range spc.Spec.SecretObjects {
-			secretName := strings.TrimSpace(secretObj.SecretName)
 
-			if err = secretutil.ValidateSecretObject(*secretObj); err != nil {
-				log.Errorf("failed validation for secret object in spc %s/%s, err: %+v", spcNamespace, spcName, err)
-				continue
+		patchFn := func() (bool, error) {
+			// patch secret data with the new contents
+			if err := r.patchSecret(ctx, secretObj.SecretName, spcps.Namespace, datamap); err != nil {
+				log.Errorf("failed to patch secret %s/%s, err: %+v", spcps.Namespace, secretName, err)
+				return false, nil
 			}
-
-			secretType := secretutil.GetSecretType(strings.TrimSpace(secretObj.Type))
-			var datamap map[string][]byte
-			if datamap, err = secretutil.GetSecretData(secretObj.Data, secretType, files); err != nil {
-				log.Errorf("failed to get data in spc %s/%s for secret %s, err: %+v", spcNamespace, spcName, secretName, err)
-				continue
-			}
-
-			patchFn := func() (bool, error) {
-				// patch secret data with the new contents
-				if err := r.patchSecret(ctx, secretName, spcps.Namespace, datamap); err != nil {
-					log.Errorf("failed to patch secret %s/%s, err: %+v", spcps.Namespace, secretObj.SecretName, err)
-					return false, nil
-				}
-				return true, nil
-			}
-
-			if err := wait.ExponentialBackoff(wait.Backoff{
-				Steps:    5,
-				Duration: 1 * time.Millisecond,
-				Factor:   1.0,
-				Jitter:   0.1,
-			}, patchFn); err != nil {
-				// continue to ensure error in a single secret doesn't block the updates
-				// for all other secret objects defined in SPC
-				continue
-			}
+			return true, nil
 		}
+
+		if err := wait.ExponentialBackoff(wait.Backoff{
+			Steps:    5,
+			Duration: 1 * time.Millisecond,
+			Factor:   1.0,
+			Jitter:   0.1,
+		}, patchFn); err != nil {
+			r.generateEvent(pod, v1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed to patch secret %s with new data, err: %+v", secretName, err))
+			// continue to ensure error in a single secret doesn't block the updates
+			// for all other secret objects defined in SPC
+			continue
+		}
+		r.generateEvent(pod, v1.EventTypeNormal, k8sSecretRotationCompleteReason, fmt.Sprintf("successfully rotated K8s secret %s", secretName))
+	}
+
+	// for errors with individual secret objects in spc, we continue to the next secret object
+	// to prevent error with one secret from affecting rotation of all other k8s secret
+	// this consolidation of errors within the loop determines if the spc pod status still needs
+	// to be retried at the end of this rotation reconcile loop
+	if len(errs) > 0 {
+		return fmt.Errorf("failed to rotate one or more k8s secrets, err: %+v", errs)
 	}
 
 	return nil
@@ -349,8 +393,28 @@ func (r *Reconciler) patchSecret(ctx context.Context, name, namespace string, da
 		Name:      name,
 	}
 	err := r.ctrlReaderClient.Get(ctx, secretKey, secret)
-	if err != nil && !errors.IsNotFound(err) {
+	// if there is an error getting the secret -
+	// 1. The secret has been deleted due to an external client
+	// 		The secretproviderclasspodstatus controller will recreate the
+	//		secret as part of the reconcile operation. We don't want to duplicate
+	//		the operation in multiple controllers.
+	// 2. An actual error communicating with the API server, then just return
+	if err != nil {
 		return err
+	}
+
+	currentDataSHA, err := secretutil.GetSHAFromSecret(secret.Data)
+	if err != nil {
+		return fmt.Errorf("failed to compute SHA for %s/%s old data, err: %+v", namespace, name, err)
+	}
+	newDataSHA, err := secretutil.GetSHAFromSecret(data)
+	if err != nil {
+		return fmt.Errorf("failed to compute SHA for %s/%s new data, err: %+v", namespace, name, err)
+	}
+	// if the SHA for the current data and new data match then skip
+	// the redundant API call to patch the same data
+	if currentDataSHA == newDataSHA {
+		return nil
 	}
 
 	patch := client.MergeFromWithOptions(secret.DeepCopy(), client.MergeFromWithOptimisticLock{})
@@ -392,24 +456,59 @@ func (r *Reconciler) processNextItem() bool {
 	spcps, err := r.store.GetSecretProviderClassPodStatus(key.(string))
 	if err != nil {
 		log.Errorf("failed to get spc pod status, error: %+v", err)
-		r.handleError(err, key)
+		rateLimited := false
+		// If the error is that spc pod status not found in cache, only retry
+		// with a limit instead of infinite retries.
+		// The cache miss could be because of
+		//   1. The pod was deleted and the spc pod status no longer exists
+		//		We limit the requeue to only 5 times. After 5 times if the spc pod status
+		//		is no longer found, then it will be retried in the next reconcile Run if it's
+		//		an intermittent cache population delay.
+		//   2. The spc pod status has not yet been populated in the cache
+		// 		this is highly unlikely as the spc pod status was added to the queue
+		// 		in Run method after the List call from the same informer cache.
+		if apierrors.IsNotFound(err) {
+			rateLimited = true
+		}
+		r.handleError(err, key, rateLimited)
+		return true
 	}
+	log.Debugf("rotation reconciler started for %s", spcps.Name)
 	if err = r.reconcile(context.Background(), spcps); err != nil {
-		log.Errorf("[rotation] failed to reconcile spc %s/%s for pod %s/%s", spcps.Namespace,
-			spcps.Status.SecretProviderClassName, spcps.Namespace, spcps.Status.PodName)
+		log.Errorf("[rotation] failed to reconcile spc %s/%s for pod %s/%s, err: %+v", spcps.Namespace,
+			spcps.Status.SecretProviderClassName, spcps.Namespace, spcps.Status.PodName, err)
 	}
 
-	r.handleError(err, key)
+	log.Debugf("rotation reconciler completed for %s", spcps.Name)
+	r.handleError(err, key, false)
 	return true
 }
 
 // handleError requeue the key after 10s if there is an error while processing
-func (r *Reconciler) handleError(err error, key interface{}) {
+func (r *Reconciler) handleError(err error, key interface{}, rateLimited bool) {
 	if err == nil {
 		r.queue.Forget(key)
 		return
 	}
-	r.queue.AddAfter(key, 10*time.Second)
+	if !rateLimited {
+		r.queue.AddAfter(key, 10*time.Second)
+		return
+	}
+	// if the requeue for key is rate limited and the number of times the key
+	// has been added back to queue exceeds the default allowed limit, then do nothing.
+	// this is done to prevent infinitely adding the key the queue in scenarios where
+	// the key was added to the queue because of an error but has since been deleted.
+	if r.queue.NumRequeues(key) < maxNumOfRequeues {
+		r.queue.AddRateLimited(key)
+		return
+	}
+	log.Debugf("retry budget exceeded for %q, dropping from queue", key)
+	r.queue.Forget(key)
+}
+
+// generateEvent generates an event
+func (r *Reconciler) generateEvent(obj runtime.Object, eventType, reason, message string) {
+	r.eventRecorder.Eventf(obj, eventType, reason, message)
 }
 
 // Create the client config. Use kubeconfig if given, otherwise assume in-cluster.

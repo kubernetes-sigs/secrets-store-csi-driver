@@ -52,12 +52,13 @@ type nodeServer struct {
 }
 
 const (
-	permission               os.FileMode = 0644
-	csipodname                           = "csi.storage.k8s.io/pod.name"
-	csipodnamespace                      = "csi.storage.k8s.io/pod.namespace"
-	csipoduid                            = "csi.storage.k8s.io/pod.uid"
-	csipodsa                             = "csi.storage.k8s.io/serviceAccount.name"
-	secretProviderClassField             = "secretProviderClass"
+	permission os.FileMode = 0644
+
+	csipodname               = "csi.storage.k8s.io/pod.name"
+	csipodnamespace          = "csi.storage.k8s.io/pod.namespace"
+	csipoduid                = "csi.storage.k8s.io/pod.uid"
+	csipodsa                 = "csi.storage.k8s.io/serviceAccount.name"
+	secretProviderClassField = "secretProviderClass"
 )
 
 func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (npvr *csi.NodePublishVolumeResponse, err error) {
