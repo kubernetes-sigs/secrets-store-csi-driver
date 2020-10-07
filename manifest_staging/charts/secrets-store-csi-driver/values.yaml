@@ -2,7 +2,7 @@ linux:
   enabled: true
   image:
     repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
-    tag: v0.0.14
+    tag: v0.0.15
     pullPolicy: Always
 
   driver:
@@ -52,7 +52,7 @@ windows:
   enabled: false
   image:
     repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
-    tag: v0.0.14
+    tag: v0.0.15
     pullPolicy: IfNotPresent
 
   driver:

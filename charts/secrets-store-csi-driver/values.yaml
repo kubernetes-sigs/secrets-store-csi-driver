@@ -2,7 +2,7 @@ linux:
   enabled: true
   image:
     repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
-    tag: v0.0.14
+    tag: v0.0.15
     pullPolicy: Always
 
   driver:
@@ -45,14 +45,14 @@ linux:
   kubeletRootDir: /var/lib/kubelet
   nodeSelector: {}
   tolerations: []
-  metricsAddr: ":8080"
+  metricsAddr: ":8095"
   env: []
 
 windows:
   enabled: false
   image:
     repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
-    tag: v0.0.14
+    tag: v0.0.15
     pullPolicy: IfNotPresent
 
   driver:
@@ -95,7 +95,7 @@ windows:
   kubeletRootDir: C:\var\lib\kubelet
   nodeSelector: {}
   tolerations: []
-  metricsAddr: ":8080"
+  metricsAddr: ":8095"
   env: []
 
 logLevel:
@@ -121,3 +121,9 @@ minimumProviderVersions:
 
 ## ; delimited list of providers that support grpc for driver-provider [alpha]
 grpcSupportedProviders:
+
+## Enable secret rotation feature [alpha]
+enableSecretRotation: false
+
+## Secret rotation poll interval duration
+rotationPollInterval:
