@@ -150,7 +150,7 @@ else
 			--set linux.image.repository="e2e/secrets-store-csi" \
 			--set linux.image.tag=$(IMAGE_VERSION) \
 			--set linux.image.pullPolicy="IfNotPresent" \
-			--set grpcSupportedProviders=azure \
+			--set grpcSupportedProviders="azure;gcp" \
 			--set enableSecretRotation=true \
 			--set rotationPollInterval=30s
 endif
@@ -162,6 +162,10 @@ e2e-azure: install-driver
 .PHONY: e2e-vault
 e2e-vault: install-driver
 	bats -t test/bats/vault.bats
+
+.PHONY: e2e-gcp
+e2e-gcp: install-driver
+	bats -t test/bats/gcp.bats
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
