@@ -68,6 +68,11 @@ const (
 	mountRotationCompleteReason     = "MountRotationComplete"
 	k8sSecretRotationFailedReason   = "SecretRotationFailed"
 	k8sSecretRotationCompleteReason = "SecretRotationComplete"
+
+	csipodname      = "csi.storage.k8s.io/pod.name"
+	csipodnamespace = "csi.storage.k8s.io/pod.namespace"
+	csipoduid       = "csi.storage.k8s.io/pod.uid"
+	csipodsa        = "csi.storage.k8s.io/serviceAccount.name"
 )
 
 // Reconciler reconciles and rotates contents in the pod
@@ -183,20 +188,31 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 		errorReason = internalerrors.SecretProviderClassNotFound
 		return fmt.Errorf("failed to get secret provider class %s/%s, err: %+v", spcNamespace, spcName, err)
 	}
-	paramsJSON, err := json.Marshal(spc.Spec.Parameters)
-	if err != nil {
-		return fmt.Errorf("failed to marshal parameters, err: %+v", err)
-	}
-	permissionJSON, err := json.Marshal(permission)
-	if err != nil {
-		return fmt.Errorf("failed to marshal permission, err: %+v", err)
-	}
 	// get pod from informer cache
 	podName, podNamespace := spcps.Status.PodName, spcps.Namespace
 	pod, err := r.store.GetPod(podName, podNamespace)
 	if err != nil {
 		errorReason = internalerrors.PodNotFound
 		return fmt.Errorf("failed to get pod %s/%s, err: %+v", podNamespace, podName, err)
+	}
+
+	parameters := make(map[string]string)
+	if spc.Spec.Parameters != nil {
+		parameters = spc.Spec.Parameters
+	}
+	// Set these parameters to mimic the exact same attributes we get as part of NodePublishVolumeRequest
+	parameters[csipodname] = podName
+	parameters[csipodnamespace] = podNamespace
+	parameters[csipoduid] = string(pod.UID)
+	parameters[csipodsa] = pod.Spec.ServiceAccountName
+
+	paramsJSON, err := json.Marshal(parameters)
+	if err != nil {
+		return fmt.Errorf("failed to marshal parameters, err: %+v", err)
+	}
+	permissionJSON, err := json.Marshal(permission)
+	if err != nil {
+		return fmt.Errorf("failed to marshal permission, err: %+v", err)
 	}
 
 	// check if the volume pertaining to the current spc is using nodePublishSecretRef for
@@ -217,6 +233,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 	}
 
 	var secretsJSON []byte
+	nodePublishSecretData := make(map[string]string)
 	// read the Kubernetes secret referenced in NodePublishSecretRef and marshal it
 	// This comprises the secret parameter in the MountRequest to the provider
 	if nodePublishSecretRef != nil {
@@ -231,15 +248,15 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 			return fmt.Errorf("failed to get node publish secret %s/%s, err: %+v", secretNamespace, secretName, err)
 		}
 
-		nodePublishSecretData := make(map[string]string)
 		for k, v := range secret.Data {
 			nodePublishSecretData[k] = string(v)
 		}
-		secretsJSON, err = json.Marshal(nodePublishSecretData)
-		if err != nil {
-			r.generateEvent(pod, v1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to marshal node publish secret data, err: %+v", err))
-			return fmt.Errorf("failed to marshal node publish secret data, err: %+v", err)
-		}
+	}
+
+	secretsJSON, err = json.Marshal(nodePublishSecretData)
+	if err != nil {
+		r.generateEvent(pod, v1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to marshal node publish secret data, err: %+v", err))
+		return fmt.Errorf("failed to marshal node publish secret data, err: %+v", err)
 	}
 
 	// generate a map with the current object versions stored in spc pod status
