@@ -55,7 +55,8 @@ func TestMountContent(t *testing.T) {
 			socketPath:            getTempTestDir(t),
 			attributes:            "{}",
 			targetPath:            "/var/lib/kubelet/pods/d448c6a2-cda8-42e3-84fb-3cf75faa8399/volumes/kubernetes.io~csi/secrets-store-inline/mount",
-			permission:            "0644",
+			permission:            "420",
+			secrets:               "{}",
 			expectedObjectVersion: map[string]string{"secret/secret1": "v1", "secret/secret2": "v2"},
 		},
 	}
@@ -160,7 +161,8 @@ func TestMountContentError(t *testing.T) {
 			socketPath:        getTempTestDir(t),
 			attributes:        "{}",
 			targetPath:        "/var/lib/kubelet/pods/d448c6a2-cda8-42e3-84fb-3cf75faa8399/volumes/kubernetes.io~csi/secrets-store-inline/mount",
-			permission:        "0644",
+			permission:        "420",
+			secrets:           "{}",
 			expectedErrorCode: "AuthenticationFailed",
 		},
 	}

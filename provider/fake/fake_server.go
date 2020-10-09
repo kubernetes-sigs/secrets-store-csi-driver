@@ -18,8 +18,10 @@ package fake
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
+	"os"
 
 	"google.golang.org/grpc"
 
@@ -77,17 +79,24 @@ func (m *MockCSIProviderServer) Start() error {
 
 // Mount implements provider csi-provider method
 func (m *MockCSIProviderServer) Mount(ctx context.Context, req *v1alpha1.MountRequest) (*v1alpha1.MountResponse, error) {
+	var attrib, secret map[string]string
+	var filePermission os.FileMode
+	var err error
+
 	if m.returnErr != nil {
 		return &v1alpha1.MountResponse{}, m.returnErr
 	}
-	if len(req.GetAttributes()) == 0 {
-		return nil, fmt.Errorf("missing attributes")
+	if err = json.Unmarshal([]byte(req.GetAttributes()), &attrib); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal attributes, error: %+v", err)
+	}
+	if err = json.Unmarshal([]byte(req.GetSecrets()), &secret); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal secrets, error: %+v", err)
+	}
+	if err = json.Unmarshal([]byte(req.GetPermission()), &filePermission); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal file permission, error: %+v", err)
 	}
 	if len(req.GetTargetPath()) == 0 {
 		return nil, fmt.Errorf("missing target path")
-	}
-	if len(req.GetPermission()) == 0 {
-		return nil, fmt.Errorf("missing permissions")
 	}
 	return &v1alpha1.MountResponse{
 		ObjectVersion: m.objects,
