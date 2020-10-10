@@ -53,7 +53,8 @@ GINKGO_FOCUS  ?=
 GINKGO_NODES  ?= 1
 SKIP_RESOURCE_CLEANUP ?= false
 GINKGO_NOCOLOR ?= false
-NODE_IMAGE ?= kindest/node:v1.16.15
+KIND_VERSION ?= 0.9.0
+KUBERNETES_VERSION ?= 1.18.2
 PROVIDER ?=
 CHART_PATH ?= $(REPO_ROOT)/charts/secrets-store-csi-driver
 MANIFESTS_DIR ?= $(REPO_ROOT)/test/e2e/data
@@ -62,7 +63,8 @@ ifeq ($(PROVIDER),azure)
 TRY_LOAD_IMAGES ?= \
 	mcr.microsoft.com/k8s/csi/secrets-store/provider-azure:0.0.8 \
 	nginx
-else ($(PROVIDER),vault)
+endif
+ifeq ($(PROVIDER),vault)
 TRY_LOAD_IMAGES ?= \
 	registry.hub.docker.com/library/vault:1.5.3 \
 	hashicorp/secrets-store-csi-driver-provider-vault:0.0.4 \
@@ -70,13 +72,26 @@ TRY_LOAD_IMAGES ?= \
 endif
 MUST_LOAD_IMAGES ?= secrets-store-csi:e2e
 
+KUBECONFIG_PATH := $(shell mktemp)
+
+.PHONY: setup-kind
+setup-kind:
+ifeq ($(CLUSTER), kind)
+	# Download and install kind
+	kind --version | grep -q $(KIND_VERSION) || (curl -L https://github.com/kubernetes-sigs/kind/releases/download/v$(KIND_VERSION)/kind-linux-amd64 --output kind && chmod +x kind && mv kind /usr/local/bin/)
+	# Create kind cluster
+	kind delete cluster || true
+	kind create cluster --image kindest/node:v$(KUBERNETES_VERSION)
+	kind export kubeconfig --kubeconfig $(KUBECONFIG_PATH)
+endif
+
 .PHONY: run
-run: ginkgo ## Run the end-to-end tests
+run: ginkgo setup-kind ## Run the end-to-end tests
 	cd $(TEST_E2E_DIR); $(GINKGO) -v -trace -tags=$(PROVIDER) -focus=$(GINKGO_FOCUS) -nodes=$(GINKGO_NODES) --noColor=$(GINKGO_NOCOLOR) . -- \
 		-e2e.skip-resource-cleanup=$(SKIP_RESOURCE_CLEANUP) \
-		-e2e.node-image=$(NODE_IMAGE) \
+		-e2e.cluster-type=$(CLUSTER) \
+		-e2e.kubeconfig-path=$(KUBECONFIG_PATH) \
 		-e2e.chart-path=$(CHART_PATH) \
 		-e2e.manifests-dir=$(MANIFESTS_DIR) \
-		-e2e.kindconfig-path=$(KINDCONFIG_PATH) \
 		-e2e.try-load-images="$(TRY_LOAD_IMAGES)" \
 		-e2e.must-load-images="$(MUST_LOAD_IMAGES)"

@@ -25,7 +25,8 @@ import (
 
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/secrets-store-csi-driver/test/e2e/framework"
+	"sigs.k8s.io/cluster-api/test/e2e"
+	"sigs.k8s.io/cluster-api/test/framework"
 )
 
 const (
@@ -47,7 +48,7 @@ func SetupAzure(ctx context.Context, input SetupAzureInput) {
 }
 
 func installSecretsStoreCredential(ctx context.Context, input SetupAzureInput) {
-	framework.Byf("%s: Installing credential service account", input.Namespace)
+	e2e.Byf("%s: Installing credential service account", input.Namespace)
 
 	data, err := ioutil.ReadFile(filepath.Join(input.ManifestsDir, azureSecretsStoreCredsFile))
 	Expect(err).To(Succeed())

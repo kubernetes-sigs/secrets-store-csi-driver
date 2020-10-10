@@ -20,7 +20,6 @@ package vault
 import (
 	"bufio"
 	"context"
-	"errors"
 	"io"
 	"net/http"
 
@@ -29,86 +28,34 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/kubectl/pkg/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/secrets-store-csi-driver/test/e2e/framework"
+	"sigs.k8s.io/cluster-api/test/e2e"
+	"sigs.k8s.io/cluster-api/test/framework"
+	localexec "sigs.k8s.io/secrets-store-csi-driver/test/e2e/framework/exec"
+	"sigs.k8s.io/secrets-store-csi-driver/test/e2e/framework/pod"
 )
 
 const (
-	providerVaultYAML          = "https://raw.githubusercontent.com/hashicorp/secrets-store-csi-driver-provider-vault/master/deployment/provider-vault-installer.yaml"
-	providerVaultDaemonSetName = "csi-secrets-store-provider-vault"
+	providerYAML = "https://raw.githubusercontent.com/hashicorp/secrets-store-csi-driver-provider-vault/master/deployment/provider-vault-installer.yaml"
 )
 
 type InstallProviderInput struct {
-	Creator   framework.Creator
-	Namespace string
+	Creator        framework.Creator
+	Namespace      string
+	KubeconfigPath string
 }
 
 func InstallProvider(ctx context.Context, input InstallProviderInput) {
-	framework.Byf("%s: Installing vault provider", input.Namespace)
+	e2e.Byf("%s: Installing vault provider", input.Namespace)
 
-	resp := &http.Response{}
-	var err error
-	Eventually(func() error {
-		resp, err = http.Get(providerVaultYAML)
-		return err
-	}, framework.WaitTimeout, framework.WaitPolling).Should(Succeed())
-	defer resp.Body.Close()
-
-	y := yaml.NewYAMLReader(bufio.NewReader(resp.Body))
-	for {
-		data, err := y.Read()
-		if err == io.EOF {
-			return
-		}
-		Expect(err).To(Succeed())
-
-		gvs := schema.GroupVersions{
-			schema.GroupVersion{Group: appsv1.SchemeGroupVersion.Group, Version: appsv1.SchemeGroupVersion.Version},
-		}
-
-		resourceDecoder := scheme.Codecs.DecoderToVersion(scheme.Codecs.UniversalDeserializer(), gvs)
-
-		obj, _, err := resourceDecoder.Decode(data, nil, nil)
-		Expect(err).To(Succeed())
-
-		providerObj := obj.(*appsv1.DaemonSet)
-		providerObj.Namespace = input.Namespace
-
-		Eventually(func() error {
-			return input.Creator.Create(ctx, providerObj)
-		}, framework.CreateTimeout, framework.CreatePolling).Should(Succeed())
-	}
-}
-
-type WaitProviderInput struct {
-	Getter    framework.Getter
-	Namespace string
-}
-
-func WaitProvider(ctx context.Context, input WaitProviderInput) {
-	framework.Byf("%s: Waiting for vault-provider pod is running", input.Namespace)
-
-	Eventually(func() error {
-		ds := &appsv1.DaemonSet{}
-		err := input.Getter.Get(ctx, client.ObjectKey{
-			Namespace: input.Namespace,
-			Name:      providerVaultDaemonSetName,
-		}, ds)
-		if err != nil {
-			return err
-		}
-
-		if int(ds.Status.NumberReady) != 1 {
-			return errors.New("NumberReady is not 1")
-		}
-		return nil
-	}, framework.WaitTimeout, framework.WaitPolling).Should(Succeed())
+	stdout, stderr, err := localexec.KubectlApply(input.KubeconfigPath, input.Namespace, providerYAML)
+	Expect(err).To(Succeed(), "stdout=%s, stderr=%s", stdout, stderr)
 }
 
 type InstallAndWaitProviderInput struct {
-	Creator   framework.Creator
-	Getter    framework.Getter
-	Namespace string
+	Creator        framework.Creator
+	GetLister      framework.GetLister
+	Namespace      string
+	KubeconfigPath string
 }
 
 func InstallAndWaitProvider(ctx context.Context, input InstallAndWaitProviderInput) {
@@ -117,9 +64,12 @@ func InstallAndWaitProvider(ctx context.Context, input InstallAndWaitProviderInp
 		Namespace: input.Namespace,
 	})
 
-	WaitProvider(ctx, WaitProviderInput{
-		Getter:    input.Getter,
+	pod.WaitForPod(ctx, pod.WaitForPodInput{
+		GetLister: input.GetLister,
 		Namespace: input.Namespace,
+		Labels: map[string]string{
+			"app": "csi-secrets-store-provider-vault",
+		},
 	})
 }
 
@@ -129,9 +79,9 @@ type UninstallProviderInput struct {
 }
 
 func UninstallProvider(ctx context.Context, input UninstallProviderInput) {
-	framework.Byf("%s: Uninstalling vault provider", input.Namespace)
+	e2e.Byf("%s: Uninstalling vault provider", input.Namespace)
 
-	resp, err := http.Get(providerVaultYAML)
+	resp, err := http.Get(providerYAML)
 	Expect(err).To(Succeed())
 	defer resp.Body.Close()
 
@@ -157,6 +107,6 @@ func UninstallProvider(ctx context.Context, input UninstallProviderInput) {
 
 		Eventually(func() error {
 			return input.Deleter.Delete(ctx, providerObj)
-		}, framework.DeleteTimeout, framework.DeletePolling).Should(Succeed())
+		}).Should(Succeed())
 	}
 }

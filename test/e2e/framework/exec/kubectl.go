@@ -18,7 +18,6 @@ package exec
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"os/exec"
@@ -26,24 +25,6 @@ import (
 
 	"k8s.io/klog"
 )
-
-// copied from https://github.com/kubernetes-sigs/cluster-api/blob/v0.3.6/test/framework/exec/kubectl.go#L26
-// TODO: Remove this usage of kubectl and replace with a function from apply.go using the controller-runtime client.
-func KubectlApply(ctx context.Context, kubeconfigPath string, resources []byte) error {
-	rbytes := bytes.NewReader(resources)
-	applyCmd := NewCommand(
-		WithCommand("kubectl"),
-		WithArgs("apply", "--kubeconfig", kubeconfigPath, "-f", "-"),
-		WithStdin(rbytes),
-	)
-	stdout, stderr, err := applyCmd.Run(ctx)
-	if err != nil {
-		fmt.Println(string(stderr))
-		return err
-	}
-	fmt.Println(string(stdout))
-	return nil
-}
 
 func execLocal(input io.Reader, cmd string, args ...string) ([]byte, []byte, error) {
 	var stdout, stderr bytes.Buffer
@@ -97,4 +78,13 @@ func KubectlExecWithInput(input []byte, kubeconfigPath, podName, namespace strin
 	}, args...)
 
 	return KubectlWithInput(input, args...)
+}
+
+func KubectlApply(kubeconfigPath, namespace string, file string) ([]byte, []byte, error) {
+	return Kubectl(fmt.Sprintf("--kubeconfig=%s", kubeconfigPath),
+		fmt.Sprintf("--namespace=%s", namespace),
+		"apply",
+		"-f",
+		file,
+	)
 }

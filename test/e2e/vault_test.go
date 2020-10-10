@@ -19,21 +19,18 @@ limitations under the License.
 package e2e
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo"
 	"sigs.k8s.io/secrets-store-csi-driver/test/e2e/framework/vault"
 )
 
 var _ = Describe("Testing CSI Driver with Vault provider", func() {
-	ctx := context.TODO()
-
 	It("Install Vault provider and Vault", func() {
 		cli := clusterProxy.GetClient()
 		vault.InstallAndWaitProvider(ctx, vault.InstallAndWaitProviderInput{
-			Creator:   cli,
-			Getter:    cli,
-			Namespace: csiNamespace,
+			Creator:        cli,
+			GetLister:      cli,
+			Namespace:      csiNamespace,
+			KubeconfigPath: clusterProxy.GetKubeconfigPath(),
 		})
 		vault.SetupVault(ctx, vault.SetupVaultInput{
 			Creator:        cli,

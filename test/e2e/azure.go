@@ -37,12 +37,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"sigs.k8s.io/cluster-api/test/e2e"
+	"sigs.k8s.io/cluster-api/test/framework"
+	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	spcv1alpha1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
-	"sigs.k8s.io/secrets-store-csi-driver/test/e2e/framework"
-	"sigs.k8s.io/secrets-store-csi-driver/test/e2e/framework/azure"
-	"sigs.k8s.io/secrets-store-csi-driver/test/e2e/framework/csidriver"
-	"sigs.k8s.io/secrets-store-csi-driver/test/e2e/framework/exec"
+	localexec "sigs.k8s.io/secrets-store-csi-driver/test/e2e/framework/exec"
 )
 
 // AzureSpecInput is the input for AzureSpec.
@@ -80,7 +80,12 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 		Expect(input.clusterProxy).ToNot(BeNil(), "Invalid argument. input.clusterProxy can't be nil when calling %s spec", specName)
 
 		// Setup a Namespace where to host objects for this spec and create a watcher for the namespace events.
-		namespace, cancelWatches = setupSpecNamespace(ctx, specName, input.clusterProxy)
+		namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
+			Creator:   input.clusterProxy.GetClient(),
+			ClientSet: input.clusterProxy.GetClientSet(),
+			Name:      fmt.Sprintf("%s-%s", specName, util.RandomString(6)),
+			LogFolder: filepath.Join("resources", "clusters", input.clusterProxy.GetName()),
+		})
 
 		codecs = serializer.NewCodecFactory(input.clusterProxy.GetScheme())
 		if runtime.GOOS == "windows" {
@@ -92,7 +97,7 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 	})
 
 	It("test CSI inline volume with pod portability", func() {
-		framework.Byf("%s: Installing secretproviderclass", namespace.Name)
+		e2e.Byf("%s: Installing secretproviderclass", namespace.Name)
 
 		data, err := ioutil.ReadFile(filepath.Join(input.manifestsDir, "azure/azure_v1alpha1_secretproviderclass.yaml"))
 		Expect(err).To(Succeed())
@@ -126,7 +131,7 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 			Name:      "azure",
 		}, spc)).To(Succeed(), "Failed to get secretproviderclass %#v", spc)
 
-		framework.Byf("%s: Installing nginx pod", namespace.Name)
+		e2e.Byf("%s: Installing nginx pod", namespace.Name)
 
 		data, err = ioutil.ReadFile(filepath.Join(input.manifestsDir, "azure/nginx-pod-secrets-store-inline-volume-crd.yaml"))
 		Expect(err).To(Succeed())
@@ -146,7 +151,7 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 
 		Expect(cli.Create(ctx, obj)).To(Succeed())
 
-		framework.Byf("%s: Waiting for nginx pod is running", namespace.Name)
+		e2e.Byf("%s: Waiting for nginx pod is running", namespace.Name)
 
 		pod := &corev1.Pod{}
 		podName := "nginx-secrets-store-inline-crd"
@@ -165,17 +170,17 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 				}
 			}
 			return errors.New("pod is not ready")
-		}, framework.WaitTimeout, framework.WaitPolling).Should(Succeed())
+		}).Should(Succeed())
 
-		framework.Byf("%s: Reading azure kv secret from pod", namespace.Name)
+		e2e.Byf("%s: Reading azure kv secret from pod", namespace.Name)
 
-		stdout, stderr, err := exec.KubectlExec(input.clusterProxy.GetKubeconfigPath(), podName, namespace.Name, catCommand, "/mnt/secrets-store/"+secretName)
+		stdout, stderr, err := localexec.KubectlExec(input.clusterProxy.GetKubeconfigPath(), podName, namespace.Name, catCommand, "/mnt/secrets-store/"+secretName)
 		Expect(err).To(Succeed(), "stdout=%s, stderr=%s", stdout, stderr)
 		Expect(strings.TrimSpace(string(stdout))).To(Equal(secretValue))
 
-		framework.Byf("%s: Reading azure kv key from pod", namespace.Name)
+		e2e.Byf("%s: Reading azure kv key from pod", namespace.Name)
 
-		stdout, stderr, err = exec.KubectlExec(input.clusterProxy.GetKubeconfigPath(), podName, namespace.Name, catCommand, "/mnt/secrets-store/"+keyName)
+		stdout, stderr, err = localexec.KubectlExec(input.clusterProxy.GetKubeconfigPath(), podName, namespace.Name, catCommand, "/mnt/secrets-store/"+keyName)
 		Expect(err).To(Succeed(), "stdout=%s, stderr=%s", stdout, stderr)
 		encoded := base64.StdEncoding.EncodeToString(bytes.TrimSpace(stdout))
 		Expect(err).To(Succeed())
@@ -183,7 +188,7 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 	})
 
 	It("test Sync with K8s secrets", func() {
-		framework.Byf("%s: Installing secretproviderclass", namespace.Name)
+		e2e.Byf("%s: Installing secretproviderclass", namespace.Name)
 
 		data, err := ioutil.ReadFile(filepath.Join(input.manifestsDir, "azure/azure_synck8s_v1alpha1_secretproviderclass.yaml"))
 		Expect(err).To(Succeed())
@@ -217,7 +222,7 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 			Name:      "azure-sync",
 		}, spc)).To(Succeed(), "Failed to get secretproviderclass %#v", spc)
 
-		framework.Byf("%s: Installing nginx deployment", namespace.Name)
+		e2e.Byf("%s: Installing nginx deployment", namespace.Name)
 
 		data, err = ioutil.ReadFile(filepath.Join(input.manifestsDir, "azure/nginx-deployment-synck8s-azure.yaml"))
 		Expect(err).To(Succeed())
@@ -237,7 +242,7 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 
 		Expect(cli.Create(ctx, obj)).To(Succeed())
 
-		framework.Byf("%s: Waiting for nginx deployment is running", namespace.Name)
+		e2e.Byf("%s: Waiting for nginx deployment is running", namespace.Name)
 
 		deploy := &appsv1.Deployment{}
 		deployName := "nginx-deployment"
@@ -255,9 +260,9 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 			}
 
 			return nil
-		}, framework.WaitTimeout, framework.WaitPolling).Should(Succeed())
+		}).Should(Succeed())
 
-		framework.Byf("%s: Reading secret from pod", namespace.Name)
+		e2e.Byf("%s: Reading secret from pod", namespace.Name)
 
 		pods := &corev1.PodList{}
 		Expect(cli.List(ctx, pods, &client.ListOptions{
@@ -269,16 +274,16 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 
 		podName := pods.Items[0].Name
 
-		stdout, stderr, err := exec.KubectlExec(input.clusterProxy.GetKubeconfigPath(), podName, namespace.Name, catCommand, "/mnt/secrets-store/secretalias")
+		stdout, stderr, err := localexec.KubectlExec(input.clusterProxy.GetKubeconfigPath(), podName, namespace.Name, catCommand, "/mnt/secrets-store/secretalias")
 		Expect(err).To(Succeed(), "stdout=%s, stderr=%s", stdout, stderr)
 		Expect(strings.TrimSpace(string(stdout))).To(Equal(secretValue))
 
-		stdout, stderr, err = exec.KubectlExec(input.clusterProxy.GetKubeconfigPath(), podName, namespace.Name, catCommand, "/mnt/secrets-store/"+keyName)
+		stdout, stderr, err = localexec.KubectlExec(input.clusterProxy.GetKubeconfigPath(), podName, namespace.Name, catCommand, "/mnt/secrets-store/"+keyName)
 		Expect(err).To(Succeed(), "stdout=%s, stderr=%s", stdout, stderr)
 		encoded := base64.StdEncoding.EncodeToString(bytes.TrimSpace(stdout))
 		Expect(encoded).To(Equal(keyValueContains))
 
-		framework.Byf("%s: Reading generated secret", namespace.Name)
+		e2e.Byf("%s: Reading generated secret", namespace.Name)
 
 		secret := &corev1.Secret{}
 		Eventually(func() error {
@@ -295,7 +300,7 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 			}
 
 			return nil
-		}, framework.WaitTimeout, framework.WaitPolling).Should(Succeed())
+		}).Should(Succeed())
 
 		pwd, ok := secret.Data["username"]
 		Expect(ok).To(BeTrue())
@@ -305,17 +310,17 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 		Expect(ok).To(BeTrue())
 		Expect(string(l)).To(Equal(labelValue))
 
-		framework.Byf("%s: Reading environment variable of nginx pod", namespace.Name)
+		e2e.Byf("%s: Reading environment variable of nginx pod", namespace.Name)
 
-		stdout, stderr, err = exec.KubectlExec(input.clusterProxy.GetKubeconfigPath(), podName, namespace.Name, "printenv", "SECRET_USERNAME")
+		stdout, stderr, err = localexec.KubectlExec(input.clusterProxy.GetKubeconfigPath(), podName, namespace.Name, "printenv", "SECRET_USERNAME")
 		Expect(err).To(Succeed(), "stdout=%s, stderr=%s", stdout, stderr)
 		Expect(strings.TrimSpace(string(stdout))).To(Equal(secretValue))
 
-		framework.Byf("%s: Deleting nginx deployment", namespace.Name)
+		e2e.Byf("%s: Deleting nginx deployment", namespace.Name)
 
 		Expect(cli.Delete(ctx, deploy)).To(Succeed())
 
-		framework.Byf("%s: Waiting secret is deleted", namespace.Name)
+		e2e.Byf("%s: Waiting secret is deleted", namespace.Name)
 
 		Eventually(func() error {
 			err := cli.Get(ctx, client.ObjectKey{
@@ -327,11 +332,11 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 			}
 
 			return nil
-		}, framework.WaitTimeout, framework.WaitPolling).Should(Succeed())
+		}).Should(Succeed())
 	})
 
 	It("test CSI inline volume should fail when no secret provider class in same namespace", func() {
-		framework.Byf("%s: Installing nginx deployment", namespace.Name)
+		e2e.Byf("%s: Installing nginx deployment", namespace.Name)
 
 		data, err := ioutil.ReadFile(filepath.Join(input.manifestsDir, "azure/nginx-deployment-synck8s-azure.yaml"))
 		Expect(err).To(Succeed())
@@ -351,7 +356,7 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 
 		Expect(cli.Create(ctx, obj)).To(Succeed())
 
-		framework.Byf("%s: Waiting for nginx deployment is running", namespace.Name)
+		e2e.Byf("%s: Waiting for nginx deployment is running", namespace.Name)
 
 		deploy := &appsv1.Deployment{}
 		deployName := "nginx-deployment"
@@ -369,13 +374,13 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 			}
 
 			return nil
-		}, framework.WaitTimeout, framework.WaitPolling).Should(Succeed())
+		}).Should(Succeed())
 
 		// TODO: Validate event 'FailedMount.*failed to get secretproviderclass negative-test-ns/azure-sync.*not found'"
 	})
 
 	It("test CSI inline volume with multiple secret provider class", func() {
-		framework.Byf("%s: Installing secretproviderclasses", namespace.Name)
+		e2e.Byf("%s: Installing secretproviderclasses", namespace.Name)
 
 		spcValues := []struct {
 			spcName          string
@@ -430,7 +435,7 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 				Name:      spcv.spcName,
 			}, spc)).To(Succeed(), "Failed to get secretproviderclass %#v", spc)
 		}
-		framework.Byf("%s: Installing nginx pod", namespace.Name)
+		e2e.Byf("%s: Installing nginx pod", namespace.Name)
 
 		data, err := ioutil.ReadFile(filepath.Join(input.manifestsDir, "azure/nginx-pod-azure-inline-volume-multiple-spc.yaml"))
 		Expect(err).To(Succeed())
@@ -450,7 +455,7 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 
 		Expect(cli.Create(ctx, obj)).To(Succeed())
 
-		framework.Byf("%s: Waiting for nginx pod is running", namespace.Name)
+		e2e.Byf("%s: Waiting for nginx pod is running", namespace.Name)
 
 		pod := &corev1.Pod{}
 		podName := "nginx-secrets-store-inline-multiple-crd"
@@ -469,21 +474,21 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 				}
 			}
 			return errors.New("pod is not ready")
-		}, framework.WaitTimeout, framework.WaitPolling).Should(Succeed())
+		}).Should(Succeed())
 
-		framework.Byf("%s: Reading secret from pod", namespace.Name)
+		e2e.Byf("%s: Reading secret from pod", namespace.Name)
 
 		for i, spcv := range spcValues {
-			stdout, stderr, err := exec.KubectlExec(input.clusterProxy.GetKubeconfigPath(), podName, namespace.Name, catCommand, fmt.Sprintf("/mnt/secrets-store-%d/secretalias", i))
+			stdout, stderr, err := localexec.KubectlExec(input.clusterProxy.GetKubeconfigPath(), podName, namespace.Name, catCommand, fmt.Sprintf("/mnt/secrets-store-%d/secretalias", i))
 			Expect(err).To(Succeed(), "stdout=%s, stderr=%s", stdout, stderr)
 			Expect(strings.TrimSpace(string(stdout))).To(Equal(secretValue))
 
-			stdout, stderr, err = exec.KubectlExec(input.clusterProxy.GetKubeconfigPath(), podName, namespace.Name, catCommand, fmt.Sprintf("/mnt/secrets-store-%d/%s", i, keyName))
+			stdout, stderr, err = localexec.KubectlExec(input.clusterProxy.GetKubeconfigPath(), podName, namespace.Name, catCommand, fmt.Sprintf("/mnt/secrets-store-%d/%s", i, keyName))
 			Expect(err).To(Succeed(), "stdout=%s, stderr=%s", stdout, stderr)
 			encoded := base64.StdEncoding.EncodeToString(bytes.TrimSpace(stdout))
 			Expect(encoded).To(Equal(keyValueContains))
 
-			framework.Byf("%s: Reading generated secret", namespace.Name)
+			e2e.Byf("%s: Reading generated secret", namespace.Name)
 
 			secret := &corev1.Secret{}
 			Eventually(func() error {
@@ -500,7 +505,7 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 				}
 
 				return nil
-			}, framework.WaitTimeout, framework.WaitPolling).Should(Succeed())
+			}).Should(Succeed())
 
 			pwd, ok := secret.Data["username"]
 			Expect(ok).To(BeTrue())
@@ -510,31 +515,21 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 			Expect(ok).To(BeTrue())
 			Expect(string(l)).To(Equal(labelValue))
 
-			framework.Byf("%s: Reading environment variable of nginx pod", namespace.Name)
+			e2e.Byf("%s: Reading environment variable of nginx pod", namespace.Name)
 
-			stdout, stderr, err = exec.KubectlExec(input.clusterProxy.GetKubeconfigPath(), podName, namespace.Name, "printenv", fmt.Sprintf("SECRET_USERNAME_%d", i))
+			stdout, stderr, err = localexec.KubectlExec(input.clusterProxy.GetKubeconfigPath(), podName, namespace.Name, "printenv", fmt.Sprintf("SECRET_USERNAME_%d", i))
 			Expect(err).To(Succeed(), "stdout=%s, stderr=%s", stdout, stderr)
 			Expect(strings.TrimSpace(string(stdout))).To(Equal(secretValue))
 		}
 	})
 
 	AfterEach(func() {
-		if !input.skipCleanup {
-			azure.TeardownAzure(ctx, azure.TeardownAzureInput{
-				Deleter:        cli,
-				Namespace:      namespace.Name,
-				ManifestsDir:   input.manifestsDir,
-				KubeconfigPath: input.clusterProxy.GetKubeconfigPath(),
+		if input.skipCleanup {
+			framework.DeleteNamespace(ctx, framework.DeleteNamespaceInput{
+				Deleter: clusterProxy.GetClient(),
+				Name:    namespace.Name,
 			})
-			azure.UninstallProvider(ctx, azure.UninstallProviderInput{
-				Deleter:   cli,
-				Namespace: namespace.Name})
-			csidriver.Uninstall(csidriver.UninstallInput{
-				KubeConfigPath: input.clusterProxy.GetKubeconfigPath(),
-				Namespace:      namespace.Name,
-			})
-
-			cleanup(ctx, specName, input.clusterProxy, namespace, cancelWatches)
+			cancelWatches()
 		}
 	})
 }

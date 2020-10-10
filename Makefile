@@ -55,7 +55,7 @@ test: test-style
 test-style: setup
 	@echo "==> Running static validations and linters <=="
 	# Setting timeout to 5m as deafult is 1m
-	golangci-lint run --timeout=5m --skip-dirs test/e2e
+	golangci-lint run --timeout=5m
 sanity-test:
 	go test -v ./test/sanity
 build: setup
@@ -152,13 +152,15 @@ endif
 e2e-image:
 	docker buildx build --no-cache --build-arg LDFLAGS=$(LDFLAGS) -t secrets-store-csi:e2e  -f docker/Dockerfile --platform="linux/amd64" --output "type=docker,push=false" .
 
+CLUSTER ?= kind
+
 .PHONY: e2e-azure
 e2e-azure: e2e-image
-	$(MAKE) -C test/e2e run PROVIDER=azure
+	$(MAKE) -C test/e2e run PROVIDER=azure CLUSTER=$(CLUSTER)
 
 .PHONY: e2e-vault
-e2e-vault: e2e-image
-	$(MAKE) -C test/e2e run PROVIDER=vault
+e2e-vault: #e2e-image
+	$(MAKE) -C test/e2e run PROVIDER=vault CLUSTER=$(CLUSTER)
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
