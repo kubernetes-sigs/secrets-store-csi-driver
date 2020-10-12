@@ -11,9 +11,10 @@ require (
 	github.com/onsi/gomega v1.8.1
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sirupsen/logrus v1.4.2
-	github.com/stretchr/testify v1.5.1
-	go.opentelemetry.io/otel v0.4.3
-	go.opentelemetry.io/otel/exporters/metric/prometheus v0.4.3
+	github.com/stretchr/testify v1.6.1
+	go.opentelemetry.io/otel v0.13.0
+	go.opentelemetry.io/otel/exporters/metric/prometheus v0.13.0
+	go.opentelemetry.io/otel/sdk v0.13.0
 	golang.org/x/net v0.0.0-20200222125558-5a598a2470a0
 	google.golang.org/grpc v1.27.1
 	google.golang.org/protobuf v1.25.0

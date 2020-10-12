@@ -17,9 +17,7 @@ import (
 	"context"
 	"runtime"
 
-	"go.opentelemetry.io/otel/api/core"
-	"go.opentelemetry.io/otel/api/global"
-	"go.opentelemetry.io/otel/api/key"
+	"go.opentelemetry.io/otel/label"
 	"go.opentelemetry.io/otel/api/metric"
 )
 
@@ -61,28 +59,28 @@ func NewStatsReporter() StatsReporter {
 }
 
 func (r *reporter) ReportNodePublishCtMetric(provider string) {
-	labels := []core.KeyValue{key.String(providerKey, provider), key.String(osTypeKey, runtimeOS)}
+	labels := []kv.KeyValue{key.String(providerKey, provider), key.String(osTypeKey, runtimeOS)}
 	nodePublishTotal.Add(context.Background(), 1, labels...)
 }
 
 func (r *reporter) ReportNodeUnPublishCtMetric() {
-	nodeUnPublishTotal.Add(context.Background(), 1, []core.KeyValue{key.String(osTypeKey, runtimeOS)}...)
+	nodeUnPublishTotal.Add(context.Background(), 1, []kv.KeyValue{key.String(osTypeKey, runtimeOS)}...)
 }
 
 func (r *reporter) ReportNodePublishErrorCtMetric(provider, errType string) {
-	labels := []core.KeyValue{key.String(providerKey, provider), key.String(errorKey, errType), key.String(osTypeKey, runtimeOS)}
+	labels := []kv.KeyValue{key.String(providerKey, provider), key.String(errorKey, errType), key.String(osTypeKey, runtimeOS)}
 	nodePublishErrorTotal.Add(context.Background(), 1, labels...)
 }
 
 func (r *reporter) ReportNodeUnPublishErrorCtMetric() {
-	nodeUnPublishErrorTotal.Add(context.Background(), 1, []core.KeyValue{key.String(osTypeKey, runtimeOS)}...)
+	nodeUnPublishErrorTotal.Add(context.Background(), 1, []kv.KeyValue{key.String(osTypeKey, runtimeOS)}...)
 }
 
 func (r *reporter) ReportSyncK8SecretCtMetric(provider string, count int) {
-	labels := []core.KeyValue{key.String(providerKey, provider), key.String(osTypeKey, runtimeOS)}
+	labels := []kv.KeyValue{key.String(providerKey, provider), key.String(osTypeKey, runtimeOS)}
 	syncK8sSecretTotal.Add(context.Background(), int64(count), labels...)
 }
 
 func (r *reporter) ReportSyncK8SecretDuration(duration float64) {
-	r.meter.RecordBatch(context.Background(), []core.KeyValue{key.String(osTypeKey, runtimeOS)}, syncK8sSecretDuration.Measurement(duration))
+	r.meter.RecordBatch(context.Background(), []kv.KeyValue{key.String(osTypeKey, runtimeOS)}, syncK8sSecretDuration.Measurement(duration))
 }

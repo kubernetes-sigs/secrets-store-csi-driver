@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"go.opentelemetry.io/otel/api/core"
+	"go.opentelemetry.io/otel/label"
 	"go.opentelemetry.io/otel/exporters/metric/prometheus"
 	"go.opentelemetry.io/otel/sdk/metric/controller/push"
 )
@@ -29,7 +29,7 @@ func newPrometheusExporter() (*push.Controller, error) {
 		Defining the buckets is due to change in future release - https://github.com/open-telemetry/opentelemetry-go/issues/689
 	*/
 	pusher, hf, err := prometheus.InstallNewPipeline(prometheus.Config{
-		DefaultHistogramBoundaries: []core.Number{
+		DefaultHistogramBoundaries: []kv.Number{
 			core.NewFloat64Number(0.1),
 			core.NewFloat64Number(0.2),
 			core.NewFloat64Number(0.3),

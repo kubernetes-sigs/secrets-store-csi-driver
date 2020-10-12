@@ -17,9 +17,8 @@ import (
 	"context"
 	"runtime"
 
-	"go.opentelemetry.io/otel/api/core"
+	"go.opentelemetry.io/otel/label"
 	"go.opentelemetry.io/otel/api/global"
-	"go.opentelemetry.io/otel/api/key"
 	"go.opentelemetry.io/otel/api/metric"
 )
 
