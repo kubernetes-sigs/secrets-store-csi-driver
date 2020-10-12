@@ -101,13 +101,12 @@ var _ = BeforeSuite(func() {
 
 	By("Install CSI driver")
 	cli := clusterProxy.GetClient()
-	ns := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: csiNamespace,
-		},
-	}
 	Eventually(func() error {
-		return cli.Create(ctx, ns)
+		return cli.Create(ctx, &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: csiNamespace,
+			},
+		})
 	}).Should(Succeed())
 
 	csidriver.InstallAndWait(ctx, csidriver.InstallAndWaitInput{

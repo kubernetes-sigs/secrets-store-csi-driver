@@ -19,12 +19,9 @@ limitations under the License.
 package e2e
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"html/template"
-	"io/ioutil"
 	"path/filepath"
 	"strings"
 
@@ -33,8 +30,8 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"sigs.k8s.io/cluster-api/test/e2e"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/util"
@@ -49,18 +46,16 @@ type VaultSpecInput struct {
 	clusterProxy framework.ClusterProxy
 	skipCleanup  bool
 	chartPath    string
-	manifestsDir string
 }
 
 // VaultSpec implements a spec that testing Vault provider
 func VaultSpec(ctx context.Context, inputGetter func() VaultSpecInput) {
 	var (
-		specName      = "provider"
+		specName      = "vault-provider"
 		input         VaultSpecInput
 		namespace     *corev1.Namespace
 		cancelWatches context.CancelFunc
 		cli           client.Client
-		codecs        serializer.CodecFactory
 	)
 
 	BeforeEach(func() {
@@ -76,70 +71,91 @@ func VaultSpec(ctx context.Context, inputGetter func() VaultSpecInput) {
 			LogFolder: filepath.Join("resources", "clusters", input.clusterProxy.GetName()),
 		})
 
-		codecs = serializer.NewCodecFactory(input.clusterProxy.GetScheme())
-
 		cli = input.clusterProxy.GetClient()
 	})
 
 	It("test CSI inline volume with pod portability", func() {
 		e2e.Byf("%s: Installing secretproviderclass", namespace.Name)
 
-		service := &corev1.Service{}
-		Expect(cli.Get(ctx, client.ObjectKey{
-			Namespace: csiNamespace,
-			Name:      "vault",
-		}, service)).To(Succeed(), "Failed to get service %#v", service)
+		vaultAddress := vault.GetAddress(ctx, vault.GetAddressInput{cli, csiNamespace})
 
-		data, err := ioutil.ReadFile(filepath.Join(input.manifestsDir, "vault/vault_v1alpha1_secretproviderclass.yaml"))
-		Expect(err).To(Succeed())
-
-		buf := new(bytes.Buffer)
-		err = template.Must(template.New("").Parse(string(data))).Execute(buf, struct {
-			Namespace    string
-			RoleName     string
-			VaultAddress string
-		}{
-			Namespace:    namespace.Name,
-			RoleName:     vault.RoleName,
-			VaultAddress: fmt.Sprintf("http://%s:8200", service.Spec.ClusterIP),
-		})
-		Expect(err).To(Succeed())
-
-		obj, _, err := codecs.UniversalDeserializer().Decode(buf.Bytes(), nil, nil)
-		Expect(err).To(Succeed())
-
-		Expect(cli.Create(ctx, obj)).To(Succeed())
+		spcName := "vault-foo"
+		Expect(cli.Create(ctx, &spcv1alpha1.SecretProviderClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      spcName,
+				Namespace: namespace.Name,
+			},
+			Spec: spcv1alpha1.SecretProviderClassSpec{
+				Provider: "vault",
+				Parameters: map[string]string{
+					"roleName":           vault.RoleName,
+					"vaultAddress":       vaultAddress,
+					"vaultSkipTLSVerify": "true",
+					"objects": `array:
+  - |
+    objectPath: "/foo"
+    objectName: "bar"
+    objectVersion: ""
+  - |
+    objectPath: "/foo1"
+    objectName: "bar"
+    objectVersion: ""`,
+				},
+			},
+		})).To(Succeed())
 
 		spc := &spcv1alpha1.SecretProviderClass{}
 		Expect(cli.Get(ctx, client.ObjectKey{
 			Namespace: namespace.Name,
-			Name:      "vault-foo",
+			Name:      spcName,
 		}, spc)).To(Succeed(), "Failed to get secretproviderclass %#v", spc)
 
 		e2e.Byf("%s: Installing nginx pod", namespace.Name)
 
-		data, err = ioutil.ReadFile(filepath.Join(input.manifestsDir, "vault/nginx-pod-vault-inline-volume-secretproviderclass.yaml"))
-		Expect(err).To(Succeed())
+		podName := "nginx-secrets-store-inline"
+		readOnly := new(bool)
+		*readOnly = true
 
-		buf = new(bytes.Buffer)
-		err = template.Must(template.New("").Parse(string(data))).Execute(buf, struct {
-			Namespace string
-			Image     string
-		}{
-			Namespace: namespace.Name,
-			Image:     "nginx",
-		})
-		Expect(err).To(Succeed())
-
-		obj, _, err = codecs.UniversalDeserializer().Decode(buf.Bytes(), nil, nil)
-		Expect(err).To(Succeed())
-
-		Expect(cli.Create(ctx, obj)).To(Succeed())
+		Expect(cli.Create(ctx, &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      podName,
+				Namespace: namespace.Name,
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:            "nginx",
+						Image:           "nginx",
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      "secrets-store-inline",
+								MountPath: "/mnt/secrets-store",
+								ReadOnly:  true,
+							},
+						},
+					},
+				},
+				Volumes: []corev1.Volume{
+					{
+						Name: "secrets-store-inline",
+						VolumeSource: corev1.VolumeSource{
+							CSI: &corev1.CSIVolumeSource{
+								Driver:   "secrets-store.csi.k8s.io",
+								ReadOnly: readOnly,
+								VolumeAttributes: map[string]string{
+									"secretProviderClass": spcName,
+								},
+							},
+						},
+					},
+				},
+			},
+		})).To(Succeed())
 
 		e2e.Byf("%s: Waiting for nginx pod is running", namespace.Name)
 
 		pod := &corev1.Pod{}
-		podName := "nginx-secrets-store-inline"
 		Eventually(func() error {
 			err := cli.Get(ctx, client.ObjectKey{
 				Namespace: namespace.Name,
@@ -171,66 +187,138 @@ func VaultSpec(ctx context.Context, inputGetter func() VaultSpecInput) {
 	It("test Sync with K8s secrets", func() {
 		e2e.Byf("%s: Installing secretproviderclass", namespace.Name)
 
-		service := &corev1.Service{}
-		Expect(cli.Get(ctx, client.ObjectKey{
-			Namespace: csiNamespace,
-			Name:      "vault",
-		}, service)).To(Succeed(), "Failed to get service %#v", service)
+		vaultAddress := vault.GetAddress(ctx, vault.GetAddressInput{cli, csiNamespace})
 
-		data, err := ioutil.ReadFile(filepath.Join(input.manifestsDir, "vault/vault_synck8s_v1alpha1_secretproviderclass.yaml"))
-		Expect(err).To(Succeed())
-
-		buf := new(bytes.Buffer)
-		err = template.Must(template.New("").Parse(string(data))).Execute(buf, struct {
-			Namespace    string
-			RoleName     string
-			VaultAddress string
-		}{
-			Namespace:    namespace.Name,
-			RoleName:     vault.RoleName,
-			VaultAddress: fmt.Sprintf("http://%s:8200", service.Spec.ClusterIP),
-		})
-		Expect(err).To(Succeed())
-
-		obj, _, err := codecs.UniversalDeserializer().Decode(buf.Bytes(), nil, nil)
-		Expect(err).To(Succeed())
-
-		Expect(cli.Create(ctx, obj)).To(Succeed())
+		spcName := "vault-foo-sync"
+		Expect(cli.Create(ctx, &spcv1alpha1.SecretProviderClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      spcName,
+				Namespace: namespace.Name,
+			},
+			Spec: spcv1alpha1.SecretProviderClassSpec{
+				Provider: "vault",
+				SecretObjects: []*spcv1alpha1.SecretObject{
+					{
+						SecretName: "foosecret",
+						Type:       "Opaque",
+						Labels: map[string]string{
+							"environment": "test",
+						},
+						Data: []*spcv1alpha1.SecretObjectData{
+							{
+								ObjectName: "foo",
+								Key:        "pwd",
+							},
+							{
+								ObjectName: "foo1",
+								Key:        "username",
+							},
+						},
+					},
+				},
+				Parameters: map[string]string{
+					"roleName":           vault.RoleName,
+					"vaultAddress":       vaultAddress,
+					"vaultSkipTLSVerify": "true",
+					"objects": `array:
+  - |
+    objectPath: "/foo"
+    objectName: "bar"
+    objectVersion: ""
+  - |
+    objectPath: "/foo1"
+    objectName: "bar"
+    objectVersion: ""`,
+				},
+			},
+		})).To(Succeed())
 
 		spc := &spcv1alpha1.SecretProviderClass{}
 		Expect(cli.Get(ctx, client.ObjectKey{
 			Namespace: namespace.Name,
-			Name:      "vault-foo-sync",
-		}, spc)).To(Succeed(), "Failed to get service %#v", service)
+			Name:      spcName,
+		}, spc)).To(Succeed(), "Failed to get secretproviderclass %#v", spc)
 
 		e2e.Byf("%s: Installing nginx deployment", namespace.Name)
 
-		data, err = ioutil.ReadFile(filepath.Join(input.manifestsDir, "vault/nginx-deployment-synck8s.yaml"))
-		Expect(err).To(Succeed())
+		deploymentName := "nginx-deployment"
+		deploymentLabels := map[string]string{
+			"app": "nginx",
+		}
+		replicas := new(int32)
+		*replicas = 2
+		readOnly := new(bool)
+		*readOnly = true
 
-		buf = new(bytes.Buffer)
-		err = template.Must(template.New("").Parse(string(data))).Execute(buf, struct {
-			Namespace string
-			Image     string
-		}{
-			Namespace: namespace.Name,
-			Image:     "nginx",
-		})
-		Expect(err).To(Succeed())
-
-		obj, _, err = codecs.UniversalDeserializer().Decode(buf.Bytes(), nil, nil)
-		Expect(err).To(Succeed())
-
-		Expect(cli.Create(ctx, obj)).To(Succeed())
+		Expect(cli.Create(ctx, &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      deploymentName,
+				Namespace: namespace.Name,
+				Labels:    deploymentLabels,
+			},
+			Spec: appsv1.DeploymentSpec{
+				Replicas: replicas,
+				Selector: &metav1.LabelSelector{
+					MatchLabels: deploymentLabels,
+				},
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: deploymentLabels,
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:            "container",
+								Image:           "nginx",
+								ImagePullPolicy: corev1.PullIfNotPresent,
+								Env: []corev1.EnvVar{
+									{
+										Name: "SECRET_USERNAME",
+										ValueFrom: &corev1.EnvVarSource{
+											SecretKeyRef: &corev1.SecretKeySelector{
+												LocalObjectReference: corev1.LocalObjectReference{
+													Name: "foosecret",
+												},
+												Key: "username",
+											},
+										},
+									},
+								},
+								VolumeMounts: []corev1.VolumeMount{
+									{
+										Name:      "secrets-store-inline",
+										MountPath: "/mnt/secrets-store",
+										ReadOnly:  true,
+									},
+								},
+							},
+						},
+						Volumes: []corev1.Volume{
+							{
+								Name: "secrets-store-inline",
+								VolumeSource: corev1.VolumeSource{
+									CSI: &corev1.CSIVolumeSource{
+										Driver:   "secrets-store.csi.k8s.io",
+										ReadOnly: readOnly,
+										VolumeAttributes: map[string]string{
+											"secretProviderClass": spcName,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		})).To(Succeed())
 
 		e2e.Byf("%s: Waiting for nginx deployment is running", namespace.Name)
 
 		deploy := &appsv1.Deployment{}
-		deployName := "nginx-deployment"
 		Eventually(func() error {
 			err := cli.Get(ctx, client.ObjectKey{
 				Namespace: namespace.Name,
-				Name:      deployName,
+				Name:      deploymentName,
 			}, deploy)
 			if err != nil {
 				return err
@@ -318,6 +406,8 @@ func VaultSpec(ctx context.Context, inputGetter func() VaultSpecInput) {
 	It("test CSI inline volume with multiple secret provider class", func() {
 		e2e.Byf("%s: Installing secretproviderclasses", namespace.Name)
 
+		vaultAddress := vault.GetAddress(ctx, vault.GetAddressInput{cli, csiNamespace})
+
 		spcValues := []struct {
 			spcName          string
 			secretObjectName string
@@ -332,36 +422,46 @@ func VaultSpec(ctx context.Context, inputGetter func() VaultSpecInput) {
 			},
 		}
 
-		service := &corev1.Service{}
-		Expect(cli.Get(ctx, client.ObjectKey{
-			Namespace: csiNamespace,
-			Name:      "vault",
-		}, service)).To(Succeed(), "Failed to get service %#v", service)
-
 		for _, spcv := range spcValues {
-			data, err := ioutil.ReadFile(filepath.Join(input.manifestsDir, "vault/vault_v1alpha1_multiple_secretproviderclass.yaml"))
-			Expect(err).To(Succeed())
-
-			buf := new(bytes.Buffer)
-			err = template.Must(template.New("").Parse(string(data))).Execute(buf, struct {
-				Name             string
-				Namespace        string
-				SecretObjectName string
-				RoleName         string
-				VaultAddress     string
-			}{
-				Name:             spcv.spcName,
-				Namespace:        namespace.Name,
-				SecretObjectName: spcv.secretObjectName,
-				RoleName:         vault.RoleName,
-				VaultAddress:     fmt.Sprintf("http://%s:8200", service.Spec.ClusterIP),
-			})
-			Expect(err).To(Succeed())
-
-			obj, _, err := codecs.UniversalDeserializer().Decode(buf.Bytes(), nil, nil)
-			Expect(err).To(Succeed())
-
-			Expect(cli.Create(ctx, obj)).To(Succeed())
+			Expect(cli.Create(ctx, &spcv1alpha1.SecretProviderClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      spcv.spcName,
+					Namespace: namespace.Name,
+				},
+				Spec: spcv1alpha1.SecretProviderClassSpec{
+					Provider: "vault",
+					SecretObjects: []*spcv1alpha1.SecretObject{
+						{
+							SecretName: spcv.secretObjectName,
+							Type:       "Opaque",
+							Data: []*spcv1alpha1.SecretObjectData{
+								{
+									ObjectName: "foo",
+									Key:        "pwd",
+								},
+								{
+									ObjectName: "foo1",
+									Key:        "username",
+								},
+							},
+						},
+					},
+					Parameters: map[string]string{
+						"roleName":           vault.RoleName,
+						"vaultAddress":       vaultAddress,
+						"vaultSkipTLSVerify": "true",
+						"objects": `array:
+  - |
+    objectPath: "/foo"
+    objectName: "bar"
+    objectVersion: ""
+  - |
+    objectPath: "/foo1"
+    objectName: "bar"
+    objectVersion: ""`,
+					},
+				},
+			})).To(Succeed())
 		}
 
 		for _, spcv := range spcValues {
@@ -374,28 +474,92 @@ func VaultSpec(ctx context.Context, inputGetter func() VaultSpecInput) {
 
 		e2e.Byf("%s: Installing nginx pod", namespace.Name)
 
-		data, err := ioutil.ReadFile(filepath.Join(input.manifestsDir, "vault/nginx-pod-vault-inline-volume-multiple-spc.yaml"))
-		Expect(err).To(Succeed())
+		podName := "nginx-secrets-store-inline-multiple-crd"
+		readOnly := new(bool)
+		*readOnly = true
 
-		buf := new(bytes.Buffer)
-		err = template.Must(template.New("").Parse(string(data))).Execute(buf, struct {
-			Namespace string
-			Image     string
-		}{
-			Namespace: namespace.Name,
-			Image:     "nginx",
-		})
-		Expect(err).To(Succeed())
-
-		obj, _, err := codecs.UniversalDeserializer().Decode(buf.Bytes(), nil, nil)
-		Expect(err).To(Succeed())
-
-		Expect(cli.Create(ctx, obj)).To(Succeed())
+		Expect(cli.Create(ctx, &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      podName,
+				Namespace: namespace.Name,
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:            "nginx",
+						Image:           "nginx",
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      "secrets-store-inline-0",
+								MountPath: "/mnt/secrets-store-0",
+								ReadOnly:  true,
+							},
+							{
+								Name:      "secrets-store-inline-1",
+								MountPath: "/mnt/secrets-store-1",
+								ReadOnly:  true,
+							},
+						},
+						Env: []corev1.EnvVar{
+							{
+								Name: "SECRET_USERNAME_0",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "foosecret-0",
+										},
+										Key: "username",
+									},
+								},
+							},
+							{
+								Name: "SECRET_USERNAME_1",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "foosecret-1",
+										},
+										Key: "username",
+									},
+								},
+							},
+						},
+					},
+				},
+				Volumes: []corev1.Volume{
+					{
+						Name: "secrets-store-inline-0",
+						VolumeSource: corev1.VolumeSource{
+							CSI: &corev1.CSIVolumeSource{
+								Driver:   "secrets-store.csi.k8s.io",
+								ReadOnly: readOnly,
+								VolumeAttributes: map[string]string{
+									"secretProviderClass": spcValues[0].spcName,
+								},
+							},
+						},
+					},
+					{
+						Name: "secrets-store-inline-1",
+						VolumeSource: corev1.VolumeSource{
+							CSI: &corev1.CSIVolumeSource{
+								Driver:   "secrets-store.csi.k8s.io",
+								ReadOnly: readOnly,
+								VolumeAttributes: map[string]string{
+									"secretProviderClass": spcValues[1].spcName,
+								},
+							},
+						},
+					},
+				},
+			},
+		})).To(Succeed())
 
 		e2e.Byf("%s: Waiting for nginx pod is running", namespace.Name)
 
 		pod := &corev1.Pod{}
-		podName := "nginx-secrets-store-inline-multiple-crd"
+		podName = "nginx-secrets-store-inline-multiple-crd"
 		Eventually(func() error {
 			err := cli.Get(ctx, client.ObjectKey{
 				Namespace: namespace.Name,

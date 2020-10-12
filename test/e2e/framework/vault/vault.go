@@ -17,18 +17,18 @@ limitations under the License.
 package vault
 
 import (
-	"bytes"
 	"context"
-	"io/ioutil"
-	"path/filepath"
-	"text/template"
+	"fmt"
 
 	"k8s.io/client-go/tools/clientcmd"
 
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/cluster-api/test/e2e"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,13 +37,32 @@ import (
 )
 
 const (
-	vaultAuthServiceAccountFile = "vault/vault-auth.yaml"
-	tokenReviewBindingFile      = "vault/tokenreview-binding.yaml"
-	vaultDeploymentFile         = "vault/vault-deployment.yaml"
-	vaultServiceFile            = "vault/vault-service.yaml"
-	policyName                  = "example-readonly"
-	policyFile                  = "vault/example-readonly.hcl"
-	RoleName                    = "example-role"
+	vaultAuth          = "vault-auth"
+	tokenReviewBinding = "role-tokenreview-binding"
+	vaultDeployment    = "vault"
+	vaultImage         = "registry.hub.docker.com/library/vault:1.5.3"
+	vaultService       = "vault"
+
+	policyName = "example-readonly"
+	policyFile = "vault/example-readonly.hcl"
+	RoleName   = "example-role"
+)
+
+var (
+	vaultLabels = map[string]string{
+		"app": "vault",
+	}
+	exampleReadonlyPolicy = []byte(`path "secret/data/foo" {
+  capabilities = ["read", "list"]
+}
+
+path "secret/data/foo1" {
+  capabilities = ["read", "list"]
+}
+
+path "sys/renew/*" {
+  capabilities = ["update"]
+}`)
 )
 
 type SetupVaultInput struct {
@@ -63,35 +82,164 @@ func SetupVault(ctx context.Context, input SetupVaultInput) {
 }
 
 func installServiceAccount(ctx context.Context, input SetupVaultInput) {
-	e2e.Byf("%s: Installing vault-auth service account", input.Namespace)
+	e2e.Byf("%s: Installing %s service account", input.Namespace, vaultAuth)
 
-	installYAML(ctx, filepath.Join(input.ManifestsDir, vaultAuthServiceAccountFile), input)
+	Expect(input.Creator.Create(ctx, &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vaultAuth,
+			Namespace: input.Namespace,
+		},
+	})).To(Succeed())
 }
 
 func installTokenReviewBinding(ctx context.Context, input SetupVaultInput) {
 	e2e.Byf("%s: Installing tokenreview clusterrolebinding", input.Namespace)
 
-	installYAML(ctx, filepath.Join(input.ManifestsDir, tokenReviewBindingFile), input)
+	Expect(input.Creator.Create(ctx, &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: tokenReviewBinding,
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: rbacv1.GroupName,
+			Kind:     "ClusterRole",
+			Name:     "system:auth-delegator",
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      vaultAuth,
+				Namespace: input.Namespace,
+			},
+		},
+	})).To(Succeed())
 }
 
 func installAndWaitVault(ctx context.Context, input SetupVaultInput) {
 	e2e.Byf("%s: Installing vault deployment", input.Namespace)
 
-	installYAML(ctx, filepath.Join(input.ManifestsDir, vaultDeploymentFile), input)
+	replicas := new(int32)
+	*replicas = 1
+	localConfig := `
+api_addr     = "http://127.0.0.1:8200"
+cluster_addr = "http://$(POD_IP_ADDR):8201"`
+
+	Expect(input.Creator.Create(ctx, &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vaultDeployment,
+			Namespace: input.Namespace,
+			Labels:    vaultLabels,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: vaultLabels,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: vaultLabels,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  vaultDeployment,
+							Image: vaultImage,
+							Args:  []string{"server", "-dev"},
+							SecurityContext: &corev1.SecurityContext{
+								Capabilities: &corev1.Capabilities{
+									Add: []corev1.Capability{"IPC_LOCK"},
+								},
+							},
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "vault-port",
+									Protocol:      corev1.ProtocolTCP,
+									ContainerPort: 8200,
+								},
+								{
+									Name:          "cluster-port",
+									Protocol:      corev1.ProtocolTCP,
+									ContainerPort: 8201,
+								},
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name: "POD_IP_ADDR",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "status.podIP",
+										},
+									},
+								},
+								{
+									Name:  "VAULT_LOCAL_CONFIG",
+									Value: localConfig,
+								},
+								{
+									Name:  "VAULT_DEV_ROOT_TOKEN_ID",
+									Value: "root",
+								},
+								{
+									Name:  "VAULT_ADDR",
+									Value: "http://127.0.0.1:8200",
+								},
+								{
+									Name:  "VAULT_TOKEN",
+									Value: "root",
+								},
+							},
+							ReadinessProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/v1/sys/health",
+										Port: intstr.IntOrString{
+											Type:   intstr.Int,
+											IntVal: 8200,
+										},
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+								InitialDelaySeconds: 5,
+								PeriodSeconds:       5,
+							},
+						},
+					},
+				},
+			},
+		},
+	})).To(Succeed())
 
 	pod.WaitForPod(ctx, pod.WaitForPodInput{
 		GetLister: input.GetLister,
 		Namespace: input.Namespace,
-		Labels: map[string]string{
-			"app": "vault",
-		},
+		Labels:    vaultLabels,
 	})
 }
 
 func installVaultService(ctx context.Context, input SetupVaultInput) {
 	e2e.Byf("%s: Installing vault service", input.Namespace)
 
-	installYAML(ctx, filepath.Join(input.ManifestsDir, vaultServiceFile), input)
+	Expect(input.Creator.Create(ctx, &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vaultService,
+			Namespace: input.Namespace,
+			Labels:    vaultLabels,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:     corev1.ServiceTypeNodePort,
+			Selector: vaultLabels,
+			Ports: []corev1.ServicePort{
+				{
+					Name: "vault-port",
+					Port: 8200,
+					TargetPort: intstr.IntOrString{
+						Type:   intstr.Int,
+						IntVal: 8200,
+					},
+					Protocol: corev1.ProtocolTCP,
+				},
+			},
+		},
+	})).To(Succeed())
 }
 
 func configureVault(ctx context.Context, input SetupVaultInput) {
@@ -113,7 +261,7 @@ func configureVault(ctx context.Context, input SetupVaultInput) {
 	sa := &corev1.ServiceAccount{}
 	Expect(input.GetLister.Get(ctx, client.ObjectKey{
 		Namespace: input.Namespace,
-		Name:      "vault-auth",
+		Name:      vaultAuth,
 	}, sa)).To(Succeed(), "Failed to get serviceaccount %#v", sa)
 
 	secretName := sa.Secrets[0].Name
@@ -155,10 +303,7 @@ func configureVault(ctx context.Context, input SetupVaultInput) {
 		"token_reviewer_jwt="+string(tokenReviewAccountToken))
 	Expect(err).To(Succeed(), "stdout=%s, stderr=%s", stdout, stderr)
 
-	data, err := ioutil.ReadFile(filepath.Join(input.ManifestsDir, policyFile))
-	Expect(err).To(Succeed())
-
-	stdout, stderr, err = localexec.KubectlExecWithInput(data, input.KubeconfigPath, podName, input.Namespace, "vault", "policy", "write", policyName, "-")
+	stdout, stderr, err = localexec.KubectlExecWithInput(exampleReadonlyPolicy, input.KubeconfigPath, podName, input.Namespace, "vault", "policy", "write", policyName, "-")
 	Expect(err).To(Succeed(), "stdout=%s, stderr=%s", stdout, stderr)
 
 	stdout, stderr, err = localexec.KubectlExec(input.KubeconfigPath, podName, input.Namespace, "vault", "write", "auth/kubernetes/role/"+RoleName,
@@ -177,57 +322,17 @@ func configureVault(ctx context.Context, input SetupVaultInput) {
 	Expect(err).To(Succeed(), "stdout=%s, stderr=%s", stdout, stderr)
 }
 
-func installYAML(ctx context.Context, file string, input SetupVaultInput) {
-	data, err := ioutil.ReadFile(file)
-	Expect(err).To(Succeed())
-
-	buf := new(bytes.Buffer)
-	err = template.Must(template.New("").Parse(string(data))).Execute(buf, struct {
-		Namespace string
-	}{
-		input.Namespace,
-	})
-	Expect(err).To(Succeed())
-
-	obj, _, err := scheme.Codecs.UniversalDeserializer().Decode(buf.Bytes(), nil, nil)
-	Expect(err).To(Succeed())
-
-	Expect(input.Creator.Create(ctx, obj)).To(Succeed())
+type GetAddressInput struct {
+	Getter    framework.Getter
+	Namespace string
 }
 
-type TeardownVaultInput struct {
-	Deleter        framework.Deleter
-	GetLister      framework.GetLister
-	Namespace      string
-	ManifestsDir   string
-	KubeconfigPath string
-}
+func GetAddress(ctx context.Context, input GetAddressInput) string {
+	service := &corev1.Service{}
+	Expect(input.Getter.Get(ctx, client.ObjectKey{
+		Namespace: input.Namespace,
+		Name:      vaultService,
+	}, service)).To(Succeed(), "Failed to get service %#v", service)
 
-func TeardownVault(ctx context.Context, input TeardownVaultInput) {
-	// Delete only cluster-wide resources, other resources are deleted by deleting namespace
-	uninstallTokenReviewBinding(ctx, input)
-}
-
-func uninstallTokenReviewBinding(ctx context.Context, input TeardownVaultInput) {
-	e2e.Byf("%s: Installing tokenreview clusterrolebinding", input.Namespace)
-
-	uninstallYAML(ctx, filepath.Join(input.ManifestsDir, tokenReviewBindingFile), input)
-}
-
-func uninstallYAML(ctx context.Context, file string, input TeardownVaultInput) {
-	data, err := ioutil.ReadFile(file)
-	Expect(err).To(Succeed())
-
-	buf := new(bytes.Buffer)
-	err = template.Must(template.New("").Parse(string(data))).Execute(buf, struct {
-		Namespace string
-	}{
-		input.Namespace,
-	})
-	Expect(err).To(Succeed())
-
-	obj, _, err := scheme.Codecs.UniversalDeserializer().Decode(buf.Bytes(), nil, nil)
-	Expect(err).To(Succeed())
-
-	Expect(input.Deleter.Delete(ctx, obj)).To(Succeed())
+	return fmt.Sprintf("http://%s:8200", service.Spec.ClusterIP)
 }

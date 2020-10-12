@@ -18,16 +18,9 @@ limitations under the License.
 package vault
 
 import (
-	"bufio"
 	"context"
-	"io"
-	"net/http"
 
 	. "github.com/onsi/gomega"
-	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/kubectl/pkg/scheme"
 	"sigs.k8s.io/cluster-api/test/e2e"
 	"sigs.k8s.io/cluster-api/test/framework"
 	localexec "sigs.k8s.io/secrets-store-csi-driver/test/e2e/framework/exec"
@@ -71,42 +64,4 @@ func InstallAndWaitProvider(ctx context.Context, input InstallAndWaitProviderInp
 			"app": "csi-secrets-store-provider-vault",
 		},
 	})
-}
-
-type UninstallProviderInput struct {
-	Deleter   framework.Deleter
-	Namespace string
-}
-
-func UninstallProvider(ctx context.Context, input UninstallProviderInput) {
-	e2e.Byf("%s: Uninstalling vault provider", input.Namespace)
-
-	resp, err := http.Get(providerYAML)
-	Expect(err).To(Succeed())
-	defer resp.Body.Close()
-
-	y := yaml.NewYAMLReader(bufio.NewReader(resp.Body))
-	for {
-		data, err := y.Read()
-		if err == io.EOF {
-			return
-		}
-		Expect(err).To(Succeed())
-
-		gvs := schema.GroupVersions{
-			schema.GroupVersion{Group: appsv1.SchemeGroupVersion.Group, Version: appsv1.SchemeGroupVersion.Version},
-		}
-
-		resourceDecoder := scheme.Codecs.DecoderToVersion(scheme.Codecs.UniversalDeserializer(), gvs)
-
-		obj, _, err := resourceDecoder.Decode(data, nil, nil)
-		Expect(err).To(Succeed())
-
-		providerObj := obj.(*appsv1.DaemonSet)
-		providerObj.Namespace = input.Namespace
-
-		Eventually(func() error {
-			return input.Deleter.Delete(ctx, providerObj)
-		}).Should(Succeed())
-	}
 }

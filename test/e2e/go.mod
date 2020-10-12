@@ -17,7 +17,6 @@ require (
 	k8s.io/apimachinery v0.17.9
 	k8s.io/client-go v0.17.9
 	k8s.io/klog v1.0.0
-	k8s.io/kubectl v0.17.2
 	rsc.io/letsencrypt v0.0.3 // indirect
 	sigs.k8s.io/cluster-api v0.3.10
 	sigs.k8s.io/controller-runtime v0.5.11

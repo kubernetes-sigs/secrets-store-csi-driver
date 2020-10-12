@@ -36,7 +36,6 @@ var _ = Describe("Testing CSI Driver with Vault provider", func() {
 			Creator:        cli,
 			GetLister:      cli,
 			Namespace:      csiNamespace,
-			ManifestsDir:   manifestsDir,
 			KubeconfigPath: clusterProxy.GetKubeconfigPath(),
 		})
 	})
@@ -46,7 +45,6 @@ var _ = Describe("Testing CSI Driver with Vault provider", func() {
 			clusterProxy: clusterProxy,
 			skipCleanup:  skipCleanup,
 			chartPath:    chartPath,
-			manifestsDir: manifestsDir,
 		}
 	})
 })
