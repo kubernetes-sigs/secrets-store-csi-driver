@@ -34,15 +34,6 @@ var _ = Describe("Testing CSI Driver with Azure provider", func() {
 			Namespace:      csiNamespace,
 			KubeconfigPath: clusterProxy.GetKubeconfigPath(),
 		})
-		azure.SetupAzure(ctx, azure.SetupAzureInput{
-			Creator:        cli,
-			GetLister:      cli,
-			Namespace:      csiNamespace,
-			ManifestsDir:   manifestsDir,
-			KubeconfigPath: clusterProxy.GetKubeconfigPath(),
-			ClientID:       os.Getenv("AZURE_CLIENT_ID"),
-			ClientSecret:   os.Getenv("AZURE_CLIENT_SECRET"),
-		})
 	})
 
 	AzureSpec(ctx, func() AzureSpecInput {
@@ -50,7 +41,8 @@ var _ = Describe("Testing CSI Driver with Azure provider", func() {
 			clusterProxy: clusterProxy,
 			skipCleanup:  skipCleanup,
 			chartPath:    chartPath,
-			manifestsDir: manifestsDir,
+			clientID:     os.Getenv("AZURE_CLIENT_ID"),
+			clientSecret: os.Getenv("AZURE_CLIENT_SECRET"),
 		}
 	})
 })

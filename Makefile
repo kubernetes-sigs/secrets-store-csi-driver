@@ -159,7 +159,7 @@ e2e-azure: e2e-image
 	$(MAKE) -C test/e2e run PROVIDER=azure CLUSTER=$(CLUSTER)
 
 .PHONY: e2e-vault
-e2e-vault: #e2e-image
+e2e-vault: e2e-image
 	$(MAKE) -C test/e2e run PROVIDER=vault CLUSTER=$(CLUSTER)
 
 # Generate manifests e.g. CRD, RBAC etc.

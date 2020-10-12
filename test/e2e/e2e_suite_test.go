@@ -51,9 +51,6 @@ var (
 	// chartPath is helm chart path.
 	chartPath string
 
-	// manifestsDir is manifests directory path.
-	manifestsDir string
-
 	// tryLoadImages is a list of image tag if exists in local. loading from local will test faster.
 	tryLoadImages string
 
@@ -80,7 +77,6 @@ func init() {
 	flag.StringVar(&clusterType, "e2e.cluster-type", defaultClusterType, "type of cluster")
 	flag.StringVar(&kubeconfigPath, "e2e.kubeconfig-path", "", "kubeconfig path")
 	flag.StringVar(&chartPath, "e2e.chart-path", "", "helm chart path")
-	flag.StringVar(&manifestsDir, "e2e.manifests-dir", "", "manifests directory path")
 	flag.StringVar(&tryLoadImages, "e2e.try-load-images", "", "space separated list of image tag if exists in local")
 	flag.StringVar(&mustLoadImages, "e2e.must-load-images", "", "space separated list of image tag that must be in local")
 }

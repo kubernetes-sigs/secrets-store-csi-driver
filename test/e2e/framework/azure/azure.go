@@ -17,68 +17,37 @@ limitations under the License.
 package azure
 
 import (
-	"bytes"
 	"context"
-	"io/ioutil"
-	"path/filepath"
-	"text/template"
 
 	. "github.com/onsi/gomega"
-	"k8s.io/client-go/kubernetes/scheme"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/cluster-api/test/e2e"
 	"sigs.k8s.io/cluster-api/test/framework"
 )
 
 const (
-	azureSecretsStoreCredsFile = "azure/secrets-store-creds.yaml"
+	SecretsStoreCreds = "secrets-store-creds"
 )
 
-type SetupAzureInput struct {
-	Creator        framework.Creator
-	GetLister      framework.GetLister
-	Namespace      string
-	ManifestsDir   string
-	KubeconfigPath string
-	ClientID       string
-	ClientSecret   string
+type InstallSecretsStoreCredentialInput struct {
+	Creator      framework.Creator
+	Namespace    string
+	ClientID     string
+	ClientSecret string
 }
 
-func SetupAzure(ctx context.Context, input SetupAzureInput) {
-	installSecretsStoreCredential(ctx, input)
-}
-
-func installSecretsStoreCredential(ctx context.Context, input SetupAzureInput) {
+func InstallSecretsStoreCredential(ctx context.Context, input InstallSecretsStoreCredentialInput) {
 	e2e.Byf("%s: Installing credential service account", input.Namespace)
 
-	data, err := ioutil.ReadFile(filepath.Join(input.ManifestsDir, azureSecretsStoreCredsFile))
-	Expect(err).To(Succeed())
-
-	buf := new(bytes.Buffer)
-	err = template.Must(template.New("").Parse(string(data))).Execute(buf, struct {
-		Namespace    string
-		ClientID     string
-		ClientSecret string
-	}{
-		input.Namespace,
-		input.ClientID,
-		input.ClientSecret,
-	})
-	Expect(err).To(Succeed())
-
-	obj, _, err := scheme.Codecs.UniversalDeserializer().Decode(buf.Bytes(), nil, nil)
-	Expect(err).To(Succeed())
-
-	Expect(input.Creator.Create(ctx, obj)).To(Succeed())
-}
-
-type TeardownAzureInput struct {
-	Deleter        framework.Deleter
-	GetLister      framework.GetLister
-	Namespace      string
-	ManifestsDir   string
-	KubeconfigPath string
-}
-
-func TeardownAzure(ctx context.Context, input TeardownAzureInput) {
-	// Delete only cluster-wide resources, other resources are deleted by deleting namespace
+	Expect(input.Creator.Create(ctx, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      SecretsStoreCreds,
+			Namespace: input.Namespace,
+		},
+		Data: map[string][]byte{
+			"clientid":     []byte(input.ClientID),
+			"clientsecret": []byte(input.ClientSecret),
+		},
+	})).To(Succeed())
 }

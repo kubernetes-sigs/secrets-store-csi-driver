@@ -24,10 +24,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"html/template"
-	"io/ioutil"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	. "github.com/onsi/ginkgo"
@@ -35,13 +32,14 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"sigs.k8s.io/cluster-api/test/e2e"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	spcv1alpha1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
+	"sigs.k8s.io/secrets-store-csi-driver/test/e2e/framework/azure"
 	localexec "sigs.k8s.io/secrets-store-csi-driver/test/e2e/framework/exec"
 )
 
@@ -50,7 +48,8 @@ type AzureSpecInput struct {
 	clusterProxy framework.ClusterProxy
 	skipCleanup  bool
 	chartPath    string
-	manifestsDir string
+	clientID     string
+	clientSecret string
 }
 
 // AzureSpec implements a spec that testing Azure provider
@@ -61,7 +60,6 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 		namespace        *corev1.Namespace
 		cancelWatches    context.CancelFunc
 		cli              client.Client
-		codecs           serializer.CodecFactory
 		secretName       = "secret1"
 		secretVersion    = ""
 		secretValue      = "test"
@@ -69,7 +67,6 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 		keyName          = "key1"
 		keyVersion       = "7cc095105411491b84fe1b92ebbcf01a"
 		catCommand       = "cat"
-		image            = "nginx"
 		keyValueContains = "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUF4K2FadlhJN2FldG5DbzI3akVScgpheklaQ2QxUlBCQVZuQU1XcDhqY05TQk5MOXVuOVJrenJHOFd1SFBXUXNqQTA2RXRIOFNSNWtTNlQvaGQwMFNRCk1aODBMTlNxYkkwTzBMcWMzMHNLUjhTQ0R1cEt5dkpkb01LSVlNWHQzUlk5R2Ywam1ucHNKOE9WbDFvZlRjOTIKd1RINXYyT2I1QjZaMFd3d25MWlNiRkFnSE1uTHJtdEtwZTVNcnRGU21nZS9SL0J5ZXNscGU0M1FubnpndzhRTwpzU3ZMNnhDU21XVW9WQURLL1MxREU0NzZBREM2a2hGTjF5ZHUzbjVBcnREVGI0c0FjUHdTeXB3WGdNM3Y5WHpnClFKSkRGT0JJOXhSTW9UM2FjUWl0Z0c2RGZibUgzOWQ3VU83M0o3dUFQWUpURG1pZGhrK0ZFOG9lbjZWUG9YRy8KNXdJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0t"
 		labelValue       = "test"
 	)
@@ -87,74 +84,101 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 			LogFolder: filepath.Join("resources", "clusters", input.clusterProxy.GetName()),
 		})
 
-		codecs = serializer.NewCodecFactory(input.clusterProxy.GetScheme())
-		if runtime.GOOS == "windows" {
-			catCommand = "powershell.exe cat"
-			image = "mcr.microsoft.com/windows/servercore/iis:windowsservercore-ltsc2019"
-		}
-
 		cli = input.clusterProxy.GetClient()
 	})
 
 	It("test CSI inline volume with pod portability", func() {
 		e2e.Byf("%s: Installing secretproviderclass", namespace.Name)
 
-		data, err := ioutil.ReadFile(filepath.Join(input.manifestsDir, "azure/azure_v1alpha1_secretproviderclass.yaml"))
-		Expect(err).To(Succeed())
-
-		buf := new(bytes.Buffer)
-		err = template.Must(template.New("").Parse(string(data))).Execute(buf, struct {
-			Namespace     string
-			KeyVaultName  string
-			SecretName    string
-			SecretVersion string
-			KeyName       string
-			KeyVersion    string
-		}{
-			Namespace:     namespace.Name,
-			KeyVaultName:  keyVaultName,
-			SecretName:    secretName,
-			SecretVersion: secretVersion,
-			KeyName:       keyName,
-			KeyVersion:    keyVersion,
-		})
-		Expect(err).To(Succeed())
-
-		obj, _, err := codecs.UniversalDeserializer().Decode(buf.Bytes(), nil, nil)
-		Expect(err).To(Succeed())
-
-		Expect(cli.Create(ctx, obj)).To(Succeed())
+		spcName := "azure"
+		Expect(cli.Create(ctx, &spcv1alpha1.SecretProviderClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      spcName,
+				Namespace: namespace.Name,
+			},
+			Spec: spcv1alpha1.SecretProviderClassSpec{
+				Provider: "azure",
+				Parameters: map[string]string{
+					"usePodIdentity": "false",
+					"keyvaultName":   keyVaultName,
+					"objects": `array:
+  - |
+    objectName: ` + secretName + `
+    objectType: "secret"
+    objectVersion: ` + secretVersion + `
+  - |
+    objectName: ` + keyName + `
+    objectType: "key"
+	objectVersion: ` + keyVersion,
+					"tenantId": "$TENANT_ID",
+				},
+			},
+		})).To(Succeed())
 
 		spc := &spcv1alpha1.SecretProviderClass{}
 		Expect(cli.Get(ctx, client.ObjectKey{
 			Namespace: namespace.Name,
-			Name:      "azure",
+			Name:      spcName,
 		}, spc)).To(Succeed(), "Failed to get secretproviderclass %#v", spc)
+
+		e2e.Byf("%s: Installing secrets-store-creds", namespace.Name)
+
+		azure.InstallSecretsStoreCredential(ctx, azure.InstallSecretsStoreCredentialInput{
+			Creator:      cli,
+			Namespace:    namespace.Name,
+			ClientID:     input.clientID,
+			ClientSecret: input.clientSecret,
+		})
 
 		e2e.Byf("%s: Installing nginx pod", namespace.Name)
 
-		data, err = ioutil.ReadFile(filepath.Join(input.manifestsDir, "azure/nginx-pod-secrets-store-inline-volume-crd.yaml"))
-		Expect(err).To(Succeed())
+		podName := "nginx-secrets-store-inline-crd"
+		readOnly := new(bool)
+		*readOnly = true
 
-		buf = new(bytes.Buffer)
-		err = template.Must(template.New("").Parse(string(data))).Execute(buf, struct {
-			Namespace string
-			Image     string
-		}{
-			Namespace: namespace.Name,
-			Image:     image,
-		})
-		Expect(err).To(Succeed())
-
-		obj, _, err = codecs.UniversalDeserializer().Decode(buf.Bytes(), nil, nil)
-		Expect(err).To(Succeed())
-
-		Expect(cli.Create(ctx, obj)).To(Succeed())
+		Expect(cli.Create(ctx, &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      podName,
+				Namespace: namespace.Name,
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:            "nginx",
+						Image:           "nginx",
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      "secrets-store-inline",
+								MountPath: "/mnt/secrets-store",
+								ReadOnly:  true,
+							},
+						},
+					},
+				},
+				Volumes: []corev1.Volume{
+					{
+						Name: "secrets-store-inline",
+						VolumeSource: corev1.VolumeSource{
+							CSI: &corev1.CSIVolumeSource{
+								Driver:   "secrets-store.csi.k8s.io",
+								ReadOnly: readOnly,
+								VolumeAttributes: map[string]string{
+									"secretProviderClass": spcName,
+								},
+								NodePublishSecretRef: &corev1.LocalObjectReference{
+									Name: azure.SecretsStoreCreds,
+								},
+							},
+						},
+					},
+				},
+			},
+		})).To(Succeed())
 
 		e2e.Byf("%s: Waiting for nginx pod is running", namespace.Name)
 
 		pod := &corev1.Pod{}
-		podName := "nginx-secrets-store-inline-crd"
 		Eventually(func() error {
 			err := cli.Get(ctx, client.ObjectKey{
 				Namespace: namespace.Name,
@@ -190,66 +214,74 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 	It("test Sync with K8s secrets", func() {
 		e2e.Byf("%s: Installing secretproviderclass", namespace.Name)
 
-		data, err := ioutil.ReadFile(filepath.Join(input.manifestsDir, "azure/azure_synck8s_v1alpha1_secretproviderclass.yaml"))
-		Expect(err).To(Succeed())
-
-		buf := new(bytes.Buffer)
-		err = template.Must(template.New("").Parse(string(data))).Execute(buf, struct {
-			Namespace     string
-			KeyVaultName  string
-			SecretName    string
-			SecretVersion string
-			KeyName       string
-			KeyVersion    string
-		}{
-			Namespace:     namespace.Name,
-			KeyVaultName:  keyVaultName,
-			SecretName:    secretName,
-			SecretVersion: secretVersion,
-			KeyName:       keyName,
-			KeyVersion:    keyVersion,
-		})
-		Expect(err).To(Succeed())
-
-		obj, _, err := codecs.UniversalDeserializer().Decode(buf.Bytes(), nil, nil)
-		Expect(err).To(Succeed())
-
-		Expect(cli.Create(ctx, obj)).To(Succeed())
+		spcName := "azure-sync"
+		Expect(cli.Create(ctx, &spcv1alpha1.SecretProviderClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      spcName,
+				Namespace: namespace.Name,
+			},
+			Spec: spcv1alpha1.SecretProviderClassSpec{
+				Provider: "azure",
+				SecretObjects: []*spcv1alpha1.SecretObject{
+					{
+						SecretName: "foosecret",
+						Labels: map[string]string{
+							"environment": "test",
+						},
+						Data: []*spcv1alpha1.SecretObjectData{
+							{
+								ObjectName: "secretalias",
+								Key:        "username",
+							},
+						},
+					},
+				},
+				Parameters: map[string]string{
+					"usePodIdentity": "false",
+					"keyvaultName":   keyVaultName,
+					"objects": `array:
+  - |
+    objectName: ` + secretName + `
+    objectType: "secret"
+    objectAlias: "secretalias"
+    objectVersion: ` + secretVersion + `
+  - |
+    objectName: ` + keyName + `
+    objectType: "key"
+	objectVersion: ` + keyVersion,
+					"tenantId": "$TENANT_ID",
+				},
+			},
+		})).To(Succeed())
 
 		spc := &spcv1alpha1.SecretProviderClass{}
 		Expect(cli.Get(ctx, client.ObjectKey{
 			Namespace: namespace.Name,
-			Name:      "azure-sync",
+			Name:      spcName,
 		}, spc)).To(Succeed(), "Failed to get secretproviderclass %#v", spc)
+
+		e2e.Byf("%s: Installing secrets-store-creds", namespace.Name)
+
+		azure.InstallSecretsStoreCredential(ctx, azure.InstallSecretsStoreCredentialInput{
+			Creator:      cli,
+			Namespace:    namespace.Name,
+			ClientID:     input.clientID,
+			ClientSecret: input.clientSecret,
+		})
 
 		e2e.Byf("%s: Installing nginx deployment", namespace.Name)
 
-		data, err = ioutil.ReadFile(filepath.Join(input.manifestsDir, "azure/nginx-deployment-synck8s-azure.yaml"))
-		Expect(err).To(Succeed())
-
-		buf = new(bytes.Buffer)
-		err = template.Must(template.New("").Parse(string(data))).Execute(buf, struct {
-			Namespace string
-			Image     string
-		}{
-			Namespace: namespace.Name,
-			Image:     image,
-		})
-		Expect(err).To(Succeed())
-
-		obj, _, err = codecs.UniversalDeserializer().Decode(buf.Bytes(), nil, nil)
-		Expect(err).To(Succeed())
-
-		Expect(cli.Create(ctx, obj)).To(Succeed())
+		deploymentName := "nginx-deployment"
+		Expect(cli.Create(ctx, nginxDeploymentSyncK8sAzure(deploymentName, namespace.Name, spcName))).To(Succeed())
 
 		e2e.Byf("%s: Waiting for nginx deployment is running", namespace.Name)
 
 		deploy := &appsv1.Deployment{}
-		deployName := "nginx-deployment"
+
 		Eventually(func() error {
 			err := cli.Get(ctx, client.ObjectKey{
 				Namespace: namespace.Name,
-				Name:      deployName,
+				Name:      deploymentName,
 			}, deploy)
 			if err != nil {
 				return err
@@ -338,32 +370,17 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 	It("test CSI inline volume should fail when no secret provider class in same namespace", func() {
 		e2e.Byf("%s: Installing nginx deployment", namespace.Name)
 
-		data, err := ioutil.ReadFile(filepath.Join(input.manifestsDir, "azure/nginx-deployment-synck8s-azure.yaml"))
-		Expect(err).To(Succeed())
-
-		buf := new(bytes.Buffer)
-		err = template.Must(template.New("").Parse(string(data))).Execute(buf, struct {
-			Namespace string
-			Image     string
-		}{
-			Namespace: namespace.Name,
-			Image:     image,
-		})
-		Expect(err).To(Succeed())
-
-		obj, _, err := codecs.UniversalDeserializer().Decode(buf.Bytes(), nil, nil)
-		Expect(err).To(Succeed())
-
-		Expect(cli.Create(ctx, obj)).To(Succeed())
+		deploymentName := "nginx-deployment"
+		spcName := "azure-sync"
+		Expect(cli.Create(ctx, nginxDeploymentSyncK8sAzure(deploymentName, namespace.Name, spcName))).To(Succeed())
 
 		e2e.Byf("%s: Waiting for nginx deployment is running", namespace.Name)
 
 		deploy := &appsv1.Deployment{}
-		deployName := "nginx-deployment"
 		Eventually(func() error {
 			err := cli.Get(ctx, client.ObjectKey{
 				Namespace: namespace.Name,
-				Name:      deployName,
+				Name:      deploymentName,
 			}, deploy)
 			if err != nil {
 				return err
@@ -397,35 +414,42 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 		}
 
 		for _, spcv := range spcValues {
-			data, err := ioutil.ReadFile(filepath.Join(input.manifestsDir, "azure/azure_v1alpha1_multiple_secretproviderclass.yaml"))
-			Expect(err).To(Succeed())
-
-			buf := new(bytes.Buffer)
-			err = template.Must(template.New("").Parse(string(data))).Execute(buf, struct {
-				Name             string
-				Namespace        string
-				SecretObjectName string
-				KeyVaultName     string
-				SecretName       string
-				SecretVersion    string
-				KeyName          string
-				KeyVersion       string
-			}{
-				Name:             spcv.spcName,
-				Namespace:        namespace.Name,
-				SecretObjectName: spcv.secretObjectName,
-				KeyVaultName:     keyVaultName,
-				SecretName:       secretName,
-				SecretVersion:    secretVersion,
-				KeyName:          keyName,
-				KeyVersion:       keyVersion,
-			})
-			Expect(err).To(Succeed())
-
-			obj, _, err := codecs.UniversalDeserializer().Decode(buf.Bytes(), nil, nil)
-			Expect(err).To(Succeed())
-
-			Expect(cli.Create(ctx, obj)).To(Succeed())
+			Expect(cli.Create(ctx, &spcv1alpha1.SecretProviderClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      spcv.spcName,
+					Namespace: namespace.Name,
+				},
+				Spec: spcv1alpha1.SecretProviderClassSpec{
+					Provider: "azure",
+					SecretObjects: []*spcv1alpha1.SecretObject{
+						{
+							SecretName: spcv.secretObjectName,
+							Type:       "Opaque",
+							Data: []*spcv1alpha1.SecretObjectData{
+								{
+									ObjectName: "secretalias",
+									Key:        "username",
+								},
+							},
+						},
+					},
+					Parameters: map[string]string{
+						"usePodIdentity": "false",
+						"keyvaultName":   keyVaultName,
+						"objects": `array:
+  - |
+    objectName: ` + secretName + `
+    objectType: "secret"
+    objectVersion: ` + secretVersion + `
+    objectAlias: "secretalias"
+  - |
+    objectName: ` + keyName + `
+    objectType: "key"
+	objectVersion: ` + keyVersion,
+						"tenantId": "$TENANT_ID",
+					},
+				},
+			})).To(Succeed())
 		}
 
 		for _, spcv := range spcValues {
@@ -437,28 +461,97 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 		}
 		e2e.Byf("%s: Installing nginx pod", namespace.Name)
 
-		data, err := ioutil.ReadFile(filepath.Join(input.manifestsDir, "azure/nginx-pod-azure-inline-volume-multiple-spc.yaml"))
-		Expect(err).To(Succeed())
+		podName := "nginx-secrets-store-inline-multiple-crd"
+		readOnly := new(bool)
+		*readOnly = true
 
-		buf := new(bytes.Buffer)
-		err = template.Must(template.New("").Parse(string(data))).Execute(buf, struct {
-			Namespace string
-			Image     string
-		}{
-			Namespace: namespace.Name,
-			Image:     image,
-		})
-		Expect(err).To(Succeed())
-
-		obj, _, err := codecs.UniversalDeserializer().Decode(buf.Bytes(), nil, nil)
-		Expect(err).To(Succeed())
-
-		Expect(cli.Create(ctx, obj)).To(Succeed())
+		Expect(cli.Create(ctx, &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      podName,
+				Namespace: namespace.Name,
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:            "nginx",
+						Image:           "nginx",
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      "secrets-store-inline-0",
+								MountPath: "/mnt/secrets-store-0",
+								ReadOnly:  true,
+							},
+							{
+								Name:      "secrets-store-inline-1",
+								MountPath: "/mnt/secrets-store-1",
+								ReadOnly:  true,
+							},
+						},
+						Env: []corev1.EnvVar{
+							{
+								Name: "SECRET_USERNAME_0",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "foosecret-0",
+										},
+										Key: "username",
+									},
+								},
+							},
+							{
+								Name: "SECRET_USERNAME_1",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "foosecret-1",
+										},
+										Key: "username",
+									},
+								},
+							},
+						},
+					},
+				},
+				Volumes: []corev1.Volume{
+					{
+						Name: "secrets-store-inline-0",
+						VolumeSource: corev1.VolumeSource{
+							CSI: &corev1.CSIVolumeSource{
+								Driver:   "secrets-store.csi.k8s.io",
+								ReadOnly: readOnly,
+								VolumeAttributes: map[string]string{
+									"secretProviderClass": spcValues[0].spcName,
+								},
+								NodePublishSecretRef: &corev1.LocalObjectReference{
+									Name: azure.SecretsStoreCreds,
+								},
+							},
+						},
+					},
+					{
+						Name: "secrets-store-inline-1",
+						VolumeSource: corev1.VolumeSource{
+							CSI: &corev1.CSIVolumeSource{
+								Driver:   "secrets-store.csi.k8s.io",
+								ReadOnly: readOnly,
+								VolumeAttributes: map[string]string{
+									"secretProviderClass": spcValues[1].spcName,
+								},
+								NodePublishSecretRef: &corev1.LocalObjectReference{
+									Name: azure.SecretsStoreCreds,
+								},
+							},
+						},
+					},
+				},
+			},
+		})).To(Succeed())
 
 		e2e.Byf("%s: Waiting for nginx pod is running", namespace.Name)
 
 		pod := &corev1.Pod{}
-		podName := "nginx-secrets-store-inline-multiple-crd"
 		Eventually(func() error {
 			err := cli.Get(ctx, client.ObjectKey{
 				Namespace: namespace.Name,
@@ -532,4 +625,79 @@ func AzureSpec(ctx context.Context, inputGetter func() AzureSpecInput) {
 			cancelWatches()
 		}
 	})
+}
+
+func nginxDeploymentSyncK8sAzure(name, namespace, spcName string) *appsv1.Deployment {
+	deploymentLabels := map[string]string{
+		"app": "nginx",
+	}
+	replicas := new(int32)
+	*replicas = 2
+	readOnly := new(bool)
+	*readOnly = true
+
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels:    deploymentLabels,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: deploymentLabels,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: deploymentLabels,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:            "container",
+							Image:           "nginx",
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Env: []corev1.EnvVar{
+								{
+									Name: "SECRET_USERNAME",
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "foosecret",
+											},
+											Key: "username",
+										},
+									},
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "secrets-store-inline",
+									MountPath: "/mnt/secrets-store",
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "secrets-store-inline",
+							VolumeSource: corev1.VolumeSource{
+								CSI: &corev1.CSIVolumeSource{
+									Driver:   "secrets-store.csi.k8s.io",
+									ReadOnly: readOnly,
+									VolumeAttributes: map[string]string{
+										"secretProviderClass": spcName,
+									},
+									NodePublishSecretRef: &corev1.LocalObjectReference{
+										Name: azure.SecretsStoreCreds,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }

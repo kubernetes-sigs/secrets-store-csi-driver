@@ -57,11 +57,10 @@ KIND_VERSION ?= 0.9.0
 KUBERNETES_VERSION ?= 1.18.2
 PROVIDER ?=
 CHART_PATH ?= $(REPO_ROOT)/charts/secrets-store-csi-driver
-MANIFESTS_DIR ?= $(REPO_ROOT)/test/e2e/data
 KINDCONFIG_PATH ?= $(MANIFESTS_DIR)/kind-config.yaml
 ifeq ($(PROVIDER),azure)
 TRY_LOAD_IMAGES ?= \
-	mcr.microsoft.com/k8s/csi/secrets-store/provider-azure:0.0.8 \
+	mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.9 \
 	nginx
 endif
 ifeq ($(PROVIDER),vault)
@@ -92,6 +91,5 @@ run: ginkgo setup-kind ## Run the end-to-end tests
 		-e2e.cluster-type=$(CLUSTER) \
 		-e2e.kubeconfig-path=$(KUBECONFIG_PATH) \
 		-e2e.chart-path=$(CHART_PATH) \
-		-e2e.manifests-dir=$(MANIFESTS_DIR) \
 		-e2e.try-load-images="$(TRY_LOAD_IMAGES)" \
 		-e2e.must-load-images="$(MUST_LOAD_IMAGES)"
