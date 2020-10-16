@@ -149,6 +149,7 @@ secretproviderclasses.secrets-store.csi.x-k8s.io
 Select a provider from the following list, then follow the installation steps for the provider:
 -  [Azure Provider](https://github.com/Azure/secrets-store-csi-driver-provider-azure#usage)
 -  [Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault)
+-  [GCP Provider](https://github.com/GoogleCloudPlatform/secrets-store-csi-driver-provider-gcp)
 
 ### Create your own SecretProviderClass Object
 
