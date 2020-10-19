@@ -120,7 +120,7 @@ syncSecret:
 minimumProviderVersions:
 
 ## ; delimited list of providers that support grpc for driver-provider [alpha]
-grpcSupportedProviders:
+grpcSupportedProviders: gcp;
 
 ## Enable secret rotation feature [alpha]
 enableSecretRotation: false
