@@ -31,19 +31,10 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
-)
-
-var (
-	secretProviderClassGvk = schema.GroupVersionKind{
-		Group:   "secrets-store.csi.x-k8s.io",
-		Version: "v1alpha1",
-		Kind:    "SecretProviderClassList",
-	}
 )
 
 // getProviderPath returns the absolute path to the provider binary

@@ -38,5 +38,6 @@ const (
 	// PodNotFound error
 	PodNotFound = "PodNotFound"
 	// NodePublishSecretRefNotFound error
+	// #nosec G101 (Ref: https://github.com/securego/gosec/issues/295)
 	NodePublishSecretRefNotFound = "NodePublishSecretRefNotFound"
 )

@@ -19,7 +19,7 @@ package secretutil
 import (
 	"crypto/ecdsa"
 	"crypto/rsa"
-	"crypto/sha1"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -198,7 +198,7 @@ func GetSHAFromSecret(data map[string][]byte) (string, error) {
 
 // generateSHA generates SHA from string
 func generateSHA(data string) (string, error) {
-	hasher := sha1.New()
+	hasher := sha256.New()
 	_, err := io.WriteString(hasher, data)
 	if err != nil {
 		return "", err
