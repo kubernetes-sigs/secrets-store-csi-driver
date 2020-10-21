@@ -47,6 +47,7 @@ linux:
   tolerations: []
   metricsAddr: ":8095"
   env: []
+  priorityClassName: ""
 
 windows:
   enabled: false
@@ -97,6 +98,7 @@ windows:
   tolerations: []
   metricsAddr: ":8095"
   env: []
+  priorityClassName: ""
 
 logLevel:
   debug: true
