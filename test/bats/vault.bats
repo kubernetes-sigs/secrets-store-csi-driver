@@ -62,7 +62,7 @@ EOF
 
 @test "setup vault" {
   VAULT_POD=$(kubectl get pod -l app=vault -o jsonpath="{.items[0].metadata.name}")
-  run kubectl exec -it $VAULT_POD -- vault auth enable kubernetes
+  run kubectl exec $VAULT_POD -- vault auth enable kubernetes
   assert_success
 
   CLUSTER_NAME="$(kubectl config view --raw \
@@ -79,13 +79,13 @@ EOF
   export K8S_CACERT="$(kubectl config view --raw \
     -o go-template="{{ range .clusters }}{{ if eq .name \"${CLUSTER_NAME}\" }}{{ index .cluster \"certificate-authority-data\" }}{{ end }}{{ end }}" | base64 --decode)"
 
-  run kubectl exec -it $VAULT_POD -- vault write auth/kubernetes/config \
+  run kubectl exec $VAULT_POD -- vault write auth/kubernetes/config \
     kubernetes_host="${K8S_HOST}" \
     kubernetes_ca_cert="${K8S_CACERT}" \
     token_reviewer_jwt="${TR_ACCOUNT_TOKEN}"
   assert_success
 
-  run kubectl exec -it $VAULT_POD -- vault policy write example-readonly -<<EOF
+  run kubectl exec -ti $VAULT_POD -- vault policy write example-readonly -<<EOF
 path "secret/data/foo" {
     capabilities = ["read", "list"]
   }
@@ -100,17 +100,17 @@ path "secret/data/foo" {
 EOF
   assert_success
 
-  run kubectl exec -it $VAULT_POD -- vault write auth/kubernetes/role/example-role \
+  run kubectl exec $VAULT_POD -- vault write auth/kubernetes/role/example-role \
     bound_service_account_names=secrets-store-csi-driver \
     bound_service_account_namespaces=$NAMESPACE \
     policies=default,example-readonly \
     ttl=20m
   assert_success
 
-  run kubectl exec -it $VAULT_POD -- vault kv put secret/foo bar=hello
+  run kubectl exec $VAULT_POD -- vault kv put secret/foo bar=hello
   assert_success
 
-  run kubectl exec -it $VAULT_POD -- vault kv put secret/foo1 bar=hello1
+  run kubectl exec $VAULT_POD -- vault kv put secret/foo1 bar=hello1
   assert_success
 }
 
@@ -145,10 +145,10 @@ EOF
 }
 
 @test "CSI inline volume test with pod portability - read vault secret from pod" {
-  result=$(kubectl exec -it nginx-secrets-store-inline -- cat /mnt/secrets-store/foo)
+  result=$(kubectl exec nginx-secrets-store-inline -- cat /mnt/secrets-store/foo)
   [[ "$result" == "hello" ]]
 
-  result=$(kubectl exec -it nginx-secrets-store-inline -- cat /mnt/secrets-store/foo1)
+  result=$(kubectl exec nginx-secrets-store-inline -- cat /mnt/secrets-store/foo1)
   [[ "$result" == "hello1" ]]
 }
 
@@ -175,16 +175,16 @@ EOF
 
 @test "Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences with multiple owners" {
   POD=$(kubectl get pod -l app=nginx -o jsonpath="{.items[0].metadata.name}")
-  result=$(kubectl exec -it $POD -- cat /mnt/secrets-store/foo)
+  result=$(kubectl exec $POD -- cat /mnt/secrets-store/foo)
   [[ "$result" == "hello" ]]
 
-  result=$(kubectl exec -it $POD -- cat /mnt/secrets-store/foo1)
+  result=$(kubectl exec $POD -- cat /mnt/secrets-store/foo1)
   [[ "$result" == "hello1" ]]
 
   result=$(kubectl get secret foosecret -o jsonpath="{.data.pwd}" | base64 -d)
   [[ "$result" == "hello" ]]
 
-  result=$(kubectl exec -it $POD -- printenv | grep SECRET_USERNAME | awk -F"=" '{ print $2 }' | tr -d '\r\n')
+  result=$(kubectl exec $POD -- printenv | grep SECRET_USERNAME | awk -F"=" '{ print $2 }' | tr -d '\r\n')
   [[ "$result" == "hello1" ]]
 
   result=$(kubectl get secret foosecret -o jsonpath="{.metadata.labels.environment}")
@@ -241,16 +241,16 @@ EOF
 
 @test "Test Namespaced scope SecretProviderClass - Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences" {
   POD=$(kubectl get pod -l app=nginx -n test-ns -o jsonpath="{.items[0].metadata.name}")
-  result=$(kubectl exec -n test-ns -it $POD -- cat /mnt/secrets-store/foo)
+  result=$(kubectl exec -n test-ns $POD -- cat /mnt/secrets-store/foo)
   [[ "$result" == "hello" ]]
 
-  result=$(kubectl exec -n test-ns -it $POD -- cat /mnt/secrets-store/foo1)
+  result=$(kubectl exec -n test-ns $POD -- cat /mnt/secrets-store/foo1)
   [[ "$result" == "hello1" ]]
 
   result=$(kubectl get secret foosecret -n test-ns -o jsonpath="{.data.pwd}" | base64 -d)
   [[ "$result" == "hello" ]]
 
-  result=$(kubectl exec -n test-ns -it $POD -- printenv | grep SECRET_USERNAME | awk -F"=" '{ print $2 }' | tr -d '\r\n')
+  result=$(kubectl exec -n test-ns $POD -- printenv | grep SECRET_USERNAME | awk -F"=" '{ print $2 }' | tr -d '\r\n')
   [[ "$result" == "hello1" ]]
 
   result=$(kubectl get secret -n test-ns foosecret -o json | jq '.metadata.ownerReferences | length')
@@ -312,31 +312,31 @@ EOF
 }
 
 @test "CSI inline volume test with multiple secret provider class" {
-  result=$(kubectl exec -it nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/foo)
+  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/foo)
   [[ "$result" == "hello" ]]
 
-  result=$(kubectl exec -it nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/foo1)
+  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/foo1)
   [[ "$result" == "hello1" ]]
 
   result=$(kubectl get secret foosecret-0 -o jsonpath="{.data.pwd}" | base64 -d)
   [[ "$result" == "hello" ]]
 
-  result=$(kubectl exec -it nginx-secrets-store-inline-multiple-crd -- printenv | grep SECRET_USERNAME_0 | awk -F"=" '{ print $2 }' | tr -d '\r\n')
+  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- printenv | grep SECRET_USERNAME_0 | awk -F"=" '{ print $2 }' | tr -d '\r\n')
   [[ "$result" == "hello1" ]]
 
   result=$(kubectl get secret foosecret-0 -o json | jq '.metadata.ownerReferences | length')
   [[ "$result" -eq 1 ]]
 
-  result=$(kubectl exec -it nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/foo)
+  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/foo)
   [[ "$result" == "hello" ]]
 
-  result=$(kubectl exec -it nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/foo1)
+  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/foo1)
   [[ "$result" == "hello1" ]]
 
   result=$(kubectl get secret foosecret-1 -o jsonpath="{.data.pwd}" | base64 -d)
   [[ "$result" == "hello" ]]
 
-  result=$(kubectl exec -it nginx-secrets-store-inline-multiple-crd -- printenv | grep SECRET_USERNAME_1 | awk -F"=" '{ print $2 }' | tr -d '\r\n')
+  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- printenv | grep SECRET_USERNAME_1 | awk -F"=" '{ print $2 }' | tr -d '\r\n')
   [[ "$result" == "hello1" ]]
 
   result=$(kubectl get secret foosecret-1 -o json | jq '.metadata.ownerReferences | length')

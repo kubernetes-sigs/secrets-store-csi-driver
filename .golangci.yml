@@ -6,11 +6,15 @@ run:
 linters:
   disable-all: true
   enable:
+    - deadcode
     - gofmt
     - goimports
     - gosimple
     - golint
     - govet
+    - gosec
     - ineffassign
     - misspell
     - unused
+    - structcheck
+    - varcheck

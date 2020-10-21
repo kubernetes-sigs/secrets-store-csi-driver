@@ -128,7 +128,7 @@ setup() {
   result=$(kubectl get secret foosecret -o jsonpath="{.data.username}" | base64 -d)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl exec -it $POD printenv | grep SECRET_USERNAME) | awk -F"=" '{ print $2}'
+  result=$(kubectl exec $POD printenv | grep SECRET_USERNAME) | awk -F"=" '{ print $2}'
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   result=$(kubectl get secret foosecret -o jsonpath="{.metadata.labels.environment}")
