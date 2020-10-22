@@ -1,4 +1,4 @@
-# Kubernetes-Secrets-Store-CSI-Driver
+# Kubernetes Secrets Store CSI Driver
 
 [![Build status](https://prow.k8s.io/badge.svg?jobs=secrets-store-csi-driver-e2e-vault-postsubmit)](https://testgrid.k8s.io/sig-auth-secrets-store-csi-driver#secrets-store-csi-driver-e2e-vault-postsubmit)
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/kubernetes-sigs/secrets-store-csi-driver)
@@ -28,7 +28,7 @@ Join us to help define the direction and implementation of this project!
 
 #### Table of Contents
 
-- [Kubernetes-Secrets-Store-CSI-Driver](#kubernetes-secrets-store-csi-driver)
+- [Kubernetes Secrets Store CSI Driver](#kubernetes-secrets-store-csi-driver)
   - [Want to help?](#want-to-help)
   - [Features](#features)
       - [Table of Contents](#table-of-contents)
