@@ -15,8 +15,8 @@ linux:
         memory: 100Mi
 
   registrarImage:
-    repository: quay.io/k8scsi/csi-node-driver-registrar
-    tag: v1.2.0
+    repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
+    tag: v2.0.1
     pullPolicy: Always
 
   registrar:
@@ -29,8 +29,8 @@ linux:
         memory: 20Mi
 
   livenessProbeImage:
-    repository: quay.io/k8scsi/livenessprobe
-    tag: v2.0.0
+    repository: k8s.gcr.io/sig-storage/livenessprobe
+    tag: v2.0.1
     pullPolicy: Always
 
   livenessProbe:
@@ -66,8 +66,8 @@ windows:
         memory: 100Mi
 
   registrarImage:
-    repository: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar
-    tag: v1.2.1-alpha.1-windows-1809-amd64
+    repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
+    tag: v2.0.1
     pullPolicy: IfNotPresent
 
   registrar:
@@ -80,8 +80,8 @@ windows:
         memory: 20Mi
 
   livenessProbeImage:
-    repository: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe
-    tag: v2.0.1-alpha.1-windows-1809-amd64
+    repository: k8s.gcr.io/sig-storage/livenessprobe
+    tag: v2.0.1
     pullPolicy: IfNotPresent
 
   livenessProbe:
