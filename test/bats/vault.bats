@@ -190,27 +190,25 @@ EOF
   result=$(kubectl get secret foosecret -o jsonpath="{.metadata.labels.environment}")
   [[ "${result//$'\r'}" == "${LABEL_VALUE}" ]]
 
-  result=$(kubectl get secret foosecret  -o jsonpath="{.metadata.labels.secrets-store\.csi\.k8s\.io/managed}")
+  result=$(kubectl get secret foosecret -o jsonpath="{.metadata.labels.secrets-store\.csi\.k8s\.io/managed}")
   [[ "${result//$'\r'}" == "true" ]]
 
-  result=$(kubectl get secret foosecret -o json | jq '.metadata.ownerReferences | length')
-  [[ "$result" -eq 4 ]]
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 4"
+  assert_success
 }
 
 @test "Sync with K8s secrets - delete deployment, check secret is deleted" {
   run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-synck8s.yaml
   assert_success
   
-  sleep 20
-  result=$(kubectl get secret foosecret -o json | jq '.metadata.ownerReferences | length')
-  [[ "$result" -eq 2 ]]
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 2"
+  assert_success
 
   run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-two-synck8s.yaml
   assert_success
 
-  sleep 20
-  result=$(kubectl get secret | grep foosecret | wc -l)
-  [[ "$result" -eq 0 ]]
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "check_secret_deleted foosecret default"
+  assert_success
 
   run kubectl delete -f $BATS_TESTS_DIR/vault_synck8s_v1alpha1_secretproviderclass.yaml
   assert_success
@@ -253,17 +251,16 @@ EOF
   result=$(kubectl exec -n test-ns $POD -- printenv | grep SECRET_USERNAME | awk -F"=" '{ print $2 }' | tr -d '\r\n')
   [[ "$result" == "hello1" ]]
 
-  result=$(kubectl get secret -n test-ns foosecret -o json | jq '.metadata.ownerReferences | length')
-  [[ "$result" -eq 2 ]]
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret test-ns 2"
+  assert_success
 }
 
 @test "Test Namespaced scope SecretProviderClass - Sync with K8s secrets - delete deployment, check secret deleted" {
   run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-synck8s.yaml -n test-ns
   assert_success
-  sleep 20
 
-  result=$(kubectl get secret -n test-ns | grep foosecret | wc -l)
-  [[ "$result" -eq 0 ]]
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "check_secret_deleted foosecret test-ns"
+  assert_success
 }
 
 @test "Test Namespaced scope SecretProviderClass - Should fail when no secret provider class in same namespace" {
@@ -286,7 +283,7 @@ EOF
   assert_success
 }
 
-@test "deploy multiple azure secretproviderclass crd" {
+@test "deploy multiple vault secretproviderclass crd" {
   export VAULT_SERVICE_IP=$(kubectl get service vault -o jsonpath='{.spec.clusterIP}')
 
   envsubst < $BATS_TESTS_DIR/vault_v1alpha1_multiple_secretproviderclass.yaml | kubectl apply -f -
@@ -324,8 +321,8 @@ EOF
   result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- printenv | grep SECRET_USERNAME_0 | awk -F"=" '{ print $2 }' | tr -d '\r\n')
   [[ "$result" == "hello1" ]]
 
-  result=$(kubectl get secret foosecret-0 -o json | jq '.metadata.ownerReferences | length')
-  [[ "$result" -eq 1 ]]
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret-0 default 1"
+  assert_success
 
   result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/foo)
   [[ "$result" == "hello" ]]
@@ -339,6 +336,6 @@ EOF
   result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- printenv | grep SECRET_USERNAME_1 | awk -F"=" '{ print $2 }' | tr -d '\r\n')
   [[ "$result" == "hello1" ]]
 
-  result=$(kubectl get secret foosecret-1 -o json | jq '.metadata.ownerReferences | length')
-  [[ "$result" -eq 1 ]]
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret-1 default 1"
+  assert_success
 }

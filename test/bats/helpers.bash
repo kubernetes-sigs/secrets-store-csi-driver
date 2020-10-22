@@ -64,3 +64,19 @@ wait_for_process(){
   done
   return 1
 }
+
+compare_owner_count() {
+  secret="$1"
+  namespace="$2"
+  ownercount="$3"
+
+  [[ "$(kubectl get secret ${secret} -n ${namespace} -o json | jq '.metadata.ownerReferences | length')" -eq $ownercount ]]
+}
+
+check_secret_deleted() {
+  secret="$1"
+  namespace="$2"
+
+  result=$(kubectl get secret -n ${namespace} | grep "^${secret}$" | wc -l)
+  [[ "$result" -eq 0 ]]
+}
