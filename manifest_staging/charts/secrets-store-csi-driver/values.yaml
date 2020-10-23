@@ -42,6 +42,11 @@ linux:
         cpu: 10m
         memory: 20Mi
 
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+
   kubeletRootDir: /var/lib/kubelet
   nodeSelector: {}
   tolerations: []
@@ -92,6 +97,11 @@ windows:
       requests:
         cpu: 10m
         memory: 20Mi
+
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
 
   kubeletRootDir: C:\var\lib\kubelet
   nodeSelector: {}
