@@ -137,24 +137,22 @@ setup() {
   result=$(kubectl get secret foosecret -o jsonpath="{.metadata.labels.secrets-store\.csi\.k8s\.io/managed}")
   [[ "${result//$'\r'}" == "true" ]]
 
-  result=$(kubectl get secret foosecret -o json | jq '.metadata.ownerReferences | length')
-  [[ "$result" -eq 4 ]]
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 4"
+  assert_success
 }
 
 @test "Sync with K8s secrets - delete deployment, check owner ref updated, check secret deleted" {
   run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-synck8s-azure.yaml
   assert_success
 
-  sleep 20
-  result=$(kubectl get secret foosecret -o json | jq '.metadata.ownerReferences | length')
-  [[ "$result" -eq 2 ]]
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 2"
+  assert_success
 
   run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-two-synck8s-azure.yaml
   assert_success
 
-  sleep 20
-  result=$(kubectl get secret | grep foosecret | wc -l)
-  [[ "$result" -eq 0 ]]
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "check_secret_deleted foosecret default"
+  assert_success
 
   run kubectl delete -f $BATS_TESTS_DIR/azure_synck8s_v1alpha1_secretproviderclass.yaml
   assert_success
@@ -200,17 +198,16 @@ setup() {
   result=$(kubectl exec -n test-ns $POD -- printenv | grep SECRET_USERNAME) | awk -F"=" '{ print $2}'
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl get secret foosecret -n test-ns -o json | jq '.metadata.ownerReferences | length')
-  [[ "$result" -eq 2 ]]
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret test-ns 2"
+  assert_success
 }
 
 @test "Test Namespaced scope SecretProviderClass - Sync with K8s secrets - delete deployment, check secret deleted" {
   run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-synck8s-azure.yaml -n test-ns
   assert_success
-  sleep 20
 
-  result=$(kubectl get secret -n test-ns | grep foosecret | wc -l)
-  [[ "$result" -eq 0 ]]
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "check_secret_deleted foosecret test-ns"
+  assert_success
 }
 
 @test "Test Namespaced scope SecretProviderClass - Should fail when no secret provider class in same namespace" {
@@ -278,8 +275,8 @@ setup() {
   result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- printenv | grep SECRET_USERNAME_0) | awk -F"=" '{ print $2}'
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl get secret foosecret-0 -o json | jq '.metadata.ownerReferences | length')
-  [[ "$result" -eq 1 ]]
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret-0 default 1"
+  assert_success
 
   result=$(kubectl get secret foosecret-1 -o jsonpath="{.data.username}" | base64 -d)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
@@ -287,8 +284,8 @@ setup() {
   result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- printenv | grep SECRET_USERNAME_1) | awk -F"=" '{ print $2}'
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl get secret foosecret-1 -o json | jq '.metadata.ownerReferences | length')
-  [[ "$result" -eq 1 ]]
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret-1 default 1"
+  assert_success
 }
 
 @test "Test auto rotation of mount contents and K8s secrets - Create deployment" {
