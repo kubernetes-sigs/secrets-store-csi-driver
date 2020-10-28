@@ -110,8 +110,11 @@ windows:
   env: []
   priorityClassName: ""
 
-logLevel:
-  debug: true
+# log level. Uses V logs (klog)
+logVerbosity: 0
+
+# logging format JSON
+logFormatJSON: false
 
 livenessProbe:
   port: 9808

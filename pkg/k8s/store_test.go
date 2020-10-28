@@ -17,6 +17,7 @@ limitations under the License.
 package k8s
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -63,7 +64,7 @@ func TestGetPod(t *testing.T) {
 		},
 	}
 
-	_, err = kubeClient.CoreV1().Pods("default").Create(podToCreate)
+	_, err = kubeClient.CoreV1().Pods("default").Create(context.TODO(), podToCreate, metav1.CreateOptions{})
 	g.Expect(err).NotTo(HaveOccurred())
 
 	waitForInformerCacheSync()
@@ -108,7 +109,7 @@ func TestListSecretProviderClassPodStatus(t *testing.T) {
 	}
 
 	for _, spcps := range secretProviderClassPodStatusToAdd {
-		_, err = crdClient.SecretsstoreV1alpha1().SecretProviderClassPodStatuses("default").Create(spcps)
+		_, err = crdClient.SecretsstoreV1alpha1().SecretProviderClassPodStatuses("default").Create(context.TODO(), spcps, metav1.CreateOptions{})
 		g.Expect(err).NotTo(HaveOccurred())
 	}
 
@@ -143,7 +144,7 @@ func TestGetSecret(t *testing.T) {
 		},
 	}
 
-	_, err = kubeClient.CoreV1().Secrets("default").Create(secretToAdd)
+	_, err = kubeClient.CoreV1().Secrets("default").Create(context.TODO(), secretToAdd, metav1.CreateOptions{})
 	g.Expect(err).NotTo(HaveOccurred())
 
 	waitForInformerCacheSync()
@@ -177,7 +178,7 @@ func TestGetSecretProviderClass(t *testing.T) {
 		},
 	}
 
-	_, err = crdClient.SecretsstoreV1alpha1().SecretProviderClasses("default").Create(secretProviderClassToAdd)
+	_, err = crdClient.SecretsstoreV1alpha1().SecretProviderClasses("default").Create(context.TODO(), secretProviderClassToAdd, metav1.CreateOptions{})
 	g.Expect(err).NotTo(HaveOccurred())
 
 	waitForInformerCacheSync()

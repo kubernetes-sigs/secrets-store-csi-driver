@@ -23,12 +23,12 @@ import (
 	"runtime"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
@@ -61,12 +61,12 @@ func (ns *nodeServer) ensureMountPoint(target string) (bool, error) {
 		// testing original mount point, make sure the mount link is valid
 		_, err := ioutil.ReadDir(target)
 		if err == nil {
-			log.Infof("already mounted to target %s", target)
+			klog.InfoS("already mounted to target", "targetPath", target)
 			// already mounted
 			return !notMnt, nil
 		}
 		if err := ns.mounter.Unmount(target); err != nil {
-			log.Errorf("Unmount directory %s failed with %v", target, err)
+			klog.ErrorS(err, "failed to unmount directory", "targetPath", target)
 			return !notMnt, err
 		}
 		notMnt = true

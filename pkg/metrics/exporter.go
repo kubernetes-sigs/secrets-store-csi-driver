@@ -20,7 +20,7 @@ import (
 
 	"go.opentelemetry.io/otel/sdk/metric/controller/push"
 
-	log "github.com/sirupsen/logrus"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -32,7 +32,7 @@ const prometheusExporter = "prometheus"
 
 func NewMetricsExporter() (m *push.Controller, err error) {
 	mb := strings.ToLower(*metricsBackend)
-	log.Infof("metrics backend: %s", mb)
+	klog.Infof("metrics backend: %s", mb)
 	switch mb {
 	// Prometheus is the only exporter for now
 	case prometheusExporter:

@@ -26,6 +26,7 @@ import (
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
 
 	"google.golang.org/grpc"
+
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 )
 

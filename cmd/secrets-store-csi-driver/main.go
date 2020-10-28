@@ -23,9 +23,10 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/metrics"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/rotation"
 
-	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	json "k8s.io/component-base/logs/json"
+	"k8s.io/klog/v2"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,9 +42,8 @@ var (
 	endpoint           = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
 	driverName         = flag.String("drivername", "secrets-store.csi.k8s.io", "name of the driver")
 	nodeID             = flag.String("nodeid", "", "node id")
-	debug              = flag.Bool("debug", false, "sets log to debug level")
+	debug              = flag.Bool("debug", false, "sets log to debug level [DEPRECATED]. Use -v=<log level> to configure log level.")
 	logFormatJSON      = flag.Bool("log-format-json", false, "set log formatter to json")
-	logReportCaller    = flag.Bool("log-report-caller", false, "include the calling method as fields in the log")
 	providerVolumePath = flag.String("provider-volume", "/etc/kubernetes/secrets-store-csi-providers", "Volume path for provider")
 	minProviderVersion = flag.String("min-provider-version", "", "set minimum supported provider versions with current driver")
 	metricsAddr        = flag.String("metrics-addr", ":8095", "The address the metric endpoint binds to")
@@ -63,17 +63,17 @@ func init() {
 }
 
 func main() {
+	klog.InitFlags(nil)
+	defer klog.Flush()
+
 	flag.Parse()
 
-	log.SetLevel(log.InfoLevel)
-	if *debug {
-		log.SetLevel(log.DebugLevel)
-	}
 	if *logFormatJSON {
-		log.SetFormatter(&log.JSONFormatter{})
+		klog.SetLogger(json.JSONLogger)
 	}
-
-	log.SetReportCaller(*logReportCaller)
+	if *debug {
+		klog.Warning("--debug flag has been DEPRECATED and will be removed in future releases. Use -v=<log level> to configure log verbosity.")
+	}
 
 	// initialize metrics exporter before creating measurements
 	// Issue: https://github.com/open-telemetry/opentelemetry-go/issues/677
@@ -81,7 +81,7 @@ func main() {
 	// TODO (aramase) update to latest version of otel and deps
 	m, err := metrics.NewMetricsExporter()
 	if err != nil {
-		log.Fatalf("failed to initialize metrics exporter, error: %+v", err)
+		klog.Fatalf("failed to initialize metrics exporter, error: %+v", err)
 	}
 	defer m.Stop()
 
@@ -94,23 +94,23 @@ func main() {
 		LeaderElection:     false,
 	})
 	if err != nil {
-		log.Fatalf("failed to start manager, error: %+v", err)
+		klog.Fatalf("failed to start manager, error: %+v", err)
 	}
 
 	reconciler, err := controllers.New(mgr, *nodeID)
 	if err != nil {
-		log.Fatalf("failed to create secret provider class pod status reconciler, error: %+v", err)
+		klog.Fatalf("failed to create secret provider class pod status reconciler, error: %+v", err)
 	}
 	if err = reconciler.SetupWithManager(mgr); err != nil {
-		log.Fatalf("failed to create controller, error: %+v", err)
+		klog.Fatalf("failed to create controller, error: %+v", err)
 	}
 	// +kubebuilder:scaffold:builder
 
 	stopCh := ctrl.SetupSignalHandler()
 	go func() {
-		log.Infof("starting manager")
+		klog.Infof("starting manager")
 		if err := mgr.Start(stopCh); err != nil {
-			log.Fatalf("failed to run manager, error: %+v", err)
+			klog.Fatalf("failed to run manager, error: %+v", err)
 		}
 	}()
 
@@ -121,7 +121,7 @@ func main() {
 	if *enableSecretRotation {
 		rec, err := rotation.NewReconciler(scheme, *providerVolumePath, *nodeID, *rotationPollInterval)
 		if err != nil {
-			log.Fatalf("failed to initialize rotation reconciler, error: %+v", err)
+			klog.Fatalf("failed to initialize rotation reconciler, error: %+v", err)
 		}
 		stopCh := make(<-chan struct{})
 		go rec.Run(stopCh)
@@ -134,11 +134,11 @@ func handle() {
 	driver := secretsstore.GetDriver()
 	cfg, err := config.GetConfig()
 	if err != nil {
-		log.Fatalf("failed to initialize driver, error getting config: %+v", err)
+		klog.Fatalf("failed to initialize driver, error getting config: %+v", err)
 	}
 	c, err := client.New(cfg, client.Options{Scheme: scheme, Mapper: nil})
 	if err != nil {
-		log.Fatalf("failed to initialize driver, error creating client: %+v", err)
+		klog.Fatalf("failed to initialize driver, error creating client: %+v", err)
 	}
 	driver.Run(*driverName, *nodeID, *endpoint, *providerVolumePath, *minProviderVersion, *grpcSupportedProviders, c)
 }

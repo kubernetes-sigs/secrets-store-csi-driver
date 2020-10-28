@@ -26,39 +26,30 @@ import (
 
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	"k8s.io/client-go/tools/record"
-
-	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/k8sutil"
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/secretutil"
-
-	"k8s.io/client-go/tools/cache"
-
-	"k8s.io/client-go/util/workqueue"
-
+	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
-
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog/v2"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
-
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-
-	log "github.com/sirupsen/logrus"
-
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	secretsStoreClient "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned"
+	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
+	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/k8sutil"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/secretutil"
 )
 
 const (
@@ -128,13 +119,13 @@ func NewReconciler(s *runtime.Scheme, providerVolumePath, nodeName string, rotat
 // Run starts the rotation reconciler
 func (r *Reconciler) Run(stopCh <-chan struct{}) {
 	defer r.queue.ShutDown()
-	log.Infof("starting rotation reconciler with poll interval: %s", r.rotationPollInterval)
+	klog.Infof("starting rotation reconciler with poll interval: %s", r.rotationPollInterval)
 
 	ticker := time.NewTicker(r.rotationPollInterval)
 	defer ticker.Stop()
 
 	if err := r.store.Run(stopCh); err != nil {
-		log.Fatalf("failed to run informers for rotation reconciler, err: %+v", err)
+		klog.Fatalf("failed to run informers for rotation reconciler, err: %+v", err)
 	}
 
 	// TODO (aramase) consider adding more workers to process reconcile concurrently
@@ -151,7 +142,7 @@ func (r *Reconciler) Run(stopCh <-chan struct{}) {
 			// labeled for the same node as the driver. LIST will only return the filtered results.
 			spcpsList, err := r.store.ListSecretProviderClassPodStatus()
 			if err != nil {
-				log.Errorf("[rotation] failed to list secret provider class pod status for node, err: %+v", err)
+				klog.ErrorS(err, "failed to list secret provider class pod status for node", "controller", "rotation")
 				continue
 			}
 			for _, spcps := range spcpsList {
@@ -311,7 +302,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 	if requiresUpdate {
 		// generate an event for successful mount update
 		r.generateEvent(pod, v1.EventTypeNormal, mountRotationCompleteReason, fmt.Sprintf("successfully rotated mounted contents for spc %s/%s", spcNamespace, spcName))
-		log.Infof("updating versions in secret provider class pod status %s/%s", spcps.Namespace, spcps.Name)
+		klog.InfoS("updating versions in spc pod status", "spcps", klog.KObj(spcps), "controller", "rotation")
 
 		var ov []v1alpha1.SecretProviderClassObject
 		for k, v := range newObjectVersions {
@@ -322,7 +313,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 		updateFn := func() (bool, error) {
 			err = r.updateSecretProviderClassPodStatus(ctx, spcps)
 			if err != nil {
-				log.Errorf("failed to update latest versions in spc pod status, err: %+v", err)
+				klog.ErrorS(err, "failed to update latest versions in spc pod status", "spcps", klog.KObj(spcps), "controller", "rotation")
 				return false, nil
 			}
 			return true, nil
@@ -340,7 +331,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 	}
 
 	if len(spc.Spec.SecretObjects) == 0 {
-		log.Debugf("spc %s/%s doesn't contain secret objects for pod %s/%s", spcNamespace, spcName, podNamespace, podName)
+		klog.InfoS("spc doesn't contain secret objects", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "controller", "rotation")
 		return nil
 	}
 	files, err := fileutil.GetMountedFiles(spcps.Status.TargetPath)
@@ -353,7 +344,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 
 		if err = secretutil.ValidateSecretObject(*secretObj); err != nil {
 			r.generateEvent(pod, v1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed validation for secret object in spc %s/%s, err: %+v", spcNamespace, spcName, err))
-			log.Errorf("failed validation for secret object in spc %s/%s, err: %+v", spcNamespace, spcName, err)
+			klog.ErrorS(err, "failed validation for secret object in spc", "spc", klog.KObj(spc), "controller", "rotation")
 			errs = append(errs, err)
 			continue
 		}
@@ -362,7 +353,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 		var datamap map[string][]byte
 		if datamap, err = secretutil.GetSecretData(secretObj.Data, secretType, files); err != nil {
 			r.generateEvent(pod, v1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed to get data in spc %s/%s for secret %s, err: %+v", spcNamespace, spcName, secretName, err))
-			log.Errorf("failed to get data in spc %s/%s for secret %s, err: %+v", spcNamespace, spcName, secretName, err)
+			klog.ErrorS(err, "failed to get data in spc for secret", "spc", klog.KObj(spc), "secret", klog.ObjectRef{Namespace: spcNamespace, Name: secretName}, "controller", "rotation")
 			errs = append(errs, err)
 			continue
 		}
@@ -370,7 +361,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 		patchFn := func() (bool, error) {
 			// patch secret data with the new contents
 			if err := r.patchSecret(ctx, secretObj.SecretName, spcps.Namespace, datamap); err != nil {
-				log.Errorf("failed to patch secret %s/%s, err: %+v", spcps.Namespace, secretName, err)
+				klog.ErrorS(err, "failed to patch secret data", "secret", klog.ObjectRef{Namespace: spcNamespace, Name: secretName}, "spc", klog.KObj(spc), "controller", "rotation")
 				return false, nil
 			}
 			return true, nil
@@ -477,7 +468,8 @@ func (r *Reconciler) processNextItem() bool {
 	defer r.queue.Done(key)
 	spcps, err := r.store.GetSecretProviderClassPodStatus(key.(string))
 	if err != nil {
-		log.Errorf("failed to get spc pod status, error: %+v", err)
+		// set the log level to 5 so we don't spam the logs with spc pod status not found
+		klog.V(5).ErrorS(err, "failed to get spc pod status", "spcps", key.(string), "controller", "rotation")
 		rateLimited := false
 		// If the error is that spc pod status not found in cache, only retry
 		// with a limit instead of infinite retries.
@@ -495,13 +487,13 @@ func (r *Reconciler) processNextItem() bool {
 		r.handleError(err, key, rateLimited)
 		return true
 	}
-	log.Debugf("rotation reconciler started for %s", spcps.Name)
+	klog.V(3).InfoS("reconciler started", "spcps", klog.KObj(spcps), "controller", "rotation")
 	if err = r.reconcile(context.Background(), spcps); err != nil {
-		log.Errorf("[rotation] failed to reconcile spc %s/%s for pod %s/%s, err: %+v", spcps.Namespace,
-			spcps.Status.SecretProviderClassName, spcps.Namespace, spcps.Status.PodName, err)
+		klog.ErrorS(err, "failed to reconcile spc for pod", "spc",
+			spcps.Status.SecretProviderClassName, "pod", spcps.Status.PodName, "controller", "rotation")
 	}
 
-	log.Debugf("rotation reconciler completed for %s", spcps.Name)
+	klog.V(3).InfoS("reconciler completed", "spcps", klog.KObj(spcps), "controller", "rotation")
 	r.handleError(err, key, false)
 	return true
 }
@@ -524,7 +516,7 @@ func (r *Reconciler) handleError(err error, key interface{}, rateLimited bool) {
 		r.queue.AddRateLimited(key)
 		return
 	}
-	log.Debugf("retry budget exceeded for %q, dropping from queue", key)
+	klog.InfoS("retry budget exceeded, dropping from queue", "spcps", key)
 	r.queue.Forget(key)
 }
 
