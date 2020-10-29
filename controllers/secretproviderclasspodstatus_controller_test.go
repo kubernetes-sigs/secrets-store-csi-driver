@@ -172,49 +172,6 @@ func TestCreateK8sSecret(t *testing.T) {
 	g.Expect(secret.Name).To(Equal("my-secret2"))
 }
 
-func TestGetPodUIDFromTargetPath(t *testing.T) {
-	g := NewWithT(t)
-
-	cases := []struct {
-		targetPath     string
-		expectedPodUID string
-	}{
-		{
-			targetPath:     "/var/lib/kubelet/pods/7e7686a1-56c4-4c67-a6fd-4656ac484f0a/volumes/",
-			expectedPodUID: "7e7686a1-56c4-4c67-a6fd-4656ac484f0a",
-		},
-		{
-			targetPath:     `c:\var\lib\kubelet\pods\d4fd876f-bdb3-11e9-a369-0a5d188d99c0\volumes`,
-			expectedPodUID: "d4fd876f-bdb3-11e9-a369-0a5d188d99c0",
-		},
-		{
-			targetPath:     `c:\\var\\lib\\kubelet\\pods\\d4fd876f-bdb3-11e9-a369-0a5d188d9934\\volumes`,
-			expectedPodUID: "d4fd876f-bdb3-11e9-a369-0a5d188d9934",
-		},
-		{
-			targetPath:     "/var/lib/",
-			expectedPodUID: "",
-		},
-		{
-			targetPath:     "/var/lib/kubelet/pods",
-			expectedPodUID: "",
-		},
-		{
-			targetPath:     "/opt/new/var/lib/kubelet/pods/456457fc-d980-4191-b5eb-daf70c4ff7c1/volumes/kubernetes.io~csi/secrets-store-inline/mount",
-			expectedPodUID: "456457fc-d980-4191-b5eb-daf70c4ff7c1",
-		},
-		{
-			targetPath:     "data/kubelet/pods/456457fc-d980-4191-b5eb-daf70c4ff7c1/volumes/kubernetes.io~csi/secrets-store-inline/mount",
-			expectedPodUID: "456457fc-d980-4191-b5eb-daf70c4ff7c1",
-		},
-	}
-
-	for _, tc := range cases {
-		actualPodUID := getPodUIDFromTargetPath(tc.targetPath)
-		g.Expect(actualPodUID).To(Equal(tc.expectedPodUID))
-	}
-}
-
 func TestGenerateEvent(t *testing.T) {
 	g := NewWithT(t)
 

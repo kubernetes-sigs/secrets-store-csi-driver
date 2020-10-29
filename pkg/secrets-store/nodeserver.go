@@ -31,6 +31,7 @@ import (
 
 	csicommon "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
 	log "github.com/sirupsen/logrus"
@@ -223,13 +224,14 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 	}
 	targetPath := req.GetTargetPath()
 	volumeID := req.GetVolumeId()
-	files, err := getMountedFiles(targetPath)
+	// Assume no mounted files if GetMountedFiles fails.
+	files, _ := fileutil.GetMountedFiles(targetPath)
 
 	if isMockTargetPath(targetPath) {
 		return &csi.NodeUnpublishVolumeResponse{}, nil
 	}
 
-	podUID = getPodUIDFromTargetPath(targetPath)
+	podUID = fileutil.GetPodUIDFromTargetPath(targetPath)
 	if len(podUID) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Cannot get podUID from Target path")
 	}

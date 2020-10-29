@@ -20,14 +20,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"regexp"
 	"runtime"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,38 +48,6 @@ func normalizeWindowsPath(path string) string {
 		normalizedPath = "c:" + normalizedPath
 	}
 	return normalizedPath
-}
-
-// getMountedFiles returns all the mounted files names
-func getMountedFiles(targetPath string) ([]string, error) {
-	var paths []string
-	// loop thru all the mounted files
-	files, err := ioutil.ReadDir(targetPath)
-	if err != nil {
-		log.Errorf("failed to list all files in target path %s, err: %v", targetPath, err)
-		return nil,
-			status.Error(codes.Internal, err.Error())
-	}
-	sep := "/"
-	if strings.HasPrefix(targetPath, "c:\\") {
-		sep = "\\"
-	} else if strings.HasPrefix(targetPath, `c:\`) {
-		sep = `\`
-	}
-	for _, file := range files {
-		paths = append(paths, targetPath+sep+file.Name())
-	}
-	return paths, nil
-}
-
-// getPodUIDFromTargetPath returns podUID from targetPath
-func getPodUIDFromTargetPath(targetPath string) string {
-	re := regexp.MustCompile(`[\\|\/]+pods[\\|\/]+(.+?)[\\|\/]+volumes`)
-	match := re.FindStringSubmatch(targetPath)
-	if len(match) < 2 {
-		return ""
-	}
-	return match[1]
 }
 
 // ensureMountPoint ensures mount point is valid

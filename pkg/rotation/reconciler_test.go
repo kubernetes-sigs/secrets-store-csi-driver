@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -173,6 +174,7 @@ func TestReconcileError(t *testing.T) {
 				Status: v1alpha1.SecretProviderClassPodStatusStatus{
 					SecretProviderClassName: "spc1",
 					PodName:                 "pod1",
+					TargetPath:              getTestTargetPath(t, "foo", "csi-volume"),
 				},
 			},
 			secretProviderClassToAdd: &v1alpha1.SecretProviderClass{
@@ -198,6 +200,7 @@ func TestReconcileError(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "pod1",
 					Namespace: "default",
+					UID:       types.UID("foo"),
 				},
 				Spec: v1.PodSpec{
 					Volumes: []v1.Volume{
@@ -222,6 +225,152 @@ func TestReconcileError(t *testing.T) {
 			expectedErrorEvents: true,
 		},
 		{
+			name:                 "failed to validate targetpath UID",
+			rotationPollInterval: 60 * time.Second,
+			secretProviderClassPodStatusToProcess: &v1alpha1.SecretProviderClassPodStatus{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1-default-spc1",
+					Namespace: "default",
+					Labels:    map[string]string{v1alpha1.InternalNodeLabel: "nodeName"},
+				},
+				Status: v1alpha1.SecretProviderClassPodStatusStatus{
+					SecretProviderClassName: "spc1",
+					PodName:                 "pod1",
+					TargetPath:              getTestTargetPath(t, "bad-uid", "csi-volume"),
+					Objects: []v1alpha1.SecretProviderClassObject{
+						{
+							ID:      "secret/object1",
+							Version: "v1",
+						},
+					},
+				},
+			},
+			secretProviderClassToAdd: &v1alpha1.SecretProviderClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "spc1",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.SecretProviderClassSpec{
+					SecretObjects: []*v1alpha1.SecretObject{
+						{
+							Data: []*v1alpha1.SecretObjectData{
+								{
+									ObjectName: "object1",
+									Key:        "foo",
+								},
+							},
+						},
+					},
+					Provider: "provider1",
+				},
+			},
+			podToAdd: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: "default",
+					UID:       types.UID("foo"),
+				},
+				Spec: v1.PodSpec{
+					Volumes: []v1.Volume{
+						{
+							Name: "csi-volume",
+							VolumeSource: v1.VolumeSource{
+								CSI: &v1.CSIVolumeSource{
+									Driver:           "secrets-store.csi.k8s.io",
+									VolumeAttributes: map[string]string{"secretProviderClass": "spc1"},
+								},
+							},
+						},
+					},
+				},
+			},
+			socketPath: getTempTestDir(t),
+			secretToAdd: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "object1",
+					Namespace:       "default",
+					ResourceVersion: "rv1",
+				},
+				Data: map[string][]byte{"foo": []byte("olddata")},
+			},
+			expectedObjectVersions: map[string]string{"secret/object1": "v2"},
+			expectedErr:            true,
+			expectedErrorEvents:    false,
+		},
+		{
+			name:                 "failed to validate targetpath volume name",
+			rotationPollInterval: 60 * time.Second,
+			secretProviderClassPodStatusToProcess: &v1alpha1.SecretProviderClassPodStatus{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1-default-spc1",
+					Namespace: "default",
+					Labels:    map[string]string{v1alpha1.InternalNodeLabel: "nodeName"},
+				},
+				Status: v1alpha1.SecretProviderClassPodStatusStatus{
+					SecretProviderClassName: "spc1",
+					PodName:                 "pod1",
+					TargetPath:              getTestTargetPath(t, "foo", "bad-volume-name"),
+					Objects: []v1alpha1.SecretProviderClassObject{
+						{
+							ID:      "secret/object1",
+							Version: "v1",
+						},
+					},
+				},
+			},
+			secretProviderClassToAdd: &v1alpha1.SecretProviderClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "spc1",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.SecretProviderClassSpec{
+					SecretObjects: []*v1alpha1.SecretObject{
+						{
+							Data: []*v1alpha1.SecretObjectData{
+								{
+									ObjectName: "object1",
+									Key:        "foo",
+								},
+							},
+						},
+					},
+					Provider: "provider1",
+				},
+			},
+			podToAdd: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: "default",
+					UID:       types.UID("foo"),
+				},
+				Spec: v1.PodSpec{
+					Volumes: []v1.Volume{
+						{
+							Name: "csi-volume",
+							VolumeSource: v1.VolumeSource{
+								CSI: &v1.CSIVolumeSource{
+									Driver:           "secrets-store.csi.k8s.io",
+									VolumeAttributes: map[string]string{"secretProviderClass": "spc1"},
+								},
+							},
+						},
+					},
+				},
+			},
+			socketPath: getTempTestDir(t),
+			secretToAdd: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "object1",
+					Namespace:       "default",
+					ResourceVersion: "rv1",
+				},
+				Data: map[string][]byte{"foo": []byte("olddata")},
+			},
+			expectedObjectVersions: map[string]string{"secret/object1": "v2"},
+			expectedErr:            true,
+			expectedErrorEvents:    false,
+		},
+		{
 			name:                 "failed to create provider client",
 			rotationPollInterval: 60 * time.Second,
 			secretProviderClassPodStatusToProcess: &v1alpha1.SecretProviderClassPodStatus{
@@ -233,7 +382,7 @@ func TestReconcileError(t *testing.T) {
 				Status: v1alpha1.SecretProviderClassPodStatusStatus{
 					SecretProviderClassName: "spc1",
 					PodName:                 "pod1",
-					TargetPath:              getTempTestDir(t),
+					TargetPath:              getTestTargetPath(t, "foo", "csi-volume"),
 				},
 			},
 			secretProviderClassToAdd: &v1alpha1.SecretProviderClass{
@@ -259,6 +408,7 @@ func TestReconcileError(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "pod1",
 					Namespace: "default",
+					UID:       types.UID("foo"),
 				},
 				Spec: v1.PodSpec{
 					Volumes: []v1.Volume{
@@ -336,7 +486,7 @@ func TestReconcileNoError(t *testing.T) {
 		Status: v1alpha1.SecretProviderClassPodStatusStatus{
 			SecretProviderClassName: "spc1",
 			PodName:                 "pod1",
-			TargetPath:              getTempTestDir(t),
+			TargetPath:              getTestTargetPath(t, "foo", "csi-volume"),
 			Objects: []v1alpha1.SecretProviderClassObject{
 				{
 					ID:      "secret/object1",
@@ -370,6 +520,7 @@ func TestReconcileNoError(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod1",
 			Namespace: "default",
+			UID:       types.UID("foo"),
 		},
 		Spec: v1.PodSpec{
 			Volumes: []v1.Volume{
@@ -570,4 +721,13 @@ func getTempTestDir(t *testing.T) string {
 		t.Fatalf("expected err to be nil, got: %+v", err)
 	}
 	return tmpDir
+}
+
+func getTestTargetPath(t *testing.T, uid, vol string) string {
+	dir := getTempTestDir(t)
+	path := filepath.Join(dir, "pods", uid, "volumes", "kubernetes.io~csi", vol, "mount")
+	if err := os.MkdirAll(path, 0755); err != nil {
+		t.Fatalf("expected err to be nil, got: %+v", err)
+	}
+	return path
 }
