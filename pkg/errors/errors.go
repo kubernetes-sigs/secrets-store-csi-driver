@@ -40,4 +40,9 @@ const (
 	// NodePublishSecretRefNotFound error
 	// #nosec G101 (Ref: https://github.com/securego/gosec/issues/295)
 	NodePublishSecretRefNotFound = "NodePublishSecretRefNotFound"
+	// UnexpectedTargetPath error
+	// Indicated SecretProviderClassPodStatus status.targetPath is an invalid value.
+	UnexpectedTargetPath = "UnexpectedTargetPath"
+	// PodVolumeNotFound error
+	PodVolumeNotFound = "PodVolumeNotFound"
 )

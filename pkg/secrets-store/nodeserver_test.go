@@ -477,7 +477,7 @@ func TestNodeUnpublishVolume(t *testing.T) {
 			name: "Success for a mounted volume with a retry",
 			nodeUnpublishVolReq: csi.NodeUnpublishVolumeRequest{
 				VolumeId:   "testvolid1",
-				TargetPath: getTestTargetPath(`\\pods\fakePod\\volumes`, t),
+				TargetPath: getTestTargetPath(`*\\pods\\fakePod\\volumes\\kubernetes.io~csi\\myvol\\mount`, t),
 			},
 			mountPoints:        []mount.MountPoint{},
 			shouldRetryUnmount: true,

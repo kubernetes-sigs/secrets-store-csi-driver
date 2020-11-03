@@ -19,7 +19,12 @@ package fileutil
 import (
 	"fmt"
 	"io/ioutil"
+	"regexp"
 	"strings"
+)
+
+var (
+	targetPathRe = regexp.MustCompile(`[\\|\/]+pods[\\|\/]+(.+?)[\\|\/]+volumes[\\|\/]+kubernetes.io~csi[\\|\/]+(.+?)[\\|\/]+mount$`)
 )
 
 // GetMountedFiles returns all the mounted files names with filepath base as key
@@ -41,4 +46,22 @@ func GetMountedFiles(targetPath string) (map[string]string, error) {
 		paths[file.Name()] = targetPath + sep + file.Name()
 	}
 	return paths, nil
+}
+
+// GetPodUIDFromTargetPath returns podUID from targetPath
+func GetPodUIDFromTargetPath(targetPath string) string {
+	match := targetPathRe.FindStringSubmatch(targetPath)
+	if len(match) < 2 {
+		return ""
+	}
+	return match[1]
+}
+
+// GetVolumeNameFromTargetPath returns volumeName from targetPath
+func GetVolumeNameFromTargetPath(targetPath string) string {
+	match := targetPathRe.FindStringSubmatch(targetPath)
+	if len(match) < 2 {
+		return ""
+	}
+	return match[2]
 }

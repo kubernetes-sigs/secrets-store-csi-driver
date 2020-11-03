@@ -30,6 +30,7 @@ import (
 
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/k8sutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/secretutil"
 
 	"k8s.io/client-go/tools/cache"
@@ -196,6 +197,23 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 		return fmt.Errorf("failed to get pod %s/%s, err: %+v", podNamespace, podName, err)
 	}
 
+	// determine which pod volume this is associated with
+	podVol := k8sutil.SPCVolume(pod, spc.Name)
+	if podVol == nil {
+		errorReason = internalerrors.PodVolumeNotFound
+		return fmt.Errorf("could not find secret provider class pod status volume for pod %s/%s", podNamespace, podName)
+	}
+
+	// validate TargetPath
+	if fileutil.GetPodUIDFromTargetPath(spcps.Status.TargetPath) != string(pod.UID) {
+		errorReason = internalerrors.UnexpectedTargetPath
+		return fmt.Errorf("secret provider class pod status targetPath did not match pod UID for pod %s/%s", podNamespace, podName)
+	}
+	if fileutil.GetVolumeNameFromTargetPath(spcps.Status.TargetPath) != podVol.Name {
+		errorReason = internalerrors.UnexpectedTargetPath
+		return fmt.Errorf("secret provider class pod status volume name did not match pod Volume for pod %s/%s", podNamespace, podName)
+	}
+
 	parameters := make(map[string]string)
 	if spc.Spec.Parameters != nil {
 		parameters = spc.Spec.Parameters
@@ -217,20 +235,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 
 	// check if the volume pertaining to the current spc is using nodePublishSecretRef for
 	// accessing external secrets store
-	var nodePublishSecretRef *v1.LocalObjectReference
-	for _, vol := range pod.Spec.Volumes {
-		if vol.CSI == nil {
-			continue
-		}
-		if vol.CSI.Driver != "secrets-store.csi.k8s.io" {
-			continue
-		}
-		if vol.CSI.VolumeAttributes["secretProviderClass"] != spc.Name {
-			continue
-		}
-		nodePublishSecretRef = vol.CSI.NodePublishSecretRef
-		break
-	}
+	nodePublishSecretRef := podVol.CSI.NodePublishSecretRef
 
 	var secretsJSON []byte
 	nodePublishSecretData := make(map[string]string)

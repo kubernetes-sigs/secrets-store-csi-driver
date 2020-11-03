@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -35,6 +34,7 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned/scheme"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/k8sutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/secretutil"
 
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -227,18 +227,34 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	// podObjectReference is an object reference to the pod that spc pod status
-	// is created for. The object reference is created with minimal required fields
-	// name, namespace and UID. By doing this we can skip an additional client call
-	// to fetch the pod object
-	podObjectReference, err := getPodObjectReference(spcPodStatus)
-	if err != nil {
-		logger.Errorf("failed to get pod object reference, error: %+v", err)
+	// Obtain the full pod metadata. An object reference is needed for sending
+	// events and the UID is helpful for validating the SPCPS TargetPath.
+	pod := &v1.Pod{}
+	if err := r.reader.Get(ctx, client.ObjectKey{Namespace: req.Namespace, Name: spcPodStatus.Status.PodName}, pod); err != nil {
+		logger.Errorf("failed to get pod %s/%s, err: %+v", req.Namespace, spcPodStatus.Status.PodName, err)
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	// determine which pod volume this is associated with
+	podVol := k8sutil.SPCVolume(pod, spc.Name)
+	if podVol == nil {
+		return ctrl.Result{}, fmt.Errorf("failed to find secret provider class pod status volume for pod %s/%s", req.Namespace, spcPodStatus.Status.PodName)
+	}
+
+	// validate TargetPath
+	if fileutil.GetPodUIDFromTargetPath(spcPodStatus.Status.TargetPath) != string(pod.UID) {
+		return ctrl.Result{}, fmt.Errorf("secret provider class pod status targetPath did not match pod UID for pod %s/%s", req.Namespace, spcPodStatus.Status.PodName)
+	}
+	if fileutil.GetVolumeNameFromTargetPath(spcPodStatus.Status.TargetPath) != podVol.Name {
+		return ctrl.Result{}, fmt.Errorf("secret provider class pod status volume name did not match pod Volume for pod %s/%s", req.Namespace, spcPodStatus.Status.PodName)
 	}
 
 	files, err := fileutil.GetMountedFiles(spcPodStatus.Status.TargetPath)
 	if err != nil {
-		r.generateEvent(podObjectReference, corev1.EventTypeWarning, secretCreationFailedReason, fmt.Sprintf("failed to get mounted files, err: %+v", err))
+		r.generateEvent(pod, corev1.EventTypeWarning, secretCreationFailedReason, fmt.Sprintf("failed to get mounted files, err: %+v", err))
 		logger.Errorf("failed to get mounted files, err: %+v", err)
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, err
 	}
@@ -265,7 +281,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 
 			datamap := make(map[string][]byte)
 			if datamap, err = secretutil.GetSecretData(secretObj.Data, secretType, files); err != nil {
-				r.generateEvent(podObjectReference, corev1.EventTypeWarning, secretCreationFailedReason, fmt.Sprintf("failed to get data in spc %s/%s for secret %s, err: %+v", req.Namespace, spcName, secretName, err))
+				r.generateEvent(pod, corev1.EventTypeWarning, secretCreationFailedReason, fmt.Sprintf("failed to get data in spc %s/%s for secret %s, err: %+v", req.Namespace, spcName, secretName, err))
 				log.Errorf("failed to get data in spc %s/%s for secret %s, err: %+v", req.Namespace, spcName, secretName, err)
 				errs = append(errs, fmt.Errorf("failed to get data in spc %s/%s for secret %s, err: %+v", req.Namespace, spcName, secretName, err))
 				continue
@@ -297,7 +313,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 				Factor:   1.0,
 				Jitter:   0.1,
 			}, f); err != nil {
-				r.generateEvent(podObjectReference, corev1.EventTypeWarning, secretCreationFailedReason, err.Error())
+				r.generateEvent(pod, corev1.EventTypeWarning, secretCreationFailedReason, err.Error())
 				return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 			}
 		}
@@ -399,31 +415,6 @@ func (r *SecretProviderClassPodStatusReconciler) secretExists(ctx context.Contex
 		return false, nil
 	}
 	return false, err
-}
-
-// getPodObjectReference returns a v1.ObjectReference for the pod object
-func getPodObjectReference(spcPodStatus v1alpha1.SecretProviderClassPodStatus) (*v1.ObjectReference, error) {
-	podName := spcPodStatus.Status.PodName
-	podNamespace := spcPodStatus.Namespace
-	podUID := getPodUIDFromTargetPath(spcPodStatus.Status.TargetPath)
-	if podUID == "" {
-		return nil, fmt.Errorf("failed to get pod UID from target path")
-	}
-	return &v1.ObjectReference{
-		Name:      podName,
-		Namespace: podNamespace,
-		UID:       types.UID(podUID),
-	}, nil
-}
-
-// getPodUIDFromTargetPath returns podUID from targetPath
-func getPodUIDFromTargetPath(targetPath string) string {
-	re := regexp.MustCompile(`[\\|\/]+pods[\\|\/]+(.+?)[\\|\/]+volumes`)
-	match := re.FindStringSubmatch(targetPath)
-	if len(match) < 2 {
-		return ""
-	}
-	return match[1]
 }
 
 // generateEvent generates an event
