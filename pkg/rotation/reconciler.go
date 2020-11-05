@@ -172,6 +172,20 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 		r.reporter.reportRotationDuration(time.Since(begin).Seconds())
 	}()
 
+	// get pod from informer cache
+	podName, podNamespace := spcps.Status.PodName, spcps.Namespace
+	pod, err := r.store.GetPod(podName, podNamespace)
+	if err != nil {
+		errorReason = internalerrors.PodNotFound
+		return fmt.Errorf("failed to get pod %s/%s, err: %+v", podNamespace, podName, err)
+	}
+	// if the pod is being terminated, then skip rotation
+	// the spcps will be gc when the pod is deleted and will not show up in the next rotation cycle
+	if !pod.GetDeletionTimestamp().IsZero() {
+		klog.InfoS("pod is being terminated, skipping rotation", "pod", klog.KObj(pod))
+		return nil
+	}
+
 	spcName, spcNamespace := spcps.Status.SecretProviderClassName, spcps.Namespace
 
 	// get the secret provider class the pod status is referencing from informer cache
@@ -179,13 +193,6 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 	if err != nil {
 		errorReason = internalerrors.SecretProviderClassNotFound
 		return fmt.Errorf("failed to get secret provider class %s/%s, err: %+v", spcNamespace, spcName, err)
-	}
-	// get pod from informer cache
-	podName, podNamespace := spcps.Status.PodName, spcps.Namespace
-	pod, err := r.store.GetPod(podName, podNamespace)
-	if err != nil {
-		errorReason = internalerrors.PodNotFound
-		return fmt.Errorf("failed to get pod %s/%s, err: %+v", podNamespace, podName, err)
 	}
 
 	// determine which pod volume this is associated with

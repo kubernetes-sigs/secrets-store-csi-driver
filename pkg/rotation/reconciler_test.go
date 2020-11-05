@@ -596,6 +596,17 @@ func TestReconcileNoError(t *testing.T) {
 	// 2 normal events - one for successfully updating the mounted contents and
 	// second for successfully rotating the K8s secret
 	g.Expect(len(fakeRecorder.Events)).To(BeNumerically("==", 2))
+
+	// test with pod being terminated
+	podToAdd.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+	kubeClient = fake.NewSimpleClientset(podToAdd, secretToAdd)
+	testReconciler, err = newTestReconciler(scheme, kubeClient, crdClient, ctrlClient, 60*time.Second, socketPath)
+	g.Expect(err).NotTo(HaveOccurred())
+	err = testReconciler.store.Run(wait.NeverStop)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	err = testReconciler.reconcile(context.TODO(), secretProviderClassPodStatusToProcess)
+	g.Expect(err).NotTo(HaveOccurred())
 }
 
 func TestPatchSecret(t *testing.T) {
