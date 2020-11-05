@@ -24,8 +24,6 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	log "github.com/sirupsen/logrus"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -87,7 +85,6 @@ func newReconciler(client client.Client, scheme *runtime.Scheme) *SecretProvider
 		Client:        client,
 		reader:        client,
 		writer:        client,
-		log:           log.New(),
 		scheme:        scheme,
 		eventRecorder: fakeRecorder,
 	}

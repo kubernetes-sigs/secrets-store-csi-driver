@@ -20,13 +20,13 @@ import (
 	"fmt"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	pbSanitizer "github.com/kubernetes-csi/csi-lib-utils/protosanitizer"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+
+	"k8s.io/klog/v2"
 )
 
 func ParseEndpoint(ep string) (string, string, error) {
@@ -96,13 +96,13 @@ func RunControllerandNodePublishServer(endpoint string, d *CSIDriver, cs csi.Con
 }
 
 func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	log.Debugf("GRPC call: %s", info.FullMethod)
-	log.Debugf("GRPC request: %s", pbSanitizer.StripSecrets(req).String())
+	klog.V(3).Infof("GRPC call: %s", info.FullMethod)
+	klog.V(3).Infof("GRPC request: %s", pbSanitizer.StripSecrets(req).String())
 	resp, err := handler(ctx, req)
 	if err != nil {
-		log.Errorf("GRPC error: %v", err)
+		klog.Errorf("GRPC error: %v", err)
 	} else {
-		log.Debugf("GRPC response: %s", pbSanitizer.StripSecrets(resp).String())
+		klog.V(3).Infof("GRPC response: %s", pbSanitizer.StripSecrets(resp).String())
 	}
 	return resp, err
 }

@@ -19,6 +19,8 @@ limitations under the License.
 package fake
 
 import (
+	"context"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -39,7 +41,7 @@ var secretproviderclasspodstatusesResource = schema.GroupVersionResource{Group: 
 var secretproviderclasspodstatusesKind = schema.GroupVersionKind{Group: "secrets-store.csi.x-k8s.io", Version: "v1alpha1", Kind: "SecretProviderClassPodStatus"}
 
 // Get takes name of the secretProviderClassPodStatus, and returns the corresponding secretProviderClassPodStatus object, and an error if there is any.
-func (c *FakeSecretProviderClassPodStatuses) Get(name string, options v1.GetOptions) (result *v1alpha1.SecretProviderClassPodStatus, err error) {
+func (c *FakeSecretProviderClassPodStatuses) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.SecretProviderClassPodStatus, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewGetAction(secretproviderclasspodstatusesResource, c.ns, name), &v1alpha1.SecretProviderClassPodStatus{})
 
@@ -50,7 +52,7 @@ func (c *FakeSecretProviderClassPodStatuses) Get(name string, options v1.GetOpti
 }
 
 // List takes label and field selectors, and returns the list of SecretProviderClassPodStatuses that match those selectors.
-func (c *FakeSecretProviderClassPodStatuses) List(opts v1.ListOptions) (result *v1alpha1.SecretProviderClassPodStatusList, err error) {
+func (c *FakeSecretProviderClassPodStatuses) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.SecretProviderClassPodStatusList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewListAction(secretproviderclasspodstatusesResource, secretproviderclasspodstatusesKind, c.ns, opts), &v1alpha1.SecretProviderClassPodStatusList{})
 
@@ -72,14 +74,14 @@ func (c *FakeSecretProviderClassPodStatuses) List(opts v1.ListOptions) (result *
 }
 
 // Watch returns a watch.Interface that watches the requested secretProviderClassPodStatuses.
-func (c *FakeSecretProviderClassPodStatuses) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeSecretProviderClassPodStatuses) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(secretproviderclasspodstatusesResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a secretProviderClassPodStatus and creates it.  Returns the server's representation of the secretProviderClassPodStatus, and an error, if there is any.
-func (c *FakeSecretProviderClassPodStatuses) Create(secretProviderClassPodStatus *v1alpha1.SecretProviderClassPodStatus) (result *v1alpha1.SecretProviderClassPodStatus, err error) {
+func (c *FakeSecretProviderClassPodStatuses) Create(ctx context.Context, secretProviderClassPodStatus *v1alpha1.SecretProviderClassPodStatus, opts v1.CreateOptions) (result *v1alpha1.SecretProviderClassPodStatus, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewCreateAction(secretproviderclasspodstatusesResource, c.ns, secretProviderClassPodStatus), &v1alpha1.SecretProviderClassPodStatus{})
 
@@ -90,7 +92,7 @@ func (c *FakeSecretProviderClassPodStatuses) Create(secretProviderClassPodStatus
 }
 
 // Update takes the representation of a secretProviderClassPodStatus and updates it. Returns the server's representation of the secretProviderClassPodStatus, and an error, if there is any.
-func (c *FakeSecretProviderClassPodStatuses) Update(secretProviderClassPodStatus *v1alpha1.SecretProviderClassPodStatus) (result *v1alpha1.SecretProviderClassPodStatus, err error) {
+func (c *FakeSecretProviderClassPodStatuses) Update(ctx context.Context, secretProviderClassPodStatus *v1alpha1.SecretProviderClassPodStatus, opts v1.UpdateOptions) (result *v1alpha1.SecretProviderClassPodStatus, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateAction(secretproviderclasspodstatusesResource, c.ns, secretProviderClassPodStatus), &v1alpha1.SecretProviderClassPodStatus{})
 
@@ -102,7 +104,7 @@ func (c *FakeSecretProviderClassPodStatuses) Update(secretProviderClassPodStatus
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeSecretProviderClassPodStatuses) UpdateStatus(secretProviderClassPodStatus *v1alpha1.SecretProviderClassPodStatus) (*v1alpha1.SecretProviderClassPodStatus, error) {
+func (c *FakeSecretProviderClassPodStatuses) UpdateStatus(ctx context.Context, secretProviderClassPodStatus *v1alpha1.SecretProviderClassPodStatus, opts v1.UpdateOptions) (*v1alpha1.SecretProviderClassPodStatus, error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateSubresourceAction(secretproviderclasspodstatusesResource, "status", c.ns, secretProviderClassPodStatus), &v1alpha1.SecretProviderClassPodStatus{})
 
@@ -113,7 +115,7 @@ func (c *FakeSecretProviderClassPodStatuses) UpdateStatus(secretProviderClassPod
 }
 
 // Delete takes name of the secretProviderClassPodStatus and deletes it. Returns an error if one occurs.
-func (c *FakeSecretProviderClassPodStatuses) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakeSecretProviderClassPodStatuses) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewDeleteAction(secretproviderclasspodstatusesResource, c.ns, name), &v1alpha1.SecretProviderClassPodStatus{})
 
@@ -121,15 +123,15 @@ func (c *FakeSecretProviderClassPodStatuses) Delete(name string, options *v1.Del
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeSecretProviderClassPodStatuses) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(secretproviderclasspodstatusesResource, c.ns, listOptions)
+func (c *FakeSecretProviderClassPodStatuses) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewDeleteCollectionAction(secretproviderclasspodstatusesResource, c.ns, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.SecretProviderClassPodStatusList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched secretProviderClassPodStatus.
-func (c *FakeSecretProviderClassPodStatuses) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.SecretProviderClassPodStatus, err error) {
+func (c *FakeSecretProviderClassPodStatuses) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.SecretProviderClassPodStatus, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewPatchSubresourceAction(secretproviderclasspodstatusesResource, c.ns, name, pt, data, subresources...), &v1alpha1.SecretProviderClassPodStatus{})
 

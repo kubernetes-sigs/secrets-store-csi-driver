@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"github.com/blang/semver"
-	log "github.com/sirupsen/logrus"
+	"k8s.io/klog/v2"
 )
 
 // providerVersion holds current provider version
@@ -86,7 +86,7 @@ func GetMinimumProviderVersions(minProviderVersions string) (map[string]string, 
 		providerVersionMap[provider] = version
 	}
 
-	log.Debugf("Minimum supported provider versions: %v", providerVersionMap)
+	klog.V(3).Infof("Minimum supported provider versions: %v", providerVersionMap)
 	return providerVersionMap, nil
 }
 
@@ -106,7 +106,7 @@ func getProviderVersion(ctx context.Context, providerName string) (string, error
 		return "", fmt.Errorf("error unmarshalling provider version %v", err)
 	}
 
-	log.Debugf("provider: %s, version %s, build date: %s", providerName, pv.Version, pv.BuildDate)
+	klog.V(3).Infof("provider: %s, version %s, build date: %s", providerName, pv.Version, pv.BuildDate)
 	return pv.Version, nil
 }
 

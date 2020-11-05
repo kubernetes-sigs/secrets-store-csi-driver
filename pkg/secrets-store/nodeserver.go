@@ -34,12 +34,13 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"k8s.io/utils/mount"
+
+	"k8s.io/klog/v2"
 )
 
 type nodeServer struct {
@@ -77,7 +78,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			// has already been mounted, unmount the target path so the next time kubelet calls
 			// again for mount, entire node publish volume is retried
 			if targetPath != "" && mounted {
-				log.Infof("unmounting target path %s as node publish volume failed", targetPath)
+				klog.InfoS("unmounting target path as node publish volume failed", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 				ns.mounter.Unmount(targetPath)
 			}
 			ns.reporter.ReportNodePublishErrorCtMetric(providerName, errorReason)
@@ -106,33 +107,32 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	mountFlags := req.GetVolumeCapability().GetMount().GetMountFlags()
 	secrets := req.GetSecrets()
 
-	mounted, err = ns.ensureMountPoint(targetPath)
-	if err != nil {
-		errorReason = internalerrors.FailedToEnsureMountPoint
-		return nil, status.Errorf(codes.Internal, "Could not mount target %q: %v", targetPath, err)
-	}
-	if mounted {
-		log.Infof("NodePublishVolume: %s is already mounted", targetPath)
-		return &csi.NodePublishVolumeResponse{}, nil
-	}
-
-	log.Debugf("target %v, volumeId %v, attributes %v, mountflags %v",
-		targetPath, volumeID, attrib, mountFlags)
-
 	secretProviderClass := attrib[secretProviderClassField]
 	providerName = attrib["providerName"]
 	podName = attrib[csipodname]
 	podNamespace = attrib[csipodnamespace]
 	podUID = attrib[csipoduid]
 
+	mounted, err = ns.ensureMountPoint(targetPath)
+	if err != nil {
+		errorReason = internalerrors.FailedToEnsureMountPoint
+		return nil, status.Errorf(codes.Internal, "Could not mount target %q: %v", targetPath, err)
+	}
+	if mounted {
+		klog.InfoS("target path is already mounted", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
+		return &csi.NodePublishVolumeResponse{}, nil
+	}
+
+	klog.V(2).InfoS("node publish volume", "target", targetPath, "volumeId", volumeID, "attributes", attrib, "mountflags", mountFlags)
+
 	if isMockProvider(providerName) {
 		// mock provider is used only for running sanity tests against the driver
 		err := ns.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
 		if err != nil {
-			log.Errorf("mount err: %v for pod: %s, ns: %s", err, podUID, podNamespace)
+			klog.ErrorS(err, "failed to mount", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 			return nil, err
 		}
-		log.Infof("skipping calling provider as it's mock")
+		klog.Infof("skipping calling provider as it's mock")
 		return &csi.NodePublishVolumeResponse{}, nil
 	}
 
@@ -166,17 +166,17 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 	parametersStr, err := json.Marshal(parameters)
 	if err != nil {
-		log.Errorf("failed to marshal parameters, err: %v for pod: %s/%s", err, podNamespace, podName)
+		klog.ErrorS(err, "failed to marshal parameters", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 		return nil, err
 	}
 	secretStr, err := json.Marshal(secrets)
 	if err != nil {
-		log.Errorf("failed to marshal secrets, err: %v for pod: %s/%s", err, podNamespace, podName)
+		klog.ErrorS(err, "failed to marshal node publish secrets", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 		return nil, err
 	}
 	permissionStr, err := json.Marshal(permission)
 	if err != nil {
-		log.Errorf("failed to marshal file permission, err: %v for pod: %s/%s", err, podNamespace, podName)
+		klog.ErrorS(err, "failed to marshal file permission", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 		return nil, err
 	}
 
@@ -187,12 +187,12 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	err = ns.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
 	if err != nil {
 		errorReason = internalerrors.FailedToMount
-		log.Errorf("mount err: %v for pod: %s/%s", err, podNamespace, podName)
+		klog.ErrorS(err, "failed to mount", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 		return nil, err
 	}
 	mounted = true
 	var objectVersions map[string]string
-	if objectVersions, errorReason, err = ns.mountSecretsStoreObjectContent(ctx, providerName, string(parametersStr), string(secretStr), targetPath, string(permissionStr)); err != nil {
+	if objectVersions, errorReason, err = ns.mountSecretsStoreObjectContent(ctx, providerName, string(parametersStr), string(secretStr), targetPath, string(permissionStr), podName); err != nil {
 		return nil, fmt.Errorf("failed to mount secrets store objects for pod %s/%s, err: %v", podNamespace, podName, err)
 	}
 
@@ -201,6 +201,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		return nil, fmt.Errorf("failed to create secret provider class pod status for pod %s/%s, err: %v", podNamespace, podName, err)
 	}
 
+	klog.InfoS("node publish volume complete", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
@@ -223,7 +224,6 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 		return nil, status.Error(codes.InvalidArgument, "Target path missing in request")
 	}
 	targetPath := req.GetTargetPath()
-	volumeID := req.GetVolumeId()
 	// Assume no mounted files if GetMountedFiles fails.
 	files, _ := fileutil.GetMountedFiles(targetPath)
 
@@ -240,18 +240,18 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 		for _, file := range files {
 			err = os.RemoveAll(file)
 			if err != nil {
-				log.Errorf("failed to remove file %s, err: %v for pod: %s", file, err, podUID)
+				klog.ErrorS(err, "failed to remove file from target path", "file", file, "podUID", podUID)
 				return nil, status.Error(codes.Internal, err.Error())
 			}
 		}
 	}
 	err = mount.CleanupMountPoint(targetPath, ns.mounter, false)
 	if err != nil {
-		log.Errorf("error cleaning and unmounting target path %s, err: %v for pod: %s", targetPath, err, podUID)
+		klog.ErrorS(err, "failed to clean and unmount target path", "targetPath", targetPath, "podUID", podUID)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	log.Debugf("targetPath %s volumeID %s has been unmounted for pod: %s", targetPath, volumeID, podUID)
+	klog.InfoS("node unpublish volume complete", "targetPath", targetPath, "podUID", podUID)
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 
@@ -279,7 +279,7 @@ func (ns *nodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstag
 	return &csi.NodeUnstageVolumeResponse{}, nil
 }
 
-func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, providerName, attributes, secrets, targetPath, permission string) (map[string]string, string, error) {
+func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, providerName, attributes, secrets, targetPath, permission, podName string) (map[string]string, string, error) {
 	if len(attributes) == 0 {
 		return nil, "", errors.New("missing attributes")
 	}
@@ -300,7 +300,7 @@ func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, provid
 	// binary which is how it was initially implemented
 	_, exists := ns.grpcSupportedProviders[providerName]
 	if exists {
-		log.Infof("Using grpc client for provider: %s", providerName)
+		klog.InfoS("Using grpc client", "provider", providerName, "pod", podName)
 		providerClient, err := NewProviderClient(CSIProviderName(providerName), ns.providerVolumePath)
 		if err != nil {
 			return nil, internalerrors.FailedToCreateProviderGRPCClient, fmt.Errorf("failed to create provider client, err: %+v", err)
@@ -316,7 +316,7 @@ func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, provid
 	// check if minimum compatible provider version with current driver version is set
 	// if minimum version is not provided, skip check
 	if _, exists := ns.minProviderVersions[providerName]; !exists {
-		log.Warningf("minimum compatible %s provider version not set", providerName)
+		klog.V(3).InfoS("minimum compatible provider version not set", "provider", providerName, "pod", podName)
 	} else {
 		// check if provider is compatible with driver
 		providerCompatible, err := version.IsProviderCompatible(ctx, providerBinary, ns.minProviderVersions[providerName])
@@ -324,7 +324,7 @@ func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, provid
 			return nil, "", err
 		}
 		if !providerCompatible {
-			return nil, internalerrors.IncompatibleProviderVersion, fmt.Errorf("Minimum supported %s provider version with current driver is %s", providerName, ns.minProviderVersions[providerName])
+			return nil, internalerrors.IncompatibleProviderVersion, fmt.Errorf("minimum supported %s provider version with current driver is %s", providerName, ns.minProviderVersions[providerName])
 		}
 	}
 
@@ -335,8 +335,8 @@ func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, provid
 		"--permission", permission,
 	}
 
-	log.Infof("provider command invoked: %s %s %v", providerBinary,
-		"--attributes [REDACTED] --secrets [REDACTED]", args[4:])
+	klog.InfoS("provider command invoked", "command",
+		fmt.Sprintf("%s %s %v", providerBinary, "--attributes [REDACTED] --secrets [REDACTED]", args[4:]), "provider", providerName, "pod", podName)
 
 	// using exec.CommandContext will ensure if the parent context deadlines, the call to provider is terminated
 	// and the process is killed
@@ -351,7 +351,7 @@ func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, provid
 	cmd.Stderr, cmd.Stdout = stderr, stdout
 
 	err := cmd.Run()
-	log.Infof(stdout.String())
+	klog.Infof(stdout.String())
 	if err != nil {
 		return nil, internalerrors.ProviderError, fmt.Errorf("failed to mount objects, err: %s", err.Error()+"\n"+stderr.String())
 	}

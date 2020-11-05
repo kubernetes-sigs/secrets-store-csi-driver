@@ -28,8 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"k8s.io/client-go/tools/record"
-
-	log "github.com/sirupsen/logrus"
+	"k8s.io/klog/v2"
 
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned/scheme"
@@ -61,7 +60,6 @@ const (
 type SecretProviderClassPodStatusReconciler struct {
 	client.Client
 	mutex         *sync.Mutex
-	log           *log.Logger
 	scheme        *apiruntime.Scheme
 	nodeID        string
 	reader        client.Reader
@@ -97,14 +95,14 @@ func (r *SecretProviderClassPodStatusReconciler) RunPatcher(stopCh <-chan struct
 			return
 		case <-ticker.C:
 			if err := r.Patcher(); err != nil {
-				log.Errorf("failed to patch secret owner ref, err: %+v", err)
+				klog.ErrorS(err, "failed to patch secret owner ref")
 			}
 		}
 	}
 }
 
 func (r *SecretProviderClassPodStatusReconciler) Patcher() error {
-	log.Debugf("patcher started")
+	klog.V(5).Infof("patcher started")
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -126,8 +124,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher() error {
 			spc = &val
 		} else {
 			if err := r.reader.Get(ctx, client.ObjectKey{Namespace: spcPodStatuses[i].Namespace, Name: spcName}, spc); err != nil {
-				log.Errorf("failed to get spc %s, err: %+v", spcName, err)
-				return err
+				return fmt.Errorf("failed to get spc %s, err: %+v", spcName, err)
 			}
 			spcMap[spcPodStatuses[i].Namespace+"/"+spcName] = *spc
 		}
@@ -146,7 +143,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher() error {
 		patchFn := func() (bool, error) {
 			if err := r.patchSecretWithOwnerRef(ctx, secret.Name, secret.Namespace, owners...); err != nil {
 				if !apierrors.IsConflict(err) || !apierrors.IsTimeout(err) {
-					log.Errorf("failed to set owner ref for secret, err: %+v", err)
+					klog.ErrorS(err, "failed to set owner ref for secret", "secret", klog.ObjectRef{Namespace: secret.Namespace, Name: secret.Name})
 				}
 				return false, nil
 			}
@@ -162,7 +159,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher() error {
 		}
 	}
 
-	log.Debugf("patcher completed")
+	klog.V(5).Infof("patcher completed")
 	return nil
 }
 
@@ -184,38 +181,38 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 	defer r.mutex.Unlock()
 
 	ctx := context.Background()
-	logger := log.WithFields(log.Fields{"secretproviderclasspodstatus": req.NamespacedName, "node": r.nodeID})
-	logger.Info("reconcile started")
+	klog.InfoS("reconcile started", "spcps", req.NamespacedName.String())
 
-	var spcPodStatus v1alpha1.SecretProviderClassPodStatus
-	if err := r.reader.Get(ctx, req.NamespacedName, &spcPodStatus); err != nil {
+	spcPodStatus := &v1alpha1.SecretProviderClassPodStatus{}
+	if err := r.reader.Get(ctx, req.NamespacedName, spcPodStatus); err != nil {
 		if apierrors.IsNotFound(err) {
+			klog.InfoS("reconcile complete", "spcps", req.NamespacedName.String())
 			return ctrl.Result{}, nil
 		}
-		logger.Errorf("failed to get spc pod status, err: %+v", err)
+		klog.ErrorS(err, "failed to get spc pod status", "spcps", req.NamespacedName.String())
 		return ctrl.Result{}, err
 	}
 
 	// reconcile delete
 	if !spcPodStatus.GetDeletionTimestamp().IsZero() {
-		logger.Infof("reconcile complete")
+		klog.InfoS("reconcile complete", "spcps", req.NamespacedName.String())
 		return ctrl.Result{}, nil
 	}
 
 	node, ok := spcPodStatus.GetLabels()[v1alpha1.InternalNodeLabel]
 	if !ok {
-		logger.Info("node label not found, ignoring this spc pod status")
+		klog.V(3).InfoS("node label not found, ignoring this spc pod status", "spcps", klog.KObj(spcPodStatus))
 		return ctrl.Result{}, nil
 	}
 	if !strings.EqualFold(node, r.nodeID) {
-		logger.Infof("ignoring as spc pod status belongs to node %s", node)
+		klog.V(3).InfoS("ignoring as spc pod status belongs diff node", "node", node, "spcps", klog.KObj(spcPodStatus))
 		return ctrl.Result{}, nil
 	}
 
 	spcName := spcPodStatus.Status.SecretProviderClassName
 	spc := &v1alpha1.SecretProviderClass{}
 	if err := r.reader.Get(ctx, client.ObjectKey{Namespace: req.Namespace, Name: spcName}, spc); err != nil {
-		logger.Errorf("failed to get spc %s, err: %+v", spcName, err)
+		klog.ErrorS(err, "failed to get spc", "spc", spcName)
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 		}
@@ -223,7 +220,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 	}
 
 	if len(spc.Spec.SecretObjects) == 0 {
-		logger.Infof("no secret objects defined for spc, nothing to reconcile")
+		klog.InfoS("no secret objects defined for spc, nothing to reconcile", "spc", klog.KObj(spc), "spcps", klog.KObj(spcPodStatus))
 		return ctrl.Result{}, nil
 	}
 
@@ -231,7 +228,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 	// events and the UID is helpful for validating the SPCPS TargetPath.
 	pod := &v1.Pod{}
 	if err := r.reader.Get(ctx, client.ObjectKey{Namespace: req.Namespace, Name: spcPodStatus.Status.PodName}, pod); err != nil {
-		logger.Errorf("failed to get pod %s/%s, err: %+v", req.Namespace, spcPodStatus.Status.PodName, err)
+		klog.ErrorS(err, "failed to get pod", "pod", klog.ObjectRef{Namespace: req.Namespace, Name: spcPodStatus.Status.PodName})
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 		}
@@ -255,7 +252,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 	files, err := fileutil.GetMountedFiles(spcPodStatus.Status.TargetPath)
 	if err != nil {
 		r.generateEvent(pod, corev1.EventTypeWarning, secretCreationFailedReason, fmt.Sprintf("failed to get mounted files, err: %+v", err))
-		logger.Errorf("failed to get mounted files, err: %+v", err)
+		klog.ErrorS(err, "failed to get mounted files", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "spcps", klog.KObj(spcPodStatus))
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, err
 	}
 	errs := make([]error, 0)
@@ -263,13 +260,13 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 		secretName := strings.TrimSpace(secretObj.SecretName)
 
 		if err = secretutil.ValidateSecretObject(*secretObj); err != nil {
-			logger.Errorf("failed to validate secret object in spc %s/%s, err: %+v", spc.Namespace, spc.Name, err)
+			klog.ErrorS(err, "failed to validate secret object in spc", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "spcps", klog.KObj(spcPodStatus))
 			errs = append(errs, fmt.Errorf("failed to validate secret object in spc %s/%s, err: %+v", spc.Namespace, spc.Name, err))
 			continue
 		}
 		exists, err := r.secretExists(ctx, secretName, req.Namespace)
 		if err != nil {
-			logger.Errorf("failed to check if secret %s exists, err: %+v", secretName, err)
+			klog.ErrorS(err, "failed to check if secret exists", "secret", klog.ObjectRef{Namespace: req.Namespace, Name: secretName}, "spc", klog.KObj(spc), "pod", klog.KObj(pod), "spcps", klog.KObj(spcPodStatus))
 			errs = append(errs, fmt.Errorf("failed to check if secret %s exists, err: %+v", secretName, err))
 			continue
 		}
@@ -282,7 +279,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 			datamap := make(map[string][]byte)
 			if datamap, err = secretutil.GetSecretData(secretObj.Data, secretType, files); err != nil {
 				r.generateEvent(pod, corev1.EventTypeWarning, secretCreationFailedReason, fmt.Sprintf("failed to get data in spc %s/%s for secret %s, err: %+v", req.Namespace, spcName, secretName, err))
-				log.Errorf("failed to get data in spc %s/%s for secret %s, err: %+v", req.Namespace, spcName, secretName, err)
+				klog.ErrorS(err, "failed to get data in spc for secret", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "secret", klog.ObjectRef{Namespace: req.Namespace, Name: secretName}, "spcps", klog.KObj(spcPodStatus))
 				errs = append(errs, fmt.Errorf("failed to get data in spc %s/%s for secret %s, err: %+v", req.Namespace, spcName, secretName, err))
 				continue
 			}
@@ -298,7 +295,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 
 			createFn := func() (bool, error) {
 				if err := r.createK8sSecret(ctx, secretName, req.Namespace, datamap, labelsMap, secretType); err != nil {
-					logger.Errorf("failed createK8sSecret, err: %v for secret: %s", err, secretName)
+					klog.ErrorS(err, "failed to create Kubernetes secret", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "secret", klog.ObjectRef{Namespace: req.Namespace, Name: secretName}, "spcps", klog.KObj(spcPodStatus))
 					return false, nil
 				}
 				return true, nil
@@ -323,7 +320,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	logger.Info("reconcile complete")
+	klog.InfoS("reconcile complete", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "spcps", klog.KObj(spcPodStatus))
 	// requeue the spc pod status again after 5mins to check if secret and ownerRef exists
 	// and haven't been modified. If secret doesn't exist, then this requeue will ensure it's
 	// created in the next reconcile and the owner ref patched again
@@ -351,7 +348,7 @@ func (r *SecretProviderClassPodStatusReconciler) createK8sSecret(ctx context.Con
 
 	err := r.writer.Create(ctx, secret)
 	if err == nil {
-		log.Infof("created k8s secret: %s/%s", namespace, name)
+		klog.InfoS("successfully created Kubernetes secret", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
 		return nil
 	}
 	if apierrors.IsAlreadyExists(err) {
@@ -369,7 +366,7 @@ func (r *SecretProviderClassPodStatusReconciler) patchSecretWithOwnerRef(ctx con
 	}
 	if err := r.Client.Get(ctx, secretKey, secret); err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Debugf("secret %s/%s not found for patching", namespace, name)
+			klog.V(5).InfoS("secret not found for patching", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
 			return nil
 		}
 		return err

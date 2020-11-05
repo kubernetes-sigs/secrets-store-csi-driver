@@ -22,11 +22,11 @@ import (
 	"runtime"
 	"sync"
 
-	log "github.com/sirupsen/logrus"
-
 	"google.golang.org/grpc"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+
+	"k8s.io/klog/v2"
 )
 
 // Defines Non blocking GRPC server interfaces
@@ -71,7 +71,7 @@ func (s *nonBlockingGRPCServer) ForceStop() {
 func (s *nonBlockingGRPCServer) serve(endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer) {
 	proto, addr, err := ParseEndpoint(endpoint)
 	if err != nil {
-		log.Fatal(err.Error())
+		klog.Fatal(err.Error())
 	}
 
 	if proto == "unix" {
@@ -79,13 +79,13 @@ func (s *nonBlockingGRPCServer) serve(endpoint string, ids csi.IdentityServer, c
 			addr = "/" + addr
 		}
 		if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
-			log.Fatalf("Failed to remove %s, error: %s", addr, err.Error())
+			klog.Fatalf("Failed to remove %s, error: %s", addr, err.Error())
 		}
 	}
 
 	listener, err := net.Listen(proto, addr)
 	if err != nil {
-		log.Fatalf("Failed to listen: %v", err)
+		klog.Fatalf("Failed to listen: %v", err)
 	}
 
 	opts := []grpc.ServerOption{
@@ -104,10 +104,10 @@ func (s *nonBlockingGRPCServer) serve(endpoint string, ids csi.IdentityServer, c
 		csi.RegisterNodeServer(server, ns)
 	}
 
-	log.Infof("Listening for connections on address: %v", listener.Addr())
+	klog.Infof("Listening for connections on address: %v", listener.Addr())
 
 	err = server.Serve(listener)
 	if err != nil {
-		log.Fatalf("Failed to serve: %v", err)
+		klog.Fatalf("Failed to serve: %v", err)
 	}
 }

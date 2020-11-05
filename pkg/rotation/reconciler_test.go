@@ -36,8 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
-
 	v1 "k8s.io/api/core/v1"
 
 	. "github.com/onsi/gomega"
@@ -49,6 +47,7 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	secretsStoreFakeClient "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned/fake"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
+	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
 	providerfake "sigs.k8s.io/secrets-store-csi-driver/provider/fake"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -550,7 +549,7 @@ func TestReconcileNoError(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            "foosecret",
 			Namespace:       "default",
-			ResourceVersion: "rv1",
+			ResourceVersion: "12352",
 		},
 		Data: map[string][]byte{"foo": []byte("olddata")},
 	}
