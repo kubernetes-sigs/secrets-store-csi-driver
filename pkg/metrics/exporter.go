@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"strings"
 
-	"go.opentelemetry.io/otel/sdk/metric/controller/push"
-
 	"k8s.io/klog/v2"
 )
 
@@ -30,18 +28,14 @@ var (
 
 const prometheusExporter = "prometheus"
 
-func NewMetricsExporter() (m *push.Controller, err error) {
+func InitMetricsExporter() error {
 	mb := strings.ToLower(*metricsBackend)
 	klog.Infof("metrics backend: %s", mb)
 	switch mb {
 	// Prometheus is the only exporter for now
 	case prometheusExporter:
-		m, err = newPrometheusExporter()
+		return initPrometheusExporter()
 	default:
-		err = fmt.Errorf("unsupported metrics backend %v", *metricsBackend)
+		return fmt.Errorf("unsupported metrics backend %v", *metricsBackend)
 	}
-	if err != nil {
-		return nil, err
-	}
-	return m, nil
 }
