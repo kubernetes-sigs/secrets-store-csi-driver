@@ -209,6 +209,22 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
+	// Obtain the full pod metadata. An object reference is needed for sending
+	// events and the UID is helpful for validating the SPCPS TargetPath.
+	pod := &v1.Pod{}
+	if err := r.reader.Get(ctx, client.ObjectKey{Namespace: req.Namespace, Name: spcPodStatus.Status.PodName}, pod); err != nil {
+		klog.ErrorS(err, "failed to get pod", "pod", klog.ObjectRef{Namespace: req.Namespace, Name: spcPodStatus.Status.PodName})
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+		}
+		return ctrl.Result{}, err
+	}
+	// pod is being terminated so don't reconcile
+	if !pod.GetDeletionTimestamp().IsZero() {
+		klog.InfoS("pod is being terminated, skipping reconcile", "pod", klog.KObj(pod))
+		return ctrl.Result{}, nil
+	}
+
 	spcName := spcPodStatus.Status.SecretProviderClassName
 	spc := &v1alpha1.SecretProviderClass{}
 	if err := r.reader.Get(ctx, client.ObjectKey{Namespace: req.Namespace, Name: spcName}, spc); err != nil {
@@ -222,17 +238,6 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 	if len(spc.Spec.SecretObjects) == 0 {
 		klog.InfoS("no secret objects defined for spc, nothing to reconcile", "spc", klog.KObj(spc), "spcps", klog.KObj(spcPodStatus))
 		return ctrl.Result{}, nil
-	}
-
-	// Obtain the full pod metadata. An object reference is needed for sending
-	// events and the UID is helpful for validating the SPCPS TargetPath.
-	pod := &v1.Pod{}
-	if err := r.reader.Get(ctx, client.ObjectKey{Namespace: req.Namespace, Name: spcPodStatus.Status.PodName}, pod); err != nil {
-		klog.ErrorS(err, "failed to get pod", "pod", klog.ObjectRef{Namespace: req.Namespace, Name: spcPodStatus.Status.PodName})
-		if apierrors.IsNotFound(err) {
-			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-		}
-		return ctrl.Result{}, err
 	}
 
 	// determine which pod volume this is associated with
