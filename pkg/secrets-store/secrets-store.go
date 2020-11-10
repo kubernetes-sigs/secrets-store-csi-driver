@@ -40,7 +40,7 @@ type SecretsStore struct {
 }
 
 var (
-	vendorVersion = "0.0.16"
+	vendorVersion = "0.0.17"
 )
 
 // GetDriver returns a new secrets store driver
