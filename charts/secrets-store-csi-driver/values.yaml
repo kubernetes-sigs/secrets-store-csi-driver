@@ -1,8 +1,8 @@
 linux:
   enabled: true
   image:
-    repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
-    tag: v0.0.16
+    repository: k8s.gcr.io/csi-secrets-store/driver
+    tag: v0.0.17
     pullPolicy: Always
 
   driver:
@@ -15,8 +15,8 @@ linux:
         memory: 100Mi
 
   registrarImage:
-    repository: quay.io/k8scsi/csi-node-driver-registrar
-    tag: v1.2.0
+    repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
+    tag: v2.0.1
     pullPolicy: Always
 
   registrar:
@@ -29,8 +29,8 @@ linux:
         memory: 20Mi
 
   livenessProbeImage:
-    repository: quay.io/k8scsi/livenessprobe
-    tag: v2.0.0
+    repository: k8s.gcr.io/sig-storage/livenessprobe
+    tag: v2.1.0
     pullPolicy: Always
 
   livenessProbe:
@@ -42,17 +42,23 @@ linux:
         cpu: 10m
         memory: 20Mi
 
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+
   kubeletRootDir: /var/lib/kubelet
   nodeSelector: {}
   tolerations: []
   metricsAddr: ":8095"
   env: []
+  priorityClassName: ""
 
 windows:
   enabled: false
   image:
-    repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
-    tag: v0.0.16
+    repository: k8s.gcr.io/csi-secrets-store/driver
+    tag: v0.0.17
     pullPolicy: IfNotPresent
 
   driver:
@@ -65,8 +71,8 @@ windows:
         memory: 100Mi
 
   registrarImage:
-    repository: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar
-    tag: v1.2.1-alpha.1-windows-1809-amd64
+    repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
+    tag: v2.0.1
     pullPolicy: IfNotPresent
 
   registrar:
@@ -79,8 +85,8 @@ windows:
         memory: 20Mi
 
   livenessProbeImage:
-    repository: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe
-    tag: v2.0.1-alpha.1-windows-1809-amd64
+    repository: k8s.gcr.io/sig-storage/livenessprobe
+    tag: v2.1.0
     pullPolicy: IfNotPresent
 
   livenessProbe:
@@ -92,14 +98,23 @@ windows:
         cpu: 10m
         memory: 20Mi
 
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+
   kubeletRootDir: C:\var\lib\kubelet
   nodeSelector: {}
   tolerations: []
   metricsAddr: ":8095"
   env: []
+  priorityClassName: ""
 
-logLevel:
-  debug: true
+# log level. Uses V logs (klog)
+logVerbosity: 0
+
+# logging format JSON
+logFormatJSON: false
 
 livenessProbe:
   port: 9808
@@ -120,7 +135,7 @@ syncSecret:
 minimumProviderVersions:
 
 ## ; delimited list of providers that support grpc for driver-provider [alpha]
-grpcSupportedProviders:
+grpcSupportedProviders: gcp;
 
 ## Enable secret rotation feature [alpha]
 enableSecretRotation: false

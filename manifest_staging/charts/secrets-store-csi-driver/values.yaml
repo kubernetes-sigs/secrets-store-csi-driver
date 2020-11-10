@@ -1,8 +1,8 @@
 linux:
   enabled: true
   image:
-    repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
-    tag: v0.0.16
+    repository: k8s.gcr.io/csi-secrets-store/driver
+    tag: v0.0.17
     pullPolicy: Always
 
   driver:
@@ -57,8 +57,8 @@ linux:
 windows:
   enabled: false
   image:
-    repository: us.gcr.io/k8s-artifacts-prod/csi-secrets-store/driver
-    tag: v0.0.16
+    repository: k8s.gcr.io/csi-secrets-store/driver
+    tag: v0.0.17
     pullPolicy: IfNotPresent
 
   driver:
