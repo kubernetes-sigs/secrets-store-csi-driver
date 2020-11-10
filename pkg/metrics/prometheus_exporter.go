@@ -17,41 +17,25 @@ import (
 	"fmt"
 	"net/http"
 
-	"go.opentelemetry.io/otel/api/core"
 	"go.opentelemetry.io/otel/exporters/metric/prometheus"
-	"go.opentelemetry.io/otel/sdk/metric/controller/push"
 )
 
-func newPrometheusExporter() (*push.Controller, error) {
+func initPrometheusExporter() error {
 	/*
 		Prometheus exporter for opentelemetry is under active development
-		Histogram support was added in v0.4.3 - https://github.com/open-telemetry/opentelemetry-go/pull/601
 		Defining the buckets is due to change in future release - https://github.com/open-telemetry/opentelemetry-go/issues/689
 	*/
-	pusher, hf, err := prometheus.InstallNewPipeline(prometheus.Config{
-		DefaultHistogramBoundaries: []core.Number{
-			core.NewFloat64Number(0.1),
-			core.NewFloat64Number(0.2),
-			core.NewFloat64Number(0.3),
-			core.NewFloat64Number(0.4),
-			core.NewFloat64Number(0.5),
-			core.NewFloat64Number(1),
-			core.NewFloat64Number(1.5),
-			core.NewFloat64Number(2),
-			core.NewFloat64Number(2.5),
-			core.NewFloat64Number(3.0),
-			core.NewFloat64Number(5.0),
-			core.NewFloat64Number(10.0),
-			core.NewFloat64Number(15.0),
-			core.NewFloat64Number(30.0),
+	pusher, err := prometheus.InstallNewPipeline(prometheus.Config{
+		DefaultHistogramBoundaries: []float64{
+			0.1, 0.2, 0.3, 0.4, 0.5, 1, 1.5, 2, 2.5, 3.0, 5.0, 10.0, 15.0, 30.0,
 		}})
 	if err != nil {
-		return nil, err
+		return err
 	}
-	http.HandleFunc("/", hf)
+	http.HandleFunc("/", pusher.ServeHTTP)
 	go func() {
 		_ = http.ListenAndServe(fmt.Sprintf(":%v", *prometheusPort), nil)
 	}()
 
-	return pusher, nil
+	return nil
 }

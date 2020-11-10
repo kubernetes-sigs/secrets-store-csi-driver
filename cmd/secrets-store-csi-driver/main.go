@@ -79,11 +79,10 @@ func main() {
 	// Issue: https://github.com/open-telemetry/opentelemetry-go/issues/677
 	// this has been resolved in otel release v0.5.0
 	// TODO (aramase) update to latest version of otel and deps
-	m, err := metrics.NewMetricsExporter()
+	err := metrics.InitMetricsExporter()
 	if err != nil {
 		klog.Fatalf("failed to initialize metrics exporter, error: %+v", err)
 	}
-	defer m.Stop()
 
 	config := ctrl.GetConfigOrDie()
 	config.UserAgent = "csi-secrets-store/controller"
