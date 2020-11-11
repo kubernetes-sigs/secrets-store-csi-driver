@@ -86,17 +86,21 @@ EOF
   assert_success
 
   run kubectl exec -ti $VAULT_POD -- vault policy write example-readonly -<<EOF
+path "sys/mounts" {
+  capabilities = ["read"]
+}
+
 path "secret/data/foo" {
-    capabilities = ["read", "list"]
-  }
+  capabilities = ["read", "list"]
+}
 
-  path "secret/data/foo1" {
-    capabilities = ["read", "list"]
-  }
+path "secret/data/foo1" {
+  capabilities = ["read", "list"]
+}
 
-  path "sys/renew/*" {
-    capabilities = ["update"]
-  }
+path "sys/renew/*" {
+  capabilities = ["update"]
+}
 EOF
   assert_success
 
@@ -110,7 +114,7 @@ EOF
   run kubectl exec $VAULT_POD -- vault kv put secret/foo bar=hello
   assert_success
 
-  run kubectl exec $VAULT_POD -- vault kv put secret/foo1 bar=hello1
+  run kubectl exec $VAULT_POD -- vault kv put secret/foo1 bar1=hello1
   assert_success
 }
 
@@ -145,10 +149,10 @@ EOF
 }
 
 @test "CSI inline volume test with pod portability - read vault secret from pod" {
-  result=$(kubectl exec nginx-secrets-store-inline -- cat /mnt/secrets-store/foo)
+  result=$(kubectl exec nginx-secrets-store-inline -- cat /mnt/secrets-store/bar)
   [[ "$result" == "hello" ]]
 
-  result=$(kubectl exec nginx-secrets-store-inline -- cat /mnt/secrets-store/foo1)
+  result=$(kubectl exec nginx-secrets-store-inline -- cat /mnt/secrets-store/bar1)
   [[ "$result" == "hello1" ]]
 }
 
@@ -175,10 +179,10 @@ EOF
 
 @test "Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences with multiple owners" {
   POD=$(kubectl get pod -l app=nginx -o jsonpath="{.items[0].metadata.name}")
-  result=$(kubectl exec $POD -- cat /mnt/secrets-store/foo)
+  result=$(kubectl exec $POD -- cat /mnt/secrets-store/bar)
   [[ "$result" == "hello" ]]
 
-  result=$(kubectl exec $POD -- cat /mnt/secrets-store/foo1)
+  result=$(kubectl exec $POD -- cat /mnt/secrets-store/bar1)
   [[ "$result" == "hello1" ]]
 
   result=$(kubectl get secret foosecret -o jsonpath="{.data.pwd}" | base64 -d)
@@ -239,10 +243,10 @@ EOF
 
 @test "Test Namespaced scope SecretProviderClass - Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences" {
   POD=$(kubectl get pod -l app=nginx -n test-ns -o jsonpath="{.items[0].metadata.name}")
-  result=$(kubectl exec -n test-ns $POD -- cat /mnt/secrets-store/foo)
+  result=$(kubectl exec -n test-ns $POD -- cat /mnt/secrets-store/bar)
   [[ "$result" == "hello" ]]
 
-  result=$(kubectl exec -n test-ns $POD -- cat /mnt/secrets-store/foo1)
+  result=$(kubectl exec -n test-ns $POD -- cat /mnt/secrets-store/bar1)
   [[ "$result" == "hello1" ]]
 
   result=$(kubectl get secret foosecret -n test-ns -o jsonpath="{.data.pwd}" | base64 -d)
@@ -309,10 +313,10 @@ EOF
 }
 
 @test "CSI inline volume test with multiple secret provider class" {
-  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/foo)
+  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/bar)
   [[ "$result" == "hello" ]]
 
-  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/foo1)
+  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/bar1)
   [[ "$result" == "hello1" ]]
 
   result=$(kubectl get secret foosecret-0 -o jsonpath="{.data.pwd}" | base64 -d)
@@ -324,10 +328,10 @@ EOF
   run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret-0 default 1"
   assert_success
 
-  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/foo)
+  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/bar)
   [[ "$result" == "hello" ]]
 
-  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/foo1)
+  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/bar1)
   [[ "$result" == "hello1" ]]
 
   result=$(kubectl get secret foosecret-1 -o jsonpath="{.data.pwd}" | base64 -d)
