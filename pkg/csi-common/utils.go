@@ -71,30 +71,6 @@ func NewControllerServiceCapability(cap csi.ControllerServiceCapability_RPC_Type
 	}
 }
 
-func RunNodePublishServer(endpoint string, d *CSIDriver, ns csi.NodeServer) {
-	ids := NewDefaultIdentityServer(d)
-
-	s := NewNonBlockingGRPCServer()
-	s.Start(context.Background(), endpoint, ids, nil, ns)
-	s.Wait()
-}
-
-func RunControllerPublishServer(endpoint string, d *CSIDriver, cs csi.ControllerServer) {
-	ids := NewDefaultIdentityServer(d)
-
-	s := NewNonBlockingGRPCServer()
-	s.Start(context.Background(), endpoint, ids, cs, nil)
-	s.Wait()
-}
-
-func RunControllerandNodePublishServer(endpoint string, d *CSIDriver, cs csi.ControllerServer, ns csi.NodeServer) {
-	ids := NewDefaultIdentityServer(d)
-
-	s := NewNonBlockingGRPCServer()
-	s.Start(context.Background(), endpoint, ids, cs, ns)
-	s.Wait()
-}
-
 func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	klog.V(3).Infof("GRPC call: %s", info.FullMethod)
 	klog.V(3).Infof("GRPC request: %s", pbSanitizer.StripSecrets(req).String())

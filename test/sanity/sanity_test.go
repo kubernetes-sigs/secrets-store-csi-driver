@@ -15,16 +15,17 @@ package sanity
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
-	"github.com/kubernetes-csi/csi-test/pkg/sanity"
+	"github.com/kubernetes-csi/csi-test/v4/pkg/sanity"
 
 	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
 )
 
 const (
-	mountPath          = "/tmp/csi/mount"
-	stagePath          = "/tmp/csi/stage"
 	socket             = "/tmp/csi.sock"
 	endpoint           = "unix://" + socket
 	providerVolumePath = "/etc/kubernetes/secrets-store-csi-providers"
@@ -36,10 +37,29 @@ func TestSanity(t *testing.T) {
 		driver.Run(context.Background(), "secrets-store.csi.k8s.io", "somenodeid", endpoint, providerVolumePath, "provider1=0.0.2,provider2=0.0.4", "", nil)
 	}()
 
-	config := &sanity.Config{
-		TargetPath:  mountPath,
-		StagingPath: stagePath,
-		Address:     endpoint,
+	tmpPath := filepath.Join(os.TempDir(), "csi")
+	config := sanity.NewTestConfig()
+	config.Address = endpoint
+	config.CreateTargetDir = func(targetPath string) (string, error) {
+		targetPath = filepath.Join(tmpPath, targetPath)
+		return targetPath, createTargetDir(targetPath)
+	}
+	config.RemoveTargetPath = func(targetPath string) error {
+		return os.RemoveAll(targetPath)
 	}
 	sanity.Test(t, config)
+}
+
+func createTargetDir(targetPath string) error {
+	fileInfo, err := os.Stat(targetPath)
+	if err != nil && os.IsNotExist(err) {
+		return os.MkdirAll(targetPath, 0755)
+	} else if err != nil {
+		return err
+	}
+	if !fileInfo.IsDir() {
+		return fmt.Errorf("target location %s is not a directory", targetPath)
+	}
+
+	return nil
 }

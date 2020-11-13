@@ -19,7 +19,6 @@ package secretsstore
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 	"runtime"
 	"strings"
 
@@ -53,7 +52,7 @@ func normalizeWindowsPath(path string) string {
 // ensureMountPoint ensures mount point is valid
 func (ns *nodeServer) ensureMountPoint(target string) (bool, error) {
 	notMnt, err := ns.mounter.IsLikelyNotMountPoint(target)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil {
 		return !notMnt, err
 	}
 

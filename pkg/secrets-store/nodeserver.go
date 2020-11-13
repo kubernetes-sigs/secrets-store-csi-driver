@@ -25,22 +25,18 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/container-storage-interface/spec/lib/go/csi"
-
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	csicommon "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"k8s.io/utils/mount"
-
 	"k8s.io/klog/v2"
+	"k8s.io/utils/mount"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type nodeServer struct {
@@ -115,15 +111,23 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 	mounted, err = ns.ensureMountPoint(targetPath)
 	if err != nil {
-		errorReason = internalerrors.FailedToEnsureMountPoint
-		return nil, status.Errorf(codes.Internal, "Could not mount target %q: %v", targetPath, err)
+		// kubelet will not create the CSI NodePublishVolume target directory in 1.20+, in accordance with the CSI specification.
+		// CSI driver needs to properly create and process the target path
+		if os.IsNotExist(err) {
+			if err = os.MkdirAll(targetPath, 0750); err != nil {
+				return nil, status.Errorf(codes.Internal, "failed to create target path %s, err: %v", targetPath, err)
+			}
+		} else {
+			errorReason = internalerrors.FailedToEnsureMountPoint
+			return nil, status.Errorf(codes.Internal, "failed to check if target path %s is mount point, err: %v", targetPath, err)
+		}
 	}
 	if mounted {
 		klog.InfoS("target path is already mounted", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 		return &csi.NodePublishVolumeResponse{}, nil
 	}
 
-	klog.V(2).InfoS("node publish volume", "target", targetPath, "volumeId", volumeID, "attributes", attrib, "mountflags", mountFlags)
+	klog.V(2).InfoS("node publish volume", "target", targetPath, "volumeId", volumeID, "attributes", attrib, "mount flags", mountFlags)
 
 	if isMockProvider(providerName) {
 		// mock provider is used only for running sanity tests against the driver
@@ -206,8 +210,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 }
 
 func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (nuvr *csi.NodeUnpublishVolumeResponse, err error) {
-	var podUID string
-
 	defer func() {
 		if err != nil {
 			ns.reporter.ReportNodeUnPublishErrorCtMetric()
@@ -231,27 +233,23 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 		return &csi.NodeUnpublishVolumeResponse{}, nil
 	}
 
-	podUID = fileutil.GetPodUIDFromTargetPath(targetPath)
-	if len(podUID) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Cannot get podUID from Target path")
-	}
 	// remove files
 	if runtime.GOOS == "windows" {
 		for _, file := range files {
 			err = os.RemoveAll(file)
 			if err != nil {
-				klog.ErrorS(err, "failed to remove file from target path", "file", file, "podUID", podUID)
+				klog.ErrorS(err, "failed to remove file from target path", "file", file)
 				return nil, status.Error(codes.Internal, err.Error())
 			}
 		}
 	}
 	err = mount.CleanupMountPoint(targetPath, ns.mounter, false)
-	if err != nil {
-		klog.ErrorS(err, "failed to clean and unmount target path", "targetPath", targetPath, "podUID", podUID)
+	if err != nil && !os.IsNotExist(err) {
+		klog.ErrorS(err, "failed to clean and unmount target path", "targetPath", targetPath)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	klog.InfoS("node unpublish volume complete", "targetPath", targetPath, "podUID", podUID)
+	klog.InfoS("node unpublish volume complete", "targetPath", targetPath)
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 
@@ -356,4 +354,8 @@ func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, provid
 		return nil, internalerrors.ProviderError, fmt.Errorf("failed to mount objects, err: %s", err.Error()+"\n"+stderr.String())
 	}
 	return nil, "", nil
+}
+
+func (ns *nodeServer) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "NodeExpandVolume is not implemented")
 }
