@@ -607,6 +607,18 @@ func TestReconcileNoError(t *testing.T) {
 
 	err = testReconciler.reconcile(context.TODO(), secretProviderClassPodStatusToProcess)
 	g.Expect(err).NotTo(HaveOccurred())
+
+	// test with pod being in succeeded phase
+	podToAdd.DeletionTimestamp = nil
+	podToAdd.Status.Phase = v1.PodSucceeded
+	kubeClient = fake.NewSimpleClientset(podToAdd, secretToAdd)
+	testReconciler, err = newTestReconciler(scheme, kubeClient, crdClient, ctrlClient, 60*time.Second, socketPath)
+	g.Expect(err).NotTo(HaveOccurred())
+	err = testReconciler.store.Run(wait.NeverStop)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	err = testReconciler.reconcile(context.TODO(), secretProviderClassPodStatusToProcess)
+	g.Expect(err).NotTo(HaveOccurred())
 }
 
 func TestPatchSecret(t *testing.T) {
