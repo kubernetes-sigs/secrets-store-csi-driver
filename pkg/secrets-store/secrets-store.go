@@ -17,6 +17,7 @@ limitations under the License.
 package secretsstore
 
 import (
+	"context"
 	"strings"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -93,7 +94,7 @@ func newIdentityServer(d *csicommon.CSIDriver) *identityServer {
 }
 
 // Run starts the CSI plugin
-func (s *SecretsStore) Run(driverName, nodeID, endpoint, providerVolumePath, minProviderVersions, grpcSupportedProviders string, client client.Client) {
+func (s *SecretsStore) Run(ctx context.Context, driverName, nodeID, endpoint, providerVolumePath, minProviderVersions, grpcSupportedProviders string, client client.Client) {
 	klog.Infof("Driver: %v ", driverName)
 	klog.Infof("Version: %s", vendorVersion)
 	klog.Infof("Provider Volume Path: %s", providerVolumePath)
@@ -123,6 +124,6 @@ func (s *SecretsStore) Run(driverName, nodeID, endpoint, providerVolumePath, min
 	s.ids = newIdentityServer(s.driver)
 
 	server := csicommon.NewNonBlockingGRPCServer()
-	server.Start(endpoint, s.ids, s.cs, s.ns)
+	server.Start(ctx, endpoint, s.ids, s.cs, s.ns)
 	server.Wait()
 }
