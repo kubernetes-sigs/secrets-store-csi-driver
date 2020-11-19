@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"time"
 
@@ -105,16 +106,17 @@ func main() {
 	}
 	// +kubebuilder:scaffold:builder
 
-	stopCh := ctrl.SetupSignalHandler()
+	ctx := withShutdownSignal(context.Background())
+
 	go func() {
 		klog.Infof("starting manager")
-		if err := mgr.Start(stopCh); err != nil {
+		if err := mgr.Start(ctx.Done()); err != nil {
 			klog.Fatalf("failed to run manager, error: %+v", err)
 		}
 	}()
 
 	go func() {
-		reconciler.RunPatcher(stopCh)
+		reconciler.RunPatcher(ctx)
 	}()
 
 	if *enableSecretRotation {
@@ -122,14 +124,13 @@ func main() {
 		if err != nil {
 			klog.Fatalf("failed to initialize rotation reconciler, error: %+v", err)
 		}
-		stopCh := make(<-chan struct{})
-		go rec.Run(stopCh)
+		go rec.Run(ctx.Done())
 	}
 
-	handle()
+	handle(ctx)
 }
 
-func handle() {
+func handle(ctx context.Context) {
 	driver := secretsstore.GetDriver()
 	cfg, err := config.GetConfig()
 	if err != nil {
@@ -139,5 +140,19 @@ func handle() {
 	if err != nil {
 		klog.Fatalf("failed to initialize driver, error creating client: %+v", err)
 	}
-	driver.Run(*driverName, *nodeID, *endpoint, *providerVolumePath, *minProviderVersion, *grpcSupportedProviders, c)
+	driver.Run(ctx, *driverName, *nodeID, *endpoint, *providerVolumePath, *minProviderVersion, *grpcSupportedProviders, c)
+}
+
+// withShutdownSignal returns a copy of the parent context that will close if
+// the process receives termination signals.
+func withShutdownSignal(ctx context.Context) context.Context {
+	nctx, cancel := context.WithCancel(ctx)
+	stopCh := ctrl.SetupSignalHandler()
+
+	go func() {
+		<-stopCh
+		klog.Info("received shutdown signal")
+		cancel()
+	}()
+	return nctx
 }

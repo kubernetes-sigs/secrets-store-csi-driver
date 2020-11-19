@@ -75,7 +75,7 @@ func RunNodePublishServer(endpoint string, d *CSIDriver, ns csi.NodeServer) {
 	ids := NewDefaultIdentityServer(d)
 
 	s := NewNonBlockingGRPCServer()
-	s.Start(endpoint, ids, nil, ns)
+	s.Start(context.Background(), endpoint, ids, nil, ns)
 	s.Wait()
 }
 
@@ -83,7 +83,7 @@ func RunControllerPublishServer(endpoint string, d *CSIDriver, cs csi.Controller
 	ids := NewDefaultIdentityServer(d)
 
 	s := NewNonBlockingGRPCServer()
-	s.Start(endpoint, ids, cs, nil)
+	s.Start(context.Background(), endpoint, ids, cs, nil)
 	s.Wait()
 }
 
@@ -91,7 +91,7 @@ func RunControllerandNodePublishServer(endpoint string, d *CSIDriver, cs csi.Con
 	ids := NewDefaultIdentityServer(d)
 
 	s := NewNonBlockingGRPCServer()
-	s.Start(endpoint, ids, cs, ns)
+	s.Start(context.Background(), endpoint, ids, cs, ns)
 	s.Wait()
 }
 

@@ -85,28 +85,27 @@ func New(mgr manager.Manager, nodeID string) (*SecretProviderClassPodStatusRecon
 	}, nil
 }
 
-func (r *SecretProviderClassPodStatusReconciler) RunPatcher(stopCh <-chan struct{}) {
+func (r *SecretProviderClassPodStatusReconciler) RunPatcher(ctx context.Context) {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-stopCh:
+		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := r.Patcher(); err != nil {
+			if err := r.Patcher(ctx); err != nil {
 				klog.ErrorS(err, "failed to patch secret owner ref")
 			}
 		}
 	}
 }
 
-func (r *SecretProviderClassPodStatusReconciler) Patcher() error {
+func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) error {
 	klog.V(5).Infof("patcher started")
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	ctx := context.Background()
 	spcPodStatusList := &v1alpha1.SecretProviderClassPodStatusList{}
 	spcMap := make(map[string]v1alpha1.SecretProviderClass)
 	secretOwnerMap := make(map[types.NamespacedName][]*v1alpha1.SecretProviderClassPodStatus)

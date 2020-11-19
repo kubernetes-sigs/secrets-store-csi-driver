@@ -17,6 +17,7 @@ limitations under the License.
 package csicommon
 
 import (
+	"context"
 	"net"
 	"os"
 	"runtime"
@@ -32,7 +33,7 @@ import (
 // Defines Non blocking GRPC server interfaces
 type NonBlockingGRPCServer interface {
 	// Start services at the endpoint
-	Start(endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer)
+	Start(ctx context.Context, endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer)
 	// Waits for the service to stop
 	Wait()
 	// Stops the service gracefully
@@ -51,9 +52,9 @@ type nonBlockingGRPCServer struct {
 	server *grpc.Server
 }
 
-func (s *nonBlockingGRPCServer) Start(endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer) {
+func (s *nonBlockingGRPCServer) Start(ctx context.Context, endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer) {
 	s.wg.Add(1)
-	go s.serve(endpoint, ids, cs, ns)
+	go s.serve(ctx, endpoint, ids, cs, ns)
 }
 
 func (s *nonBlockingGRPCServer) Wait() {
@@ -68,7 +69,7 @@ func (s *nonBlockingGRPCServer) ForceStop() {
 	s.server.Stop()
 }
 
-func (s *nonBlockingGRPCServer) serve(endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer) {
+func (s *nonBlockingGRPCServer) serve(ctx context.Context, endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer) {
 	proto, addr, err := ParseEndpoint(endpoint)
 	if err != nil {
 		klog.Fatal(err.Error())
@@ -87,6 +88,7 @@ func (s *nonBlockingGRPCServer) serve(endpoint string, ids csi.IdentityServer, c
 	if err != nil {
 		klog.Fatalf("Failed to listen: %v", err)
 	}
+	defer listener.Close()
 
 	opts := []grpc.ServerOption{
 		grpc.UnaryInterceptor(logGRPC),
@@ -106,8 +108,14 @@ func (s *nonBlockingGRPCServer) serve(endpoint string, ids csi.IdentityServer, c
 
 	klog.Infof("Listening for connections on address: %v", listener.Addr())
 
-	err = server.Serve(listener)
-	if err != nil {
-		klog.Fatalf("Failed to serve: %v", err)
-	}
+	go func() {
+		err = server.Serve(listener)
+		if err != nil {
+			klog.Errorf("Failed to serve: %v", err)
+		}
+	}()
+
+	<-ctx.Done()
+	server.GracefulStop()
+	s.wg.Done()
 }
