@@ -25,6 +25,8 @@ if [ -z "$AUTO_ROTATE_SECRET_NAME" ]; then
     export AUTO_ROTATE_SECRET_NAME=secret-$(openssl rand -hex 6)
 fi
 
+load tests/azure/setup
+
 export KEYVAULT_NAME=${KEYVAULT_NAME:-csi-secrets-store-e2e}
 export SECRET_NAME=${KEYVAULT_SECRET_NAME:-secret1}
 export SECRET_VERSION=${KEYVAULT_SECRET_VERSION:-""}
