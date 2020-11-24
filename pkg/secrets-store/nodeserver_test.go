@@ -40,16 +40,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func testNodeServer(mountPoints []mount.MountPoint, client client.Client, grpcSupportProviders string, reporter StatsReporter, providerBinaryName string) (*nodeServer, error) {
+func testNodeServer(mountPoints []mount.MountPoint, client client.Client, grpcSupportProvider string, reporter StatsReporter, providerBinaryName string) (*nodeServer, error) {
 	tmpDir, err := ioutil.TempDir("", "ut")
 	if err != nil {
 		return nil, err
 	}
-	if grpcSupportProviders != "" {
-		err = ioutil.WriteFile(fmt.Sprintf("%s/%s.sock", tmpDir, grpcSupportProviders), nil, permission)
+	providerClients := map[string]*CSIProviderClient{}
+	if grpcSupportProvider != "" {
+		client, err := NewProviderClient(CSIProviderName(grpcSupportProvider), tmpDir)
 		if err != nil {
 			return nil, err
 		}
+		providerClients[grpcSupportProvider] = client
 	}
 	if providerBinaryName != "" {
 		dirPath := fmt.Sprintf("%s/%s", tmpDir, providerBinaryName)
@@ -59,12 +61,15 @@ func testNodeServer(mountPoints []mount.MountPoint, client client.Client, grpcSu
 			return nil, err
 		}
 		f, err := os.Create(filePath)
+		if err != nil {
+			return nil, err
+		}
 		defer f.Close()
 		if err != nil {
 			return nil, err
 		}
 	}
-	return newNodeServer(NewFakeDriver(), tmpDir, "", grpcSupportProviders, "testnode", mount.NewFakeMounter(mountPoints), client, reporter)
+	return newNodeServer(NewFakeDriver(), tmpDir, "", "testnode", mount.NewFakeMounter(mountPoints), providerClients, client, reporter)
 }
 
 func getTestTargetPath(pattern string, t *testing.T) string {
@@ -401,15 +406,6 @@ func TestMountSecretsStoreObjectContent(t *testing.T) {
 			permission:          fmt.Sprint(permission),
 			expectedErrorReason: internalerrors.ProviderBinaryNotFound,
 			expectedErr:         true,
-		},
-		{
-			name:                 "failed to create provider grpc client",
-			attributes:           "{}",
-			targetPath:           getTestTargetPath("", t),
-			permission:           fmt.Sprint(permission),
-			grpcSupportProviders: "provider1",
-			expectedErrorReason:  "GRPCProviderError",
-			expectedErr:          true,
 		},
 	}
 

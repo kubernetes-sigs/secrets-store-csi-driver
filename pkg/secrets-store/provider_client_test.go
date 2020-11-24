@@ -67,6 +67,7 @@ func TestMountContent(t *testing.T) {
 			if err != nil {
 				t.Fatalf("expected err to be nil, got: %+v", err)
 			}
+			defer client.Close()
 			serverEndpoint := fmt.Sprintf("%s/%s.sock", test.socketPath, test.providerName)
 			defer os.Remove(serverEndpoint)
 
@@ -173,6 +174,7 @@ func TestMountContentError(t *testing.T) {
 			if err != nil {
 				t.Fatalf("expected err to be nil, got: %+v", err)
 			}
+			defer client.Close()
 			serverEndpoint := fmt.Sprintf("%s/%s.sock", test.socketPath, test.providerName)
 			defer os.Remove(serverEndpoint)
 

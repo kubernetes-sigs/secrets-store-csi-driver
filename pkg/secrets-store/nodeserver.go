@@ -41,13 +41,13 @@ import (
 
 type nodeServer struct {
 	*csicommon.DefaultNodeServer
-	providerVolumePath     string
-	minProviderVersions    map[string]string
-	mounter                mount.Interface
-	reporter               StatsReporter
-	nodeID                 string
-	client                 client.Client
-	grpcSupportedProviders map[string]bool
+	providerVolumePath  string
+	minProviderVersions map[string]string
+	mounter             mount.Interface
+	reporter            StatsReporter
+	nodeID              string
+	client              client.Client
+	providerClients     map[string]*CSIProviderClient
 }
 
 const (
@@ -296,14 +296,9 @@ func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, provid
 	// if the provider supports and is running grpc server, then communicate with
 	// provider using the grpc client, otherwise fallback to invoking the provider
 	// binary which is how it was initially implemented
-	_, exists := ns.grpcSupportedProviders[providerName]
-	if exists {
+	if client, exists := ns.providerClients[providerName]; exists {
 		klog.InfoS("Using grpc client", "provider", providerName, "pod", podName)
-		providerClient, err := NewProviderClient(CSIProviderName(providerName), ns.providerVolumePath)
-		if err != nil {
-			return nil, internalerrors.FailedToCreateProviderGRPCClient, fmt.Errorf("failed to create provider client, err: %+v", err)
-		}
-		return providerClient.MountContent(ctx, attributes, secrets, targetPath, permission, nil)
+		return client.MountContent(ctx, attributes, secrets, targetPath, permission, nil)
 	}
 
 	providerBinary := ns.getProviderPath(runtime.GOOS, providerName)
