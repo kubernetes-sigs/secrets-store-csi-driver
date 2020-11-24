@@ -35,8 +35,10 @@ import (
 )
 
 const (
-	certType       = "CERTIFICATE"
-	privateKeyType = "RSA PRIVATE KEY"
+	certType          = "CERTIFICATE"
+	privateKeyType    = "PRIVATE KEY"
+	privateKeyTypeRSA = "RSA PRIVATE KEY"
+	privateKeyTypeEC  = "EC PRIVATE KEY"
 )
 
 // getCertPart returns the certificate or the private key part of the cert
@@ -69,8 +71,9 @@ func getCert(data []byte) ([]byte, error) {
 
 // getPrivateKey returns the private key part of a cert
 func getPrivateKey(data []byte) ([]byte, error) {
-	var der []byte
-	var derKey []byte
+	var der, derKey []byte
+	privKeyType := privateKeyType
+
 	for {
 		pemBlock, rest := pem.Decode(data)
 		if pemBlock == nil {
@@ -82,16 +85,19 @@ func getPrivateKey(data []byte) ([]byte, error) {
 		data = rest
 	}
 
+	// parses an RSA private key in PKCS #1, ASN.1 DER form
 	if key, err := x509.ParsePKCS1PrivateKey(der); err == nil {
 		derKey = x509.MarshalPKCS1PrivateKey(key)
 	}
-
+	// parses an unencrypted private key in PKCS #8, ASN.1 DER form
 	if key, err := x509.ParsePKCS8PrivateKey(der); err == nil {
 		switch key := key.(type) {
 		case *rsa.PrivateKey:
 			derKey = x509.MarshalPKCS1PrivateKey(key)
+			privKeyType = privateKeyTypeRSA
 		case *ecdsa.PrivateKey:
 			derKey, err = x509.MarshalECPrivateKey(key)
+			privKeyType = privateKeyTypeEC
 			if err != nil {
 				return nil, err
 			}
@@ -99,14 +105,16 @@ func getPrivateKey(data []byte) ([]byte, error) {
 			return nil, fmt.Errorf("unknown private key type found while getting key. Only rsa and ecdsa are supported")
 		}
 	}
+	// parses an EC private key in SEC 1, ASN.1 DER form
 	if key, err := x509.ParseECPrivateKey(der); err == nil {
 		derKey, err = x509.MarshalECPrivateKey(key)
 		if err != nil {
 			return nil, err
 		}
+		privKeyType = privateKeyTypeEC
 	}
 	block := &pem.Block{
-		Type:  privateKeyType,
+		Type:  privKeyType,
 		Bytes: derKey,
 	}
 
