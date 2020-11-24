@@ -5,5 +5,5 @@ For more information on securing an Ingress with TLS, refer to: https://kubernet
 
 Checkout provider samples on how to get started -
 
-- [Using Secrets Store CSI and Azure Key Vault Provider](https://github.com/Azure/secrets-store-csi-driver-provider-azure/blob/master/sample/ingress-controller-tls/README.md)
+- [Using Secrets Store CSI and Azure Key Vault Provider](https://github.com/Azure/secrets-store-csi-driver-provider-azure/blob/master/docs/ingress-tls.md)
 - [Using Secrets Store CSI and Hashicorp Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault/blob/master/sample/ingress-controller-tls/README.md)
