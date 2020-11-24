@@ -25,8 +25,6 @@ if [ -z "$AUTO_ROTATE_SECRET_NAME" ]; then
     export AUTO_ROTATE_SECRET_NAME=secret-$(openssl rand -hex 6)
 fi
 
-load tests/azure/setup
-
 export KEYVAULT_NAME=${KEYVAULT_NAME:-csi-secrets-store-e2e}
 export SECRET_NAME=${KEYVAULT_SECRET_NAME:-secret1}
 export SECRET_VERSION=${KEYVAULT_SECRET_VERSION:-""}
@@ -39,8 +37,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 
 setup() {
   if [[ -z "${AZURE_CLIENT_ID}" ]] || [[ -z "${AZURE_CLIENT_SECRET}" ]]; then
-    echo "Error: Azure service principal is not provided" >&2
-    return 1
+    load tests/azure/azure_setup
   fi
 }
 
