@@ -93,8 +93,8 @@ e2e-bootstrap: install-helm
 	apt-get update && apt-get install bats && apt-get install gettext-base -y
 	# Download and install Vault
 	vault -v | grep -q v$(VAULT_VERSION) || (curl -LO https://releases.hashicorp.com/vault/$(VAULT_VERSION)/vault_$(VAULT_VERSION)_linux_amd64.zip && unzip vault_$(VAULT_VERSION)_linux_amd64.zip && chmod +x vault && mv vault /usr/local/bin/)
-	# Download and install Azure CLI
-	curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+	# Download and install snap package for gcp sdk download
+	apt-get update && apt-get install snapd
 ifndef TEST_WINDOWS
 	curl -LO https://storage.googleapis.com/kubernetes-release/release/v$(KUBERNETES_VERSION)/bin/linux/amd64/kubectl && chmod +x ./kubectl && mv kubectl /usr/local/bin/
 	make setup-kind
@@ -157,6 +157,9 @@ endif
 
 .PHONY: e2e-azure
 e2e-azure: install-driver
+    # Download and install Azure CLI
+	curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+
 	bats -t test/bats/azure.bats
 
 .PHONY: e2e-vault
@@ -165,6 +168,9 @@ e2e-vault: install-driver
 
 .PHONY: e2e-gcp
 e2e-gcp: install-driver
+    # Download and install GCP CLI
+	snap install google-cloud-sdk --classic
+
 	bats -t test/bats/gcp.bats
 
 # Generate manifests e.g. CRD, RBAC etc.

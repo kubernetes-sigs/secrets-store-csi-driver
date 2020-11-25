@@ -19,8 +19,7 @@ export SECRET_VALUE=${SECRET_VALUE:-"aHVudGVyMg=="}
 
 setup() {
   if [[ -z "${GCP_SA_JSON}" ]]; then
-    echo "Error: GCP Service Account (GCP_SA_JSON) is not provided" >&2
-    return 1
+    load tests/gcp/gcp_setup
   fi
 }
 
