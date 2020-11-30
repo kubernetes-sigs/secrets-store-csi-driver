@@ -218,9 +218,11 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ct
 		}
 		return ctrl.Result{}, err
 	}
-	// pod is being terminated so don't reconcile
-	if !pod.GetDeletionTimestamp().IsZero() {
-		klog.InfoS("pod is being terminated, skipping reconcile", "pod", klog.KObj(pod))
+	// skip reconcile if the pod is being terminated
+	// or the pod is in succeeded state (for jobs that complete aren't gc yet)
+	// or the pod is in a failed state (all containers get terminated)
+	if !pod.GetDeletionTimestamp().IsZero() || pod.Status.Phase == v1.PodSucceeded || pod.Status.Phase == v1.PodFailed {
+		klog.V(5).InfoS("pod is being terminated, skipping reconcile", "pod", klog.KObj(pod))
 		return ctrl.Result{}, nil
 	}
 

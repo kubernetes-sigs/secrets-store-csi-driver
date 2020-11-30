@@ -179,10 +179,12 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 		errorReason = internalerrors.PodNotFound
 		return fmt.Errorf("failed to get pod %s/%s, err: %+v", podNamespace, podName, err)
 	}
-	// if the pod is being terminated, then skip rotation
+	// skip rotation if the pod is being terminated
+	// or the pod is in succeeded state (for jobs that complete aren't gc yet)
+	// or the pod is in a failed state (all containers get terminated).
 	// the spcps will be gc when the pod is deleted and will not show up in the next rotation cycle
-	if !pod.GetDeletionTimestamp().IsZero() {
-		klog.InfoS("pod is being terminated, skipping rotation", "pod", klog.KObj(pod))
+	if !pod.GetDeletionTimestamp().IsZero() || pod.Status.Phase == v1.PodSucceeded || pod.Status.Phase == v1.PodFailed {
+		klog.V(5).InfoS("pod is being terminated, skipping rotation", "pod", klog.KObj(pod))
 		return nil
 	}
 
