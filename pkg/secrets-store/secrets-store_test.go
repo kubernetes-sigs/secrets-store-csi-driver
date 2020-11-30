@@ -19,11 +19,12 @@ package secretsstore
 import csicommon "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
 
 const (
-	fakeDriverName = "fake"
-	fakeNodeID     = "fakeNodeID"
+	fakeDriverName    = "fake"
+	fakeNodeID        = "fakeNodeID"
+	fakeVendorVersion = "fakeDriverVersion"
 )
 
 func NewFakeDriver() *csicommon.CSIDriver {
-	driver := csicommon.NewCSIDriver(fakeDriverName, vendorVersion, fakeNodeID)
+	driver := csicommon.NewCSIDriver(fakeDriverName, fakeVendorVersion, fakeNodeID)
 	return driver
 }

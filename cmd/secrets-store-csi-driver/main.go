@@ -19,11 +19,15 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
+	"net/http"
+	_ "net/http/pprof" // #nosec
 	"strings"
 	"time"
 
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/metrics"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/rotation"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -54,6 +58,8 @@ var (
 	grpcSupportedProviders = flag.String("grpc-supported-providers", "", "set list of providers that support grpc for driver-provider [alpha]")
 	enableSecretRotation   = flag.Bool("enable-secret-rotation", false, "Enable secret rotation feature [alpha]")
 	rotationPollInterval   = flag.Duration("rotation-poll-interval", 2*time.Minute, "Secret rotation poll interval duration")
+	enableProfile          = flag.Bool("enable-pprof", false, "enable pprof profiling")
+	profilePort            = flag.Int("pprof-port", 6065, "port for pprof profiling")
 
 	scheme = runtime.NewScheme()
 )
@@ -76,18 +82,22 @@ func main() {
 	if *debug {
 		klog.Warning("--debug flag has been DEPRECATED and will be removed in future releases. Use -v=<log level> to configure log verbosity.")
 	}
+	if *enableProfile {
+		klog.Infof("Starting profiling on port %d", *profilePort)
+		go func() {
+			addr := fmt.Sprintf("%s:%d", "localhost", *profilePort)
+			klog.ErrorS(http.ListenAndServe(addr, nil), "unable to start profiling server")
+		}()
+	}
 
 	// initialize metrics exporter before creating measurements
-	// Issue: https://github.com/open-telemetry/opentelemetry-go/issues/677
-	// this has been resolved in otel release v0.5.0
-	// TODO (aramase) update to latest version of otel and deps
 	err := metrics.InitMetricsExporter()
 	if err != nil {
 		klog.Fatalf("failed to initialize metrics exporter, error: %+v", err)
 	}
 
 	cfg := ctrl.GetConfigOrDie()
-	cfg.UserAgent = "csi-secrets-store/controller"
+	cfg.UserAgent = version.GetUserAgent("controller")
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:             scheme,

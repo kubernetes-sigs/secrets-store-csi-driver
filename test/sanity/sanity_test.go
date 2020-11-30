@@ -19,10 +19,12 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/kubernetes-csi/csi-test/v4/pkg/sanity"
 
 	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 )
 
 const (
@@ -47,6 +49,9 @@ func TestSanity(t *testing.T) {
 	config.RemoveTargetPath = func(targetPath string) error {
 		return os.RemoveAll(targetPath)
 	}
+
+	version.BuildVersion = "mock"
+	version.BuildTime = time.Now().String()
 	sanity.Test(t, config)
 }
 

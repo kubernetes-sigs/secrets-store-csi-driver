@@ -24,7 +24,13 @@ override IMAGE_VERSION := $(E2E_IMAGE_VERSION)
 endif
 IMAGE_TAG=$(REGISTRY)/$(IMAGE_NAME):$(IMAGE_VERSION)
 IMAGE_TAG_LATEST=$(REGISTRY)/$(IMAGE_NAME):latest
-LDFLAGS?='-X sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store.vendorVersion=$(IMAGE_VERSION) -extldflags "-static"'
+
+BUILD_TIMESTAMP := $$(date +%Y-%m-%d-%H:%M)
+BUILD_COMMIT := $$(git rev-parse --short HEAD)
+
+LDFLAGS?="-X sigs.k8s.io/secrets-store-csi-driver/pkg/version.BuildVersion=$(IMAGE_VERSION) \
+			-X sigs.k8s.io/secrets-store-csi-driver/pkg/version.Vcs=$(BUILD_COMMIT) \
+			-X sigs.k8s.io/secrets-store-csi-driver/pkg/version.BuildTime=$(BUILD_TIMESTAMP) --extldflags "-static""
 GO_FILES=$(shell go list ./... | grep -v /test/sanity)
 
 .PHONY: all build image clean test-style
