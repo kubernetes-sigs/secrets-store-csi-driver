@@ -175,7 +175,7 @@ kind: SecretProviderClass
 metadata:
   name: my-provider
 spec:
-  provider: vault                             # accepted provider options: azure or vault
+  provider: vault                             # accepted provider options: azure or vault or gcp
   parameters:                                 # provider-specific parameters
 ```
 
@@ -198,7 +198,8 @@ volumes:
 Here is a sample [deployment yaml](test/bats/tests/vault/nginx-pod-vault-inline-volume-secretproviderclass.yaml) using the Secrets Store CSI driver.
 
 ### Secret Content is Mounted on Pod Start
-On pod start and restart, the driver will call the provider binary to retrieve the secret content from the external Secrets Store you have specified in the `SecretProviderClass` custom resource. Then the content will be mounted to the container's file system. 
+
+On pod start and restart, the driver will communicate with the provider using gRPC to retrieve the secret content from the external Secrets Store you have specified in the `SecretProviderClass` custom resource. Then the volume is mounted in the pod as `tmpfs` and the secret contents are written to the volume.
 
 To validate, once the pod is started, you should see the new mounted content at the volume path specified in your deployment yaml.
 
@@ -219,7 +220,7 @@ kind: SecretProviderClass
 metadata:
   name: my-provider
 spec:
-  provider: vault                             # accepted provider options: azure or vault
+  provider: vault                             # accepted provider options: azure or vault or gcp
   secretObjects:                              # [OPTIONAL] SecretObject defines the desired state of synced K8s secret objects
   - data:
     - key: username                           # data field to populate

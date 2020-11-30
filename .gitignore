@@ -76,3 +76,4 @@ cscope.*
 *.pyc
 
 demo/
+docs/book/book
