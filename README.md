@@ -140,7 +140,8 @@ You should see the following CRDs deployed:
 ```bash
 kubectl get crd
 NAME                                               
-secretproviderclasses.secrets-store.csi.x-k8s.io    
+secretproviderclasses.secrets-store.csi.x-k8s.io
+secretproviderclasspodstatuses.secrets-store.csi.x-k8s.io
 ```
 
 **Note**: v0.0.17 and earlier installed the driver to the `default` namespace.
