@@ -109,7 +109,7 @@ kubectl apply -f deploy/rbac-secretproviderclass.yaml # update the namespace of 
 kubectl apply -f deploy/csidriver.yaml
 kubectl apply -f deploy/secrets-store.csi.x-k8s.io_secretproviderclasses.yaml
 kubectl apply -f deploy/secrets-store.csi.x-k8s.io_secretproviderclasspodstatuses.yaml
-kubectl apply -f deploy/secrets-store-csi-driver.yaml --namespace $NAMESPACE
+kubectl apply -f deploy/secrets-store-csi-driver.yaml
 
 # If using the driver to sync secrets-store content as Kubernetes Secrets, deploy the additional RBAC permissions
 # required to enable this feature
@@ -119,13 +119,13 @@ kubectl apply -f deploy/rbac-secretprovidersyncing.yaml
 kubectl apply -f deploy/csidriver-1.15.yaml
 
 # [OPTIONAL] To deploy driver on windows nodes
-kubectl apply -f deploy/secrets-store-csi-driver-windows.yaml --namespace $NAMESPACE
+kubectl apply -f deploy/secrets-store-csi-driver-windows.yaml
 ```
 
 To validate the installer is running as expected, run the following commands:
 
 ```bash
-kubectl get po --namespace $NAMESPACE
+kubectl get po --namespace=kube-system
 ```
 
 You should see the Secrets Store CSI driver pods running on each agent node:
@@ -141,6 +141,17 @@ You should see the following CRDs deployed:
 kubectl get crd
 NAME                                               
 secretproviderclasses.secrets-store.csi.x-k8s.io    
+```
+
+**Note**: v0.0.17 and earlier installed the driver to the `default` namespace.
+Newer versions of the driver will install the driver to the `kube-system`
+namespace. After applying the new YAML files to your cluster run the following
+to clean up old resources:
+
+```bash
+kubectl delete daemonset csi-secrets-store --namespace=default
+kubectl delete daemonset csi-secrets-store-windows --namespace=default
+kubectl delete serviceaccount secrets-store-csi-driver --namespace=default
 ```
 
 </details>
