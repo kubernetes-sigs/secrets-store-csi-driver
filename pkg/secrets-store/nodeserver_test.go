@@ -23,9 +23,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
-
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store/mocks"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"golang.org/x/net/context"
@@ -33,12 +33,11 @@ import (
 	"google.golang.org/grpc/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/mount"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store/mocks"
 )
 
 func testNodeServer(mountPoints []mount.MountPoint, client client.Client, grpcSupportProviders string, reporter StatsReporter, providerBinaryName string) (*nodeServer, error) {
@@ -456,17 +455,6 @@ func TestNodeUnpublishVolume(t *testing.T) {
 			name: "Failure: target path is empty",
 			nodeUnpublishVolReq: csi.NodeUnpublishVolumeRequest{
 				VolumeId: "testvolid1",
-			},
-			wantsErr:           true,
-			wantsRPCCode:       true,
-			RPCCode:            codes.InvalidArgument,
-			shouldRetryUnmount: true,
-		},
-		{
-			name: "Failure: target path does not contain valid podUID",
-			nodeUnpublishVolReq: csi.NodeUnpublishVolumeRequest{
-				VolumeId:   "testvolid1",
-				TargetPath: getTestTargetPath("", t),
 			},
 			wantsErr:           true,
 			wantsRPCCode:       true,
