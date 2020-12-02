@@ -14,7 +14,7 @@ jqversion=$(jq --version)
 
 ##generateSecret
 if [ "$azure_client_secret" = "" ]; then
-    azure_client_secret=$(openssl rand -base64 24)
+    azure_client_secret=$(openssl rand -base64 27 | tr -d "=#!@" | cut -c1-24)
     if [ $? -ne 0 ]; then
         echo "Error generating secret"
         exit 1
@@ -22,10 +22,9 @@ if [ "$azure_client_secret" = "" ]; then
 fi
 export AZURE_CLIENT_SECRET=$azure_client_secret
 
-
 #createApplication
 if [ "$azure_client_id" != "" ]; then
-    azure_client_id=$(az ad app list --display-name ${ADE_ADAPP_NAME} | jq -r '.[0] | .appId')
+    azure_client_id=$(az ad app list --display-name ${APP_NAME} | jq -r '.[0] | .appId')
 else
     azure_client_id=$(az ad app create --display-name $APP_NAME --identifier-uris http://$APP_NAME --homepage http://$APP_NAME --password $azure_client_secret --output json | jq -r .appId)
 fi
@@ -35,3 +34,8 @@ if [ $? -ne 0 ]; then
     return 1
 fi
 export AZURE_CLIENT_ID=$azure_client_id
+
+if [[ -z "${AZURE_CLIENT_ID}" ]] || [[ -z "${AZURE_CLIENT_SECRET}" ]]; then
+    echo "Error: Azure service principal is not provided" >&2
+    return 1
+fi

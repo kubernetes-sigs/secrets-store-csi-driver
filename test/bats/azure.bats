@@ -35,11 +35,7 @@ export KEY_VALUE_CONTAINS=${KEYVAULT_KEY_VALUE:-"LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0
 export CONTAINER_IMAGE=$CONTAINER_IMAGE
 export LABEL_VALUE=${LABEL_VALUE:-"test"}
 
-setup() {
-  if [[ -z "${AZURE_CLIENT_ID}" ]] || [[ -z "${AZURE_CLIENT_SECRET}" ]]; then
-    load tests/azure/azure_setup
-  fi
-}
+load tests/azure/azure_setup
 
 @test "install azure provider" {	
   run kubectl apply -f $PROVIDER_YAML --namespace $NAMESPACE	
