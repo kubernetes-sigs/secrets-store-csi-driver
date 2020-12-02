@@ -1,37 +1,34 @@
 #!/bin/bash
 
 gcp_project=${GCP_PROJECT_NAME:-"gcp-e2e-test2"}
-GCP_SA_JSON=${GCP_SA_JSON:-""}
-secret_name=test-secret-a
+sa_account_path="test/bats/tests/gcp/gcpsajson.json"
+secret_name="test-secret-a"
 service_account=${SERVICE_ACCOUNT:-"gcp-test"}
-
-export RESOURCE_NAME=projects/$gcp_project/secrets/$secret_name/versions/latest
 
 gcloud config set project $gcp_project
 
 
-#To-do check if the SA already exsits 
-gcloud iam service-accounts create gcp-test --display-name "GCP e2e test service account"
+#Check if the key already exsits by retrieving it 
 
-#To-do check if the key already exsits by retrieving it 
-if [ "$GCP_SA_JSON" = "" ]; then
+if [ ! -f "$sa_account_path" ]; then
   
-  GCP_SA_JSON=$(gcloud iam service-accounts keys create --iam-account $service_account@$gcp_project.iam.gserviceaccount.com gcpsajson.json)
+    gcloud iam service-accounts keys create --iam-account $service_account@$gcp_project.iam.gserviceaccount.com $sa_account_path
 
-  gcloud services enable secretmanager.googleapis.com
+    if [ $? -ne 0 ]; then
+        echo "Error: Cannot export GCP Service Account (GCP_SA_JSON)"
+        return 1
+    fi
 
-#To-do check if the secret already exsits
-  printf "hunter2" | gcloud secrets create $secret_name --replication-policy="automatic" --data-file="-"
+    gcloud services enable secretmanager.googleapis.com
 
-  gcloud secrets add-iam-policy-binding $secret_name --member=serviceAccount:$service_account@$gcp_project.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+    printf "hunter2" | gcloud secrets create $secret_name --replication-policy="automatic" --data-file="-"
 
-  
-  if [ $? -ne 0 ]; then
-      echo "Error: Cannot export GCP Service Account (GCP_SA_JSON)"
-      return 1
-  fi
+    gcloud secrets add-iam-policy-binding $secret_name --member=serviceAccount:$service_account@$gcp_project.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
 
-  echo $GCP_SA_JSON
-  export GCP_SA_JSON=$GCP_SA_JSON
-
+    if [ $? -ne 0 ]; then
+        echo "Error: Cannot create secret for the service account"
+        return 1
+    fi
 fi
+
+ export GCP_SA_JSON=$sa_account_path
