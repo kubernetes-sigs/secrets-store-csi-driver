@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-REGISTRY?=docker.io/deislabs
+REGISTRY?=e2e
 REGISTRY_NAME = $(shell echo $(REGISTRY) | sed "s/.azurecr.io//g")
 GIT_COMMIT ?= $(shell git rev-parse HEAD)
 IMAGE_NAME=secrets-store-csi
@@ -120,8 +120,8 @@ ifdef TEST_WINDOWS
 		docker manifest inspect $(IMAGE_TAG)
 		docker manifest push --purge $(IMAGE_TAG)
 else
-		REGISTRY="e2e" make image
-		kind load docker-image --name kind e2e/secrets-store-csi:$(IMAGE_VERSION)
+	REGISTRY=e2e make image
+	kind load docker-image --name kind $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_VERSION)
 endif
 
 .PHONY: install-helm
@@ -147,7 +147,7 @@ ifdef TEST_WINDOWS
 else
 		helm install csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace default --wait --timeout=15m -v=5 --debug \
 			--set linux.image.pullPolicy="IfNotPresent" \
-			--set linux.image.repository="e2e/secrets-store-csi" \
+			--set linux.image.repository="$(REGISTRY)/$(IMAGE_NAME)" \
 			--set linux.image.tag=$(IMAGE_VERSION) \
 			--set linux.image.pullPolicy="IfNotPresent" \
 			--set grpcSupportedProviders="azure;gcp" \
