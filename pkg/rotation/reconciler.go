@@ -50,6 +50,7 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/k8sutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/secretutil"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 )
 
 const (
@@ -88,6 +89,7 @@ func NewReconciler(s *runtime.Scheme, providerVolumePath, nodeName string, rotat
 	if err != nil {
 		return nil, err
 	}
+	config.UserAgent = version.GetUserAgent("rotation")
 	kubeClient := kubernetes.NewForConfigOrDie(config)
 	crdClient := secretsStoreClient.NewForConfigOrDie(config)
 	c, err := client.New(config, client.Options{Scheme: s, Mapper: nil})

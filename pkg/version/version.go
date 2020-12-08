@@ -19,12 +19,28 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/blang/semver"
 	"k8s.io/klog/v2"
 )
 
+var (
+	// Vcs is the commit hash for the binary build
+	Vcs string
+	// BuildTime is the date for the binary build
+	BuildTime string
+	// BuildVersion is the secrets-store-csi-driver version
+	BuildVersion string
+)
+
+// GetUserAgent returns a user agent of the format: csi-secrets-store/<controller name>/<version> (<goos>/<goarch>) <vcs>/<timestamp>
+func GetUserAgent(controllerName string) string {
+	return fmt.Sprintf("csi-secrets-store/%s/%s (%s/%s) %s/%s", controllerName, BuildVersion, runtime.GOOS, runtime.GOARCH, Vcs, BuildTime)
+}
+
+// TODO (aramase) remove these functions after all providers have switched to using gRPC
 // providerVersion holds current provider version
 type providerVersion struct {
 	// Version is the current provider version

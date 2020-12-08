@@ -42,12 +42,10 @@ func NewCSIDriver(name string, v string, nodeID string) *CSIDriver {
 		klog.Errorf("Driver name missing")
 		return nil
 	}
-
 	if nodeID == "" {
 		klog.Errorf("NodeID missing")
 		return nil
 	}
-	// TODO version format and validation
 	if len(v) == 0 {
 		klog.Errorf("Version argument missing")
 		return nil

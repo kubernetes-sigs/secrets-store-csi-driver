@@ -39,10 +39,6 @@ type SecretsStore struct {
 	ids    *identityServer
 }
 
-var (
-	vendorVersion = "0.0.17"
-)
-
 // GetDriver returns a new secrets store driver
 func GetDriver() *SecretsStore {
 	return &SecretsStore{}
@@ -90,15 +86,14 @@ func newIdentityServer(d *csicommon.CSIDriver) *identityServer {
 // Run starts the CSI plugin
 func (s *SecretsStore) Run(ctx context.Context, driverName, nodeID, endpoint, providerVolumePath, minProviderVersions string, providerClients map[string]*CSIProviderClient, client client.Client) {
 	klog.Infof("Driver: %v ", driverName)
-	klog.Infof("Version: %s", vendorVersion)
+	klog.Infof("Version: %s, BuildTime: %s", version.BuildVersion, version.BuildTime)
 	klog.Infof("Provider Volume Path: %s", providerVolumePath)
-	klog.Infof("Minimum provider versions: %s", minProviderVersions)
 	for p := range providerClients {
 		klog.Infof("GRPC supported provider: %s", p)
 	}
 
 	// Initialize default library driver
-	s.driver = csicommon.NewCSIDriver(driverName, vendorVersion, nodeID)
+	s.driver = csicommon.NewCSIDriver(driverName, version.BuildVersion, nodeID)
 	if s.driver == nil {
 		klog.Fatal("Failed to initialize SecretsStore CSI Driver.")
 	}
