@@ -18,7 +18,6 @@ package secretsstore
 
 import (
 	"context"
-	"strings"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"k8s.io/utils/mount"
@@ -49,34 +48,29 @@ func GetDriver() *SecretsStore {
 	return &SecretsStore{}
 }
 
-func newNodeServer(d *csicommon.CSIDriver, providerVolumePath, minProviderVersions, grpcSupportedProviders, nodeID string, mounter mount.Interface, client client.Client, statsReporter StatsReporter) (*nodeServer, error) {
+func newNodeServer(d *csicommon.CSIDriver, providerVolumePath, minProviderVersions, nodeID string, mounter mount.Interface, providerClients map[string]*CSIProviderClient, client client.Client, statsReporter StatsReporter) (*nodeServer, error) {
 	// get a map of provider and compatible version
 	minProviderVersionsMap, err := version.GetMinimumProviderVersions(minProviderVersions)
 	if err != nil {
 		return nil, err
 	}
-	grpcSupportedProvidersMap := make(map[string]bool)
-	for _, provider := range strings.Split(grpcSupportedProviders, ";") {
-		if len(provider) != 0 {
-			grpcSupportedProvidersMap[provider] = true
-		}
-	}
 
 	if len(minProviderVersionsMap) == 0 {
 		klog.Infof("minimum compatible provider versions not specified with --min-provider-version")
 	}
-	if len(grpcSupportedProvidersMap) == 0 {
+	if len(providerClients) == 0 {
 		klog.Infof("grpc supported providers not enabled")
 	}
+
 	return &nodeServer{
-		DefaultNodeServer:      csicommon.NewDefaultNodeServer(d),
-		providerVolumePath:     providerVolumePath,
-		minProviderVersions:    minProviderVersionsMap,
-		mounter:                mounter,
-		reporter:               statsReporter,
-		nodeID:                 nodeID,
-		client:                 client,
-		grpcSupportedProviders: grpcSupportedProvidersMap,
+		DefaultNodeServer:   csicommon.NewDefaultNodeServer(d),
+		providerVolumePath:  providerVolumePath,
+		minProviderVersions: minProviderVersionsMap,
+		mounter:             mounter,
+		reporter:            statsReporter,
+		nodeID:              nodeID,
+		client:              client,
+		providerClients:     providerClients,
 	}, nil
 }
 
@@ -94,12 +88,14 @@ func newIdentityServer(d *csicommon.CSIDriver) *identityServer {
 }
 
 // Run starts the CSI plugin
-func (s *SecretsStore) Run(ctx context.Context, driverName, nodeID, endpoint, providerVolumePath, minProviderVersions, grpcSupportedProviders string, client client.Client) {
+func (s *SecretsStore) Run(ctx context.Context, driverName, nodeID, endpoint, providerVolumePath, minProviderVersions string, providerClients map[string]*CSIProviderClient, client client.Client) {
 	klog.Infof("Driver: %v ", driverName)
 	klog.Infof("Version: %s", vendorVersion)
 	klog.Infof("Provider Volume Path: %s", providerVolumePath)
 	klog.Infof("Minimum provider versions: %s", minProviderVersions)
-	klog.Infof("GRPC supported providers: %s", grpcSupportedProviders)
+	for p := range providerClients {
+		klog.Infof("GRPC supported provider: %s", p)
+	}
 
 	// Initialize default library driver
 	s.driver = csicommon.NewCSIDriver(driverName, vendorVersion, nodeID)
@@ -115,10 +111,11 @@ func (s *SecretsStore) Run(ctx context.Context, driverName, nodeID, endpoint, pr
 		csi.VolumeCapability_AccessMode_MULTI_NODE_READER_ONLY,
 	})
 
-	ns, err := newNodeServer(s.driver, providerVolumePath, minProviderVersions, grpcSupportedProviders, nodeID, mount.New(""), client, NewStatsReporter())
+	ns, err := newNodeServer(s.driver, providerVolumePath, minProviderVersions, nodeID, mount.New(""), providerClients, client, NewStatsReporter())
 	if err != nil {
 		klog.Fatalf("failed to initialize node server, error: %+v", err)
 	}
+
 	s.ns = ns
 	s.cs = newControllerServer(s.driver)
 	s.ids = newIdentityServer(s.driver)

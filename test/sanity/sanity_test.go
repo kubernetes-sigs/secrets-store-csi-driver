@@ -34,7 +34,7 @@ const (
 func TestSanity(t *testing.T) {
 	driver := secretsstore.GetDriver()
 	go func() {
-		driver.Run(context.Background(), "secrets-store.csi.k8s.io", "somenodeid", endpoint, providerVolumePath, "provider1=0.0.2,provider2=0.0.4", "", nil)
+		driver.Run(context.Background(), "secrets-store.csi.k8s.io", "somenodeid", endpoint, providerVolumePath, "provider1=0.0.2,provider2=0.0.4", nil, nil)
 	}()
 
 	tmpPath := filepath.Join(os.TempDir(), "csi")

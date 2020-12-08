@@ -75,6 +75,11 @@ func newTestReconciler(s *runtime.Scheme, kubeClient kubernetes.Interface, crdCl
 		return nil, err
 	}
 
+	client, err := secretsstore.NewProviderClient("provider1", socketPath)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Reconciler{
 		store:                store,
 		ctrlReaderClient:     ctrlClient,
@@ -82,10 +87,12 @@ func newTestReconciler(s *runtime.Scheme, kubeClient kubernetes.Interface, crdCl
 		scheme:               s,
 		providerVolumePath:   socketPath,
 		rotationPollInterval: rotationPollInterval,
-		providerClients:      map[string]*secretsstore.CSIProviderClient{},
-		queue:                workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		reporter:             newStatsReporter(),
-		eventRecorder:        fakeRecorder,
+		providerClients: map[string]*secretsstore.CSIProviderClient{
+			"provider1": client,
+		},
+		queue:         workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		reporter:      newStatsReporter(),
+		eventRecorder: fakeRecorder,
 	}, nil
 }
 
@@ -370,7 +377,7 @@ func TestReconcileError(t *testing.T) {
 			expectedErrorEvents:    false,
 		},
 		{
-			name:                 "failed to create provider client",
+			name:                 "failed to lookup provider client",
 			rotationPollInterval: 60 * time.Second,
 			secretProviderClassPodStatusToProcess: &v1alpha1.SecretProviderClassPodStatus{
 				ObjectMeta: metav1.ObjectMeta{

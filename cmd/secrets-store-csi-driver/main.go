@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"flag"
+	"strings"
 	"time"
 
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/metrics"
@@ -85,10 +86,10 @@ func main() {
 		klog.Fatalf("failed to initialize metrics exporter, error: %+v", err)
 	}
 
-	config := ctrl.GetConfigOrDie()
-	config.UserAgent = "csi-secrets-store/controller"
+	cfg := ctrl.GetConfigOrDie()
+	cfg.UserAgent = "csi-secrets-store/controller"
 
-	mgr, err := ctrl.NewManager(config, ctrl.Options{
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: *metricsAddr,
 		LeaderElection:     false,
@@ -108,6 +109,26 @@ func main() {
 
 	ctx := withShutdownSignal(context.Background())
 
+	// create provider clients
+	providerClients := make(map[string]*secretsstore.CSIProviderClient)
+	for _, provider := range strings.Split(*grpcSupportedProviders, ";") {
+		p := strings.TrimSpace(provider)
+		if len(p) != 0 {
+			// dialing clients is non-blocking and will be retried on errors
+			providerClients[provider], err = secretsstore.NewProviderClient(secretsstore.CSIProviderName(p), *providerVolumePath)
+			if err != nil {
+				klog.Fatalf("failed to create provider client, err: %+v", err)
+			}
+		}
+	}
+	defer func() {
+		for k, v := range providerClients {
+			if err := v.Close(); err != nil {
+				klog.ErrorS(err, "closing grpc client failed", "provider", k)
+			}
+		}
+	}()
+
 	go func() {
 		klog.Infof("starting manager")
 		if err := mgr.Start(ctx.Done()); err != nil {
@@ -120,27 +141,23 @@ func main() {
 	}()
 
 	if *enableSecretRotation {
-		rec, err := rotation.NewReconciler(scheme, *providerVolumePath, *nodeID, *rotationPollInterval)
+		rec, err := rotation.NewReconciler(scheme, *providerVolumePath, *nodeID, *rotationPollInterval, providerClients)
 		if err != nil {
 			klog.Fatalf("failed to initialize rotation reconciler, error: %+v", err)
 		}
 		go rec.Run(ctx.Done())
 	}
 
-	handle(ctx)
-}
-
-func handle(ctx context.Context) {
-	driver := secretsstore.GetDriver()
-	cfg, err := config.GetConfig()
+	ccfg, err := config.GetConfig()
 	if err != nil {
 		klog.Fatalf("failed to initialize driver, error getting config: %+v", err)
 	}
-	c, err := client.New(cfg, client.Options{Scheme: scheme, Mapper: nil})
+	c, err := client.New(ccfg, client.Options{Scheme: scheme, Mapper: nil})
 	if err != nil {
 		klog.Fatalf("failed to initialize driver, error creating client: %+v", err)
 	}
-	driver.Run(ctx, *driverName, *nodeID, *endpoint, *providerVolumePath, *minProviderVersion, *grpcSupportedProviders, c)
+	driver := secretsstore.GetDriver()
+	driver.Run(ctx, *driverName, *nodeID, *endpoint, *providerVolumePath, *minProviderVersion, providerClients, c)
 }
 
 // withShutdownSignal returns a copy of the parent context that will close if

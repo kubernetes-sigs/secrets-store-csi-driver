@@ -20,75 +20,63 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net"
-
-	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
 
 	"google.golang.org/grpc"
 
+	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 )
-
-// Strongly typed address
-type providerAddr string
 
 // Strongly typed provider name
 type CSIProviderName string
 
-type csiProviderClientCreator func(addr providerAddr) (
-	providerClient v1alpha1.CSIDriverProviderClient,
-	closer io.Closer,
-	err error,
-)
-
 // csiProviderClient encapsulates all csi-provider methods
 type CSIProviderClient struct {
-	providerName             CSIProviderName
-	addr                     providerAddr
-	csiProviderClientCreator csiProviderClientCreator
+	providerName CSIProviderName
+	client       v1alpha1.CSIDriverProviderClient
+	conn         *grpc.ClientConn
 }
 
 func NewProviderClient(providerName CSIProviderName, socketPath string) (*CSIProviderClient, error) {
 	if providerName == "" {
 		return nil, fmt.Errorf("provider name is empty")
 	}
-	return &CSIProviderClient{
-		providerName:             providerName,
-		addr:                     providerAddr(fmt.Sprintf("%s/%s.sock", socketPath, providerName)),
-		csiProviderClientCreator: newCSIProviderClient,
-	}, nil
-}
 
-func newCSIProviderClient(addr providerAddr) (providerClient v1alpha1.CSIDriverProviderClient, closer io.Closer, err error) {
-	var conn *grpc.ClientConn
-	conn, err = newGrpcConn(addr)
-	if err != nil {
-		return nil, nil, err
-	}
+	retryPolicy := `{
+		"methodConfig": [{
+		  "name": [{"service": "v1alpha1.CSIDriverProvider"}],
+		  "waitForReady": true,
+		  "retryPolicy": {
+			  "MaxAttempts": 5,
+			  "InitialBackoff": "1s",
+			  "MaxBackoff": "10s",
+			  "BackoffMultiplier": 1.0,
+			  "RetryableStatusCodes": [ "UNAVAILABLE" ]
+		  }
+		}]}`
 
-	providerClient = v1alpha1.NewCSIDriverProviderClient(conn)
-	return providerClient, conn, nil
-}
-
-func newGrpcConn(addr providerAddr) (*grpc.ClientConn, error) {
-	network := "unix"
-	return grpc.Dial(
-		string(addr),
+	conn, err := grpc.Dial(
+		fmt.Sprintf("%s/%s.sock", socketPath, providerName),
 		grpc.WithInsecure(),
 		grpc.WithContextDialer(func(ctx context.Context, target string) (net.Conn, error) {
-			return (&net.Dialer{}).DialContext(ctx, network, target)
+			return (&net.Dialer{}).DialContext(ctx, "unix", target)
 		}),
+		grpc.WithDefaultServiceConfig(retryPolicy),
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &CSIProviderClient{
+		providerName: providerName,
+		client:       v1alpha1.NewCSIDriverProviderClient(conn),
+		conn:         conn,
+	}, nil
+
 }
 
 func (c *CSIProviderClient) MountContent(ctx context.Context, attributes, secrets, targetPath, permission string, oldObjectVersions map[string]string) (map[string]string, string, error) {
-	client, closer, err := c.csiProviderClientCreator(c.addr)
-	if err != nil {
-		return nil, internalerrors.FailedToCreateProviderGRPCClient, err
-	}
-	defer closer.Close()
-
 	var objVersions []*v1alpha1.ObjectVersion
 	for obj, version := range oldObjectVersions {
 		objVersions = append(objVersions, &v1alpha1.ObjectVersion{Id: obj, Version: version})
@@ -102,7 +90,7 @@ func (c *CSIProviderClient) MountContent(ctx context.Context, attributes, secret
 		CurrentObjectVersion: objVersions,
 	}
 
-	resp, err := client.Mount(ctx, req)
+	resp, err := c.client.Mount(ctx, req)
 	if err != nil {
 		return nil, internalerrors.GRPCProviderError, err
 	}
@@ -119,4 +107,8 @@ func (c *CSIProviderClient) MountContent(ctx context.Context, attributes, secret
 		objectVersions[v.Id] = v.Version
 	}
 	return objectVersions, "", nil
+}
+
+func (c *CSIProviderClient) Close() error {
+	return c.conn.Close()
 }

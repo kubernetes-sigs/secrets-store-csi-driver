@@ -83,7 +83,7 @@ type Reconciler struct {
 }
 
 // NewReconciler returns a new reconciler for rotation
-func NewReconciler(s *runtime.Scheme, providerVolumePath, nodeName string, rotationPollInterval time.Duration) (*Reconciler, error) {
+func NewReconciler(s *runtime.Scheme, providerVolumePath, nodeName string, rotationPollInterval time.Duration, providerClients map[string]*secretsstore.CSIProviderClient) (*Reconciler, error) {
 	config, err := buildConfig()
 	if err != nil {
 		return nil, err
@@ -109,7 +109,7 @@ func NewReconciler(s *runtime.Scheme, providerVolumePath, nodeName string, rotat
 		scheme:               s,
 		providerVolumePath:   providerVolumePath,
 		rotationPollInterval: rotationPollInterval,
-		providerClients:      make(map[string]*secretsstore.CSIProviderClient),
+		providerClients:      providerClients,
 		reporter:             newStatsReporter(),
 		queue:                workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		eventRecorder:        recorder,
@@ -274,11 +274,11 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 	}
 
 	providerName = string(spc.Spec.Provider)
-	providerClient, err := r.getProviderClient(providerName)
-	if err != nil {
-		errorReason = internalerrors.FailedToCreateProviderGRPCClient
-		r.generateEvent(pod, v1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to create provider client, err: %+v", err))
-		return fmt.Errorf("failed to create provider client, err: %+v", err)
+	providerClient, exists := r.providerClients[providerName]
+	if !exists {
+		errorReason = internalerrors.FailedToLookupProviderGRPCClient
+		r.generateEvent(pod, v1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to lookup provider client: %q", providerName))
+		return fmt.Errorf("failed to lookup provider client: %q", providerName)
 	}
 	newObjectVersions, errorReason, err := providerClient.MountContent(ctx, string(paramsJSON), string(secretsJSON), spcps.Status.TargetPath, string(permissionJSON), oldObjectVersions)
 	if err != nil {
@@ -444,21 +444,6 @@ func (r *Reconciler) patchSecret(ctx context.Context, name, namespace string, da
 	// and appends new keys if it doesn't already exist
 	secret.Data = data
 	return r.ctrlWriterClient.Patch(ctx, secret, patch)
-}
-
-// getProviderClient returns the GRPC provider client to use for mount request
-func (r *Reconciler) getProviderClient(providerName string) (*secretsstore.CSIProviderClient, error) {
-	// check if the provider client already exists
-	if providerClient, exists := r.providerClients[providerName]; exists {
-		return providerClient, nil
-	}
-	// create a new client as it doesn't exist in the reconciler cache
-	providerClient, err := secretsstore.NewProviderClient(secretsstore.CSIProviderName(providerName), r.providerVolumePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create %s provider client, err: %+v", providerName, err)
-	}
-	r.providerClients[providerName] = providerClient
-	return providerClient, nil
 }
 
 // runWorker runs a thread that process the queue
