@@ -61,6 +61,10 @@ test-style: setup
 	@echo "==> Running static validations and linters <=="
 	# Setting timeout to 5m as deafult is 1m
 	golangci-lint run --timeout=5m
+	# Run helm lint tests
+	helm lint --strict charts/secrets-store-csi-driver
+	helm lint --strict manifest_staging/charts/secrets-store-csi-driver
+
 sanity-test:
 	go test -v ./test/sanity
 build: setup
@@ -76,6 +80,7 @@ clean:
 setup: clean
 	@echo "Setup..."
 	$Q go env
+	$(MAKE) install-helm
 
 ifndef HAS_GOLANGCI
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOPATH)/bin v1.30.0
@@ -132,7 +137,7 @@ endif
 
 .PHONY: install-helm
 install-helm:
-	curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+	helm version --short | grep -q v3 || (curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash)
 
 .PHONY: e2e-teardown
 e2e-teardown:
