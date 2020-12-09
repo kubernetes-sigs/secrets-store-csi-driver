@@ -123,7 +123,10 @@ setup-kind:
 .PHONY: e2e-container
 e2e-container:
 	docker buildx rm container-builder || true
-	docker buildx create --use --name=container-builder
+	# only moby/buildkit:foreign-mediatype works on building Windows image now
+	# https://github.com/moby/buildkit/pull/1879
+	# Github issue: https://github.com/moby/buildkit/issues/1877
+	docker buildx create --use --name=container-builder --driver-opt image=moby/buildkit:v0.7.2
 ifdef TEST_WINDOWS
 		docker buildx build --no-cache --build-arg LDFLAGS=$(LDFLAGS) -t $(IMAGE_TAG)-linux-amd64 -f docker/Dockerfile --platform="linux/amd64" --push .
 		docker buildx build --no-cache --build-arg LDFLAGS=$(LDFLAGS) -t $(IMAGE_TAG)-windows-1809-amd64 -f docker/windows.Dockerfile --platform="windows/amd64" --push .
