@@ -1,4 +1,4 @@
-apiVersion: storage.k8s.io/v1beta1
+apiVersion: {{ template "csidriver.apiVersion" . }}
 kind: CSIDriver
 metadata:
   name: secrets-store.csi.k8s.io

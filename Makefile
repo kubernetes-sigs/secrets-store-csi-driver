@@ -248,5 +248,8 @@ promote-staging-manifest:
 	@cp -r manifest_staging/deploy .
 	@rm -rf charts/secrets-store-csi-driver
 	@cp -r manifest_staging/charts/secrets-store-csi-driver ./charts
-	@helm package ./charts/secrets-store-csi-driver -d ./charts/
-	@helm repo index ./charts --url https://raw.githubusercontent.com/kubernetes-sigs/secrets-store-csi-driver/master/charts
+	@mkdir -p ./charts/tmp
+	@helm package ./charts/secrets-store-csi-driver -d ./charts/tmp/
+	@helm repo index ./charts/tmp --url https://raw.githubusercontent.com/kubernetes-sigs/secrets-store-csi-driver/master/charts --merge ./charts/index.yaml
+	@mv ./charts/tmp/* ./charts
+	@rm -rf ./charts/tmp
