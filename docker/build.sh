@@ -22,7 +22,9 @@ TASK=$1
 
 pushd `dirname "$0"`
 
-LDFLAGS="-X sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store.vendorVersion=${IMAGE_VERSION} -extldflags '-static'"
+LDFLAGS="-X sigs.k8s.io/secrets-store-csi-driver/pkg/version.BuildVersion=${IMAGE_VERSION} \
+ -X sigs.k8s.io/secrets-store-csi-driver/pkg/version.Vcs=${BUILD_COMMIT} \
+ -X sigs.k8s.io/secrets-store-csi-driver/pkg/version.BuildTime=${BUILD_TIMESTAMP} -extldflags '-static'"
 
 # Returns list of all supported architectures from the BASEIMAGE file
 listOsArchs() {
@@ -71,7 +73,10 @@ docker_version_check() {
 build_and_push() {
   docker_version_check
 
-  docker buildx create --name img-builder --use
+  # only moby/buildkit:foreign-mediatype works on building Windows image now
+  # https://github.com/moby/buildkit/pull/1879
+  # Github issue: https://github.com/moby/buildkit/issues/1877
+  docker buildx create --name img-builder --use --driver-opt image=moby/buildkit:v0.7.2
   trap "docker buildx rm img-builder" EXIT
 
   os_archs=$(listOsArchs)
