@@ -16,7 +16,7 @@ REGISTRY?=docker.io/deislabs
 REGISTRY_NAME = $(shell echo $(REGISTRY) | sed "s/.azurecr.io//g")
 GIT_COMMIT ?= $(shell git rev-parse HEAD)
 IMAGE_NAME=secrets-store-csi
-IMAGE_VERSION?=v0.0.17
+IMAGE_VERSION?=v0.0.18
 E2E_IMAGE_VERSION = v0.1.0-e2e-$(GIT_COMMIT)
 # Use a custom version for E2E tests if we are testing in CI
 ifdef CI
