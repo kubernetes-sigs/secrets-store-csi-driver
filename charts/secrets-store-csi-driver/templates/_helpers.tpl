@@ -32,3 +32,14 @@ labels:
   app: {{ template "sscd.name" . }}
   helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
 {{- end -}}
+
+{{/*
+Return the appropriate apiVersion for CSIDriver.
+*/}}
+{{- define "csidriver.apiVersion" -}}
+{{- if semverCompare ">=1.18-0" .Capabilities.KubeVersion.Version }}
+{{- print "storage.k8s.io/v1" -}}
+{{- else -}}
+{{- print "storage.k8s.io/v1beta1" -}}
+{{- end -}}
+{{- end -}}
