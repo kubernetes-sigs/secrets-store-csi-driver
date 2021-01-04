@@ -53,6 +53,7 @@ linux:
   metricsAddr: ":8095"
   env: []
   priorityClassName: ""
+  annotations: {}
 
 windows:
   enabled: false
@@ -109,6 +110,7 @@ windows:
   metricsAddr: ":8095"
   env: []
   priorityClassName: ""
+  annotations: {}
 
 # log level. Uses V logs (klog)
 logVerbosity: 0
