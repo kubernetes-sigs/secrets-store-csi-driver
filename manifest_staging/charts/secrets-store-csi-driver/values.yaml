@@ -54,6 +54,8 @@ linux:
   env: []
   priorityClassName: ""
   annotations: {}
+  # Prometheus port for metrics backend
+  prometheusPort: 8888
 
 windows:
   enabled: false
@@ -111,6 +113,8 @@ windows:
   env: []
   priorityClassName: ""
   annotations: {}
+  # Prometheus port for metrics backend
+  prometheusPort: 8888
 
 # log level. Uses V logs (klog)
 logVerbosity: 0
