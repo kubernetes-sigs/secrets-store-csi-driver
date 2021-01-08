@@ -14,28 +14,18 @@ limitations under the License.
 package metrics
 
 import (
-	"fmt"
-	"net/http"
+	otProm "go.opentelemetry.io/otel/exporters/metric/prometheus"
 
-	"go.opentelemetry.io/otel/exporters/metric/prometheus"
+	"github.com/prometheus/client_golang/prometheus"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 func initPrometheusExporter() error {
-	/*
-		Prometheus exporter for opentelemetry is under active development
-		Defining the buckets is due to change in future release - https://github.com/open-telemetry/opentelemetry-go/issues/689
-	*/
-	pusher, err := prometheus.InstallNewPipeline(prometheus.Config{
+	_, err := otProm.InstallNewPipeline(otProm.Config{
+		Registry: metrics.Registry.(*prometheus.Registry), // using the controller-runtime prometheus metrics registry
 		DefaultHistogramBoundaries: []float64{
 			0.1, 0.2, 0.3, 0.4, 0.5, 1, 1.5, 2, 2.5, 3.0, 5.0, 10.0, 15.0, 30.0,
 		}})
-	if err != nil {
-		return err
-	}
-	http.HandleFunc("/", pusher.ServeHTTP)
-	go func() {
-		_ = http.ListenAndServe(fmt.Sprintf(":%v", *prometheusPort), nil)
-	}()
 
-	return nil
+	return err
 }
