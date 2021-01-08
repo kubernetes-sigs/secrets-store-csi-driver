@@ -48,6 +48,7 @@ linux:
       maxUnavailable: 1
 
   kubeletRootDir: /var/lib/kubelet
+  providersDir: /etc/kubernetes/secrets-store-csi-providers
   nodeSelector: {}
   tolerations: []
   metricsAddr: ":8095"
@@ -105,6 +106,7 @@ windows:
       maxUnavailable: 1
 
   kubeletRootDir: C:\var\lib\kubelet
+  providersDir: C:\k\secrets-store-csi-providers
   nodeSelector: {}
   tolerations: []
   metricsAddr: ":8095"
