@@ -10,7 +10,10 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -a -ldflags "${LDFL
 
 FROM $BASEIMAGE
 COPY --from=builder /go/src/sigs.k8s.io/secrets-store-csi-driver/_output/secrets-store-csi /secrets-store-csi
-RUN clean-install ca-certificates cifs-utils mount
+# upgrading apt &libapt-pkg5.0 due to CVE-2020-27350
+# upgrading libp11-kit0 due to CVE-2020-29362, CVE-2020-29363 and CVE-2020-29361
+RUN apt-mark unhold apt && \
+    clean-install ca-certificates cifs-utils mount apt libapt-pkg5.0 libp11-kit0 wget
 
 LABEL maintainers="ritazh"
 LABEL description="Secrets Store CSI Driver"
