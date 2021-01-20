@@ -2,7 +2,7 @@ linux:
   enabled: true
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v0.0.18
+    tag: v0.0.19
     pullPolicy: Always
 
   driver:
@@ -16,7 +16,7 @@ linux:
 
   registrarImage:
     repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
-    tag: v2.0.1
+    tag: v2.1.0
     pullPolicy: Always
 
   registrar:
@@ -30,7 +30,7 @@ linux:
 
   livenessProbeImage:
     repository: k8s.gcr.io/sig-storage/livenessprobe
-    tag: v2.1.0
+    tag: v2.2.0
     pullPolicy: Always
 
   livenessProbe:
@@ -48,17 +48,19 @@ linux:
       maxUnavailable: 1
 
   kubeletRootDir: /var/lib/kubelet
+  providersDir: /etc/kubernetes/secrets-store-csi-providers
   nodeSelector: {}
   tolerations: []
   metricsAddr: ":8095"
   env: []
   priorityClassName: ""
+  annotations: {}
 
 windows:
   enabled: false
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v0.0.18
+    tag: v0.0.19
     pullPolicy: IfNotPresent
 
   driver:
@@ -72,7 +74,7 @@ windows:
 
   registrarImage:
     repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
-    tag: v2.0.1
+    tag: v2.1.0
     pullPolicy: IfNotPresent
 
   registrar:
@@ -86,7 +88,7 @@ windows:
 
   livenessProbeImage:
     repository: k8s.gcr.io/sig-storage/livenessprobe
-    tag: v2.1.0
+    tag: v2.2.0
     pullPolicy: IfNotPresent
 
   livenessProbe:
@@ -104,11 +106,13 @@ windows:
       maxUnavailable: 1
 
   kubeletRootDir: C:\var\lib\kubelet
+  providersDir: C:\k\secrets-store-csi-providers
   nodeSelector: {}
   tolerations: []
   metricsAddr: ":8095"
   env: []
   priorityClassName: ""
+  annotations: {}
 
 # log level. Uses V logs (klog)
 logVerbosity: 0
@@ -135,7 +139,7 @@ syncSecret:
 minimumProviderVersions:
 
 ## ; delimited list of providers that support grpc for driver-provider [alpha]
-grpcSupportedProviders: gcp;
+grpcSupportedProviders: gcp;azure;
 
 ## Enable secret rotation feature [alpha]
 enableSecretRotation: false
