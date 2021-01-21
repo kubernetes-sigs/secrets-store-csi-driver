@@ -164,7 +164,7 @@ else
 			--set linux.image.repository="e2e/secrets-store-csi" \
 			--set linux.image.tag=$(IMAGE_VERSION) \
 			--set linux.image.pullPolicy="IfNotPresent" \
-			--set grpcSupportedProviders="azure;gcp" \
+			--set grpcSupportedProviders="azure;gcp;vault" \
 			--set enableSecretRotation=true \
 			--set rotationPollInterval=30s
 endif
