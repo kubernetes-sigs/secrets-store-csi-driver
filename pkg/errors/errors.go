@@ -17,8 +17,6 @@ limitations under the License.
 package errors
 
 const (
-	// ProviderBinaryNotFound error
-	ProviderBinaryNotFound = "ProviderBinaryNotFound"
 	// FailedToEnsureMountPoint error
 	FailedToEnsureMountPoint = "FailedToEnsureMountPoint"
 	// IncompatibleProviderVersion error

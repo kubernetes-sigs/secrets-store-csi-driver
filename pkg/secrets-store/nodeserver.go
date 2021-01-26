@@ -17,18 +17,15 @@ limitations under the License.
 package secretsstore
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"runtime"
 
 	csicommon "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"golang.org/x/net/context"
@@ -41,13 +38,12 @@ import (
 
 type nodeServer struct {
 	*csicommon.DefaultNodeServer
-	providerVolumePath  string
-	minProviderVersions map[string]string
-	mounter             mount.Interface
-	reporter            StatsReporter
-	nodeID              string
-	client              client.Client
-	providerClients     map[string]*CSIProviderClient
+	providerVolumePath string
+	mounter            mount.Interface
+	reporter           StatsReporter
+	nodeID             string
+	client             client.Client
+	providerClients    map[string]*CSIProviderClient
 }
 
 const (
@@ -293,62 +289,13 @@ func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, provid
 		return nil, "", fmt.Errorf("providers volume path not found. Set PROVIDERS_VOLUME_PATH")
 	}
 
-	// if the provider supports and is running grpc server, then communicate with
-	// provider using the grpc client, otherwise fallback to invoking the provider
-	// binary which is how it was initially implemented
-	if client, exists := ns.providerClients[providerName]; exists {
-		klog.InfoS("Using grpc client", "provider", providerName, "pod", podName)
-		return client.MountContent(ctx, attributes, secrets, targetPath, permission, nil)
+	client, exists := ns.providerClients[providerName]
+	if !exists {
+		return nil, "", fmt.Errorf("provider not found in --grpc-supported-providers")
 	}
 
-	providerBinary := ns.getProviderPath(runtime.GOOS, providerName)
-	if _, err := os.Stat(providerBinary); err != nil {
-		return nil, internalerrors.ProviderBinaryNotFound, fmt.Errorf("failed to find provider binary %s, err: %v", providerName, err)
-	}
-
-	// check if minimum compatible provider version with current driver version is set
-	// if minimum version is not provided, skip check
-	if _, exists := ns.minProviderVersions[providerName]; !exists {
-		klog.V(3).InfoS("minimum compatible provider version not set", "provider", providerName, "pod", podName)
-	} else {
-		// check if provider is compatible with driver
-		providerCompatible, err := version.IsProviderCompatible(ctx, providerBinary, ns.minProviderVersions[providerName])
-		if err != nil {
-			return nil, "", err
-		}
-		if !providerCompatible {
-			return nil, internalerrors.IncompatibleProviderVersion, fmt.Errorf("minimum supported %s provider version with current driver is %s", providerName, ns.minProviderVersions[providerName])
-		}
-	}
-
-	args := []string{
-		"--attributes", attributes,
-		"--secrets", secrets,
-		"--targetPath", targetPath,
-		"--permission", permission,
-	}
-
-	klog.InfoS("provider command invoked", "command",
-		fmt.Sprintf("%s %s %v", providerBinary, "--attributes [REDACTED] --secrets [REDACTED]", args[4:]), "provider", providerName, "pod", podName)
-
-	// using exec.CommandContext will ensure if the parent context deadlines, the call to provider is terminated
-	// and the process is killed
-	cmd := exec.CommandContext(
-		ctx,
-		providerBinary,
-		args...,
-	)
-
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
-	cmd.Stderr, cmd.Stdout = stderr, stdout
-
-	err := cmd.Run()
-	klog.Infof(stdout.String())
-	if err != nil {
-		return nil, internalerrors.ProviderError, fmt.Errorf("failed to mount objects, err: %s", err.Error()+"\n"+stderr.String())
-	}
-	return nil, "", nil
+	klog.InfoS("Using grpc client", "provider", providerName, "pod", podName)
+	return client.MountContent(ctx, attributes, secrets, targetPath, permission, nil)
 }
 
 func (ns *nodeServer) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
