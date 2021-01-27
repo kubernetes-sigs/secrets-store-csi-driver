@@ -24,7 +24,6 @@ import (
 	"testing"
 
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
-	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store/mocks"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -40,7 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func testNodeServer(mountPoints []mount.MountPoint, client client.Client, grpcSupportProvider string, reporter StatsReporter, providerBinaryName string) (*nodeServer, error) {
+func testNodeServer(mountPoints []mount.MountPoint, client client.Client, grpcSupportProvider string, reporter StatsReporter) (*nodeServer, error) {
 	tmpDir, err := ioutil.TempDir("", "ut")
 	if err != nil {
 		return nil, err
@@ -53,23 +52,7 @@ func testNodeServer(mountPoints []mount.MountPoint, client client.Client, grpcSu
 		}
 		providerClients[grpcSupportProvider] = client
 	}
-	if providerBinaryName != "" {
-		dirPath := fmt.Sprintf("%s/%s", tmpDir, providerBinaryName)
-		filePath := fmt.Sprintf("%s/provider-%s", dirPath, providerBinaryName)
-		err = os.MkdirAll(dirPath, 0755)
-		if err != nil {
-			return nil, err
-		}
-		f, err := os.Create(filePath)
-		if err != nil {
-			return nil, err
-		}
-		defer f.Close()
-		if err != nil {
-			return nil, err
-		}
-	}
-	return newNodeServer(NewFakeDriver(), tmpDir, "", "testnode", mount.NewFakeMounter(mountPoints), providerClients, client, reporter)
+	return newNodeServer(NewFakeDriver(), tmpDir, "testnode", mount.NewFakeMounter(mountPoints), providerClients, client, reporter)
 }
 
 func getTestTargetPath(pattern string, t *testing.T) string {
@@ -83,7 +66,6 @@ func getTestTargetPath(pattern string, t *testing.T) string {
 func TestNodePublishVolume(t *testing.T) {
 	tests := []struct {
 		name                 string
-		providerBinaryName   string
 		nodePublishVolReq    csi.NodePublishVolumeRequest
 		mountPoints          []mount.MountPoint
 		initObjects          []runtime.Object
@@ -229,30 +211,6 @@ func TestNodePublishVolume(t *testing.T) {
 			shouldRetryRemount: true,
 		},
 		{
-			name: "failed to find provider binary, unmounted to force retry",
-			nodePublishVolReq: csi.NodePublishVolumeRequest{
-				VolumeCapability: &csi.VolumeCapability{},
-				VolumeId:         "testvolid1",
-				TargetPath:       getTestTargetPath("", t),
-				VolumeContext:    map[string]string{"secretProviderClass": "provider1", csipodname: "pod1", csipodnamespace: "default", csipoduid: "poduid1"},
-				Readonly:         true,
-			},
-			initObjects: []runtime.Object{
-				&v1alpha1.SecretProviderClass{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "provider1",
-						Namespace: "default",
-					},
-					Spec: v1alpha1.SecretProviderClassSpec{
-						Provider:   "provider1",
-						Parameters: map[string]string{"parameter1": "value1"},
-					},
-				},
-			},
-			expectedErr:        true,
-			shouldRetryRemount: true,
-		},
-		{
 			name: "volume already mounted, no remount",
 			nodePublishVolReq: csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
@@ -277,31 +235,6 @@ func TestNodePublishVolume(t *testing.T) {
 			expectedErr:        false,
 			shouldRetryRemount: true,
 		},
-		{
-			name:               "Failed to execute provider binary",
-			providerBinaryName: "provider1",
-			nodePublishVolReq: csi.NodePublishVolumeRequest{
-				VolumeCapability: &csi.VolumeCapability{},
-				VolumeId:         "testvolid1",
-				TargetPath:       getTestTargetPath("", t),
-				VolumeContext:    map[string]string{"secretProviderClass": "provider1", csipodname: "pod1", csipodnamespace: "default", csipoduid: "poduid1"},
-				Readonly:         true,
-			},
-			initObjects: []runtime.Object{
-				&v1alpha1.SecretProviderClass{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "provider1",
-						Namespace: "default",
-					},
-					Spec: v1alpha1.SecretProviderClassSpec{
-						Provider:   "provider1",
-						Parameters: map[string]string{"parameter1": "value1"},
-					},
-				},
-			},
-			expectedErr:        true,
-			shouldRetryRemount: true,
-		},
 	}
 
 	s := scheme.Scheme
@@ -324,7 +257,7 @@ func TestNodePublishVolume(t *testing.T) {
 				test.mountPoints = append(test.mountPoints, mount.MountPoint{Path: absFile})
 			}
 			r := mocks.NewFakeReporter()
-			ns, err := testNodeServer(test.mountPoints, fake.NewFakeClientWithScheme(s, test.initObjects...), test.grpcSupportProviders, r, test.providerBinaryName)
+			ns, err := testNodeServer(test.mountPoints, fake.NewFakeClientWithScheme(s, test.initObjects...), test.grpcSupportProviders, r)
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
@@ -399,19 +332,11 @@ func TestMountSecretsStoreObjectContent(t *testing.T) {
 			targetPath:  getTestTargetPath("", t),
 			expectedErr: true,
 		},
-		{
-			name:                "provider binary not found",
-			attributes:          "{}",
-			targetPath:          getTestTargetPath("", t),
-			permission:          fmt.Sprint(permission),
-			expectedErrorReason: internalerrors.ProviderBinaryNotFound,
-			expectedErr:         true,
-		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ns, err := testNodeServer(nil, fake.NewFakeClientWithScheme(nil), test.grpcSupportProviders, mocks.NewFakeReporter(), "")
+			ns, err := testNodeServer(nil, fake.NewFakeClientWithScheme(nil), test.grpcSupportProviders, mocks.NewFakeReporter())
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
@@ -487,7 +412,7 @@ func TestNodeUnpublishVolume(t *testing.T) {
 			}
 
 			r := mocks.NewFakeReporter()
-			ns, err := testNodeServer(test.mountPoints, fake.NewFakeClientWithScheme(s), test.grpcSupportProviders, r, "")
+			ns, err := testNodeServer(test.mountPoints, fake.NewFakeClientWithScheme(s), test.grpcSupportProviders, r)
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}

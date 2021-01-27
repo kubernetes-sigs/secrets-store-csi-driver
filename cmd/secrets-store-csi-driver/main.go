@@ -51,8 +51,9 @@ var (
 	debug              = flag.Bool("debug", false, "sets log to debug level [DEPRECATED]. Use -v=<log level> to configure log level.")
 	logFormatJSON      = flag.Bool("log-format-json", false, "set log formatter to json")
 	providerVolumePath = flag.String("provider-volume", "/etc/kubernetes/secrets-store-csi-providers", "Volume path for provider")
-	minProviderVersion = flag.String("min-provider-version", "", "set minimum supported provider versions with current driver")
-	metricsAddr        = flag.String("metrics-addr", ":8095", "The address the metric endpoint binds to")
+	// this will be removed in a future release
+	_           = flag.String("min-provider-version", "", "[DEPRECATED] set minimum supported provider versions with current driver")
+	metricsAddr = flag.String("metrics-addr", ":8095", "The address the metric endpoint binds to")
 	// grpcSupportedProviders is a ; separated string that can contain a list of providers. The reason it's a string is to allow scenarios
 	// where the driver is being used with 2 providers, one which supports grpc and other using binary for provider.
 	grpcSupportedProviders = flag.String("grpc-supported-providers", "", "set list of providers that support grpc for driver-provider [alpha]")
@@ -167,7 +168,7 @@ func main() {
 		klog.Fatalf("failed to initialize driver, error creating client: %+v", err)
 	}
 	driver := secretsstore.GetDriver()
-	driver.Run(ctx, *driverName, *nodeID, *endpoint, *providerVolumePath, *minProviderVersion, providerClients, c)
+	driver.Run(ctx, *driverName, *nodeID, *endpoint, *providerVolumePath, providerClients, c)
 }
 
 // withShutdownSignal returns a copy of the parent context that will close if

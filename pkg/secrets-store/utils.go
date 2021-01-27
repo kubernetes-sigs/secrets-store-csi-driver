@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"runtime"
-	"strings"
 
 	"golang.org/x/net/context"
 
@@ -32,22 +31,6 @@ import (
 
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 )
-
-// getProviderPath returns the absolute path to the provider binary
-func (ns *nodeServer) getProviderPath(goos string, providerName string) string {
-	if goos == "windows" {
-		return normalizeWindowsPath(fmt.Sprintf(`%s\%s\provider-%s.exe`, ns.providerVolumePath, providerName, providerName))
-	}
-	return fmt.Sprintf("%s/%s/provider-%s", ns.providerVolumePath, providerName, providerName)
-}
-
-func normalizeWindowsPath(path string) string {
-	normalizedPath := strings.Replace(path, "/", "\\", -1)
-	if strings.HasPrefix(normalizedPath, "\\") {
-		normalizedPath = "c:" + normalizedPath
-	}
-	return normalizedPath
-}
 
 // ensureMountPoint ensures mount point is valid
 func (ns *nodeServer) ensureMountPoint(target string) (bool, error) {
