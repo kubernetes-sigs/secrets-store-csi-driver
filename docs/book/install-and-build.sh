@@ -23,7 +23,7 @@ cd "${KUBE_ROOT}" || exit 1
 
 os=$(go env GOOS)
 arch=$(go env GOARCH)
-mdBookVersion="v0.4.3"
+mdBookVersion="v0.4.5"
 
 # translate arch to rust's conventions (if we can)
 if [[ ${arch} == "amd64" ]]; then
