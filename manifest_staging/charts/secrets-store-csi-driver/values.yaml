@@ -139,7 +139,7 @@ syncSecret:
 minimumProviderVersions:
 
 ## ; delimited list of providers that support grpc for driver-provider [alpha]
-grpcSupportedProviders: gcp;azure;
+grpcSupportedProviders: gcp;azure;vault;
 
 ## Enable secret rotation feature [alpha]
 enableSecretRotation: false
