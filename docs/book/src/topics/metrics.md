@@ -18,7 +18,7 @@ Prometheus is the only exporter that's currently supported with the driver.
 | total_rotation_reconcile_error  | Total number of rotation reconciles with error                            | `os_type=<runtime os>`<br>`rotated=<true or false>`<br>`error_type=<error code>`  |
 | rotation_reconcile_duration_sec | Distribution of how long it took to rotate secrets-store content for pods | `os_type=<runtime os>`                                                            |
 
-**Sample Metrics output**
+### Sample Metrics output
 
 ```shell
 # HELP sync_k8s_secret_duration_sec Distribution of how long it took to sync k8s secret
