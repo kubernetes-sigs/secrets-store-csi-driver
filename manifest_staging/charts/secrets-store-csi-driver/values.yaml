@@ -54,7 +54,8 @@ linux:
   metricsAddr: ":8095"
   env: []
   priorityClassName: ""
-  annotations: {}
+  daemonsetAnnotations: {}
+  podAnnotations: {}
 
 windows:
   enabled: false
@@ -112,7 +113,8 @@ windows:
   metricsAddr: ":8095"
   env: []
   priorityClassName: ""
-  annotations: {}
+  daemonsetAnnotations: {}
+  podAnnotations: {}
 
 # log level. Uses V logs (klog)
 logVerbosity: 0
