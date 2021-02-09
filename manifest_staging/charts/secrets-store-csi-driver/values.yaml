@@ -56,6 +56,7 @@ linux:
   priorityClassName: ""
   daemonsetAnnotations: {}
   podAnnotations: {}
+  podLabels: {}
 
 windows:
   enabled: false
@@ -115,6 +116,7 @@ windows:
   priorityClassName: ""
   daemonsetAnnotations: {}
   podAnnotations: {}
+  podLabels: {}
 
 # log level. Uses V logs (klog)
 logVerbosity: 0
