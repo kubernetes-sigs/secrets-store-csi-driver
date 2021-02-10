@@ -87,6 +87,7 @@ func getPrivateKey(data []byte) ([]byte, error) {
 
 	// parses an RSA private key in PKCS #1, ASN.1 DER form
 	if key, err := x509.ParsePKCS1PrivateKey(der); err == nil {
+		privKeyType = privateKeyTypeRSA
 		derKey = x509.MarshalPKCS1PrivateKey(key)
 	}
 	// parses an unencrypted private key in PKCS #8, ASN.1 DER form
