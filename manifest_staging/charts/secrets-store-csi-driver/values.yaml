@@ -27,6 +27,7 @@ linux:
       requests:
         cpu: 10m
         memory: 20Mi
+    logVerbosity: 5
 
   livenessProbeImage:
     repository: k8s.gcr.io/sig-storage/livenessprobe
@@ -87,6 +88,7 @@ windows:
       requests:
         cpu: 10m
         memory: 20Mi
+    logVerbosity: 5
 
   livenessProbeImage:
     repository: k8s.gcr.io/sig-storage/livenessprobe
