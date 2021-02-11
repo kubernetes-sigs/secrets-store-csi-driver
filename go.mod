@@ -3,9 +3,7 @@ module sigs.k8s.io/secrets-store-csi-driver
 go 1.15
 
 require (
-	github.com/blang/semver v3.5.0+incompatible
 	github.com/container-storage-interface/spec v1.3.0
-	github.com/go-logr/logr v0.2.1 // indirect
 	github.com/golang/protobuf v1.4.3
 	github.com/google/go-cmp v0.5.2
 	github.com/kubernetes-csi/csi-lib-utils v0.7.1
@@ -23,7 +21,7 @@ require (
 	k8s.io/apimachinery v0.19.3
 	k8s.io/client-go v0.19.3
 	k8s.io/component-base v0.19.3
-	k8s.io/klog/v2 v2.3.0
+	k8s.io/klog/v2 v2.5.0
 	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
 	sigs.k8s.io/controller-runtime v0.6.3
 )
