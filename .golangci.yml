@@ -2,6 +2,7 @@ run:
   timeout: 5m
   skip-dirs:
   skip-files:
+  - "zz_generated.*\\.go$"
 
 linters:
   disable-all: true
@@ -18,3 +19,5 @@ linters:
     - unused
     - structcheck
     - varcheck
+  # Run with --fast=false for more extensive checks (enables all linters)
+  fast: true
