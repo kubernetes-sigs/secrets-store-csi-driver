@@ -22,7 +22,3 @@ Join us to help define the direction and implementation of this project!
 - Supports windows containers (Kubernetes version v1.18+)
 - Supports sync with Kubernetes Secrets (Secrets Store CSI Driver v0.0.10+)
 - Support auto rotation of mounted contents and synced Kubernetes secret (Secrets Store CSI Driver v0.0.15+)
-
-## Code of conduct
-
-Participation in the Kubernetes community is governed by the [Kubernetes Code of Conduct](code-of-conduct.md).
