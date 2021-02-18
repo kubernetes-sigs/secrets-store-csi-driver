@@ -2,7 +2,7 @@ linux:
   enabled: true
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v0.0.19
+    tag: v0.0.20
     pullPolicy: Always
 
   driver:
@@ -63,7 +63,7 @@ windows:
   enabled: false
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v0.0.19
+    tag: v0.0.20
     pullPolicy: IfNotPresent
 
   driver:
