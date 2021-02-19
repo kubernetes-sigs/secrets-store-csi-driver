@@ -2,7 +2,7 @@ linux:
   enabled: true
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v0.0.19
+    tag: v0.0.20
     pullPolicy: Always
 
   driver:
@@ -27,6 +27,7 @@ linux:
       requests:
         cpu: 10m
         memory: 20Mi
+    logVerbosity: 5
 
   livenessProbeImage:
     repository: k8s.gcr.io/sig-storage/livenessprobe
@@ -54,13 +55,15 @@ linux:
   metricsAddr: ":8095"
   env: []
   priorityClassName: ""
-  annotations: {}
+  daemonsetAnnotations: {}
+  podAnnotations: {}
+  podLabels: {}
 
 windows:
   enabled: false
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v0.0.19
+    tag: v0.0.20
     pullPolicy: IfNotPresent
 
   driver:
@@ -85,6 +88,7 @@ windows:
       requests:
         cpu: 10m
         memory: 20Mi
+    logVerbosity: 5
 
   livenessProbeImage:
     repository: k8s.gcr.io/sig-storage/livenessprobe
@@ -112,7 +116,9 @@ windows:
   metricsAddr: ":8095"
   env: []
   priorityClassName: ""
-  annotations: {}
+  daemonsetAnnotations: {}
+  podAnnotations: {}
+  podLabels: {}
 
 # log level. Uses V logs (klog)
 logVerbosity: 0
@@ -133,13 +139,13 @@ rbac:
 syncSecret:
   enabled: true
 
-## Minimum Provider Versions (optional)
+## [DEPRECATED] Minimum Provider Versions (optional)
 ## A comma delimited list of key-value pairs of minimum provider versions
 ## e.g. provider1=0.0.2,provider2=0.0.3
 minimumProviderVersions:
 
 ## ; delimited list of providers that support grpc for driver-provider [alpha]
-grpcSupportedProviders: gcp;azure;
+grpcSupportedProviders: gcp;azure;vault;
 
 ## Enable secret rotation feature [alpha]
 enableSecretRotation: false
