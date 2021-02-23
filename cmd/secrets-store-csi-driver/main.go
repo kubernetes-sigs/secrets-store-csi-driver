@@ -25,10 +25,12 @@ import (
 	"strings"
 	"time"
 
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/cache"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/metrics"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/rotation"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	json "k8s.io/component-base/logs/json"
@@ -104,6 +106,15 @@ func main() {
 		Scheme:             scheme,
 		MetricsBindAddress: *metricsAddr,
 		LeaderElection:     false,
+		NewCache: cache.Builder(cache.Options{
+			FieldSelectorByResource: map[string]string{
+				"pods": fields.OneTermEqualSelector("spec.nodeName", *nodeID).String(),
+			},
+			LabelSelectorByResource: map[string]string{
+				"secretproviderclasspodstatuses": fmt.Sprintf("%s=%s", v1alpha1.InternalNodeLabel, *nodeID),
+				"secrets":                        "secrets-store.csi.k8s.io/managed=true",
+			},
+		}),
 	})
 	if err != nil {
 		klog.Fatalf("failed to start manager, error: %+v", err)

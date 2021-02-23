@@ -24,6 +24,8 @@ import (
 	"time"
 
 	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -191,22 +193,6 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 		return ctrl.Result{}, err
 	}
 
-	// reconcile delete
-	if !spcPodStatus.GetDeletionTimestamp().IsZero() {
-		klog.InfoS("reconcile complete", "spcps", req.NamespacedName.String())
-		return ctrl.Result{}, nil
-	}
-
-	node, ok := spcPodStatus.GetLabels()[v1alpha1.InternalNodeLabel]
-	if !ok {
-		klog.V(3).InfoS("node label not found, ignoring this spc pod status", "spcps", klog.KObj(spcPodStatus))
-		return ctrl.Result{}, nil
-	}
-	if !strings.EqualFold(node, r.nodeID) {
-		klog.V(3).InfoS("ignoring as spc pod status belongs diff node", "node", node, "spcps", klog.KObj(spcPodStatus))
-		return ctrl.Result{}, nil
-	}
-
 	// Obtain the full pod metadata. An object reference is needed for sending
 	// events and the UID is helpful for validating the SPCPS TargetPath.
 	pod := &v1.Pod{}
@@ -335,7 +321,42 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 func (r *SecretProviderClassPodStatusReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.SecretProviderClassPodStatus{}).
+		WithEventFilter(r.belongsToNodePredicate()).
 		Complete(r)
+}
+
+// belongsToNodePredicate defines predicates for handlers
+func (r *SecretProviderClassPodStatusReconciler) belongsToNodePredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return r.processIfBelongsToNode(e.ObjectNew, e.MetaNew)
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			return r.processIfBelongsToNode(e.Object, e.Meta)
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return false
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
+			return r.processIfBelongsToNode(e.Object, e.Meta)
+		},
+	}
+}
+
+// processIfBelongsToNode determines if the secretproviderclasspodstatus belongs to the node based on the
+// internal.secrets-store.csi.k8s.io/node-name: <node name> label. If belongs to node, then the spcps is processed.
+func (r *SecretProviderClassPodStatusReconciler) processIfBelongsToNode(obj runtime.Object, objMeta metav1.Object) bool {
+	if _, ok := obj.(*v1alpha1.SecretProviderClassPodStatus); !ok {
+		return false
+	}
+	node, ok := objMeta.GetLabels()[v1alpha1.InternalNodeLabel]
+	if !ok {
+		return false
+	}
+	if !strings.EqualFold(node, r.nodeID) {
+		return false
+	}
+	return true
 }
 
 // createK8sSecret creates K8s secret with data from mounted files
