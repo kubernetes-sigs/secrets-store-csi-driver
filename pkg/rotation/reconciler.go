@@ -24,14 +24,16 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -40,9 +42,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned"
 	secretsStoreClient "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned"
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
@@ -72,8 +73,6 @@ const (
 // and Kubernetes secrets periodically
 type Reconciler struct {
 	store                k8s.Store
-	ctrlReaderClient     client.Reader
-	ctrlWriterClient     client.Writer
 	providerVolumePath   string
 	scheme               *runtime.Scheme
 	rotationPollInterval time.Duration
@@ -81,6 +80,8 @@ type Reconciler struct {
 	queue                workqueue.RateLimitingInterface
 	reporter             StatsReporter
 	eventRecorder        record.EventRecorder
+	kubeClient           *kubernetes.Clientset
+	crdClient            *versioned.Clientset
 }
 
 // NewReconciler returns a new reconciler for rotation
@@ -92,10 +93,6 @@ func NewReconciler(s *runtime.Scheme, providerVolumePath, nodeName string, rotat
 	config.UserAgent = version.GetUserAgent("rotation")
 	kubeClient := kubernetes.NewForConfigOrDie(config)
 	crdClient := secretsStoreClient.NewForConfigOrDie(config)
-	c, err := client.New(config, client.Options{Scheme: s, Mapper: nil})
-	if err != nil {
-		return nil, err
-	}
 	store, err := k8s.New(kubeClient, crdClient, nodeName, 5*time.Second)
 	if err != nil {
 		return nil, err
@@ -106,8 +103,6 @@ func NewReconciler(s *runtime.Scheme, providerVolumePath, nodeName string, rotat
 
 	return &Reconciler{
 		store:                store,
-		ctrlReaderClient:     c,
-		ctrlWriterClient:     c,
 		scheme:               s,
 		providerVolumePath:   providerVolumePath,
 		rotationPollInterval: rotationPollInterval,
@@ -115,6 +110,8 @@ func NewReconciler(s *runtime.Scheme, providerVolumePath, nodeName string, rotat
 		reporter:             newStatsReporter(),
 		queue:                workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		eventRecorder:        recorder,
+		kubeClient:           kubeClient,
+		crdClient:            crdClient,
 	}, nil
 }
 
@@ -406,17 +403,14 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 // updateSecretProviderClassPodStatus updates secret provider class pod status
 func (r *Reconciler) updateSecretProviderClassPodStatus(ctx context.Context, spcPodStatus *v1alpha1.SecretProviderClassPodStatus) error {
 	// update the secret provider class pod status
-	return r.ctrlWriterClient.Update(ctx, spcPodStatus, &client.UpdateOptions{})
+	_, err := r.crdClient.SecretsstoreV1alpha1().SecretProviderClassPodStatuses(spcPodStatus.Namespace).Update(ctx, spcPodStatus, metav1.UpdateOptions{})
+	return err
 }
 
 // patchSecret patches secret with the new data and returns error if any
 func (r *Reconciler) patchSecret(ctx context.Context, name, namespace string, data map[string][]byte) error {
 	secret := &v1.Secret{}
-	secretKey := types.NamespacedName{
-		Namespace: namespace,
-		Name:      name,
-	}
-	err := r.ctrlReaderClient.Get(ctx, secretKey, secret)
+	secret, err := r.store.GetSecret(name, namespace)
 	// if there is an error getting the secret -
 	// 1. The secret has been deleted due to an external client
 	// 		The secretproviderclasspodstatus controller will recreate the
@@ -441,11 +435,25 @@ func (r *Reconciler) patchSecret(ctx context.Context, name, namespace string, da
 		return nil
 	}
 
-	patch := client.MergeFromWithOptions(secret.DeepCopy(), client.MergeFromWithOptimisticLock{})
+	newSecret := *secret
+	newSecret.Data = data
+	oldData, err := json.Marshal(secret)
+	if err != nil {
+		return fmt.Errorf("failed to marshal old secret, err: %+v", err)
+	}
+	secret.Data = data
+	newData, err := json.Marshal(&newSecret)
+	if err != nil {
+		return fmt.Errorf("failed to marshal new secret, err: %+v", err)
+	}
 	// Patching data replaces values for existing data keys
 	// and appends new keys if it doesn't already exist
-	secret.Data = data
-	return r.ctrlWriterClient.Patch(ctx, secret, patch)
+	patch, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, secret)
+	if err != nil {
+		return fmt.Errorf("failed to create patch, err: %+v", err)
+	}
+	_, err = r.kubeClient.CoreV1().Secrets(namespace).Patch(ctx, name, types.MergePatchType, patch, metav1.PatchOptions{})
+	return err
 }
 
 // runWorker runs a thread that process the queue

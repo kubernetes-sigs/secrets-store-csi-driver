@@ -158,11 +158,12 @@ func newPodInformer(kubeClient kubernetes.Interface, resyncPeriod time.Duration,
 
 // newSecretInformer returns a secret informer
 func newSecretInformer(kubeClient kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return coreInformers.NewSecretInformer(
+	return coreInformers.NewFilteredSecretInformer(
 		kubeClient,
 		v1.NamespaceAll,
 		resyncPeriod,
 		cache.Indexers{},
+		managedFilterForSecret(),
 	)
 }
 
@@ -208,4 +209,11 @@ func nodeNameFilterForPod(nodeName string) internalinterfaces.TweakListOptionsFu
 func getStoreKey(name, namespace string) string {
 	// client-go cache store uses <namespace>/<name> as key
 	return fmt.Sprintf("%s/%s", namespace, name)
+}
+
+// managedFilterForSecret returns tweak options to filter using managed label.
+func managedFilterForSecret() internalinterfaces.TweakListOptionsFunc {
+	return func(options *metav1.ListOptions) {
+		options.LabelSelector = "secrets-store.csi.k8s.io/managed=true"
+	}
 }

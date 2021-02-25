@@ -37,8 +37,6 @@ import (
 	"k8s.io/klog/v2"
 
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	"sigs.k8s.io/secrets-store-csi-driver/controllers"
@@ -170,16 +168,8 @@ func main() {
 		go rec.Run(ctx.Done())
 	}
 
-	ccfg, err := config.GetConfig()
-	if err != nil {
-		klog.Fatalf("failed to initialize driver, error getting config: %+v", err)
-	}
-	c, err := client.New(ccfg, client.Options{Scheme: scheme, Mapper: nil})
-	if err != nil {
-		klog.Fatalf("failed to initialize driver, error creating client: %+v", err)
-	}
 	driver := secretsstore.GetDriver()
-	driver.Run(ctx, *driverName, *nodeID, *endpoint, *providerVolumePath, providerClients, c)
+	driver.Run(ctx, *driverName, *nodeID, *endpoint, *providerVolumePath, providerClients, mgr.GetClient())
 }
 
 // withShutdownSignal returns a copy of the parent context that will close if
