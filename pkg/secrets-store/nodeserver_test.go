@@ -17,13 +17,13 @@ limitations under the License.
 package secretsstore
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store/mocks"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/test_utils/tmpdir"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"golang.org/x/net/context"
@@ -38,21 +38,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func testNodeServer(mountPoints []mount.MountPoint, client client.Client, reporter StatsReporter) (*nodeServer, error) {
-	tmpDir, err := os.MkdirTemp("", "ut")
-	if err != nil {
-		return nil, err
-	}
+func testNodeServer(t *testing.T, mountPoints []mount.MountPoint, client client.Client, reporter StatsReporter) (*nodeServer, error) {
+	t.Helper()
+	tmpDir := tmpdir.New(t, "", "ut")
 	providerClients := NewPluginClientBuilder(tmpDir)
 	return newNodeServer(NewFakeDriver(), tmpDir, "testnode", mount.NewFakeMounter(mountPoints), providerClients, client, reporter)
-}
-
-func getTestTargetPath(pattern string, t *testing.T) string {
-	dir, err := os.MkdirTemp("", fmt.Sprintf("ut%s", pattern))
-	if err != nil {
-		t.Fatalf("expected err to be nil, got: %+v", err)
-	}
-	return dir
 }
 
 func TestNodePublishVolume(t *testing.T) {
@@ -100,7 +90,7 @@ func TestNodePublishVolume(t *testing.T) {
 			nodePublishVolReq: csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
-				TargetPath:       getTestTargetPath("", t),
+				TargetPath:       tmpdir.New(t, "", "ut"),
 			},
 			RPCCode:            codes.InvalidArgument,
 			wantsRPCCode:       true,
@@ -112,7 +102,7 @@ func TestNodePublishVolume(t *testing.T) {
 			nodePublishVolReq: csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
-				TargetPath:       getTestTargetPath("", t),
+				TargetPath:       tmpdir.New(t, "", "ut"),
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1"},
 			},
 			expectedErr:        true,
@@ -123,7 +113,7 @@ func TestNodePublishVolume(t *testing.T) {
 			nodePublishVolReq: csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
-				TargetPath:       getTestTargetPath("", t),
+				TargetPath:       tmpdir.New(t, "", "ut"),
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1", csipodname: "pod1", csipodnamespace: "default"},
 			},
 			initObjects: []runtime.Object{
@@ -142,7 +132,7 @@ func TestNodePublishVolume(t *testing.T) {
 			nodePublishVolReq: csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
-				TargetPath:       getTestTargetPath("", t),
+				TargetPath:       tmpdir.New(t, "", "ut"),
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1", csipodname: "pod1", csipodnamespace: "default"},
 			},
 			initObjects: []runtime.Object{
@@ -161,7 +151,7 @@ func TestNodePublishVolume(t *testing.T) {
 			nodePublishVolReq: csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
-				TargetPath:       getTestTargetPath("", t),
+				TargetPath:       tmpdir.New(t, "", "ut"),
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1", csipodname: "pod1", csipodnamespace: "default"},
 			},
 			initObjects: []runtime.Object{
@@ -183,7 +173,7 @@ func TestNodePublishVolume(t *testing.T) {
 			nodePublishVolReq: csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
-				TargetPath:       getTestTargetPath("", t),
+				TargetPath:       tmpdir.New(t, "", "ut"),
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1", csipodname: "pod1", csipodnamespace: "default"},
 			},
 			initObjects: []runtime.Object{
@@ -206,7 +196,7 @@ func TestNodePublishVolume(t *testing.T) {
 			nodePublishVolReq: csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
-				TargetPath:       getTestTargetPath("", t),
+				TargetPath:       tmpdir.New(t, "", "ut"),
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1", csipodname: "pod1", csipodnamespace: "default", csipoduid: "poduid1"},
 				Readonly:         true,
 			},
@@ -248,12 +238,10 @@ func TestNodePublishVolume(t *testing.T) {
 				test.mountPoints = append(test.mountPoints, mount.MountPoint{Path: absFile})
 			}
 			r := mocks.NewFakeReporter()
-			ns, err := testNodeServer(test.mountPoints, fake.NewFakeClientWithScheme(s, test.initObjects...), r)
+			ns, err := testNodeServer(t, test.mountPoints, fake.NewFakeClientWithScheme(s, test.initObjects...), r)
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
-			// Removes provider volume dir that was created by testNodeServer
-			defer os.RemoveAll(ns.providerVolumePath)
 
 			numberOfAttempts := 1
 			// to ensure the remount is tried after previous failure and still fails
@@ -319,14 +307,14 @@ func TestMountSecretsStoreObjectContent(t *testing.T) {
 		{
 			name:        "permission not set",
 			attributes:  "{}",
-			targetPath:  getTestTargetPath("", t),
+			targetPath:  tmpdir.New(t, "", "ut"),
 			expectedErr: true,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ns, err := testNodeServer(nil, fake.NewFakeClientWithScheme(nil), mocks.NewFakeReporter())
+			ns, err := testNodeServer(t, nil, fake.NewFakeClientWithScheme(nil), mocks.NewFakeReporter())
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
@@ -375,7 +363,7 @@ func TestNodeUnpublishVolume(t *testing.T) {
 			name: "Success for a mounted volume with a retry",
 			nodeUnpublishVolReq: csi.NodeUnpublishVolumeRequest{
 				VolumeId:   "testvolid1",
-				TargetPath: getTestTargetPath(`*\\pods\\fakePod\\volumes\\kubernetes.io~csi\\myvol\\mount`, t),
+				TargetPath: tmpdir.New(t, "", `*\\pods\\fakePod\\volumes\\kubernetes.io~csi\\myvol\\mount`),
 			},
 			mountPoints:        []mount.MountPoint{},
 			shouldRetryUnmount: true,
@@ -401,12 +389,10 @@ func TestNodeUnpublishVolume(t *testing.T) {
 			}
 
 			r := mocks.NewFakeReporter()
-			ns, err := testNodeServer(test.mountPoints, fake.NewFakeClientWithScheme(s), r)
+			ns, err := testNodeServer(t, test.mountPoints, fake.NewFakeClientWithScheme(s), r)
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
-			// Removes provider volume dir that was created by testNodeServer
-			defer os.RemoveAll(ns.providerVolumePath)
 
 			numberOfAttempts := 1
 			// to ensure the remount is tried after previous failure and still fails

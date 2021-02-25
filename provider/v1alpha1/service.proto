@@ -48,8 +48,10 @@ message MountRequest {
     // Secrets is the secret content referenced in nodePublishSecretRef secret data
     string secrets = 2;
     // TargetPath is the path to which the volume will be published
+    // TODO(tam7t): deprecate
     string target_path = 3;
     // Permission is the file permissions
+    // TODO(tam7t): deprecate
     string permission = 4;
     // CurrentObjectVersion is the list of objects and their versions that's
     // currently mounted in the pod
@@ -59,6 +61,27 @@ message MountRequest {
 message MountResponse {
     repeated ObjectVersion object_version = 1;
     Error error = 2;
+    // files contains the entire mount volume filesystem.
+    //
+    // The total size of all files should not exceed 1MiB or syncing to
+    // Kubernetes Secrets will fail. If the contents of all files exceeds
+    // 4MiB then requests could fail unless MaxCallRecvMsgSize is increased.
+    repeated File files = 3;
+}
+
+// File holds secret file contents and location in the mount path to write the
+// file.
+message File {
+    // The relative path of the file within the mount.
+    // May not be an absolute path.
+    // May not contain the path element '..'.
+    // May not start with the string '..'.
+    string path = 1;
+    // The mode bits used to set permissions on this file.
+    // Must be a decimal value between 0 and 511.
+    int32 mode = 2;
+    // The file contents.
+    bytes contents = 3;
 }
 
 message ObjectVersion {

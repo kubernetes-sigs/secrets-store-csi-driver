@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package fileutil includes helpers for dealing with CSI mount paths and reading/writing files.
 package fileutil
 
 import (

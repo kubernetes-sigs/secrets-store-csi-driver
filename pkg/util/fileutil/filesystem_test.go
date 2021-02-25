@@ -17,30 +17,26 @@ limitations under the License.
 package fileutil
 
 import (
-	"os"
 	"testing"
+
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/test_utils/tmpdir"
 )
 
 func TestGetMountedFiles(t *testing.T) {
 	tests := []struct {
 		name        string
-		targetPath  func() string
+		targetPath  func(t *testing.T) string
 		expectedErr bool
 	}{
 		{
 			name:        "target path not found",
-			targetPath:  func() string { return "" },
+			targetPath:  func(t *testing.T) string { return "" },
 			expectedErr: true,
 		},
 		{
 			name: "target path dir found",
-			targetPath: func() string {
-				tmpDir, err := os.MkdirTemp("", "ut")
-				if err != nil {
-					t.Errorf("failed to created tmp file, err: %+v", err)
-					return ""
-				}
-				return tmpDir
+			targetPath: func(t *testing.T) string {
+				return tmpdir.New(t, "", "ut")
 			},
 			expectedErr: false,
 		},
@@ -48,7 +44,7 @@ func TestGetMountedFiles(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := GetMountedFiles(test.targetPath())
+			_, err := GetMountedFiles(test.targetPath(t))
 			if test.expectedErr != (err != nil) {
 				t.Fatalf("expected err: %v, got: %+v", test.expectedErr, err)
 			}
