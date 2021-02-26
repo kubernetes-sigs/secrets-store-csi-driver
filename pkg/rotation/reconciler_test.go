@@ -72,24 +72,17 @@ func newTestReconciler(s *runtime.Scheme, kubeClient kubernetes.Interface, crdCl
 		return nil, err
 	}
 
-	client, err := secretsstore.NewProviderClient("provider1", socketPath)
-	if err != nil {
-		return nil, err
-	}
-
 	return &Reconciler{
 		store:                store,
 		scheme:               s,
 		providerVolumePath:   socketPath,
 		rotationPollInterval: rotationPollInterval,
-		providerClients: map[string]*secretsstore.CSIProviderClient{
-			"provider1": client,
-		},
-		queue:         workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		reporter:      newStatsReporter(),
-		eventRecorder: fakeRecorder,
-		kubeClient:    kubeClient,
-		crdClient:     crdClient,
+		providerClients:      secretsstore.NewPluginClientBuilder(socketPath),
+		queue:                workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		reporter:             newStatsReporter(),
+		eventRecorder:        fakeRecorder,
+		kubeClient:           kubeClient,
+		crdClient:            crdClient,
 	}, nil
 }
 

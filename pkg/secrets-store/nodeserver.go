@@ -43,7 +43,7 @@ type nodeServer struct {
 	reporter           StatsReporter
 	nodeID             string
 	client             client.Client
-	providerClients    map[string]*CSIProviderClient
+	providerClients    *PluginClientBuilder
 }
 
 const (
@@ -289,13 +289,14 @@ func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, provid
 		return nil, "", fmt.Errorf("providers volume path not found. Set PROVIDERS_VOLUME_PATH")
 	}
 
-	client, exists := ns.providerClients[providerName]
-	if !exists {
-		return nil, "", fmt.Errorf("provider not found in --grpc-supported-providers")
+	client, err := ns.providerClients.Get(ctx, providerName)
+	if err != nil {
+		return nil, "", fmt.Errorf("error connecting to provider %q: %w", providerName, err)
 	}
 
 	klog.InfoS("Using grpc client", "provider", providerName, "pod", podName)
-	return client.MountContent(ctx, attributes, secrets, targetPath, permission, nil)
+
+	return MountContent(ctx, client, attributes, secrets, targetPath, permission, nil)
 }
 
 func (ns *nodeServer) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {

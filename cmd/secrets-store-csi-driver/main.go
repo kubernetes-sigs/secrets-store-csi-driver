@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"net/http"
 	_ "net/http/pprof" // #nosec
-	"strings"
 	"time"
 
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/cache"
@@ -53,14 +52,12 @@ var (
 	logFormatJSON      = flag.Bool("log-format-json", false, "set log formatter to json")
 	providerVolumePath = flag.String("provider-volume", "/etc/kubernetes/secrets-store-csi-providers", "Volume path for provider")
 	// this will be removed in a future release
-	metricsAddr = flag.String("metrics-addr", ":8095", "The address the metric endpoint binds to")
-	// grpcSupportedProviders is a ; separated string that can contain a list of providers. The reason it's a string is to allow scenarios
-	// where the driver is being used with 2 providers, one which supports grpc and other using binary for provider.
-	grpcSupportedProviders = flag.String("grpc-supported-providers", "", "set list of providers that support grpc for driver-provider [alpha]")
-	enableSecretRotation   = flag.Bool("enable-secret-rotation", false, "Enable secret rotation feature [alpha]")
-	rotationPollInterval   = flag.Duration("rotation-poll-interval", 2*time.Minute, "Secret rotation poll interval duration")
-	enableProfile          = flag.Bool("enable-pprof", false, "enable pprof profiling")
-	profilePort            = flag.Int("pprof-port", 6065, "port for pprof profiling")
+	metricsAddr          = flag.String("metrics-addr", ":8095", "The address the metric endpoint binds to")
+	_                    = flag.String("grpc-supported-providers", "", "[DEPRECATED] set list of providers that support grpc for driver-provider [alpha]")
+	enableSecretRotation = flag.Bool("enable-secret-rotation", false, "Enable secret rotation feature [alpha]")
+	rotationPollInterval = flag.Duration("rotation-poll-interval", 2*time.Minute, "Secret rotation poll interval duration")
+	enableProfile        = flag.Bool("enable-pprof", false, "enable pprof profiling")
+	profilePort          = flag.Int("pprof-port", 6065, "port for pprof profiling")
 
 	// enable filtered watch for NodePublishSecretRef secrets. The filtering is done on the csi driver label: secrets-store.csi.k8s.io/used=true
 	// For Kubernetes secrets used to provide credentials for use with the CSI driver, set the label by running: kubectl label secret secrets-store-creds secrets-store.csi.k8s.io/used=true
@@ -147,24 +144,8 @@ func main() {
 	ctx := withShutdownSignal(context.Background())
 
 	// create provider clients
-	providerClients := make(map[string]*secretsstore.CSIProviderClient)
-	for _, provider := range strings.Split(*grpcSupportedProviders, ";") {
-		p := strings.TrimSpace(provider)
-		if len(p) != 0 {
-			// dialing clients is non-blocking and will be retried on errors
-			providerClients[provider], err = secretsstore.NewProviderClient(secretsstore.CSIProviderName(p), *providerVolumePath)
-			if err != nil {
-				klog.Fatalf("failed to create provider client, err: %+v", err)
-			}
-		}
-	}
-	defer func() {
-		for k, v := range providerClients {
-			if err := v.Close(); err != nil {
-				klog.ErrorS(err, "closing grpc client failed", "provider", k)
-			}
-		}
-	}()
+	providerClients := secretsstore.NewPluginClientBuilder(*providerVolumePath)
+	defer providerClients.Cleanup()
 
 	go func() {
 		klog.Infof("starting manager")

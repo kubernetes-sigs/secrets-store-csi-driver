@@ -22,24 +22,46 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"sync"
 	"testing"
 
 	"sigs.k8s.io/secrets-store-csi-driver/provider/fake"
 )
 
-func getTempTestDir(t *testing.T) string {
+func getTempTestDir(t *testing.T) (string, func()) {
+	t.Helper()
 	tmpDir, err := os.MkdirTemp("", "ut")
 	if err != nil {
 		t.Fatalf("expected err to be nil, got: %+v", err)
 	}
-	return tmpDir
+	cleanup := func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			t.Fatalf("error cleaning up tmp dir: %s", err)
+		}
+	}
+	return tmpDir, cleanup
+}
+
+func fakeServer(t *testing.T, path, provider string) (*fake.MockCSIProviderServer, func()) {
+	t.Helper()
+	serverEndpoint := fmt.Sprintf("%s/%s.sock", path, provider)
+	server, err := fake.NewMocKCSIProviderServer(serverEndpoint)
+	if err != nil {
+		t.Fatalf("expected err to be nil, got: %+v", err)
+	}
+
+	cleanup := func() {
+		server.Stop()
+		os.Remove(serverEndpoint)
+	}
+
+	return server, cleanup
 }
 
 func TestMountContent(t *testing.T) {
 	cases := []struct {
 		name                  string
-		providerName          CSIProviderName
-		socketPath            string
+		providerName          string
 		attributes            string
 		secrets               string
 		targetPath            string
@@ -51,7 +73,6 @@ func TestMountContent(t *testing.T) {
 		{
 			name:                  "provider successful response",
 			providerName:          "provider1",
-			socketPath:            getTempTestDir(t),
 			attributes:            "{}",
 			targetPath:            "/var/lib/kubelet/pods/d448c6a2-cda8-42e3-84fb-3cf75faa8399/volumes/kubernetes.io~csi/secrets-store-inline/mount",
 			permission:            "420",
@@ -62,24 +83,26 @@ func TestMountContent(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			client, err := NewProviderClient(test.providerName, test.socketPath)
-			if err != nil {
-				t.Fatalf("expected err to be nil, got: %+v", err)
-			}
-			defer client.Close()
-			serverEndpoint := fmt.Sprintf("%s/%s.sock", test.socketPath, test.providerName)
-			defer os.Remove(serverEndpoint)
+			socketPath, tclean := getTempTestDir(t)
+			defer tclean()
 
-			server, err := fake.NewMocKCSIProviderServer(serverEndpoint)
-			if err != nil {
-				t.Fatalf("expected err to be nil, got: %+v", err)
-			}
+			pool := NewPluginClientBuilder(socketPath)
+			defer pool.Cleanup()
+
+			server, cleanup := fakeServer(t, socketPath, test.providerName)
+			defer cleanup()
+
 			server.SetReturnError(test.providerError)
 			server.SetObjects(test.expectedObjectVersion)
 			server.SetProviderErrorCode(test.expectedErrorCode)
 			server.Start()
 
-			objectVersions, errorCode, err := client.MountContent(context.TODO(), test.attributes, test.secrets, test.targetPath, test.permission, nil)
+			client, err := pool.Get(context.Background(), test.providerName)
+			if err != nil {
+				t.Fatalf("expected err to be nil, got: %+v", err)
+			}
+
+			objectVersions, errorCode, err := MountContent(context.TODO(), client, test.attributes, test.secrets, test.targetPath, test.permission, nil)
 			if err != nil {
 				t.Errorf("expected err to be nil, got: %+v", err)
 			}
@@ -96,8 +119,6 @@ func TestMountContent(t *testing.T) {
 func TestMountContentError(t *testing.T) {
 	cases := []struct {
 		name                  string
-		providerName          CSIProviderName
-		socketPath            string
 		attributes            string
 		secrets               string
 		targetPath            string
@@ -108,29 +129,21 @@ func TestMountContentError(t *testing.T) {
 	}{
 		{
 			name:              "missing attributes in mount request",
-			providerName:      "provider1",
-			socketPath:        getTempTestDir(t),
 			expectedErrorCode: "GRPCProviderError",
 		},
 		{
 			name:              "missing target path in mount request",
-			providerName:      "provider1",
-			socketPath:        getTempTestDir(t),
 			attributes:        "{}",
 			expectedErrorCode: "GRPCProviderError",
 		},
 		{
 			name:              "missing permission in mount request",
-			providerName:      "provider1",
-			socketPath:        getTempTestDir(t),
 			attributes:        "{}",
 			targetPath:        "/var/lib/kubelet/pods/d448c6a2-cda8-42e3-84fb-3cf75faa8399/volumes/kubernetes.io~csi/secrets-store-inline/mount",
 			expectedErrorCode: "GRPCProviderError",
 		},
 		{
 			name:              "provider error for mount request",
-			providerName:      "provider1",
-			socketPath:        getTempTestDir(t),
 			attributes:        "{}",
 			targetPath:        "/var/lib/kubelet/pods/d448c6a2-cda8-42e3-84fb-3cf75faa8399/volumes/kubernetes.io~csi/secrets-store-inline/mount",
 			permission:        "0644",
@@ -138,8 +151,6 @@ func TestMountContentError(t *testing.T) {
 		},
 		{
 			name:              "missing object versions in mount response",
-			providerName:      "provider1",
-			socketPath:        getTempTestDir(t),
 			attributes:        "{}",
 			targetPath:        "/var/lib/kubelet/pods/d448c6a2-cda8-42e3-84fb-3cf75faa8399/volumes/kubernetes.io~csi/secrets-store-inline/mount",
 			permission:        "0644",
@@ -147,8 +158,6 @@ func TestMountContentError(t *testing.T) {
 		},
 		{
 			name:              "provider error",
-			providerName:      "provider1",
-			socketPath:        getTempTestDir(t),
 			attributes:        "{}",
 			targetPath:        "/var/lib/kubelet/pods/d448c6a2-cda8-42e3-84fb-3cf75faa8399/volumes/kubernetes.io~csi/secrets-store-inline/mount",
 			permission:        "0644",
@@ -157,8 +166,6 @@ func TestMountContentError(t *testing.T) {
 		},
 		{
 			name:              "provider returns error code",
-			providerName:      "provider1",
-			socketPath:        getTempTestDir(t),
 			attributes:        "{}",
 			targetPath:        "/var/lib/kubelet/pods/d448c6a2-cda8-42e3-84fb-3cf75faa8399/volumes/kubernetes.io~csi/secrets-store-inline/mount",
 			permission:        "420",
@@ -169,24 +176,28 @@ func TestMountContentError(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			client, err := NewProviderClient(test.providerName, test.socketPath)
-			if err != nil {
-				t.Fatalf("expected err to be nil, got: %+v", err)
-			}
-			defer client.Close()
-			serverEndpoint := fmt.Sprintf("%s/%s.sock", test.socketPath, test.providerName)
-			defer os.Remove(serverEndpoint)
+			socketPath, tclean := getTempTestDir(t)
+			defer tclean()
 
-			server, err := fake.NewMocKCSIProviderServer(serverEndpoint)
-			if err != nil {
-				t.Fatalf("expected err to be nil, got: %+v", err)
-			}
+			pool := NewPluginClientBuilder(socketPath)
+			defer pool.Cleanup()
+
+			providerName := "provider1"
+
+			server, cleanup := fakeServer(t, socketPath, providerName)
+			defer cleanup()
+
 			server.SetReturnError(test.providerError)
 			server.SetObjects(test.expectedObjectVersion)
 			server.SetProviderErrorCode(test.expectedErrorCode)
 			server.Start()
 
-			objectVersions, errorCode, err := client.MountContent(context.TODO(), test.attributes, test.secrets, test.targetPath, test.permission, nil)
+			client, err := pool.Get(context.Background(), providerName)
+			if err != nil {
+				t.Fatalf("expected err to be nil, got: %+v", err)
+			}
+
+			objectVersions, errorCode, err := MountContent(context.TODO(), client, test.attributes, test.secrets, test.targetPath, test.permission, nil)
 			if err == nil {
 				t.Errorf("expected err to be not nil")
 			}
@@ -197,5 +208,94 @@ func TestMountContentError(t *testing.T) {
 				t.Errorf("expected object versions: %v, got: %+v", test.expectedObjectVersion, objectVersions)
 			}
 		})
+	}
+}
+
+func TestPluginClientBuilder(t *testing.T) {
+	path, tclean := getTempTestDir(t)
+	defer tclean()
+
+	cb := NewPluginClientBuilder(path)
+	ctx := context.Background()
+
+	for i := 0; i < 10; i++ {
+		server, cleanup := fakeServer(t, path, fmt.Sprintf("server-%d", i))
+		defer cleanup()
+		server.Start()
+	}
+
+	var wg sync.WaitGroup
+
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		provider := fmt.Sprintf("server-%d", i)
+		go func() {
+			defer wg.Done()
+			if _, err := cb.Get(ctx, provider); err != nil {
+				t.Errorf("Get(%q) = %v, want nil", provider, err)
+			}
+		}()
+	}
+
+	wg.Wait()
+}
+
+func TestPluginClientBuilder_ConcurrentGet(t *testing.T) {
+	path, tclean := getTempTestDir(t)
+	defer tclean()
+
+	cb := NewPluginClientBuilder(path)
+	ctx := context.Background()
+
+	provider := "server"
+	server, cleanup := fakeServer(t, path, provider)
+	defer cleanup()
+	server.Start()
+
+	var wg sync.WaitGroup
+
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if _, err := cb.Get(ctx, provider); err != nil {
+				t.Errorf("Get(%q) = %v, want nil", provider, err)
+			}
+		}()
+	}
+
+	wg.Wait()
+}
+
+func TestPluginClientBuilderErrorNotFound(t *testing.T) {
+	path, tclean := getTempTestDir(t)
+	defer tclean()
+
+	cb := NewPluginClientBuilder(path)
+	ctx := context.Background()
+
+	if _, err := cb.Get(ctx, "notfoundprovider"); errors.Unwrap(err) != ErrProviderNotFound {
+		t.Errorf("Get(%s) = %v, want %v", "notfoundprovider", err, ErrProviderNotFound)
+	}
+
+	// check that the provider is found once server is started
+	server, cleanup := fakeServer(t, path, "notfoundprovider")
+	defer cleanup()
+	server.Start()
+
+	if _, err := cb.Get(ctx, "notfoundprovider"); err != nil {
+		t.Errorf("Get(%s) = %v, want nil", "notfoundprovider", err)
+	}
+}
+
+func TestPluginClientBuilderErrorInvalid(t *testing.T) {
+	path, tclean := getTempTestDir(t)
+	defer tclean()
+
+	cb := NewPluginClientBuilder(path)
+	ctx := context.Background()
+
+	if _, err := cb.Get(ctx, "bad/provider/name"); errors.Unwrap(err) != ErrInvalidProvider {
+		t.Errorf("Get(%s) = %v, want %v", "bad/provider/name", err, ErrInvalidProvider)
 	}
 }

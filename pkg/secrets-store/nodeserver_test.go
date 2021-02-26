@@ -38,19 +38,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func testNodeServer(mountPoints []mount.MountPoint, client client.Client, grpcSupportProvider string, reporter StatsReporter) (*nodeServer, error) {
+func testNodeServer(mountPoints []mount.MountPoint, client client.Client, reporter StatsReporter) (*nodeServer, error) {
 	tmpDir, err := os.MkdirTemp("", "ut")
 	if err != nil {
 		return nil, err
 	}
-	providerClients := map[string]*CSIProviderClient{}
-	if grpcSupportProvider != "" {
-		client, err := NewProviderClient(CSIProviderName(grpcSupportProvider), tmpDir)
-		if err != nil {
-			return nil, err
-		}
-		providerClients[grpcSupportProvider] = client
-	}
+	providerClients := NewPluginClientBuilder(tmpDir)
 	return newNodeServer(NewFakeDriver(), tmpDir, "testnode", mount.NewFakeMounter(mountPoints), providerClients, client, reporter)
 }
 
@@ -64,15 +57,14 @@ func getTestTargetPath(pattern string, t *testing.T) string {
 
 func TestNodePublishVolume(t *testing.T) {
 	tests := []struct {
-		name                 string
-		nodePublishVolReq    csi.NodePublishVolumeRequest
-		mountPoints          []mount.MountPoint
-		initObjects          []runtime.Object
-		grpcSupportProviders string
-		RPCCode              codes.Code
-		wantsRPCCode         bool
-		expectedErr          bool
-		shouldRetryRemount   bool
+		name               string
+		nodePublishVolReq  csi.NodePublishVolumeRequest
+		mountPoints        []mount.MountPoint
+		initObjects        []runtime.Object
+		RPCCode            codes.Code
+		wantsRPCCode       bool
+		expectedErr        bool
+		shouldRetryRemount bool
 	}{
 		{
 			name:               "volume capabilities nil",
@@ -256,7 +248,7 @@ func TestNodePublishVolume(t *testing.T) {
 				test.mountPoints = append(test.mountPoints, mount.MountPoint{Path: absFile})
 			}
 			r := mocks.NewFakeReporter()
-			ns, err := testNodeServer(test.mountPoints, fake.NewFakeClientWithScheme(s, test.initObjects...), test.grpcSupportProviders, r)
+			ns, err := testNodeServer(test.mountPoints, fake.NewFakeClientWithScheme(s, test.initObjects...), r)
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
@@ -307,14 +299,13 @@ func TestNodePublishVolume(t *testing.T) {
 
 func TestMountSecretsStoreObjectContent(t *testing.T) {
 	tests := []struct {
-		name                 string
-		attributes           string
-		secrets              string
-		targetPath           string
-		permission           string
-		grpcSupportProviders string
-		expectedErrorReason  string
-		expectedErr          bool
+		name                string
+		attributes          string
+		secrets             string
+		targetPath          string
+		permission          string
+		expectedErrorReason string
+		expectedErr         bool
 	}{
 		{
 			name:        "attributes empty",
@@ -335,7 +326,7 @@ func TestMountSecretsStoreObjectContent(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ns, err := testNodeServer(nil, fake.NewFakeClientWithScheme(nil), test.grpcSupportProviders, mocks.NewFakeReporter())
+			ns, err := testNodeServer(nil, fake.NewFakeClientWithScheme(nil), mocks.NewFakeReporter())
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
@@ -352,14 +343,13 @@ func TestMountSecretsStoreObjectContent(t *testing.T) {
 
 func TestNodeUnpublishVolume(t *testing.T) {
 	tests := []struct {
-		name                 string
-		grpcSupportProviders string
-		nodeUnpublishVolReq  csi.NodeUnpublishVolumeRequest
-		mountPoints          []mount.MountPoint
-		RPCCode              codes.Code
-		wantsErr             bool
-		wantsRPCCode         bool
-		shouldRetryUnmount   bool
+		name                string
+		nodeUnpublishVolReq csi.NodeUnpublishVolumeRequest
+		mountPoints         []mount.MountPoint
+		RPCCode             codes.Code
+		wantsErr            bool
+		wantsRPCCode        bool
+		shouldRetryUnmount  bool
 	}{
 		{
 			name: "Failure: volume id is empty",
@@ -411,7 +401,7 @@ func TestNodeUnpublishVolume(t *testing.T) {
 			}
 
 			r := mocks.NewFakeReporter()
-			ns, err := testNodeServer(test.mountPoints, fake.NewFakeClientWithScheme(s), test.grpcSupportProviders, r)
+			ns, err := testNodeServer(test.mountPoints, fake.NewFakeClientWithScheme(s), r)
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
