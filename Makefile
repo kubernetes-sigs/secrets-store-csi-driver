@@ -71,6 +71,8 @@ BUILDKIT_VERSION ?= v0.8.1
 GOLANGCI_LINT := $(TOOLS_BIN_DIR)/golangci-lint
 CONTROLLER_GEN := $(TOOLS_BIN_DIR)/controller-gen
 KUSTOMIZE := $(TOOLS_BIN_DIR)/kustomize
+PROTOC_GEN_GO := $(TOOLS_BIN_DIR)/protoc-gen-go
+PROTOC := $(TOOLS_BIN_DIR)/bin/protoc
 TRIVY := trivy
 HELM := helm
 BATS := bats
@@ -84,6 +86,7 @@ KIND_VERSION ?= 0.8.1
 KUBERNETES_VERSION ?= 1.18.2
 BATS_VERSION ?= 1.2.1
 TRIVY_VERSION ?= 0.14.0
+PROTOC_VERSION ?= 3.15.2
 
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
@@ -126,6 +129,10 @@ $(KUSTOMIZE): ## Build kustomize from tools folder.
 	cd $(TOOLS_MOD_DIR) && \
 		go build -tags=tools -o $(TOOLS_BIN_DIR)/kustomize sigs.k8s.io/kustomize/kustomize/v3
 
+$(PROTOC_GEN_GO):
+	cd $(TOOLS_MOD_DIR) && \
+		go build -tags=tools -o $(TOOLS_BIN_DIR)/protoc-gen-go github.com/golang/protobuf/protoc-gen-go
+
 ## --------------------------------------
 ## Testing Binaries
 ## --------------------------------------
@@ -150,6 +157,9 @@ $(BATS): ## Install bats for running the tests
 
 $(ENVSUBST): ## Install envsubst for running the tests
 	envsubst -V || (apt-get -o Acquire::Retries=30 update && apt-get -o Acquire::Retries=30 install gettext-base -y)
+
+$(PROTOC): ## Install protoc
+	curl -sSLO https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip && unzip protoc-${PROTOC_VERSION}-linux-x86_64.zip bin/protoc -d $(TOOLS_BIN_DIR) && rm protoc-${PROTOC_VERSION}-linux-x86_64.zip 
 
 ## --------------------------------------
 ## Linting
@@ -329,8 +339,8 @@ manifests: $(CONTROLLER_GEN))
 	@sed -i '1s/^/{{ if .Values.syncSecret.enabled }}\n/gm; s/namespace: .*/namespace: {{ .Release.Namespace }}/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-syncsecret_binding.yaml
 
 .PHONY: generate-protobuf
-generate-protobuf: # generates protobuf
-	protoc -I . provider/v1alpha1/service.proto --go_out=plugins=grpc:.
+generate-protobuf: $(PROTOC) $(PROTOC_GEN_GO) # generates protobuf
+	$(PROTOC) -I . provider/v1alpha1/service.proto --go_out=plugins=grpc:. --plugin=$(PROTOC_GEN_GO)
 
 ## --------------------------------------
 ## Release

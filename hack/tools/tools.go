@@ -19,6 +19,10 @@ limitations under the License.
 package tools
 
 import (
+	// TODO(tam7t): replace protoc-gen-go with
+	// google.golang.org/grpc/cmd/protoc-gen-go-grpc
+	// google.golang.org/protobuf/cmd/protoc-gen-go
+	_ "github.com/golang/protobuf/protoc-gen-go"
 	_ "github.com/golangci/golangci-lint/cmd/golangci-lint" //nolint
 	_ "sigs.k8s.io/controller-tools/cmd/controller-gen"     //nolint
 	_ "sigs.k8s.io/kustomize/kustomize/v3"                  //nolint
