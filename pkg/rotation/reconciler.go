@@ -80,12 +80,12 @@ type Reconciler struct {
 	queue                workqueue.RateLimitingInterface
 	reporter             StatsReporter
 	eventRecorder        record.EventRecorder
-	kubeClient           *kubernetes.Clientset
-	crdClient            *versioned.Clientset
+	kubeClient           kubernetes.Interface
+	crdClient            versioned.Interface
 }
 
 // NewReconciler returns a new reconciler for rotation
-func NewReconciler(s *runtime.Scheme, providerVolumePath, nodeName string, rotationPollInterval time.Duration, providerClients map[string]*secretsstore.CSIProviderClient) (*Reconciler, error) {
+func NewReconciler(s *runtime.Scheme, providerVolumePath, nodeName string, rotationPollInterval time.Duration, providerClients map[string]*secretsstore.CSIProviderClient, filteredWatchSecret bool) (*Reconciler, error) {
 	config, err := buildConfig()
 	if err != nil {
 		return nil, err
@@ -93,7 +93,7 @@ func NewReconciler(s *runtime.Scheme, providerVolumePath, nodeName string, rotat
 	config.UserAgent = version.GetUserAgent("rotation")
 	kubeClient := kubernetes.NewForConfigOrDie(config)
 	crdClient := secretsStoreClient.NewForConfigOrDie(config)
-	store, err := k8s.New(kubeClient, crdClient, nodeName, 5*time.Second)
+	store, err := k8s.New(kubeClient, crdClient, nodeName, 5*time.Second, filteredWatchSecret)
 	if err != nil {
 		return nil, err
 	}

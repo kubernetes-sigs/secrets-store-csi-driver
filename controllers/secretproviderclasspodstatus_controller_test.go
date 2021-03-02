@@ -18,9 +18,11 @@ package controllers
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
 	. "github.com/onsi/gomega"
 
@@ -80,13 +82,43 @@ func newSecretProviderClassPodStatus(name, namespace, node string) *v1alpha1.Sec
 	}
 }
 
-func newReconciler(client client.Client, scheme *runtime.Scheme) *SecretProviderClassPodStatusReconciler {
+func newSecretProviderClass(name, namespace string) *v1alpha1.SecretProviderClass {
+	return &v1alpha1.SecretProviderClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: v1alpha1.SecretProviderClassSpec{
+			Provider: "provider1",
+			SecretObjects: []*v1alpha1.SecretObject{
+				{
+					SecretName: "secret1",
+					Type:       "Opaque",
+				},
+			},
+		},
+	}
+}
+
+func newPod(name, namespace string, owners []metav1.OwnerReference) *v1.Pod {
+	return &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            name,
+			Namespace:       namespace,
+			OwnerReferences: owners,
+		},
+	}
+}
+
+func newReconciler(client client.Client, scheme *runtime.Scheme, nodeID string) *SecretProviderClassPodStatusReconciler {
 	return &SecretProviderClassPodStatusReconciler{
 		Client:        client,
 		reader:        client,
 		writer:        client,
 		scheme:        scheme,
 		eventRecorder: fakeRecorder,
+		mutex:         &sync.Mutex{},
+		nodeID:        nodeID,
 	}
 }
 
@@ -103,7 +135,7 @@ func TestSecretExists(t *testing.T) {
 	}
 
 	client := fake.NewFakeClientWithScheme(scheme, initObjects...)
-	reconciler := newReconciler(client, scheme)
+	reconciler := newReconciler(client, scheme, "node1")
 
 	exists, err := reconciler.secretExists(context.TODO(), "my-secret", "default")
 	g.Expect(exists).To(Equal(true))
@@ -121,7 +153,16 @@ func TestPatchSecretWithOwnerRef(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	spcPodStatus := newSecretProviderClassPodStatus("my-spcps", "default", "node1")
+	// Create a new owner ref.
+	gvk, err := apiutil.GVKForObject(spcPodStatus, scheme)
+	g.Expect(err).NotTo(HaveOccurred())
 
+	ref := metav1.OwnerReference{
+		APIVersion: gvk.GroupVersion().String(),
+		Kind:       gvk.Kind,
+		UID:        spcPodStatus.GetUID(),
+		Name:       spcPodStatus.GetName(),
+	}
 	labels := map[string]string{"environment": "test"}
 
 	initObjects := []runtime.Object{
@@ -129,9 +170,9 @@ func TestPatchSecretWithOwnerRef(t *testing.T) {
 		spcPodStatus,
 	}
 	client := fake.NewFakeClientWithScheme(scheme, initObjects...)
-	reconciler := newReconciler(client, scheme)
+	reconciler := newReconciler(client, scheme, "node1")
 
-	err = reconciler.patchSecretWithOwnerRef(context.TODO(), "my-secret", "default", spcPodStatus)
+	err = reconciler.patchSecretWithOwnerRef(context.TODO(), "my-secret", "default", ref)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	secret := &v1.Secret{}
@@ -152,7 +193,7 @@ func TestCreateK8sSecret(t *testing.T) {
 		newSecret("my-secret", "default", labels),
 	}
 	client := fake.NewFakeClientWithScheme(scheme, initObjects...)
-	reconciler := newReconciler(client, scheme)
+	reconciler := newReconciler(client, scheme, "node1")
 
 	// secret already exists
 	err = reconciler.createK8sSecret(context.TODO(), "my-secret", "default", nil, labels, v1.SecretTypeOpaque)
@@ -176,7 +217,7 @@ func TestGenerateEvent(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	client := fake.NewFakeClientWithScheme(scheme)
-	reconciler := newReconciler(client, scheme)
+	reconciler := newReconciler(client, scheme, "node1")
 
 	obj := &v1.ObjectReference{
 		Name:      "pod1",
@@ -191,4 +232,73 @@ func TestGenerateEvent(t *testing.T) {
 	g.Expect(event).To(Equal("Warning reason message"))
 	event = <-fakeRecorder.Events
 	g.Expect(event).To(Equal("Warning reason2 message2"))
+}
+
+func TestPatcherForStaticPod(t *testing.T) {
+	g := NewWithT(t)
+
+	scheme, err := setupScheme()
+	g.Expect(err).NotTo(HaveOccurred())
+
+	initObjects := []runtime.Object{
+		newSecretProviderClassPodStatus("pod1-default-spc1", "default", "node1"),
+		newSecretProviderClass("spc1", "default"),
+		newPod("pod1", "default", nil),
+		newSecret("secret1", "default", nil),
+	}
+	client := fake.NewFakeClientWithScheme(scheme, initObjects...)
+	reconciler := newReconciler(client, scheme, "node1")
+
+	err = reconciler.Patcher(context.TODO())
+	g.Expect(err).NotTo(HaveOccurred())
+
+	// check the spcps has been added as owner to the secret
+	secret := &v1.Secret{}
+	err = client.Get(context.TODO(), types.NamespacedName{Name: "secret1", Namespace: "default"}, secret)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	g.Expect(len(secret.OwnerReferences)).To(Equal(1))
+	g.Expect(secret.OwnerReferences[0].APIVersion).To(Equal(v1alpha1.GroupVersion.String()))
+	g.Expect(secret.OwnerReferences[0].Kind).To(Equal("SecretProviderClassPodStatus"))
+	g.Expect(secret.OwnerReferences[0].Name).To(Equal("pod1-default-spc1"))
+}
+
+func TestPatcherForPodWithOwner(t *testing.T) {
+	g := NewWithT(t)
+
+	scheme, err := setupScheme()
+	g.Expect(err).NotTo(HaveOccurred())
+	tr := true
+
+	initObjects := []runtime.Object{
+		newSecretProviderClassPodStatus("pod1-default-spc1", "default", "node1"),
+		newSecretProviderClass("spc1", "default"),
+		newPod("pod1", "default", []metav1.OwnerReference{
+			{
+				APIVersion:         "apps/v1",
+				BlockOwnerDeletion: &tr,
+				Controller:         &tr,
+				Kind:               "ReplicaSet",
+				Name:               "pod-6886c65f8f",
+				UID:                "f39da13d-7246-4ef5-aed4-a6905f82cbcd",
+			},
+		}),
+		newSecret("secret1", "default", nil),
+	}
+	client := fake.NewFakeClientWithScheme(scheme, initObjects...)
+	reconciler := newReconciler(client, scheme, "node1")
+
+	err = reconciler.Patcher(context.TODO())
+	g.Expect(err).NotTo(HaveOccurred())
+
+	// check the spcps has been added as owner to the secret
+	secret := &v1.Secret{}
+	err = client.Get(context.TODO(), types.NamespacedName{Name: "secret1", Namespace: "default"}, secret)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	g.Expect(len(secret.OwnerReferences)).To(Equal(1))
+	g.Expect(secret.OwnerReferences[0].APIVersion).To(Equal("apps/v1"))
+	g.Expect(secret.OwnerReferences[0].Kind).To(Equal("ReplicaSet"))
+	g.Expect(secret.OwnerReferences[0].Name).To(Equal("pod-6886c65f8f"))
+	g.Expect(secret.OwnerReferences[0].UID).To(Equal(types.UID("f39da13d-7246-4ef5-aed4-a6905f82cbcd")))
 }

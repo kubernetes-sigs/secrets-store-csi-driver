@@ -30,6 +30,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
+	"sigs.k8s.io/secrets-store-csi-driver/controllers"
 	secretsStoreClient "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned"
 	secretsStoreInformers "sigs.k8s.io/secrets-store-csi-driver/pkg/client/informers/externalversions/apis/v1alpha1"
 	secretsStoreInternalInterfaces "sigs.k8s.io/secrets-store-csi-driver/pkg/client/informers/externalversions/internalinterfaces"
@@ -72,7 +73,7 @@ type k8sStore struct {
 	listers   *Lister
 }
 
-func New(kubeClient kubernetes.Interface, crdClient secretsStoreClient.Interface, nodeName string, resyncPeriod time.Duration) (Store, error) {
+func New(kubeClient kubernetes.Interface, crdClient secretsStoreClient.Interface, nodeName string, resyncPeriod time.Duration, filteredWatchSecret bool) (Store, error) {
 	store := &k8sStore{
 		informers: &Informer{},
 		listers:   &Lister{},
@@ -80,7 +81,7 @@ func New(kubeClient kubernetes.Interface, crdClient secretsStoreClient.Interface
 	store.informers.Pod = newPodInformer(kubeClient, resyncPeriod, nodeName)
 	store.listers.Pod.Store = store.informers.Pod.GetStore()
 
-	store.informers.Secret = newSecretInformer(kubeClient, resyncPeriod)
+	store.informers.Secret = newSecretInformer(kubeClient, resyncPeriod, filteredWatchSecret)
 	store.listers.Secret.Store = store.informers.Secret.GetStore()
 
 	store.informers.SecretProviderClass = newSPCInformer(crdClient, resyncPeriod)
@@ -157,13 +158,22 @@ func newPodInformer(kubeClient kubernetes.Interface, resyncPeriod time.Duration,
 }
 
 // newSecretInformer returns a secret informer
-func newSecretInformer(kubeClient kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+func newSecretInformer(kubeClient kubernetes.Interface, resyncPeriod time.Duration, filteredWatchSecret bool) cache.SharedIndexInformer {
+	if filteredWatchSecret {
+		return coreInformers.NewFilteredSecretInformer(
+			kubeClient,
+			v1.NamespaceAll,
+			resyncPeriod,
+			cache.Indexers{},
+			managedFilterForSecret(),
+		)
+	}
 	return coreInformers.NewFilteredSecretInformer(
 		kubeClient,
 		v1.NamespaceAll,
 		resyncPeriod,
 		cache.Indexers{},
-		managedFilterForSecret(),
+		nil,
 	)
 }
 
@@ -214,6 +224,6 @@ func getStoreKey(name, namespace string) string {
 // managedFilterForSecret returns tweak options to filter using managed label.
 func managedFilterForSecret() internalinterfaces.TweakListOptionsFunc {
 	return func(options *metav1.ListOptions) {
-		options.LabelSelector = "secrets-store.csi.k8s.io/managed=true"
+		options.LabelSelector = fmt.Sprintf("%s=true", controllers.SecretManagedLabel)
 	}
 }

@@ -52,7 +52,6 @@ var (
 	logFormatJSON      = flag.Bool("log-format-json", false, "set log formatter to json")
 	providerVolumePath = flag.String("provider-volume", "/etc/kubernetes/secrets-store-csi-providers", "Volume path for provider")
 	// this will be removed in a future release
-	_           = flag.String("min-provider-version", "", "[DEPRECATED] set minimum supported provider versions with current driver")
 	metricsAddr = flag.String("metrics-addr", ":8095", "The address the metric endpoint binds to")
 	// grpcSupportedProviders is a ; separated string that can contain a list of providers. The reason it's a string is to allow scenarios
 	// where the driver is being used with 2 providers, one which supports grpc and other using binary for provider.
@@ -61,6 +60,12 @@ var (
 	rotationPollInterval   = flag.Duration("rotation-poll-interval", 2*time.Minute, "Secret rotation poll interval duration")
 	enableProfile          = flag.Bool("enable-pprof", false, "enable pprof profiling")
 	profilePort            = flag.Int("pprof-port", 6065, "port for pprof profiling")
+
+	// enable filtered watch for secrets. The filtering is done on the csi driver label: secrets-store.csi.k8s.io/managed=true
+	// this label is set for all Kubernetes secrets created by the CSI driver. For Kubernetes secrets used to provide credentials
+	// for use with the CSI driver, set the label by running: kubectl label secret secrets-store-creds secrets-store.csi.k8s.io/managed=true
+	// This feature flag will be enabled by default after n+2 releases giving time for users to label all their existing credential secrets.
+	filteredWatchSecret = flag.Bool("filtered-watch-secret", false, "enable filtered watch for secrets with label secrets-store.csi.k8s.io/managed=true")
 
 	scheme = runtime.NewScheme()
 )
@@ -90,6 +95,9 @@ func main() {
 			klog.ErrorS(http.ListenAndServe(addr, nil), "unable to start profiling server")
 		}()
 	}
+	if *filteredWatchSecret {
+		klog.Infof("Filtered watch for secret based on secrets-store.csi.k8s.io/managed=true label enabled")
+	}
 
 	// initialize metrics exporter before creating measurements
 	err := metrics.InitMetricsExporter()
@@ -100,18 +108,29 @@ func main() {
 	cfg := ctrl.GetConfigOrDie()
 	cfg.UserAgent = version.GetUserAgent("controller")
 
+	// this enables filtered watch of pods based on the node name
+	// only pods running on the same node as the csi driver will be cached
+	fieldSelectorByResource := map[string]string{
+		"pods": fields.OneTermEqualSelector("spec.nodeName", *nodeID).String(),
+	}
+	// this enables filtered watch of secretproviderclasspodstatuses based on the internal node label
+	// internal.secrets-store.csi.k8s.io/node-name=<node name> added by csi driver
+	labelSelectorByResource := map[string]string{
+		"secretproviderclasspodstatuses": fmt.Sprintf("%s=%s", v1alpha1.InternalNodeLabel, *nodeID),
+	}
+	// this enables filtered watch of secrets based on the label (secrets-store.csi.k8s.io/managed=true)
+	// added to the secrets created by the CSI driver
+	if *filteredWatchSecret {
+		labelSelectorByResource["secrets"] = fmt.Sprintf("%s=true", controllers.SecretManagedLabel)
+	}
+
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: *metricsAddr,
 		LeaderElection:     false,
 		NewCache: cache.Builder(cache.Options{
-			FieldSelectorByResource: map[string]string{
-				"pods": fields.OneTermEqualSelector("spec.nodeName", *nodeID).String(),
-			},
-			LabelSelectorByResource: map[string]string{
-				"secretproviderclasspodstatuses": fmt.Sprintf("%s=%s", v1alpha1.InternalNodeLabel, *nodeID),
-				"secrets":                        "secrets-store.csi.k8s.io/managed=true",
-			},
+			FieldSelectorByResource: fieldSelectorByResource,
+			LabelSelectorByResource: labelSelectorByResource,
 		}),
 	})
 	if err != nil {
@@ -161,7 +180,7 @@ func main() {
 	}()
 
 	if *enableSecretRotation {
-		rec, err := rotation.NewReconciler(scheme, *providerVolumePath, *nodeID, *rotationPollInterval, providerClients)
+		rec, err := rotation.NewReconciler(scheme, *providerVolumePath, *nodeID, *rotationPollInterval, providerClients, *filteredWatchSecret)
 		if err != nil {
 			klog.Fatalf("failed to initialize rotation reconciler, error: %+v", err)
 		}
