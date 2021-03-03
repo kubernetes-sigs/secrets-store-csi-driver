@@ -14,7 +14,7 @@
 
 REGISTRY?=docker.io/deislabs
 IMAGE_NAME=driver
-IMAGE_VERSION?=v0.0.20
+IMAGE_VERSION?=v0.0.21-rc.0
 BUILD_TIMESTAMP := $(shell date +%Y-%m-%d-%H:%M)
 BUILD_COMMIT := $(shell git rev-parse --short HEAD)
 IMAGE_TAG=$(REGISTRY)/$(IMAGE_NAME):$(IMAGE_VERSION)

@@ -10,7 +10,8 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -a -ldflags "${LDFL
 
 FROM $BASEIMAGE
 COPY --from=builder /go/src/sigs.k8s.io/secrets-store-csi-driver/_output/secrets-store-csi /secrets-store-csi
-RUN clean-install ca-certificates cifs-utils mount apt
+# upgrading libzstd1 due to CVE-2021-24032
+RUN clean-install ca-certificates cifs-utils mount apt libzstd1
 
 LABEL maintainers="ritazh"
 LABEL description="Secrets Store CSI Driver"
