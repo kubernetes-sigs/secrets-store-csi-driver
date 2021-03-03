@@ -18,7 +18,6 @@ package secretutil
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"testing"
@@ -311,7 +310,7 @@ func TestGetSecretData(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			tmpDir, err := ioutil.TempDir("", "ut")
+			tmpDir, err := os.MkdirTemp("", "ut")
 			if err != nil {
 				t.Fatalf("expected err to be nil, got: %+v", err)
 			}

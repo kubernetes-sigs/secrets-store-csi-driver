@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"testing"
@@ -29,7 +28,7 @@ import (
 )
 
 func getTempTestDir(t *testing.T) string {
-	tmpDir, err := ioutil.TempDir("", "ut")
+	tmpDir, err := os.MkdirTemp("", "ut")
 	if err != nil {
 		t.Fatalf("expected err to be nil, got: %+v", err)
 	}

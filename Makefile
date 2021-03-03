@@ -23,7 +23,7 @@ REPO_PATH="$(ORG_PATH)/$(PROJECT_NAME)"
 
 REGISTRY ?= gcr.io/k8s-staging-csi-secrets-store
 IMAGE_NAME ?= driver
-IMAGE_VERSION ?= v0.0.20
+IMAGE_VERSION ?= v0.0.21-rc.0
 E2E_IMAGE_VERSION = v0.1.0-e2e-$(BUILD_COMMIT)
 # Use a custom version for E2E tests if we are testing in CI
 ifdef CI

@@ -17,7 +17,7 @@ limitations under the License.
 package fileutil
 
 import (
-	"io/ioutil"
+	"os"
 	"testing"
 )
 
@@ -35,7 +35,7 @@ func TestGetMountedFiles(t *testing.T) {
 		{
 			name: "target path dir found",
 			targetPath: func() string {
-				tmpDir, err := ioutil.TempDir("", "ut")
+				tmpDir, err := os.MkdirTemp("", "ut")
 				if err != nil {
 					t.Errorf("failed to created tmp file, err: %+v", err)
 					return ""

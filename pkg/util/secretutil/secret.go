@@ -24,7 +24,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"sort"
 	"strings"
 
@@ -177,7 +177,7 @@ func GetSecretData(secretObjData []*v1alpha1.SecretObjectData, secretType corev1
 		if !ok {
 			return datamap, fmt.Errorf("file matching objectName %s not found in the pod", objectName)
 		}
-		content, err := ioutil.ReadFile(file)
+		content, err := os.ReadFile(file)
 		if err != nil {
 			return datamap, fmt.Errorf("failed to read file %s, err: %v", objectName, err)
 		}
