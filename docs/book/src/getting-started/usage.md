@@ -16,7 +16,7 @@ spec:
   parameters:                                 # provider-specific parameters
 ```
 
-Here is a sample [`SecretProviderClass` custom resource](test/bats/tests/vault/vault_v1alpha1_secretproviderclass.yaml)
+Here is a sample [`SecretProviderClass` custom resource](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/master/test/bats/tests/vault/vault_v1alpha1_secretproviderclass.yaml)
 
 ### Update your Deployment Yaml
 
@@ -32,7 +32,7 @@ volumes:
         secretProviderClass: "my-provider"
 ```
 
-Here is a sample [deployment yaml](test/bats/tests/vault/nginx-pod-vault-inline-volume-secretproviderclass.yaml) using the Secrets Store CSI driver.
+Here is a sample [deployment yaml](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/master/test/bats/tests/vault/nginx-pod-vault-inline-volume-secretproviderclass.yaml) using the Secrets Store CSI driver.
 
 ## Secret Content is Mounted on Pod Start
 
@@ -47,15 +47,15 @@ foo
 
 ## [OPTIONAL] Sync with Kubernetes Secrets
 
-Refer to [Sync as Kubernetes Secret](topics/sync-as-kubernetes-secret.md) for steps on syncing the secrets-store content as Kubernetes secret in addition to the mount.
+Refer to [Sync as Kubernetes Secret](../topics/sync-as-kubernetes-secret.md) for steps on syncing the secrets-store content as Kubernetes secret in addition to the mount.
 
 ### [OPTIONAL] Set ENV VAR
 
-Refer to [Set as ENV var](topics/set-as-env-var.md) for steps on syncing the secrets-store content as Kubernetes secret and using the secret for env variables in the deployment.
+Refer to [Set as ENV var](../topics/set-as-env-var.md) for steps on syncing the secrets-store content as Kubernetes secret and using the secret for env variables in the deployment.
 
 ## [OPTIONAL] Enable Auto Rotation of Secrets
 
-You can setup the Secrets Store CSI Driver to periodically update the pod mount and Kubernetes Secret with the latest content from external secrets-store. Refer to [Secret Auto Rotation](topics/rotation.md) for steps on enabling auto rotation.
+You can setup the Secrets Store CSI Driver to periodically update the pod mount and Kubernetes Secret with the latest content from external secrets-store. Refer to [Secret Auto Rotation](../topics/secret-auto-rotation.md) for steps on enabling auto rotation.
 
 <aside class="note warning">
 <h1>NOTE</h1>
