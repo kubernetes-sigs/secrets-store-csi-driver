@@ -1,7 +1,7 @@
 ARG BASEIMAGE=mcr.microsoft.com/windows/nanoserver:1809
 ARG BASEIMAGE_CORE=mcr.microsoft.com/windows/servercore:1809
 
-FROM --platform=$BUILDPLATFORM golang:1.13.10-alpine3.10 as builder
+FROM --platform=$BUILDPLATFORM golang:1.16-alpine as builder
 WORKDIR /go/src/sigs.k8s.io/secrets-store-csi-driver
 ADD . .
 ARG TARGETARCH

@@ -18,7 +18,7 @@ package secretsstore
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"runtime"
 
 	"golang.org/x/net/context"
@@ -41,7 +41,7 @@ func (ns *nodeServer) ensureMountPoint(target string) (bool, error) {
 
 	if !notMnt {
 		// testing original mount point, make sure the mount link is valid
-		_, err := ioutil.ReadDir(target)
+		_, err := os.ReadDir(target)
 		if err == nil {
 			klog.InfoS("already mounted to target", "targetPath", target)
 			// already mounted
@@ -61,7 +61,7 @@ func (ns *nodeServer) ensureMountPoint(target string) (bool, error) {
 		// target path is not a soft link to the global mount
 		// instead check if the dir exists for windows and if it's not empty
 		// If there are contents in the dir, then objects are already mounted
-		f, err := ioutil.ReadDir(target)
+		f, err := os.ReadDir(target)
 		if err != nil {
 			return !notMnt, err
 		}

@@ -18,7 +18,6 @@ package secretsstore
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -40,7 +39,7 @@ import (
 )
 
 func testNodeServer(mountPoints []mount.MountPoint, client client.Client, grpcSupportProvider string, reporter StatsReporter) (*nodeServer, error) {
-	tmpDir, err := ioutil.TempDir("", "ut")
+	tmpDir, err := os.MkdirTemp("", "ut")
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +55,7 @@ func testNodeServer(mountPoints []mount.MountPoint, client client.Client, grpcSu
 }
 
 func getTestTargetPath(pattern string, t *testing.T) string {
-	dir, err := ioutil.TempDir("", fmt.Sprintf("ut%s", pattern))
+	dir, err := os.MkdirTemp("", fmt.Sprintf("ut%s", pattern))
 	if err != nil {
 		t.Fatalf("expected err to be nil, got: %+v", err)
 	}

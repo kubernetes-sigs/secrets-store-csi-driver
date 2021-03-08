@@ -18,7 +18,7 @@ package fileutil
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"regexp"
 	"strings"
 )
@@ -31,7 +31,7 @@ var (
 func GetMountedFiles(targetPath string) (map[string]string, error) {
 	paths := make(map[string]string)
 	// loop thru all the mounted files
-	files, err := ioutil.ReadDir(targetPath)
+	files, err := os.ReadDir(targetPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list all files in target path %s, err: %v", targetPath, err)
 	}

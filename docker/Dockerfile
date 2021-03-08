@@ -1,6 +1,6 @@
 ARG BASEIMAGE=us.gcr.io/k8s-artifacts-prod/build-image/debian-base-amd64:buster-v1.4.0
 
-FROM golang:1.13.10-alpine3.10 as builder
+FROM golang:1.16-alpine as builder
 WORKDIR /go/src/sigs.k8s.io/secrets-store-csi-driver
 ADD . .
 ARG TARGETARCH

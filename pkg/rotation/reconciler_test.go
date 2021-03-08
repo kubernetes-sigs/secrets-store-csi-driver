@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -582,7 +581,7 @@ func TestReconcileNoError(t *testing.T) {
 	server.SetObjects(expectedObjectVersions)
 	server.Start()
 
-	err = ioutil.WriteFile(secretProviderClassPodStatusToProcess.Status.TargetPath+"/object1", []byte("newdata"), permission)
+	err = os.WriteFile(secretProviderClassPodStatusToProcess.Status.TargetPath+"/object1", []byte("newdata"), permission)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	err = testReconciler.reconcile(context.TODO(), secretProviderClassPodStatusToProcess)
@@ -745,7 +744,7 @@ func TestHandleError(t *testing.T) {
 }
 
 func getTempTestDir(t *testing.T) string {
-	tmpDir, err := ioutil.TempDir("", "ut")
+	tmpDir, err := os.MkdirTemp("", "ut")
 	if err != nil {
 		t.Fatalf("expected err to be nil, got: %+v", err)
 	}
