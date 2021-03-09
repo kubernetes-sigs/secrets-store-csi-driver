@@ -142,7 +142,7 @@ func main() {
 
 	go func() {
 		klog.Infof("starting manager")
-		if err := mgr.Start(ctx.Done()); err != nil {
+		if err := mgr.Start(ctx); err != nil {
 			klog.Fatalf("failed to run manager, error: %+v", err)
 		}
 	}()
@@ -175,7 +175,7 @@ func main() {
 // the process receives termination signals.
 func withShutdownSignal(ctx context.Context) context.Context {
 	nctx, cancel := context.WithCancel(ctx)
-	stopCh := ctrl.SetupSignalHandler()
+	stopCh := ctrl.SetupSignalHandler().Done()
 
 	go func() {
 		<-stopCh
