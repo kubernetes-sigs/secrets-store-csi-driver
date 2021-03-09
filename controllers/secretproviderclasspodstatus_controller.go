@@ -175,11 +175,10 @@ func (r *SecretProviderClassPodStatusReconciler) ListOptionsLabelSelector() clie
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
-func (r *SecretProviderClassPodStatusReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	ctx := context.Background()
 	klog.InfoS("reconcile started", "spcps", req.NamespacedName.String())
 
 	spcPodStatus := &v1alpha1.SecretProviderClassPodStatus{}
