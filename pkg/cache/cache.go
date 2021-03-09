@@ -22,6 +22,7 @@ import (
 
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/cache/internal"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -31,14 +32,19 @@ import (
 
 var log = ctrl.Log.WithName("object-cache")
 
-var defaultResyncTime = 10 * time.Hour
-
 // Options are the optional arguments for creating a new InformersMap object
 type Options struct {
 	crcache.Options
-	FieldSelectorByResource map[string]string
-	LabelSelectorByResource map[string]string
+	// FieldSelectorByResource restricts the cache's ListWatch to the resources with desired field
+	// Default watches resources with any field
+	FieldSelectorByResource map[schema.GroupResource]string
+
+	// LabelSelectorByResource restricts the cache's ListWatch to the resources with desired label
+	// Default watches resources with any label
+	LabelSelectorByResource map[schema.GroupResource]string
 }
+
+var defaultResyncTime = 10 * time.Hour
 
 // New initializes and returns a new Cache.
 func New(config *rest.Config, opts Options) (crcache.Cache, error) {

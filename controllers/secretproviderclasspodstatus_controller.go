@@ -364,26 +364,23 @@ func (r *SecretProviderClassPodStatusReconciler) SetupWithManager(mgr ctrl.Manag
 func (r *SecretProviderClassPodStatusReconciler) belongsToNodePredicate() predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return r.processIfBelongsToNode(e.ObjectNew, e.MetaNew)
+			return r.processIfBelongsToNode(e.ObjectNew)
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
-			return r.processIfBelongsToNode(e.Object, e.Meta)
+			return r.processIfBelongsToNode(e.Object)
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			return false
 		},
 		GenericFunc: func(e event.GenericEvent) bool {
-			return r.processIfBelongsToNode(e.Object, e.Meta)
+			return r.processIfBelongsToNode(e.Object)
 		},
 	}
 }
 
 // processIfBelongsToNode determines if the secretproviderclasspodstatus belongs to the node based on the
 // internal.secrets-store.csi.k8s.io/node-name: <node name> label. If belongs to node, then the spcps is processed.
-func (r *SecretProviderClassPodStatusReconciler) processIfBelongsToNode(obj runtime.Object, objMeta metav1.Object) bool {
-	if _, ok := obj.(*v1alpha1.SecretProviderClassPodStatus); !ok {
-		return false
-	}
+func (r *SecretProviderClassPodStatusReconciler) processIfBelongsToNode(objMeta metav1.Object) bool {
 	node, ok := objMeta.GetLabels()[v1alpha1.InternalNodeLabel]
 	if !ok {
 		return false

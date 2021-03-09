@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/cache"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/metrics"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/rotation"
@@ -110,18 +112,18 @@ func main() {
 
 	// this enables filtered watch of pods based on the node name
 	// only pods running on the same node as the csi driver will be cached
-	fieldSelectorByResource := map[string]string{
-		"pods": fields.OneTermEqualSelector("spec.nodeName", *nodeID).String(),
+	fieldSelectorByResource := map[schema.GroupResource]string{
+		{Group: "", Resource: "pods"}: fields.OneTermEqualSelector("spec.nodeName", *nodeID).String(),
 	}
 	// this enables filtered watch of secretproviderclasspodstatuses based on the internal node label
 	// internal.secrets-store.csi.k8s.io/node-name=<node name> added by csi driver
-	labelSelectorByResource := map[string]string{
-		"secretproviderclasspodstatuses": fmt.Sprintf("%s=%s", v1alpha1.InternalNodeLabel, *nodeID),
+	labelSelectorByResource := map[schema.GroupResource]string{
+		{Group: "", Resource: "secretproviderclasspodstatuses"}: fmt.Sprintf("%s=%s", v1alpha1.InternalNodeLabel, *nodeID),
 	}
 	// this enables filtered watch of secrets based on the label (secrets-store.csi.k8s.io/managed=true)
 	// added to the secrets created by the CSI driver
 	if *filteredWatchSecret {
-		labelSelectorByResource["secrets"] = fmt.Sprintf("%s=true", controllers.SecretManagedLabel)
+		labelSelectorByResource[schema.GroupResource{Group: "", Resource: "secrets"}] = fmt.Sprintf("%s=true", controllers.SecretManagedLabel)
 	}
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
