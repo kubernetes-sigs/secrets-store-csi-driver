@@ -55,6 +55,7 @@ import (
 
 const (
 	SecretManagedLabel         = "secrets-store.csi.k8s.io/managed"
+	SecretUsedLabel            = "secrets-store.csi.k8s.io/used"
 	secretCreationFailedReason = "FailedToCreateSecret"
 )
 
@@ -123,7 +124,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 		spc := &v1alpha1.SecretProviderClass{}
 		namespace := spcPodStatuses[i].Namespace
 
-		if val, exists := spcMap[spcPodStatuses[i].Namespace+"/"+spcName]; exists {
+		if val, exists := spcMap[namespace+"/"+spcName]; exists {
 			spc = &val
 		} else {
 			if err := r.reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: spcName}, spc); err != nil {
@@ -165,7 +166,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 		}
 
 		for _, secret := range spc.Spec.SecretObjects {
-			key := types.NamespacedName{Name: secret.SecretName, Namespace: spcPodStatuses[i].Namespace}
+			key := types.NamespacedName{Name: secret.SecretName, Namespace: namespace}
 			val, exists := secretOwnerMap[key]
 			if exists {
 				secretOwnerMap[key] = append(val, ownerRefs...)

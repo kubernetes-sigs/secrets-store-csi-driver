@@ -44,6 +44,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
+	"sigs.k8s.io/secrets-store-csi-driver/controllers"
 	secretsStoreFakeClient "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned/fake"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
 	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
@@ -478,148 +479,182 @@ func TestReconcileError(t *testing.T) {
 func TestReconcileNoError(t *testing.T) {
 	g := NewWithT(t)
 
-	secretProviderClassPodStatusToProcess := &v1alpha1.SecretProviderClassPodStatus{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pod1-default-spc1",
-			Namespace: "default",
-			Labels:    map[string]string{v1alpha1.InternalNodeLabel: "nodeName"},
-		},
-		Status: v1alpha1.SecretProviderClassPodStatusStatus{
-			SecretProviderClassName: "spc1",
-			PodName:                 "pod1",
-			TargetPath:              getTestTargetPath(t, "foo", "csi-volume"),
-			Objects: []v1alpha1.SecretProviderClassObject{
-				{
-					ID:      "secret/object1",
-					Version: "v1",
+	tests := []struct {
+		name                            string
+		filteredWatchEnabled            bool
+		nodePublishSecretRefSecretToAdd *v1.Secret
+	}{
+		{
+			name:                 "filtered watch for nodePublishSecretRef not enabled",
+			filteredWatchEnabled: false,
+			nodePublishSecretRefSecretToAdd: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "secret1",
+					Namespace: "default",
 				},
+				Data: map[string][]byte{"clientid": []byte("clientid")},
 			},
 		},
-	}
-	secretProviderClassToAdd := &v1alpha1.SecretProviderClass{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "spc1",
-			Namespace: "default",
-		},
-		Spec: v1alpha1.SecretProviderClassSpec{
-			SecretObjects: []*v1alpha1.SecretObject{
-				{
-					Data: []*v1alpha1.SecretObjectData{
-						{
-							ObjectName: "object1",
-							Key:        "foo",
-						},
+		{
+			name:                 "filtered watch for nodePublishSecretRef enabled",
+			filteredWatchEnabled: true,
+			nodePublishSecretRefSecretToAdd: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "secret1",
+					Namespace: "default",
+					Labels: map[string]string{
+						controllers.SecretUsedLabel: "true",
 					},
-					SecretName: "foosecret",
-					Type:       "Opaque",
 				},
+				Data: map[string][]byte{"clientid": []byte("clientid")},
 			},
-			Provider: "provider1",
 		},
 	}
-	podToAdd := &v1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pod1",
-			Namespace: "default",
-			UID:       types.UID("foo"),
-		},
-		Spec: v1.PodSpec{
-			Volumes: []v1.Volume{
-				{
-					Name: "csi-volume",
-					VolumeSource: v1.VolumeSource{
-						CSI: &v1.CSIVolumeSource{
-							Driver:           "secrets-store.csi.k8s.io",
-							VolumeAttributes: map[string]string{"secretProviderClass": "spc1"},
-							NodePublishSecretRef: &v1.LocalObjectReference{
-								Name: "secret1",
+
+	for _, test := range tests {
+		secretProviderClassPodStatusToProcess := &v1alpha1.SecretProviderClassPodStatus{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "pod1-default-spc1",
+				Namespace: "default",
+				Labels:    map[string]string{v1alpha1.InternalNodeLabel: "nodeName"},
+			},
+			Status: v1alpha1.SecretProviderClassPodStatusStatus{
+				SecretProviderClassName: "spc1",
+				PodName:                 "pod1",
+				TargetPath:              getTestTargetPath(t, "foo", "csi-volume"),
+				Objects: []v1alpha1.SecretProviderClassObject{
+					{
+						ID:      "secret/object1",
+						Version: "v1",
+					},
+				},
+			},
+		}
+		secretProviderClassToAdd := &v1alpha1.SecretProviderClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "spc1",
+				Namespace: "default",
+			},
+			Spec: v1alpha1.SecretProviderClassSpec{
+				SecretObjects: []*v1alpha1.SecretObject{
+					{
+						Data: []*v1alpha1.SecretObjectData{
+							{
+								ObjectName: "object1",
+								Key:        "foo",
+							},
+						},
+						SecretName: "foosecret",
+						Type:       "Opaque",
+					},
+				},
+				Provider: "provider1",
+			},
+		}
+		podToAdd := &v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "pod1",
+				Namespace: "default",
+				UID:       types.UID("foo"),
+			},
+			Spec: v1.PodSpec{
+				Volumes: []v1.Volume{
+					{
+						Name: "csi-volume",
+						VolumeSource: v1.VolumeSource{
+							CSI: &v1.CSIVolumeSource{
+								Driver:           "secrets-store.csi.k8s.io",
+								VolumeAttributes: map[string]string{"secretProviderClass": "spc1"},
+								NodePublishSecretRef: &v1.LocalObjectReference{
+									Name: "secret1",
+								},
 							},
 						},
 					},
 				},
 			},
-		},
+		}
+		secretToBeRotated := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            "foosecret",
+				Namespace:       "default",
+				ResourceVersion: "12352",
+				Labels: map[string]string{
+					controllers.SecretManagedLabel: "true",
+				},
+			},
+			Data: map[string][]byte{"foo": []byte("olddata")},
+		}
+
+		socketPath := getTempTestDir(t)
+		expectedObjectVersions := map[string]string{"secret/object1": "v2"}
+		scheme, err := setupScheme()
+		g.Expect(err).NotTo(HaveOccurred())
+
+		kubeClient := fake.NewSimpleClientset(podToAdd, test.nodePublishSecretRefSecretToAdd, secretToBeRotated)
+		crdClient := secretsStoreFakeClient.NewSimpleClientset(secretProviderClassPodStatusToProcess, secretProviderClassToAdd)
+
+		testReconciler, err := newTestReconciler(scheme, kubeClient, crdClient, 60*time.Second, socketPath, false)
+		g.Expect(err).NotTo(HaveOccurred())
+		err = testReconciler.store.Run(wait.NeverStop)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		serverEndpoint := fmt.Sprintf("%s/%s.sock", socketPath, "provider1")
+		defer os.Remove(serverEndpoint)
+
+		server, err := providerfake.NewMocKCSIProviderServer(serverEndpoint)
+		g.Expect(err).NotTo(HaveOccurred())
+		server.SetObjects(expectedObjectVersions)
+		server.Start()
+
+		err = os.WriteFile(secretProviderClassPodStatusToProcess.Status.TargetPath+"/object1", []byte("newdata"), permission)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		err = testReconciler.reconcile(context.TODO(), secretProviderClassPodStatusToProcess)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		// validate the secret provider class pod status versions have been updated
+		updatedSPCPodStatus := &v1alpha1.SecretProviderClassPodStatus{}
+		updatedSPCPodStatus, err = crdClient.SecretsstoreV1alpha1().SecretProviderClassPodStatuses(v1.NamespaceDefault).Get(context.TODO(), "pod1-default-spc1", metav1.GetOptions{})
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(updatedSPCPodStatus.Status.Objects).To(Equal([]v1alpha1.SecretProviderClassObject{{ID: "secret/object1", Version: "v2"}}))
+
+		// validate the secret data has been updated to the latest value
+		updatedSecret := &v1.Secret{}
+		updatedSecret, err = kubeClient.CoreV1().Secrets(v1.NamespaceDefault).Get(context.TODO(), "foosecret", metav1.GetOptions{})
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(updatedSecret.Data["foo"]).To(Equal([]byte("newdata")))
+
+		// 2 normal events - one for successfully updating the mounted contents and
+		// second for successfully rotating the K8s secret
+		g.Expect(len(fakeRecorder.Events)).To(BeNumerically("==", 2))
+		for len(fakeRecorder.Events) > 0 {
+			<-fakeRecorder.Events
+		}
+
+		// test with pod being terminated
+		podToAdd.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+		kubeClient = fake.NewSimpleClientset(podToAdd, test.nodePublishSecretRefSecretToAdd)
+		testReconciler, err = newTestReconciler(scheme, kubeClient, crdClient, 60*time.Second, socketPath, false)
+		g.Expect(err).NotTo(HaveOccurred())
+		err = testReconciler.store.Run(wait.NeverStop)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		err = testReconciler.reconcile(context.TODO(), secretProviderClassPodStatusToProcess)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		// test with pod being in succeeded phase
+		podToAdd.DeletionTimestamp = nil
+		podToAdd.Status.Phase = v1.PodSucceeded
+		kubeClient = fake.NewSimpleClientset(podToAdd, test.nodePublishSecretRefSecretToAdd)
+		testReconciler, err = newTestReconciler(scheme, kubeClient, crdClient, 60*time.Second, socketPath, false)
+		g.Expect(err).NotTo(HaveOccurred())
+		err = testReconciler.store.Run(wait.NeverStop)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		err = testReconciler.reconcile(context.TODO(), secretProviderClassPodStatusToProcess)
+		g.Expect(err).NotTo(HaveOccurred())
 	}
-	secretToAdd := &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "secret1",
-			Namespace: "default",
-		},
-		Data: map[string][]byte{"clientid": []byte("clientid")},
-	}
-	secretToBeRotated := &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            "foosecret",
-			Namespace:       "default",
-			ResourceVersion: "12352",
-		},
-		Data: map[string][]byte{"foo": []byte("olddata")},
-	}
-	socketPath := getTempTestDir(t)
-	expectedObjectVersions := map[string]string{"secret/object1": "v2"}
-	scheme, err := setupScheme()
-	g.Expect(err).NotTo(HaveOccurred())
-
-	kubeClient := fake.NewSimpleClientset(podToAdd, secretToAdd, secretToBeRotated)
-	crdClient := secretsStoreFakeClient.NewSimpleClientset(secretProviderClassPodStatusToProcess, secretProviderClassToAdd)
-
-	testReconciler, err := newTestReconciler(scheme, kubeClient, crdClient, 60*time.Second, socketPath, false)
-	g.Expect(err).NotTo(HaveOccurred())
-	err = testReconciler.store.Run(wait.NeverStop)
-	g.Expect(err).NotTo(HaveOccurred())
-
-	serverEndpoint := fmt.Sprintf("%s/%s.sock", socketPath, "provider1")
-	defer os.Remove(serverEndpoint)
-
-	server, err := providerfake.NewMocKCSIProviderServer(serverEndpoint)
-	g.Expect(err).NotTo(HaveOccurred())
-	server.SetObjects(expectedObjectVersions)
-	server.Start()
-
-	err = os.WriteFile(secretProviderClassPodStatusToProcess.Status.TargetPath+"/object1", []byte("newdata"), permission)
-	g.Expect(err).NotTo(HaveOccurred())
-
-	err = testReconciler.reconcile(context.TODO(), secretProviderClassPodStatusToProcess)
-	g.Expect(err).NotTo(HaveOccurred())
-
-	// validate the secret provider class pod status versions have been updated
-	updatedSPCPodStatus := &v1alpha1.SecretProviderClassPodStatus{}
-	updatedSPCPodStatus, err = crdClient.SecretsstoreV1alpha1().SecretProviderClassPodStatuses(v1.NamespaceDefault).Get(context.TODO(), "pod1-default-spc1", metav1.GetOptions{})
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(updatedSPCPodStatus.Status.Objects).To(Equal([]v1alpha1.SecretProviderClassObject{{ID: "secret/object1", Version: "v2"}}))
-
-	// validate the secret data has been updated to the latest value
-	updatedSecret := &v1.Secret{}
-	updatedSecret, err = kubeClient.CoreV1().Secrets(v1.NamespaceDefault).Get(context.TODO(), "foosecret", metav1.GetOptions{})
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(updatedSecret.Data["foo"]).To(Equal([]byte("newdata")))
-
-	// 2 normal events - one for successfully updating the mounted contents and
-	// second for successfully rotating the K8s secret
-	g.Expect(len(fakeRecorder.Events)).To(BeNumerically("==", 2))
-
-	// test with pod being terminated
-	podToAdd.DeletionTimestamp = &metav1.Time{Time: time.Now()}
-	kubeClient = fake.NewSimpleClientset(podToAdd, secretToAdd)
-	testReconciler, err = newTestReconciler(scheme, kubeClient, crdClient, 60*time.Second, socketPath, false)
-	g.Expect(err).NotTo(HaveOccurred())
-	err = testReconciler.store.Run(wait.NeverStop)
-	g.Expect(err).NotTo(HaveOccurred())
-
-	err = testReconciler.reconcile(context.TODO(), secretProviderClassPodStatusToProcess)
-	g.Expect(err).NotTo(HaveOccurred())
-
-	// test with pod being in succeeded phase
-	podToAdd.DeletionTimestamp = nil
-	podToAdd.Status.Phase = v1.PodSucceeded
-	kubeClient = fake.NewSimpleClientset(podToAdd, secretToAdd)
-	testReconciler, err = newTestReconciler(scheme, kubeClient, crdClient, 60*time.Second, socketPath, false)
-	g.Expect(err).NotTo(HaveOccurred())
-	err = testReconciler.store.Run(wait.NeverStop)
-	g.Expect(err).NotTo(HaveOccurred())
-
-	err = testReconciler.reconcile(context.TODO(), secretProviderClassPodStatusToProcess)
-	g.Expect(err).NotTo(HaveOccurred())
 }
 
 func TestPatchSecret(t *testing.T) {
@@ -645,6 +680,9 @@ func TestPatchSecret(t *testing.T) {
 					Name:            "secret1",
 					Namespace:       "default",
 					ResourceVersion: "16172",
+					Labels: map[string]string{
+						controllers.SecretManagedLabel: "true",
+					},
 				},
 				Data: map[string][]byte{"key1": []byte("value1")},
 			},
@@ -659,6 +697,9 @@ func TestPatchSecret(t *testing.T) {
 					Name:            "secret1",
 					Namespace:       "default",
 					ResourceVersion: "16172",
+					Labels: map[string]string{
+						controllers.SecretManagedLabel: "true",
+					},
 				},
 				Data: map[string][]byte{"key1": []byte("value1")},
 			},
@@ -673,6 +714,9 @@ func TestPatchSecret(t *testing.T) {
 					Name:            "secret1",
 					Namespace:       "default",
 					ResourceVersion: "16172",
+					Labels: map[string]string{
+						controllers.SecretManagedLabel: "true",
+					},
 				},
 				Data: map[string][]byte{"key1": []byte("value1")},
 			},

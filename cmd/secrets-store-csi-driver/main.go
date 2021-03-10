@@ -25,8 +25,6 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/cache"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/metrics"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/rotation"
@@ -34,6 +32,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	json "k8s.io/component-base/logs/json"
 	"k8s.io/klog/v2"
@@ -63,11 +62,10 @@ var (
 	enableProfile          = flag.Bool("enable-pprof", false, "enable pprof profiling")
 	profilePort            = flag.Int("pprof-port", 6065, "port for pprof profiling")
 
-	// enable filtered watch for secrets. The filtering is done on the csi driver label: secrets-store.csi.k8s.io/managed=true
-	// this label is set for all Kubernetes secrets created by the CSI driver. For Kubernetes secrets used to provide credentials
-	// for use with the CSI driver, set the label by running: kubectl label secret secrets-store-creds secrets-store.csi.k8s.io/managed=true
+	// enable filtered watch for NodePublishSecretRef secrets. The filtering is done on the csi driver label: secrets-store.csi.k8s.io/used=true
+	// For Kubernetes secrets used to provide credentials for use with the CSI driver, set the label by running: kubectl label secret secrets-store-creds secrets-store.csi.k8s.io/used=true
 	// This feature flag will be enabled by default after n+2 releases giving time for users to label all their existing credential secrets.
-	filteredWatchSecret = flag.Bool("filtered-watch-secret", false, "enable filtered watch for secrets with label secrets-store.csi.k8s.io/managed=true")
+	filteredWatchSecret = flag.Bool("filtered-watch-secret", false, "enable filtered watch for NodePublishSecretRef secrets with label secrets-store.csi.k8s.io/used=true")
 
 	scheme = runtime.NewScheme()
 )
@@ -98,7 +96,7 @@ func main() {
 		}()
 	}
 	if *filteredWatchSecret {
-		klog.Infof("Filtered watch for secret based on secrets-store.csi.k8s.io/managed=true label enabled")
+		klog.Infof("Filtered watch for nodePublishSecretRef secret based on secrets-store.csi.k8s.io/used=true label enabled")
 	}
 
 	// initialize metrics exporter before creating measurements
@@ -115,15 +113,13 @@ func main() {
 	fieldSelectorByResource := map[schema.GroupResource]string{
 		{Group: "", Resource: "pods"}: fields.OneTermEqualSelector("spec.nodeName", *nodeID).String(),
 	}
-	// this enables filtered watch of secretproviderclasspodstatuses based on the internal node label
-	// internal.secrets-store.csi.k8s.io/node-name=<node name> added by csi driver
 	labelSelectorByResource := map[schema.GroupResource]string{
-		{Group: "", Resource: "secretproviderclasspodstatuses"}: fmt.Sprintf("%s=%s", v1alpha1.InternalNodeLabel, *nodeID),
-	}
-	// this enables filtered watch of secrets based on the label (secrets-store.csi.k8s.io/managed=true)
-	// added to the secrets created by the CSI driver
-	if *filteredWatchSecret {
-		labelSelectorByResource[schema.GroupResource{Group: "", Resource: "secrets"}] = fmt.Sprintf("%s=true", controllers.SecretManagedLabel)
+		// this enables filtered watch of secretproviderclasspodstatuses based on the internal node label
+		// internal.secrets-store.csi.k8s.io/node-name=<node name> added by csi driver
+		{Group: v1alpha1.GroupVersion.Group, Resource: "secretproviderclasspodstatuses"}: fmt.Sprintf("%s=%s", v1alpha1.InternalNodeLabel, *nodeID),
+		// this enables filtered watch of secrets based on the label (secrets-store.csi.k8s.io/managed=true)
+		// added to the secrets created by the CSI driver
+		{Group: "", Resource: "secrets"}: fmt.Sprintf("%s=true", controllers.SecretManagedLabel),
 	}
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{

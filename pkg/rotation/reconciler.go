@@ -245,7 +245,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 		secretNamespace := spcps.Namespace
 
 		// read secret from the informer cache
-		secret, err := r.store.GetSecret(secretName, secretNamespace)
+		secret, err := r.store.GetNodePublishSecretRefSecret(secretName, secretNamespace)
 		if err != nil {
 			errorReason = internalerrors.NodePublishSecretRefNotFound
 			r.generateEvent(pod, v1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to get node publish secret %s/%s, err: %+v", secretNamespace, secretName, err))
