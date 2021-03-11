@@ -24,6 +24,9 @@ import (
 	"time"
 
 	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -38,7 +41,6 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -52,7 +54,8 @@ import (
 )
 
 const (
-	secretManagedLabel         = "secrets-store.csi.k8s.io/managed"
+	SecretManagedLabel         = "secrets-store.csi.k8s.io/managed"
+	SecretUsedLabel            = "secrets-store.csi.k8s.io/used"
 	secretCreationFailedReason = "FailedToCreateSecret"
 )
 
@@ -108,7 +111,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 
 	spcPodStatusList := &v1alpha1.SecretProviderClassPodStatusList{}
 	spcMap := make(map[string]v1alpha1.SecretProviderClass)
-	secretOwnerMap := make(map[types.NamespacedName][]*v1alpha1.SecretProviderClassPodStatus)
+	secretOwnerMap := make(map[types.NamespacedName][]metav1.OwnerReference)
 	// get a list of all spc pod status that belong to the node
 	err := r.reader.List(ctx, spcPodStatusList, r.ListOptionsLabelSelector())
 	if err != nil {
@@ -119,21 +122,56 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 	for i := range spcPodStatuses {
 		spcName := spcPodStatuses[i].Status.SecretProviderClassName
 		spc := &v1alpha1.SecretProviderClass{}
-		if val, exists := spcMap[spcPodStatuses[i].Namespace+"/"+spcName]; exists {
+		namespace := spcPodStatuses[i].Namespace
+
+		if val, exists := spcMap[namespace+"/"+spcName]; exists {
 			spc = &val
 		} else {
-			if err := r.reader.Get(ctx, client.ObjectKey{Namespace: spcPodStatuses[i].Namespace, Name: spcName}, spc); err != nil {
+			if err := r.reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: spcName}, spc); err != nil {
 				return fmt.Errorf("failed to get spc %s, err: %+v", spcName, err)
 			}
-			spcMap[spcPodStatuses[i].Namespace+"/"+spcName] = *spc
+			spcMap[namespace+"/"+spcName] = *spc
 		}
+		// get the pod and check if the pod has a owner reference
+		pod := &v1.Pod{}
+		err = r.reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: spcPodStatuses[i].Status.PodName}, pod)
+		if err != nil {
+			return fmt.Errorf("failed to fetch pod during patching, err: %+v", err)
+		}
+		var ownerRefs []metav1.OwnerReference
+		for _, ownerRef := range pod.GetOwnerReferences() {
+			ownerRefs = append(ownerRefs, metav1.OwnerReference{
+				APIVersion: ownerRef.APIVersion,
+				Kind:       ownerRef.Kind,
+				UID:        ownerRef.UID,
+				Name:       ownerRef.Name,
+			})
+		}
+		// If a pod has no owner references, then it's a static pod and
+		// doesn't belong to a replicaset. In this case, use the spcps as
+		// owner reference just like we do it today
+		if len(ownerRefs) == 0 {
+			// Create a new owner ref.
+			gvk, err := apiutil.GVKForObject(&spcPodStatuses[i], r.scheme)
+			if err != nil {
+				return err
+			}
+			ref := metav1.OwnerReference{
+				APIVersion: gvk.GroupVersion().String(),
+				Kind:       gvk.Kind,
+				UID:        spcPodStatuses[i].GetUID(),
+				Name:       spcPodStatuses[i].GetName(),
+			}
+			ownerRefs = append(ownerRefs, ref)
+		}
+
 		for _, secret := range spc.Spec.SecretObjects {
-			key := types.NamespacedName{Name: secret.SecretName, Namespace: spcPodStatuses[i].Namespace}
+			key := types.NamespacedName{Name: secret.SecretName, Namespace: namespace}
 			val, exists := secretOwnerMap[key]
 			if exists {
-				secretOwnerMap[key] = append(val, &spcPodStatuses[i])
+				secretOwnerMap[key] = append(val, ownerRefs...)
 			} else {
-				secretOwnerMap[key] = []*v1alpha1.SecretProviderClassPodStatus{&spcPodStatuses[i]}
+				secretOwnerMap[key] = ownerRefs
 			}
 		}
 	}
@@ -189,22 +227,6 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 		}
 		klog.ErrorS(err, "failed to get spc pod status", "spcps", req.NamespacedName.String())
 		return ctrl.Result{}, err
-	}
-
-	// reconcile delete
-	if !spcPodStatus.GetDeletionTimestamp().IsZero() {
-		klog.InfoS("reconcile complete", "spcps", req.NamespacedName.String())
-		return ctrl.Result{}, nil
-	}
-
-	node, ok := spcPodStatus.GetLabels()[v1alpha1.InternalNodeLabel]
-	if !ok {
-		klog.V(3).InfoS("node label not found, ignoring this spc pod status", "spcps", klog.KObj(spcPodStatus))
-		return ctrl.Result{}, nil
-	}
-	if !strings.EqualFold(node, r.nodeID) {
-		klog.V(3).InfoS("ignoring as spc pod status belongs diff node", "node", node, "spcps", klog.KObj(spcPodStatus))
-		return ctrl.Result{}, nil
 	}
 
 	// Obtain the full pod metadata. An object reference is needed for sending
@@ -296,7 +318,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 			// Set secrets-store.csi.k8s.io/managed=true label on the secret that's created and managed
 			// by the secrets-store-csi-driver. This label will be used to perform a filtered list watch
 			// only on secrets created and managed by the driver
-			labelsMap[secretManagedLabel] = "true"
+			labelsMap[SecretManagedLabel] = "true"
 
 			createFn := func() (bool, error) {
 				if err := r.createK8sSecret(ctx, secretName, req.Namespace, datamap, labelsMap, secretType); err != nil {
@@ -335,7 +357,39 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 func (r *SecretProviderClassPodStatusReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.SecretProviderClassPodStatus{}).
+		WithEventFilter(r.belongsToNodePredicate()).
 		Complete(r)
+}
+
+// belongsToNodePredicate defines predicates for handlers
+func (r *SecretProviderClassPodStatusReconciler) belongsToNodePredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return r.processIfBelongsToNode(e.ObjectNew)
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			return r.processIfBelongsToNode(e.Object)
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return false
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
+			return r.processIfBelongsToNode(e.Object)
+		},
+	}
+}
+
+// processIfBelongsToNode determines if the secretproviderclasspodstatus belongs to the node based on the
+// internal.secrets-store.csi.k8s.io/node-name: <node name> label. If belongs to node, then the spcps is processed.
+func (r *SecretProviderClassPodStatusReconciler) processIfBelongsToNode(objMeta metav1.Object) bool {
+	node, ok := objMeta.GetLabels()[v1alpha1.InternalNodeLabel]
+	if !ok {
+		return false
+	}
+	if !strings.EqualFold(node, r.nodeID) {
+		return false
+	}
+	return true
 }
 
 // createK8sSecret creates K8s secret with data from mounted files
@@ -363,7 +417,7 @@ func (r *SecretProviderClassPodStatusReconciler) createK8sSecret(ctx context.Con
 }
 
 // patchSecretWithOwnerRef patches the secret owner reference with the spc pod status
-func (r *SecretProviderClassPodStatusReconciler) patchSecretWithOwnerRef(ctx context.Context, name, namespace string, spcPodStatus ...*v1alpha1.SecretProviderClassPodStatus) error {
+func (r *SecretProviderClassPodStatusReconciler) patchSecretWithOwnerRef(ctx context.Context, name, namespace string, ownerRefs ...metav1.OwnerReference) error {
 	secret := &corev1.Secret{}
 	secretKey := types.NamespacedName{
 		Namespace: namespace,
@@ -380,23 +434,23 @@ func (r *SecretProviderClassPodStatusReconciler) patchSecretWithOwnerRef(ctx con
 	patch := client.MergeFromWithOptions(secret.DeepCopy(), client.MergeFromWithOptimisticLock{})
 	needsPatch := false
 
+	secretOwnerRefs := secret.GetOwnerReferences()
 	secretOwnerMap := make(map[string]types.UID)
-	for _, or := range secret.GetOwnerReferences() {
+	for _, or := range secretOwnerRefs {
 		secretOwnerMap[or.Name] = or.UID
 	}
 
-	for i := range spcPodStatus {
-		if _, exists := secretOwnerMap[spcPodStatus[i].Name]; exists {
+	for i := range ownerRefs {
+		if _, exists := secretOwnerMap[ownerRefs[i].Name]; exists {
 			continue
 		}
 		needsPatch = true
-		err := controllerutil.SetOwnerReference(spcPodStatus[i], secret, r.scheme)
-		if err != nil {
-			return err
-		}
+		klog.Infof("Adding %s/%s as owner ref for %s/%s", ownerRefs[i].APIVersion, ownerRefs[i].Name, namespace, name)
+		secretOwnerRefs = append(secretOwnerRefs, ownerRefs[i])
 	}
 
 	if needsPatch {
+		secret.SetOwnerReferences(secretOwnerRefs)
 		return r.writer.Patch(ctx, secret, patch)
 	}
 	return nil

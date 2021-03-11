@@ -43,7 +43,7 @@ func TestGetPod(t *testing.T) {
 	kubeClient := fake.NewSimpleClientset()
 	crdClient := secretsStoreFakeClient.NewSimpleClientset()
 
-	testStore, err := New(kubeClient, crdClient, "node1", 1*time.Millisecond)
+	testStore, err := New(kubeClient, crdClient, "node1", 1*time.Millisecond, false)
 	g.Expect(err).NotTo(HaveOccurred())
 	err = testStore.Run(wait.NeverStop)
 	g.Expect(err).NotTo(HaveOccurred())
@@ -81,7 +81,7 @@ func TestListSecretProviderClassPodStatus(t *testing.T) {
 	kubeClient := fake.NewSimpleClientset()
 	crdClient := secretsStoreFakeClient.NewSimpleClientset()
 
-	testStore, err := New(kubeClient, crdClient, "node1", 1*time.Millisecond)
+	testStore, err := New(kubeClient, crdClient, "node1", 1*time.Millisecond, false)
 	g.Expect(err).NotTo(HaveOccurred())
 	err = testStore.Run(wait.NeverStop)
 	g.Expect(err).NotTo(HaveOccurred())
@@ -127,7 +127,7 @@ func TestGetSecret(t *testing.T) {
 	kubeClient := fake.NewSimpleClientset()
 	crdClient := secretsStoreFakeClient.NewSimpleClientset()
 
-	testStore, err := New(kubeClient, crdClient, "node1", 1*time.Millisecond)
+	testStore, err := New(kubeClient, crdClient, "node1", 1*time.Millisecond, false)
 	g.Expect(err).NotTo(HaveOccurred())
 	err = testStore.Run(wait.NeverStop)
 	g.Expect(err).NotTo(HaveOccurred())
@@ -161,7 +161,7 @@ func TestGetSecretProviderClass(t *testing.T) {
 	kubeClient := fake.NewSimpleClientset()
 	crdClient := secretsStoreFakeClient.NewSimpleClientset()
 
-	testStore, err := New(kubeClient, crdClient, "node1", 1*time.Millisecond)
+	testStore, err := New(kubeClient, crdClient, "node1", 1*time.Millisecond, false)
 	g.Expect(err).NotTo(HaveOccurred())
 	err = testStore.Run(wait.NeverStop)
 	g.Expect(err).NotTo(HaveOccurred())

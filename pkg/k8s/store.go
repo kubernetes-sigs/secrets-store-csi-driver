@@ -30,6 +30,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
+	"sigs.k8s.io/secrets-store-csi-driver/controllers"
 	secretsStoreClient "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned"
 	secretsStoreInformers "sigs.k8s.io/secrets-store-csi-driver/pkg/client/informers/externalversions/apis/v1alpha1"
 	secretsStoreInternalInterfaces "sigs.k8s.io/secrets-store-csi-driver/pkg/client/informers/externalversions/internalinterfaces"
@@ -39,6 +40,7 @@ import (
 type Informer struct {
 	Pod                          cache.SharedIndexInformer
 	Secret                       cache.SharedIndexInformer
+	NodePublishSecretRefSecret   cache.SharedIndexInformer
 	SecretProviderClass          cache.SharedIndexInformer
 	SecretProviderClassPodStatus cache.SharedIndexInformer
 }
@@ -47,6 +49,7 @@ type Informer struct {
 type Lister struct {
 	Pod                          PodLister
 	Secret                       SecretLister
+	NodePublishSecretRefSecret   SecretLister
 	SecretProviderClass          SecretProviderClassLister
 	SecretProviderClassPodStatus SecretProviderClassPodStatusLister
 }
@@ -56,6 +59,8 @@ type Store interface {
 	GetPod(name, namespace string) (*v1.Pod, error)
 	// GetSecret returns the secret matching name and namespace
 	GetSecret(name, namespace string) (*v1.Secret, error)
+	// GetNodePublishSecretRefSecret returns the NodePublishSecretRef secret matching name and namespace
+	GetNodePublishSecretRefSecret(name, namespace string) (*v1.Secret, error)
 	// GetSecretProviderClass returns the secret provider class matching name and namespace
 	GetSecretProviderClass(name, namespace string) (*v1alpha1.SecretProviderClass, error)
 	// GetSecretProviderClassPodStatus returns the secret provider class pod status matching key
@@ -72,7 +77,7 @@ type k8sStore struct {
 	listers   *Lister
 }
 
-func New(kubeClient kubernetes.Interface, crdClient secretsStoreClient.Interface, nodeName string, resyncPeriod time.Duration) (Store, error) {
+func New(kubeClient kubernetes.Interface, crdClient secretsStoreClient.Interface, nodeName string, resyncPeriod time.Duration, filteredWatchSecret bool) (Store, error) {
 	store := &k8sStore{
 		informers: &Informer{},
 		listers:   &Lister{},
@@ -82,6 +87,9 @@ func New(kubeClient kubernetes.Interface, crdClient secretsStoreClient.Interface
 
 	store.informers.Secret = newSecretInformer(kubeClient, resyncPeriod)
 	store.listers.Secret.Store = store.informers.Secret.GetStore()
+
+	store.informers.NodePublishSecretRefSecret = newNodePublishSecretRefSecretInformer(kubeClient, resyncPeriod, filteredWatchSecret)
+	store.listers.NodePublishSecretRefSecret.Store = store.informers.NodePublishSecretRefSecret.GetStore()
 
 	store.informers.SecretProviderClass = newSPCInformer(crdClient, resyncPeriod)
 	store.listers.SecretProviderClass.Store = store.informers.SecretProviderClass.GetStore()
@@ -105,6 +113,11 @@ func (s k8sStore) GetPod(name, namespace string) (*v1.Pod, error) {
 // GetSecret returns the secret matching name and namespace
 func (s k8sStore) GetSecret(name, namespace string) (*v1.Secret, error) {
 	return s.listers.Secret.GetWithKey(getStoreKey(name, namespace))
+}
+
+// GetNodePublishSecretRefSecret returns the NodePublishSecretRef secret matching name and namespace
+func (s k8sStore) GetNodePublishSecretRefSecret(name, namespace string) (*v1.Secret, error) {
+	return s.listers.NodePublishSecretRefSecret.GetWithKey(getStoreKey(name, namespace))
 }
 
 // GetSecretProviderClass returns the secret provider class matching name and namespace
@@ -134,10 +147,11 @@ func (s k8sStore) GetSecretProviderClassPodStatus(key string) (*v1alpha1.SecretP
 func (i *Informer) run(stopCh <-chan struct{}) error {
 	go i.Pod.Run(stopCh)
 	go i.Secret.Run(stopCh)
+	go i.NodePublishSecretRefSecret.Run(stopCh)
 	go i.SecretProviderClass.Run(stopCh)
 	go i.SecretProviderClassPodStatus.Run(stopCh)
 
-	synced := []cache.InformerSynced{i.Pod.HasSynced, i.Secret.HasSynced, i.SecretProviderClass.HasSynced, i.SecretProviderClassPodStatus.HasSynced}
+	synced := []cache.InformerSynced{i.Pod.HasSynced, i.Secret.HasSynced, i.NodePublishSecretRefSecret.HasSynced, i.SecretProviderClass.HasSynced, i.SecretProviderClassPodStatus.HasSynced}
 	if !cache.WaitForCacheSync(stopCh, synced...) {
 		return fmt.Errorf("failed to sync informer caches")
 	}
@@ -158,11 +172,27 @@ func newPodInformer(kubeClient kubernetes.Interface, resyncPeriod time.Duration,
 
 // newSecretInformer returns a secret informer
 func newSecretInformer(kubeClient kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return coreInformers.NewSecretInformer(
+	return coreInformers.NewFilteredSecretInformer(
 		kubeClient,
 		v1.NamespaceAll,
 		resyncPeriod,
 		cache.Indexers{},
+		managedFilterForSecret(),
+	)
+}
+
+// newNodePublishSecretRefSecretInformer returns a NodePublishSecretRef informer
+func newNodePublishSecretRefSecretInformer(kubeClient kubernetes.Interface, resyncPeriod time.Duration, filteredWatchSecret bool) cache.SharedIndexInformer {
+	var tweakListOptionsFunc internalinterfaces.TweakListOptionsFunc
+	if filteredWatchSecret {
+		tweakListOptionsFunc = usedFilterForSecret()
+	}
+	return coreInformers.NewFilteredSecretInformer(
+		kubeClient,
+		v1.NamespaceAll,
+		resyncPeriod,
+		cache.Indexers{},
+		tweakListOptionsFunc,
 	)
 }
 
@@ -208,4 +238,20 @@ func nodeNameFilterForPod(nodeName string) internalinterfaces.TweakListOptionsFu
 func getStoreKey(name, namespace string) string {
 	// client-go cache store uses <namespace>/<name> as key
 	return fmt.Sprintf("%s/%s", namespace, name)
+}
+
+// managedFilterForSecret returns tweak options to filter using managed label (secrets-store.csi.k8s.io/managed=true).
+// this label is configured for all secrets created by the driver.
+func managedFilterForSecret() internalinterfaces.TweakListOptionsFunc {
+	return func(options *metav1.ListOptions) {
+		options.LabelSelector = fmt.Sprintf("%s=true", controllers.SecretManagedLabel)
+	}
+}
+
+// usedFilterForSecret returns tweak options to filter using used label (secrets-store.csi.k8s.io/used=true).
+// this label will need to be configured by user for NodePublishSecretRef secrets.
+func usedFilterForSecret() internalinterfaces.TweakListOptionsFunc {
+	return func(options *metav1.ListOptions) {
+		options.LabelSelector = fmt.Sprintf("%s=true", controllers.SecretUsedLabel)
+	}
 }
