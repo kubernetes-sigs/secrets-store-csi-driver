@@ -282,7 +282,6 @@ ifdef TEST_WINDOWS
 			--set windows.image.tag=$(IMAGE_VERSION) \
 			--set windows.enabled=true \
 			--set linux.enabled=false \
-			--set grpcSupportedProviders=azure \
 			--set enableSecretRotation=true \
 			--set rotationPollInterval=30s
 else
@@ -291,7 +290,6 @@ else
 			--set linux.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
 			--set linux.image.tag=$(IMAGE_VERSION) \
 			--set linux.image.pullPolicy="IfNotPresent" \
-			--set grpcSupportedProviders="azure;gcp;vault" \
 			--set enableSecretRotation=true \
 			--set rotationPollInterval=30s
 endif

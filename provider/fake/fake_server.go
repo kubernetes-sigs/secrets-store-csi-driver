@@ -77,6 +77,10 @@ func (m *MockCSIProviderServer) Start() error {
 	return nil
 }
 
+func (m *MockCSIProviderServer) Stop() {
+	m.grpcServer.GracefulStop()
+}
+
 // Mount implements provider csi-provider method
 func (m *MockCSIProviderServer) Mount(ctx context.Context, req *v1alpha1.MountRequest) (*v1alpha1.MountResponse, error) {
 	var attrib, secret map[string]string

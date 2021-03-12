@@ -76,7 +76,7 @@ type Reconciler struct {
 	providerVolumePath   string
 	scheme               *runtime.Scheme
 	rotationPollInterval time.Duration
-	providerClients      map[string]*secretsstore.CSIProviderClient
+	providerClients      *secretsstore.PluginClientBuilder
 	queue                workqueue.RateLimitingInterface
 	reporter             StatsReporter
 	eventRecorder        record.EventRecorder
@@ -85,7 +85,7 @@ type Reconciler struct {
 }
 
 // NewReconciler returns a new reconciler for rotation
-func NewReconciler(s *runtime.Scheme, providerVolumePath, nodeName string, rotationPollInterval time.Duration, providerClients map[string]*secretsstore.CSIProviderClient, filteredWatchSecret bool) (*Reconciler, error) {
+func NewReconciler(s *runtime.Scheme, providerVolumePath, nodeName string, rotationPollInterval time.Duration, providerClients *secretsstore.PluginClientBuilder, filteredWatchSecret bool) (*Reconciler, error) {
 	config, err := buildConfig()
 	if err != nil {
 		return nil, err
@@ -273,13 +273,13 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 	}
 
 	providerName = string(spc.Spec.Provider)
-	providerClient, exists := r.providerClients[providerName]
-	if !exists {
+	providerClient, err := r.providerClients.Get(ctx, providerName)
+	if err != nil {
 		errorReason = internalerrors.FailedToLookupProviderGRPCClient
 		r.generateEvent(pod, v1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to lookup provider client: %q", providerName))
 		return fmt.Errorf("failed to lookup provider client: %q", providerName)
 	}
-	newObjectVersions, errorReason, err := providerClient.MountContent(ctx, string(paramsJSON), string(secretsJSON), spcps.Status.TargetPath, string(permissionJSON), oldObjectVersions)
+	newObjectVersions, errorReason, err := secretsstore.MountContent(ctx, providerClient, string(paramsJSON), string(secretsJSON), spcps.Status.TargetPath, string(permissionJSON), oldObjectVersions)
 	if err != nil {
 		r.generateEvent(pod, v1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("provider mount err: %+v", err))
 		return fmt.Errorf("failed to rotate objects for pod %s/%s, err: %+v", spcps.Namespace, spcps.Status.PodName, err)

@@ -44,11 +44,7 @@ func GetDriver() *SecretsStore {
 	return &SecretsStore{}
 }
 
-func newNodeServer(d *csicommon.CSIDriver, providerVolumePath, nodeID string, mounter mount.Interface, providerClients map[string]*CSIProviderClient, client client.Client, statsReporter StatsReporter) (*nodeServer, error) {
-	if len(providerClients) == 0 {
-		klog.Infof("grpc supported providers not enabled")
-	}
-
+func newNodeServer(d *csicommon.CSIDriver, providerVolumePath, nodeID string, mounter mount.Interface, providerClients *PluginClientBuilder, client client.Client, statsReporter StatsReporter) (*nodeServer, error) {
 	return &nodeServer{
 		DefaultNodeServer:  csicommon.NewDefaultNodeServer(d),
 		providerVolumePath: providerVolumePath,
@@ -74,13 +70,11 @@ func newIdentityServer(d *csicommon.CSIDriver) *identityServer {
 }
 
 // Run starts the CSI plugin
-func (s *SecretsStore) Run(ctx context.Context, driverName, nodeID, endpoint, providerVolumePath string, providerClients map[string]*CSIProviderClient, client client.Client) {
+func (s *SecretsStore) Run(ctx context.Context, driverName, nodeID, endpoint, providerVolumePath string, providerClients *PluginClientBuilder, client client.Client) {
 	klog.Infof("Driver: %v ", driverName)
 	klog.Infof("Version: %s, BuildTime: %s", version.BuildVersion, version.BuildTime)
 	klog.Infof("Provider Volume Path: %s", providerVolumePath)
-	for p := range providerClients {
-		klog.Infof("GRPC supported provider: %s", p)
-	}
+	klog.Infof("GRPC supported providers will be dynamically created")
 
 	// Initialize default library driver
 	s.driver = csicommon.NewCSIDriver(driverName, version.BuildVersion, nodeID)
