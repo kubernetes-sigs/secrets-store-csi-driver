@@ -5,7 +5,6 @@ load helpers
 BATS_TESTS_DIR=test/bats/tests/azure
 WAIT_TIME=60
 SLEEP_TIME=1
-IMAGE_TAG=v0.0.8-e2e-$(git rev-parse --short HEAD)
 NAMESPACE=default
 PROVIDER_YAML=https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/deployment/provider-azure-installer.yaml
 CONTAINER_IMAGE=nginx
@@ -342,4 +341,27 @@ setup() {
 
   run az logout
   assert_success
+}
+
+@test "Test filtered watch for nodePublishSecretRef" {
+  run helm upgrade csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --reuse-values --set filteredWatchSecret=true --wait --timeout=5m -v=5 --debug
+  assert_success
+
+  kubectl create ns filtered-watch
+  kubectl create secret generic secrets-store-creds --from-literal clientid=${AZURE_CLIENT_ID} --from-literal clientsecret=${AZURE_CLIENT_SECRET} -n filtered-watch
+  # label the node publish secret ref secret
+  run kubectl label secret secrets-store-creds secrets-store.csi.k8s.io/used=true -n filtered-watch
+  assert_success
+
+  envsubst < $BATS_TESTS_DIR/azure_v1alpha1_secretproviderclass.yaml | kubectl apply -n filtered-watch -f -
+  envsubst < $BATS_TESTS_DIR/nginx-pod-secrets-store-inline-volume-crd.yaml | kubectl apply -n filtered-watch -f -
+
+  cmd="kubectl wait -n filtered-watch --for=condition=Ready --timeout=60s pod/nginx-secrets-store-inline-crd"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  run kubectl get pod/nginx-secrets-store-inline-crd -n filtered-watch
+  assert_success
+
+  result=$(kubectl exec -n filtered-watch nginx-secrets-store-inline-crd -- $EXEC_COMMAND /mnt/secrets-store/$SECRET_NAME)
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 }
