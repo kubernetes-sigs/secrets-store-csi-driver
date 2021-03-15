@@ -1,12 +1,16 @@
 kind: Pod
 apiVersion: v1
 metadata:
-  name: nginx-secrets-store-inline-multiple-crd
+  name: secrets-store-inline-multiple-crd
 spec:
   terminationGracePeriodSeconds: 0
   containers:
-  - image: $CONTAINER_IMAGE
-    name: nginx
+  - image: k8s.gcr.io/e2e-test-images/busybox:1.29
+    name: busybox
+    imagePullPolicy: IfNotPresent
+    command:
+    - "/bin/sleep"
+    - "10000"
     volumeMounts:
     - name: secrets-store-inline-0
       mountPath: "/mnt/secrets-store-0"

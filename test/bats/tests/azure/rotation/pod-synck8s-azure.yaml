@@ -1,12 +1,22 @@
 kind: Pod
 apiVersion: v1
 metadata:
-  name: nginx-secrets-store-inline-crd
+  name: secrets-store-inline-rotation
 spec:
   terminationGracePeriodSeconds: 0
   containers:
-  - image: $CONTAINER_IMAGE
-    name: nginx
+  - image: k8s.gcr.io/e2e-test-images/busybox:1.29
+    name: busybox
+    imagePullPolicy: IfNotPresent
+    command:
+    - "/bin/sleep"
+    - "10000"
+    env:
+    - name: SECRET_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: rotationsecret
+          key: username
     volumeMounts:
     - name: secrets-store-inline
       mountPath: "/mnt/secrets-store"
@@ -17,6 +27,6 @@ spec:
         driver: secrets-store.csi.k8s.io
         readOnly: true
         volumeAttributes:
-          secretProviderClass: "gcp"
+          secretProviderClass: "azure-auto-rotation"
         nodePublishSecretRef:
           name: secrets-store-creds

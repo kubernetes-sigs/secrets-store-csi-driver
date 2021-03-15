@@ -8,7 +8,6 @@ SLEEP_TIME=1
 NAMESPACE=default
 PROVIDER_YAML=https://raw.githubusercontent.com/hashicorp/vault-csi-provider/e0eae762c669658b55cf458dedaddf53277af759/deployment/provider-vault-installer.yaml
 
-export CONTAINER_IMAGE=nginx
 export LABEL_VALUE=${LABEL_VALUE:-"test"}
 
 @test "install vault provider" {
@@ -138,20 +137,20 @@ EOF
 }
 
 @test "CSI inline volume test with pod portability" {
-  envsubst < $BATS_TESTS_DIR/nginx-pod-vault-inline-volume-secretproviderclass.yaml | kubectl apply -f -
+  envsubst < $BATS_TESTS_DIR/pod-vault-inline-volume-secretproviderclass.yaml | kubectl apply -f -
 
-  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/nginx-secrets-store-inline"
+  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/secrets-store-inline"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 
-  run kubectl get pod/nginx-secrets-store-inline
+  run kubectl get pod/secrets-store-inline
   assert_success
 }
 
 @test "CSI inline volume test with pod portability - read vault secret from pod" {
-  result=$(kubectl exec nginx-secrets-store-inline -- cat /mnt/secrets-store/bar)
+  result=$(kubectl exec secrets-store-inline -- cat /mnt/secrets-store/bar)
   [[ "$result" == "hello" ]]
 
-  result=$(kubectl exec nginx-secrets-store-inline -- cat /mnt/secrets-store/bar1)
+  result=$(kubectl exec secrets-store-inline -- cat /mnt/secrets-store/bar1)
   [[ "$result" == "hello1" ]]
 }
 
@@ -166,18 +165,18 @@ EOF
   cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/vault-foo-sync -o yaml | grep vault"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 
-  run kubectl apply -f $BATS_TESTS_DIR/nginx-deployment-synck8s.yaml
+  run kubectl apply -f $BATS_TESTS_DIR/deployment-synck8s.yaml
   assert_success
 
-  run kubectl apply -f $BATS_TESTS_DIR/nginx-deployment-two-synck8s.yaml
+  run kubectl apply -f $BATS_TESTS_DIR/deployment-two-synck8s.yaml
   assert_success
 
-  cmd="kubectl wait --for=condition=Ready --timeout=60s pod -l app=nginx"
+  cmd="kubectl wait --for=condition=Ready --timeout=60s pod -l app=busybox"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 }
 
 @test "Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences with multiple owners" {
-  POD=$(kubectl get pod -l app=nginx -o jsonpath="{.items[0].metadata.name}")
+  POD=$(kubectl get pod -l app=busybox -o jsonpath="{.items[0].metadata.name}")
   result=$(kubectl exec $POD -- cat /mnt/secrets-store/bar)
   [[ "$result" == "hello" ]]
 
@@ -201,13 +200,13 @@ EOF
 }
 
 @test "Sync with K8s secrets - delete deployment, check secret is deleted" {
-  run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-synck8s.yaml
+  run kubectl delete -f $BATS_TESTS_DIR/deployment-synck8s.yaml
   assert_success
   
   run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 1"
   assert_success
 
-  run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-two-synck8s.yaml
+  run kubectl delete -f $BATS_TESTS_DIR/deployment-two-synck8s.yaml
   assert_success
 
   run wait_for_process $WAIT_TIME $SLEEP_TIME "check_secret_deleted foosecret default"
@@ -234,14 +233,14 @@ EOF
   cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/vault-foo-sync -n test-ns -o yaml | grep vault"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 
-  envsubst < $BATS_TESTS_DIR/nginx-deployment-synck8s.yaml | kubectl apply -n test-ns -f -
+  envsubst < $BATS_TESTS_DIR/deployment-synck8s.yaml | kubectl apply -n test-ns -f -
 
-  cmd="kubectl wait --for=condition=Ready --timeout=60s pod -l app=nginx -n test-ns"
+  cmd="kubectl wait --for=condition=Ready --timeout=60s pod -l app=busybox -n test-ns"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 }
 
 @test "Test Namespaced scope SecretProviderClass - Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences" {
-  POD=$(kubectl get pod -l app=nginx -n test-ns -o jsonpath="{.items[0].metadata.name}")
+  POD=$(kubectl get pod -l app=busybox -n test-ns -o jsonpath="{.items[0].metadata.name}")
   result=$(kubectl exec -n test-ns $POD -- cat /mnt/secrets-store/bar)
   [[ "$result" == "hello" ]]
 
@@ -259,7 +258,7 @@ EOF
 }
 
 @test "Test Namespaced scope SecretProviderClass - Sync with K8s secrets - delete deployment, check secret deleted" {
-  run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-synck8s.yaml -n test-ns
+  run kubectl delete -f $BATS_TESTS_DIR/deployment-synck8s.yaml -n test-ns
   assert_success
 
   run wait_for_process $WAIT_TIME $SLEEP_TIME "check_secret_deleted foosecret test-ns"
@@ -272,14 +271,14 @@ EOF
   run kubectl create ns negative-test-ns
   assert_success
 
-  envsubst < $BATS_TESTS_DIR/nginx-deployment-synck8s.yaml | kubectl apply -n negative-test-ns -f -
+  envsubst < $BATS_TESTS_DIR/deployment-synck8s.yaml | kubectl apply -n negative-test-ns -f -
   sleep 5
 
-  POD=$(kubectl get pod -l app=nginx -n negative-test-ns -o jsonpath="{.items[0].metadata.name}")
+  POD=$(kubectl get pod -l app=busybox -n negative-test-ns -o jsonpath="{.items[0].metadata.name}")
   cmd="kubectl describe pod $POD -n negative-test-ns | grep 'FailedMount.*failed to get secretproviderclass negative-test-ns/vault-foo-sync.*not found'"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 
-  run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-synck8s.yaml -n negative-test-ns
+  run kubectl delete -f $BATS_TESTS_DIR/deployment-synck8s.yaml -n negative-test-ns
   assert_success
 
   run kubectl delete ns negative-test-ns
@@ -302,41 +301,41 @@ EOF
 }
 
 @test "deploy pod with multiple secret provider class" {
-  envsubst < $BATS_TESTS_DIR/nginx-pod-vault-inline-volume-multiple-spc.yaml | kubectl apply -f -
+  envsubst < $BATS_TESTS_DIR/pod-vault-inline-volume-multiple-spc.yaml | kubectl apply -f -
   
-  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/nginx-secrets-store-inline-multiple-crd"
+  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/secrets-store-inline-multiple-crd"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 
-  run kubectl get pod/nginx-secrets-store-inline-multiple-crd
+  run kubectl get pod/secrets-store-inline-multiple-crd
   assert_success
 }
 
 @test "CSI inline volume test with multiple secret provider class" {
-  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/bar)
+  result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/bar)
   [[ "$result" == "hello" ]]
 
-  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/bar1)
+  result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/bar1)
   [[ "$result" == "hello1" ]]
 
   result=$(kubectl get secret foosecret-0 -o jsonpath="{.data.pwd}" | base64 -d)
   [[ "$result" == "hello" ]]
 
-  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- printenv | grep SECRET_USERNAME_0 | awk -F"=" '{ print $2 }' | tr -d '\r\n')
+  result=$(kubectl exec secrets-store-inline-multiple-crd -- printenv | grep SECRET_USERNAME_0 | awk -F"=" '{ print $2 }' | tr -d '\r\n')
   [[ "$result" == "hello1" ]]
 
   run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret-0 default 1"
   assert_success
 
-  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/bar)
+  result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/bar)
   [[ "$result" == "hello" ]]
 
-  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/bar1)
+  result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/bar1)
   [[ "$result" == "hello1" ]]
 
   result=$(kubectl get secret foosecret-1 -o jsonpath="{.data.pwd}" | base64 -d)
   [[ "$result" == "hello" ]]
 
-  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- printenv | grep SECRET_USERNAME_1 | awk -F"=" '{ print $2 }' | tr -d '\r\n')
+  result=$(kubectl exec secrets-store-inline-multiple-crd -- printenv | grep SECRET_USERNAME_1 | awk -F"=" '{ print $2 }' | tr -d '\r\n')
   [[ "$result" == "hello1" ]]
 
   run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret-1 default 1"

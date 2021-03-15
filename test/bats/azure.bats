@@ -7,8 +7,6 @@ WAIT_TIME=60
 SLEEP_TIME=1
 NAMESPACE=default
 PROVIDER_YAML=https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/deployment/provider-azure-installer.yaml
-CONTAINER_IMAGE=nginx
-EXEC_COMMAND="cat"
 BASE64_FLAGS="-w 0"
 if [[ "$OSTYPE" == *"darwin"* ]]; then
   BASE64_FLAGS="-b 0"
@@ -16,8 +14,6 @@ fi
 
 if [ $TEST_WINDOWS ]; then
   PROVIDER_YAML=https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/deployment/provider-azure-installer-windows.yaml
-  CONTAINER_IMAGE=mcr.microsoft.com/windows/servercore/iis:windowsservercore-ltsc2019
-  EXEC_COMMAND="powershell.exe cat"
 fi
 
 if [ -z "$AUTO_ROTATE_SECRET_NAME" ]; then
@@ -31,7 +27,6 @@ export SECRET_VALUE=${KEYVAULT_SECRET_VALUE:-"test"}
 export KEY_NAME=${KEYVAULT_KEY_NAME:-key1}
 export KEY_VERSION=${KEYVAULT_KEY_VERSION:-7cc095105411491b84fe1b92ebbcf01a}
 export KEY_VALUE_CONTAINS=${KEYVAULT_KEY_VALUE:-"LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUF4K2FadlhJN2FldG5DbzI3akVScgpheklaQ2QxUlBCQVZuQU1XcDhqY05TQk5MOXVuOVJrenJHOFd1SFBXUXNqQTA2RXRIOFNSNWtTNlQvaGQwMFNRCk1aODBMTlNxYkkwTzBMcWMzMHNLUjhTQ0R1cEt5dkpkb01LSVlNWHQzUlk5R2Ywam1ucHNKOE9WbDFvZlRjOTIKd1RINXYyT2I1QjZaMFd3d25MWlNiRkFnSE1uTHJtdEtwZTVNcnRGU21nZS9SL0J5ZXNscGU0M1FubnpndzhRTwpzU3ZMNnhDU21XVW9WQURLL1MxREU0NzZBREM2a2hGTjF5ZHUzbjVBcnREVGI0c0FjUHdTeXB3WGdNM3Y5WHpnClFKSkRGT0JJOXhSTW9UM2FjUWl0Z0c2RGZibUgzOWQ3VU83M0o3dUFQWUpURG1pZGhrK0ZFOG9lbjZWUG9YRy8KNXdJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0t"}
-export CONTAINER_IMAGE=$CONTAINER_IMAGE
 export LABEL_VALUE=${LABEL_VALUE:-"test"}
 
 setup() {
@@ -78,24 +73,24 @@ setup() {
 }
 
 @test "CSI inline volume test with pod portability" {
-  envsubst < $BATS_TESTS_DIR/nginx-pod-secrets-store-inline-volume-crd.yaml | kubectl apply -f -
+  envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -f -
   
-  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/nginx-secrets-store-inline-crd"
+  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/secrets-store-inline-crd"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 
-  run kubectl get pod/nginx-secrets-store-inline-crd
+  run kubectl get pod/secrets-store-inline-crd
   assert_success
 }
 
 @test "CSI inline volume test with pod portability - read azure kv secret from pod" {
-  wait_for_process $WAIT_TIME $SLEEP_TIME "kubectl exec nginx-secrets-store-inline-crd -- $EXEC_COMMAND /mnt/secrets-store/$SECRET_NAME | grep '${SECRET_VALUE}'"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME | grep '${SECRET_VALUE}'"
 
-  result=$(kubectl exec nginx-secrets-store-inline-crd -- $EXEC_COMMAND /mnt/secrets-store/$SECRET_NAME)
+  result=$(kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 }
 
 @test "CSI inline volume test with pod portability - read azure kv key from pod" {
-  result=$(kubectl exec nginx-secrets-store-inline-crd -- $EXEC_COMMAND /mnt/secrets-store/$KEY_NAME)
+  result=$(kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$KEY_NAME)
   result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
   [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 }
@@ -109,20 +104,20 @@ setup() {
   cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure-sync -o yaml | grep azure"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 
-  envsubst < $BATS_TESTS_DIR/nginx-deployment-synck8s-azure.yaml | kubectl apply -f -
-  envsubst < $BATS_TESTS_DIR/nginx-deployment-two-synck8s-azure.yaml | kubectl apply -f -
+  envsubst < $BATS_TESTS_DIR/deployment-synck8s-azure.yaml | kubectl apply -f -
+  envsubst < $BATS_TESTS_DIR/deployment-two-synck8s-azure.yaml | kubectl apply -f -
 
-  cmd="kubectl wait --for=condition=Ready --timeout=60s pod -l app=nginx"
+  cmd="kubectl wait --for=condition=Ready --timeout=60s pod -l app=busybox"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 }
 
 @test "Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences with multiple owners" {
-  POD=$(kubectl get pod -l app=nginx -o jsonpath="{.items[0].metadata.name}")
+  POD=$(kubectl get pod -l app=busybox -o jsonpath="{.items[0].metadata.name}")
 
-  result=$(kubectl exec $POD -- $EXEC_COMMAND /mnt/secrets-store/secretalias)
+  result=$(kubectl exec $POD -- cat /mnt/secrets-store/secretalias)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl exec $POD -- $EXEC_COMMAND /mnt/secrets-store/$KEY_NAME)
+  result=$(kubectl exec $POD -- cat /mnt/secrets-store/$KEY_NAME)
   result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
   [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 
@@ -143,13 +138,13 @@ setup() {
 }
 
 @test "Sync with K8s secrets - delete deployment, check owner ref updated, check secret deleted" {
-  run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-synck8s-azure.yaml
+  run kubectl delete -f $BATS_TESTS_DIR/deployment-synck8s-azure.yaml
   assert_success
 
   run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 1"
   assert_success
 
-  run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-two-synck8s-azure.yaml
+  run kubectl delete -f $BATS_TESTS_DIR/deployment-two-synck8s-azure.yaml
   assert_success
 
   run wait_for_process $WAIT_TIME $SLEEP_TIME "check_secret_deleted foosecret default"
@@ -177,19 +172,19 @@ setup() {
   cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure-sync -n test-ns -o yaml | grep azure"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 
-  envsubst < $BATS_TESTS_DIR/nginx-deployment-synck8s-azure.yaml | kubectl apply -n test-ns -f -
+  envsubst < $BATS_TESTS_DIR/deployment-synck8s-azure.yaml | kubectl apply -n test-ns -f -
 
-  cmd="kubectl wait --for=condition=Ready --timeout=60s pod -l app=nginx -n test-ns"
+  cmd="kubectl wait --for=condition=Ready --timeout=60s pod -l app=busybox -n test-ns"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 }
 
 @test "Test Namespaced scope SecretProviderClass - Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences" {
-  POD=$(kubectl get pod -l app=nginx -n test-ns -o jsonpath="{.items[0].metadata.name}")
+  POD=$(kubectl get pod -l app=busybox -n test-ns -o jsonpath="{.items[0].metadata.name}")
 
-  result=$(kubectl exec -n test-ns $POD -- $EXEC_COMMAND /mnt/secrets-store/secretalias)
+  result=$(kubectl exec -n test-ns $POD -- cat /mnt/secrets-store/secretalias)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl exec -n test-ns $POD -- $EXEC_COMMAND /mnt/secrets-store/$KEY_NAME)
+  result=$(kubectl exec -n test-ns $POD -- cat /mnt/secrets-store/$KEY_NAME)
   result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
   [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 
@@ -204,7 +199,7 @@ setup() {
 }
 
 @test "Test Namespaced scope SecretProviderClass - Sync with K8s secrets - delete deployment, check secret deleted" {
-  run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-synck8s-azure.yaml -n test-ns
+  run kubectl delete -f $BATS_TESTS_DIR/deployment-synck8s-azure.yaml -n test-ns
   assert_success
 
   run wait_for_process $WAIT_TIME $SLEEP_TIME "check_secret_deleted foosecret test-ns"
@@ -218,14 +213,14 @@ setup() {
   run kubectl create secret generic secrets-store-creds --from-literal clientid=${AZURE_CLIENT_ID} --from-literal clientsecret=${AZURE_CLIENT_SECRET} -n negative-test-ns
   assert_success
 
-  envsubst < $BATS_TESTS_DIR/nginx-deployment-synck8s-azure.yaml | kubectl apply -n negative-test-ns -f -
+  envsubst < $BATS_TESTS_DIR/deployment-synck8s-azure.yaml | kubectl apply -n negative-test-ns -f -
   sleep 5
 
-  POD=$(kubectl get pod -l app=nginx -n negative-test-ns -o jsonpath="{.items[0].metadata.name}")
+  POD=$(kubectl get pod -l app=busybox -n negative-test-ns -o jsonpath="{.items[0].metadata.name}")
   cmd="kubectl describe pod $POD -n negative-test-ns | grep 'FailedMount.*failed to get secretproviderclass negative-test-ns/azure-sync.*not found'"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 
-  run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-synck8s-azure.yaml -n negative-test-ns
+  run kubectl delete -f $BATS_TESTS_DIR/deployment-synck8s-azure.yaml -n negative-test-ns
   assert_success
 
   run kubectl delete ns negative-test-ns
@@ -246,34 +241,34 @@ setup() {
 }
 
 @test "deploy pod with multiple secret provider class" {
-  envsubst < $BATS_TESTS_DIR/nginx-pod-azure-inline-volume-multiple-spc.yaml | kubectl apply -f -
+  envsubst < $BATS_TESTS_DIR/pod-azure-inline-volume-multiple-spc.yaml | kubectl apply -f -
   
-  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/nginx-secrets-store-inline-multiple-crd"
+  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/secrets-store-inline-multiple-crd"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 
-  run kubectl get pod/nginx-secrets-store-inline-multiple-crd
+  run kubectl get pod/secrets-store-inline-multiple-crd
   assert_success
 }
 
 @test "CSI inline volume test with multiple secret provider class" {
-  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- $EXEC_COMMAND /mnt/secrets-store-0/secretalias)
+  result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/secretalias)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- $EXEC_COMMAND /mnt/secrets-store-0/$KEY_NAME)
+  result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/$KEY_NAME)
   result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
   [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 
-  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- $EXEC_COMMAND /mnt/secrets-store-1/secretalias)
+  result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/secretalias)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- $EXEC_COMMAND /mnt/secrets-store-1/$KEY_NAME)
+  result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/$KEY_NAME)
   result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
   [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 
   result=$(kubectl get secret foosecret-0 -o jsonpath="{.data.username}" | base64 -d)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- printenv | grep SECRET_USERNAME_0) | awk -F"=" '{ print $2}'
+  result=$(kubectl exec secrets-store-inline-multiple-crd -- printenv | grep SECRET_USERNAME_0) | awk -F"=" '{ print $2}'
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret-0 default 1"
@@ -282,7 +277,7 @@ setup() {
   result=$(kubectl get secret foosecret-1 -o jsonpath="{.data.username}" | base64 -d)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl exec nginx-secrets-store-inline-multiple-crd -- printenv | grep SECRET_USERNAME_1) | awk -F"=" '{ print $2}'
+  result=$(kubectl exec secrets-store-inline-multiple-crd -- printenv | grep SECRET_USERNAME_1) | awk -F"=" '{ print $2}'
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret-1 default 1"
@@ -303,17 +298,17 @@ setup() {
   assert_success
 
   envsubst < $BATS_TESTS_DIR/rotation/azure_synck8s_v1alpha1_secretproviderclass.yaml | kubectl apply -n rotation -f -
-  envsubst < $BATS_TESTS_DIR/rotation/nginx-pod-synck8s-azure.yaml | kubectl apply -n rotation -f -
+  envsubst < $BATS_TESTS_DIR/rotation/pod-synck8s-azure.yaml | kubectl apply -n rotation -f -
 
-  cmd="kubectl wait -n rotation --for=condition=Ready --timeout=60s pod/nginx-secrets-store-inline-rotation"
+  cmd="kubectl wait -n rotation --for=condition=Ready --timeout=60s pod/secrets-store-inline-rotation"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 
-  run kubectl get pod/nginx-secrets-store-inline-rotation -n rotation
+  run kubectl get pod/secrets-store-inline-rotation -n rotation
   assert_success
 }
 
 @test "Test auto rotation of mount contents and K8s secrets" {
-  run kubectl cp -n rotation nginx-secrets-store-inline-rotation:/mnt/secrets-store/secretalias $BATS_TMPDIR/before_rotation
+  run kubectl cp -n rotation secrets-store-inline-rotation:/mnt/secrets-store/secretalias $BATS_TMPDIR/before_rotation
   assert_success
 
   result=$(cat $BATS_TMPDIR/before_rotation)
@@ -328,7 +323,7 @@ setup() {
 
   sleep 60
 
-  run kubectl cp -n rotation nginx-secrets-store-inline-rotation:/mnt/secrets-store/secretalias $BATS_TMPDIR/after_rotation
+  run kubectl cp -n rotation secrets-store-inline-rotation:/mnt/secrets-store/secretalias $BATS_TMPDIR/after_rotation
   assert_success
 
   result=$(cat $BATS_TMPDIR/after_rotation)
@@ -356,14 +351,14 @@ setup() {
   assert_success
 
   envsubst < $BATS_TESTS_DIR/azure_v1alpha1_secretproviderclass.yaml | kubectl apply -n filtered-watch -f -
-  envsubst < $BATS_TESTS_DIR/nginx-pod-secrets-store-inline-volume-crd.yaml | kubectl apply -n filtered-watch -f -
+  envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -n filtered-watch -f -
 
-  cmd="kubectl wait -n filtered-watch --for=condition=Ready --timeout=60s pod/nginx-secrets-store-inline-crd"
+  cmd="kubectl wait -n filtered-watch --for=condition=Ready --timeout=60s pod/secrets-store-inline-crd"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 
-  run kubectl get pod/nginx-secrets-store-inline-crd -n filtered-watch
+  run kubectl get pod/secrets-store-inline-crd -n filtered-watch
   assert_success
 
-  result=$(kubectl exec -n filtered-watch nginx-secrets-store-inline-crd -- $EXEC_COMMAND /mnt/secrets-store/$SECRET_NAME)
+  result=$(kubectl exec -n filtered-watch secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 }

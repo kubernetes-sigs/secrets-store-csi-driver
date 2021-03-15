@@ -8,11 +8,8 @@ SLEEP_TIME=1
 NAMESPACE=default
 PROVIDER_NAMESPACE=kube-system
 PROVIDER_YAML=https://raw.githubusercontent.com/GoogleCloudPlatform/secrets-store-csi-driver-provider-gcp/main/deploy/provider-gcp-plugin.yaml
-CONTAINER_IMAGE=nginx
-EXEC_COMMAND="cat"
 BASE64_FLAGS="-w 0"
 
-export CONTAINER_IMAGE=$CONTAINER_IMAGE
 export RESOURCE_NAME=${RESOURCE_NAME:-"projects/735463103342/secrets/test-secret-a/versions/latest"}
 export FILE_NAME=${FILE_NAME:-"secret"}
 export SECRET_VALUE=${SECRET_VALUE:-"aHVudGVyMg=="}
@@ -58,17 +55,17 @@ setup() {
 }
 
 @test "CSI inline volume test with pod portability" {
-  envsubst < $BATS_TESTS_DIR/nginx-pod-secrets-store-inline-volume-crd.yaml | kubectl apply -f -
+  envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -f -
   
-  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/nginx-secrets-store-inline-crd"
+  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/secrets-store-inline-crd"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 
-  run kubectl get pod/nginx-secrets-store-inline-crd
+  run kubectl get pod/secrets-store-inline-crd
   assert_success
 }
 
 @test "CSI inline volume test with pod portability - read gcp kv secret from pod" {
-  result=$(kubectl exec nginx-secrets-store-inline-crd -- $EXEC_COMMAND /mnt/secrets-store/$FILE_NAME)
+  result=$(kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$FILE_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 }
 
@@ -83,14 +80,14 @@ setup() {
   assert_success
 
   envsubst < $BATS_TESTS_DIR/gcp_v1alpha1_secretproviderclass.yaml | kubectl apply -n filtered-watch -f -
-  envsubst < $BATS_TESTS_DIR/nginx-pod-secrets-store-inline-volume-crd.yaml | kubectl apply -n filtered-watch -f -
+  envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -n filtered-watch -f -
 
-  cmd="kubectl wait -n filtered-watch --for=condition=Ready --timeout=60s pod/nginx-secrets-store-inline-crd"
+  cmd="kubectl wait -n filtered-watch --for=condition=Ready --timeout=60s pod/secrets-store-inline-crd"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 
-  run kubectl get pod/nginx-secrets-store-inline-crd -n filtered-watch
+  run kubectl get pod/secrets-store-inline-crd -n filtered-watch
   assert_success
 
-  result=$(kubectl exec nginx-secrets-store-inline-crd -- $EXEC_COMMAND /mnt/secrets-store/$FILE_NAME)
+  result=$(kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$FILE_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 }
