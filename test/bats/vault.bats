@@ -6,7 +6,7 @@ BATS_TESTS_DIR=test/bats/tests/vault
 WAIT_TIME=120
 SLEEP_TIME=1
 NAMESPACE=default
-PROVIDER_YAML=https://raw.githubusercontent.com/hashicorp/secrets-store-csi-driver-provider-vault/master/deployment/provider-vault-installer.yaml
+PROVIDER_YAML=https://raw.githubusercontent.com/hashicorp/vault-csi-provider/e0eae762c669658b55cf458dedaddf53277af759/deployment/provider-vault-installer.yaml
 
 export CONTAINER_IMAGE=nginx
 export LABEL_VALUE=${LABEL_VALUE:-"test"}
