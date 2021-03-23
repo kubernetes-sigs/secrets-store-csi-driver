@@ -209,7 +209,7 @@ container-linux: docker-buildx-builder
 container-windows: docker-buildx-builder
 	docker buildx build --no-cache --output=type=$(OUTPUT_TYPE) --platform="windows/$(ARCH)" --build-arg LDFLAGS=$(LDFLAGS) \
 		--build-arg BASEIMAGE=mcr.microsoft.com/windows/nanoserver:$(OSVERSION) \
-		--build-arg BASEIMAGE_CORE=mcr.microsoft.com/windows/servercore:$(OSVERSION) \
+		--build-arg BASEIMAGE_CORE=gcr.io/k8s-staging-e2e-test-images/windows-servercore-cache:1.0-linux-amd64-$(OSVERSION) \
  		-t $(IMAGE_TAG)-windows-$(OSVERSION)-$(ARCH) -f docker/windows.Dockerfile .
 
 .PHONY: docker-buildx-builder
