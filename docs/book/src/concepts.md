@@ -20,7 +20,7 @@ The Secrets Store CSI Driver is a **daemonset** that facilitates communication w
 
 ## Provider for the Secrets Store CSI Driver
 
-The CSI driver communicates with the provider using gRPC to fetch the mount contents from external Secrets Store. Refer to [doc] for more details on the how to implement a provider for the driver and criteria for supported providers.
+The CSI driver communicates with the provider using gRPC to fetch the mount contents from external Secrets Store. Refer to [doc](./providers.md) for more details on the how to implement a provider for the driver and criteria for supported providers.
 
 Currently supported providers:
 

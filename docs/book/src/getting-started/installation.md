@@ -41,9 +41,6 @@ kubectl apply -f deploy/secrets-store-csi-driver.yaml
 # required to enable this feature
 kubectl apply -f deploy/rbac-secretprovidersyncing.yaml
 
-# [OPTIONAL] For kubernetes version < 1.16 running `kubectl apply -f deploy/csidriver.yaml` will fail. To install the driver run
-kubectl apply -f deploy/csidriver-1.15.yaml
-
 # [OPTIONAL] To deploy driver on windows nodes
 kubectl apply -f deploy/secrets-store-csi-driver-windows.yaml
 ```

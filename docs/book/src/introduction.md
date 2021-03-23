@@ -22,3 +22,9 @@ Join us to help define the direction and implementation of this project!
 - Supports windows containers (Kubernetes version v1.18+)
 - Supports sync with Kubernetes Secrets (Secrets Store CSI Driver v0.0.10+)
 - Support auto rotation of mounted contents and synced Kubernetes secret (Secrets Store CSI Driver v0.0.15+)
+
+## Supported Providers
+
+- [Azure Provider](https://azure.github.io/secrets-store-csi-driver-provider-azure/)
+- [Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault)
+- [GCP Provider](https://github.com/GoogleCloudPlatform/secrets-store-csi-driver-provider-gcp)
