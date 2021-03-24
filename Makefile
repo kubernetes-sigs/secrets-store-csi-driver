@@ -23,11 +23,13 @@ REPO_PATH="$(ORG_PATH)/$(PROJECT_NAME)"
 
 REGISTRY ?= gcr.io/k8s-staging-csi-secrets-store
 IMAGE_NAME ?= driver
+# Release version is the current supported release for the driver
+# Update this version when the helm chart is being updated for release
+RELEASE_VERSION := v0.0.20
 IMAGE_VERSION ?= v0.0.21-rc.0
-E2E_IMAGE_VERSION = v0.1.0-e2e-$(BUILD_COMMIT)
 # Use a custom version for E2E tests if we are testing in CI
 ifdef CI
-override IMAGE_VERSION := $(E2E_IMAGE_VERSION)
+override IMAGE_VERSION := v0.1.0-e2e-$(BUILD_COMMIT)
 endif
 IMAGE_TAG=$(REGISTRY)/$(IMAGE_NAME):$(IMAGE_VERSION)
 
@@ -273,41 +275,46 @@ e2e-test: e2e-bootstrap # run test for windows
 e2e-teardown: $(HELM)
 	helm delete csi-secrets-store --namespace default
 
-.PHONY: install-driver
-install-driver:
-ifdef TEST_WINDOWS
-		helm install csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace default --wait --timeout=15m -v=5 --debug \
-			--set windows.image.pullPolicy="IfNotPresent" \
-			--set windows.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
-			--set windows.image.tag=$(IMAGE_VERSION) \
-			--set windows.enabled=true \
-			--set linux.enabled=false \
-			--set enableSecretRotation=true \
-			--set rotationPollInterval=30s
-else
-		helm install csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace default --wait --timeout=15m -v=5 --debug \
-			--set linux.image.pullPolicy="IfNotPresent" \
-			--set linux.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
-			--set linux.image.tag=$(IMAGE_VERSION) \
-			--set linux.image.pullPolicy="IfNotPresent" \
-			--set enableSecretRotation=true \
-			--set rotationPollInterval=30s
-endif
+.PHONY: e2e-helm-deploy
+e2e-helm-deploy:
+	helm install csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace default --wait --timeout=15m -v=5 --debug \
+		--set linux.image.pullPolicy="IfNotPresent" \
+		--set windows.image.pullPolicy="IfNotPresent" \
+		--set linux.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
+		--set linux.image.tag=$(IMAGE_VERSION) \
+		--set windows.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
+		--set windows.image.tag=$(IMAGE_VERSION) \
+		--set windows.enabled=true \
+		--set linux.enabled=true \
+		--set enableSecretRotation=true \
+		--set rotationPollInterval=30s
+
+.PHONY: e2e-helm-deploy-release # test helm package for the release
+e2e-helm-deploy-release:
+	set -x; \
+	current_release=$(shell (echo ${RELEASE_VERSION} | sed s/"v"//)); \
+	helm install csi charts/secrets-store-csi-driver-$${current_release}.tgz --namespace default --wait --timeout=15m -v=5 --debug \
+		--set linux.image.pullPolicy="IfNotPresent" \
+		--set windows.image.pullPolicy="IfNotPresent" \
+		--set windows.enabled=true \
+		--set linux.enabled=true \
+		--set enableSecretRotation=true \
+		--set rotationPollInterval=30s
 
 .PHONY: e2e-kind-cleanup
 e2e-kind-cleanup:
 	kind delete cluster --name kind
 
 .PHONY: e2e-azure
-e2e-azure: $(AZURE_CLI) install-driver
+e2e-azure: $(AZURE_CLI)
 	bats -t test/bats/azure.bats
 
 .PHONY: e2e-vault
-e2e-vault: install-driver
+e2e-vault:
 	bats -t test/bats/vault.bats
 
 .PHONY: e2e-gcp
-e2e-gcp: install-driver
+e2e-gcp:
 	bats -t test/bats/gcp.bats
 
 ## --------------------------------------
