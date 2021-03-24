@@ -136,7 +136,7 @@ setup() {
   result=$(kubectl get secret foosecret -o jsonpath="{.metadata.labels.secrets-store\.csi\.k8s\.io/managed}")
   [[ "${result//$'\r'}" == "true" ]]
 
-  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 4"
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 2"
   assert_success
 }
 
@@ -144,7 +144,7 @@ setup() {
   run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-synck8s-azure.yaml
   assert_success
 
-  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 2"
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 1"
   assert_success
 
   run kubectl delete -f $BATS_TESTS_DIR/nginx-deployment-two-synck8s-azure.yaml
@@ -197,7 +197,7 @@ setup() {
   result=$(kubectl exec -n test-ns $POD -- printenv | grep SECRET_USERNAME) | awk -F"=" '{ print $2}'
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret test-ns 2"
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret test-ns 1"
   assert_success
 }
 
