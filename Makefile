@@ -268,7 +268,7 @@ else
 endif
 
 .PHONY: e2e-test
-e2e-test: e2e-bootstrap # run test for windows
+e2e-test: e2e-bootstrap e2e-helm-deploy # run test for windows
 	$(MAKE) e2e-azure
 
 .PHONY: e2e-teardown
