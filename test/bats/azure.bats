@@ -88,6 +88,8 @@ setup() {
 }
 
 @test "CSI inline volume test with pod portability - read azure kv secret from pod" {
+  wait_for_process $WAIT_TIME $SLEEP_TIME "kubectl exec nginx-secrets-store-inline-crd -- $EXEC_COMMAND /mnt/secrets-store/$SECRET_NAME | grep '${SECRET_VALUE}'"
+
   result=$(kubectl exec nginx-secrets-store-inline-crd -- $EXEC_COMMAND /mnt/secrets-store/$SECRET_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 }
@@ -127,7 +129,7 @@ setup() {
   result=$(kubectl get secret foosecret -o jsonpath="{.data.username}" | base64 -d)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl exec $POD printenv | grep SECRET_USERNAME) | awk -F"=" '{ print $2}'
+  result=$(kubectl exec $POD -- printenv | grep SECRET_USERNAME) | awk -F"=" '{ print $2}'
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   result=$(kubectl get secret foosecret -o jsonpath="{.metadata.labels.environment}")
