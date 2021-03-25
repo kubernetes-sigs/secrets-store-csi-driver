@@ -43,11 +43,14 @@ spec:
 kind: Pod
 apiVersion: v1
 metadata:
-  name: nginx-secrets-store-inline
+  name: secrets-store-inline
 spec:
   containers:
-    - name: nginx
-      image: nginx
+    - name: busybox
+      image: k8s.gcr.io/e2e-test-images/busybox:1.29
+      command:
+      - "/bin/sleep"
+      - "10000"
       volumeMounts:
       - name: secrets-store01-inline
         mountPath: "/mnt/secrets-store"
@@ -74,8 +77,11 @@ Once the [secret is created](./sync-as-kubernetes-secret.md), you may wish to se
 ```yaml
 spec:
   containers:
-  - image: nginx
-    name: nginx
+  - image: k8s.gcr.io/e2e-test-images/busybox:1.29
+    name: busybox
+    command:
+    - "/bin/sleep"
+    - "10000"
     env:
     - name: SECRET_USERNAME
       valueFrom:
