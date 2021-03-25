@@ -1,23 +1,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-deployment
+  name: busybox-deployment
   labels:
-    app: nginx
+    app: busybox
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: nginx
+      app: busybox
   template:
     metadata:
       labels:
-        app: nginx
+        app: busybox
     spec:
       terminationGracePeriodSeconds: 0
       containers:
-      - image: $CONTAINER_IMAGE
-        name: nginx
+      - image: k8s.gcr.io/e2e-test-images/busybox:1.29
+        name: busybox
+        imagePullPolicy: IfNotPresent
+        command:
+        - "/bin/sleep"
+        - "10000"
         env:
         - name: SECRET_USERNAME
           valueFrom:
@@ -34,6 +38,4 @@ spec:
             driver: secrets-store.csi.k8s.io
             readOnly: true
             volumeAttributes:
-              secretProviderClass: "azure-sync"
-            nodePublishSecretRef:
-              name: secrets-store-creds
+              secretProviderClass: "vault-foo-sync"
