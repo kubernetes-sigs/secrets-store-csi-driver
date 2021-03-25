@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"regexp"
 	"sync"
@@ -109,10 +110,12 @@ func (p *PluginClientBuilder) Get(ctx context.Context, provider string) (v1alpha
 		return nil, fmt.Errorf("%w: provider %q", ErrProviderNotFound, provider)
 	}
 
-	conn, err := grpc.DialContext(
-		ctx,
-		fmt.Sprintf("unix://%s/%s.sock", p.socketPath, provider),
+	conn, err := grpc.Dial(
+		fmt.Sprintf("%s/%s.sock", p.socketPath, provider),
 		grpc.WithInsecure(), // the interface is only secured through filesystem ACLs
+		grpc.WithContextDialer(func(ctx context.Context, target string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, "unix", target)
+		}),
 		grpc.WithDefaultServiceConfig(ServiceConfig),
 	)
 	if err != nil {
