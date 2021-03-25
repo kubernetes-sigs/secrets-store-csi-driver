@@ -172,7 +172,8 @@ func TestPatchSecretWithOwnerRef(t *testing.T) {
 	client := fake.NewFakeClientWithScheme(scheme, initObjects...)
 	reconciler := newReconciler(client, scheme, "node1")
 
-	err = reconciler.patchSecretWithOwnerRef(context.TODO(), "my-secret", "default", ref)
+	// adding ref twice to test de-duplication of owner references when being set in the secret
+	err = reconciler.patchSecretWithOwnerRef(context.TODO(), "my-secret", "default", ref, ref)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	secret := &v1.Secret{}

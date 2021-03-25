@@ -444,8 +444,10 @@ func (r *SecretProviderClassPodStatusReconciler) patchSecretWithOwnerRef(ctx con
 		if _, exists := secretOwnerMap[ownerRefs[i].Name]; exists {
 			continue
 		}
+		// add to map for tracking
+		secretOwnerMap[ownerRefs[i].Name] = ownerRefs[i].UID
 		needsPatch = true
-		klog.Infof("Adding %s/%s as owner ref for %s/%s", ownerRefs[i].APIVersion, ownerRefs[i].Name, namespace, name)
+		klog.V(5).Infof("Adding %s/%s as owner ref for %s/%s", ownerRefs[i].APIVersion, ownerRefs[i].Name, namespace, name)
 		secretOwnerRefs = append(secretOwnerRefs, ownerRefs[i])
 	}
 
