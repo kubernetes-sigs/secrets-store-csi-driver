@@ -32,7 +32,7 @@ volumes:
         secretProviderClass: "my-provider"
 ```
 
-Here is a sample [deployment yaml](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/master/test/bats/tests/vault/nginx-pod-vault-inline-volume-secretproviderclass.yaml) using the Secrets Store CSI driver.
+Here is a sample [deployment yaml](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/master/test/bats/tests/vault/pod-vault-inline-volume-secretproviderclass.yaml) using the Secrets Store CSI driver.
 
 ## Secret Content is Mounted on Pod Start
 
@@ -41,7 +41,7 @@ On pod start and restart, the driver will communicate with the provider using gR
 To validate, once the pod is started, you should see the new mounted content at the volume path specified in your deployment yaml.
 
 ```bash
-kubectl exec -it nginx-secrets-store-inline ls /mnt/secrets-store/
+kubectl exec secrets-store-inline -- ls /mnt/secrets-store/
 foo
 ```
 

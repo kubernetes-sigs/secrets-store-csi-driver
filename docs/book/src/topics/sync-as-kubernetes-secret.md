@@ -43,11 +43,14 @@ spec:
 kind: Pod
 apiVersion: v1
 metadata:
-  name: nginx-secrets-store-inline
+  name: secrets-store-inline
 spec:
   containers:
-    - name: nginx
-      image: nginx
+    - name: busybox
+      image: k8s.gcr.io/e2e-test-images/busybox:1.29
+      command:
+      - "/bin/sleep"
+      - "10000"
       volumeMounts:
       - name: secrets-store01-inline
         mountPath: "/mnt/secrets-store"
