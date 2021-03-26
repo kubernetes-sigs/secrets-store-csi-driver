@@ -35,6 +35,7 @@ type MockCSIProviderServer struct {
 	returnErr  error
 	errorCode  string
 	objects    []*v1alpha1.ObjectVersion
+	files      []*v1alpha1.File
 }
 
 // NewMocKCSIProviderServer returns a mock csi-provider grpc server
@@ -60,6 +61,19 @@ func (m *MockCSIProviderServer) SetObjects(objects map[string]string) {
 		ov = append(ov, &v1alpha1.ObjectVersion{Id: k, Version: v})
 	}
 	m.objects = ov
+}
+
+// SetFiles sets provider files to return on Mount
+func (m *MockCSIProviderServer) SetFiles(files []*v1alpha1.File) {
+	var ov []*v1alpha1.File
+	for _, v := range files {
+		ov = append(ov, &v1alpha1.File{
+			Path:     v.Path,
+			Mode:     v.Mode,
+			Contents: v.Contents,
+		})
+	}
+	m.files = ov
 }
 
 // SetProviderErrorCode sets provider error code to return
@@ -107,6 +121,7 @@ func (m *MockCSIProviderServer) Mount(ctx context.Context, req *v1alpha1.MountRe
 		Error: &v1alpha1.Error{
 			Code: m.errorCode,
 		},
+		Files: m.files,
 	}, nil
 }
 

@@ -26,9 +26,11 @@ import (
 	"sync"
 
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 	"k8s.io/klog/v2"
 
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 )
 
@@ -184,5 +186,25 @@ func MountContent(ctx context.Context, client v1alpha1.CSIDriverProviderClient, 
 	for _, v := range ov {
 		objectVersions[v.Id] = v.Version
 	}
+
+	// warn if the proto response size is over 1 MiB.
+	if size := proto.Size(resp); size > 1048576 {
+		klog.InfoS("proto above 1MiB, secret sync may fail", "size", size)
+	}
+
+	if len(resp.GetFiles()) > 0 {
+		klog.V(5).Infof("writing mount response files")
+		if err := fileutil.Validate(resp.GetFiles()); err != nil {
+			return nil, internalerrors.FileWriteError, err
+		}
+		if err := fileutil.WritePayloads(targetPath, resp.GetFiles()); err != nil {
+			return nil, internalerrors.FileWriteError, err
+		}
+	} else {
+		// when no files are returned we assume that the plugin has not migrated
+		// grpc responses for writing files yet.
+		klog.V(5).Infof("mount response has no files")
+	}
+
 	return objectVersions, "", nil
 }

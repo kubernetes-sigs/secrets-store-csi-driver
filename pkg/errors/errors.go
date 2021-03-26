@@ -43,4 +43,6 @@ const (
 	UnexpectedTargetPath = "UnexpectedTargetPath"
 	// PodVolumeNotFound error
 	PodVolumeNotFound = "PodVolumeNotFound"
+	// FileWriteError error
+	FileWriteError = "FileWriteError"
 )

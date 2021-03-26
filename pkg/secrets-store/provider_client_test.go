@@ -21,26 +21,17 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sync"
 	"testing"
 
-	"sigs.k8s.io/secrets-store-csi-driver/provider/fake"
-)
+	"github.com/google/go-cmp/cmp"
 
-func getTempTestDir(t *testing.T) (string, func()) {
-	t.Helper()
-	tmpDir, err := os.MkdirTemp("", "ut")
-	if err != nil {
-		t.Fatalf("expected err to be nil, got: %+v", err)
-	}
-	cleanup := func() {
-		if err := os.RemoveAll(tmpDir); err != nil {
-			t.Fatalf("error cleaning up tmp dir: %s", err)
-		}
-	}
-	return tmpDir, cleanup
-}
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/test_utils/tmpdir"
+	"sigs.k8s.io/secrets-store-csi-driver/provider/fake"
+	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
+)
 
 func fakeServer(t *testing.T, path, provider string) (*fake.MockCSIProviderServer, func()) {
 	t.Helper()
@@ -60,57 +51,106 @@ func fakeServer(t *testing.T, path, provider string) (*fake.MockCSIProviderServe
 
 func TestMountContent(t *testing.T) {
 	cases := []struct {
-		name                  string
-		providerName          string
-		attributes            string
-		secrets               string
-		targetPath            string
-		permission            string
-		expectedObjectVersion map[string]string
-		providerError         error
-		expectedErrorCode     string
+		name string
+		// inputs
+		permission string
+		// mock outputs
+		objectVersions map[string]string
+		providerError  error
+		files          []*v1alpha1.File
+		// expectations
+		expectedFiles map[string]os.FileMode
 	}{
 		{
-			name:                  "provider successful response",
-			providerName:          "provider1",
-			attributes:            "{}",
-			targetPath:            "/var/lib/kubelet/pods/d448c6a2-cda8-42e3-84fb-3cf75faa8399/volumes/kubernetes.io~csi/secrets-store-inline/mount",
-			permission:            "420",
-			secrets:               "{}",
-			expectedObjectVersion: map[string]string{"secret/secret1": "v1", "secret/secret2": "v2"},
+			name:           "provider successful response (no files)",
+			permission:     "420",
+			objectVersions: map[string]string{"secret/secret1": "v1", "secret/secret2": "v2"},
+			expectedFiles:  map[string]os.FileMode{},
+		},
+		{
+			name:       "provider response with file",
+			permission: "777",
+			files: []*v1alpha1.File{
+				{
+					Path:     "foo",
+					Mode:     0644,
+					Contents: []byte("foo"),
+				},
+			},
+			objectVersions: map[string]string{"foo": "v1"},
+			expectedFiles: map[string]os.FileMode{
+				"foo": 0644,
+			},
+		},
+		{
+			name:       "provider response with multiple files",
+			permission: "777",
+			files: []*v1alpha1.File{
+				{
+					Path:     "foo",
+					Mode:     0644,
+					Contents: []byte("foo"),
+				},
+				{
+					Path:     "bar",
+					Mode:     0777,
+					Contents: []byte("bar"),
+				},
+			},
+			objectVersions: map[string]string{"foo": "v1"},
+			expectedFiles: map[string]os.FileMode{
+				"foo": 0644,
+				"bar": 0777,
+			},
 		},
 	}
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			socketPath, tclean := getTempTestDir(t)
-			defer tclean()
+			socketPath := tmpdir.New(t, "", "ut")
+			targetPath := tmpdir.New(t, "", "ut")
 
 			pool := NewPluginClientBuilder(socketPath)
 			defer pool.Cleanup()
 
-			server, cleanup := fakeServer(t, socketPath, test.providerName)
+			server, cleanup := fakeServer(t, socketPath, "provider1")
 			defer cleanup()
 
 			server.SetReturnError(test.providerError)
-			server.SetObjects(test.expectedObjectVersion)
-			server.SetProviderErrorCode(test.expectedErrorCode)
+			server.SetObjects(test.objectVersions)
+			server.SetFiles(test.files)
 			server.Start()
 
-			client, err := pool.Get(context.Background(), test.providerName)
+			client, err := pool.Get(context.Background(), "provider1")
 			if err != nil {
 				t.Fatalf("expected err to be nil, got: %+v", err)
 			}
 
-			objectVersions, errorCode, err := MountContent(context.TODO(), client, test.attributes, test.secrets, test.targetPath, test.permission, nil)
+			objectVersions, _, err := MountContent(context.TODO(), client, "{}", "{}", targetPath, test.permission, nil)
 			if err != nil {
 				t.Errorf("expected err to be nil, got: %+v", err)
 			}
-			if errorCode != test.expectedErrorCode {
-				t.Errorf("expected error code: %v, got: %+v", test.expectedErrorCode, errorCode)
+			if test.objectVersions != nil && !reflect.DeepEqual(test.objectVersions, objectVersions) {
+				t.Errorf("expected object versions: %v, got: %+v", test.objectVersions, objectVersions)
 			}
-			if test.expectedObjectVersion != nil && !reflect.DeepEqual(test.expectedObjectVersion, objectVersions) {
-				t.Errorf("expected object versions: %v, got: %+v", test.expectedObjectVersion, objectVersions)
+
+			// check that file was written
+			gotFiles := make(map[string]os.FileMode)
+			filepath.Walk(targetPath, func(path string, info os.FileInfo, err error) error {
+				// skip mount folder
+				if path == targetPath {
+					return nil
+				}
+				rel, err := filepath.Rel(targetPath, path)
+				if err != nil {
+					return err
+				}
+				gotFiles[rel] = info.Mode()
+				return nil
+			})
+
+			if diff := cmp.Diff(test.expectedFiles, gotFiles); diff != "" {
+				t.Errorf("MountContent() file mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -176,8 +216,7 @@ func TestMountContentError(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			socketPath, tclean := getTempTestDir(t)
-			defer tclean()
+			socketPath := tmpdir.New(t, "", "ut")
 
 			pool := NewPluginClientBuilder(socketPath)
 			defer pool.Cleanup()
@@ -212,8 +251,7 @@ func TestMountContentError(t *testing.T) {
 }
 
 func TestPluginClientBuilder(t *testing.T) {
-	path, tclean := getTempTestDir(t)
-	defer tclean()
+	path := tmpdir.New(t, "", "ut")
 
 	cb := NewPluginClientBuilder(path)
 	ctx := context.Background()
@@ -241,8 +279,7 @@ func TestPluginClientBuilder(t *testing.T) {
 }
 
 func TestPluginClientBuilder_ConcurrentGet(t *testing.T) {
-	path, tclean := getTempTestDir(t)
-	defer tclean()
+	path := tmpdir.New(t, "", "ut")
 
 	cb := NewPluginClientBuilder(path)
 	ctx := context.Background()
@@ -268,8 +305,7 @@ func TestPluginClientBuilder_ConcurrentGet(t *testing.T) {
 }
 
 func TestPluginClientBuilderErrorNotFound(t *testing.T) {
-	path, tclean := getTempTestDir(t)
-	defer tclean()
+	path := tmpdir.New(t, "", "ut")
 
 	cb := NewPluginClientBuilder(path)
 	ctx := context.Background()
@@ -289,8 +325,7 @@ func TestPluginClientBuilderErrorNotFound(t *testing.T) {
 }
 
 func TestPluginClientBuilderErrorInvalid(t *testing.T) {
-	path, tclean := getTempTestDir(t)
-	defer tclean()
+	path := tmpdir.New(t, "", "ut")
 
 	cb := NewPluginClientBuilder(path)
 	ctx := context.Background()
