@@ -12,5 +12,6 @@
     - [Set as ENV var](./topics/set-as-env-var.md)
 - [Providers](./providers.md)
 - [Troubleshooting](./troubleshooting.md)
+- [Load tests](./load-tests.md)
 - [Testing](./testing.md)
 - [Known Limitations](./known-limitations.md)
