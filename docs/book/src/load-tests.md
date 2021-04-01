@@ -61,7 +61,7 @@ As of Secrets Store CSI Driver `v0.0.21`, the memory consumption for the driver 
 If the secret rotation feature is enabled and filtered secret watch is not enabled, it'll cache Kubernetes secrets across all namespaces. To only cache the secrets with the above 2 labels:
 
 1. Label all existing `nodePublishSecretRef` secrets with `secrets-store.csi.k8s.io/used=true` by running `kubectl label secret <node publish secret ref name> secrets-store.csi.k8s.io/used=true`.
-2. Enable filtered secret watch by setting `--filtered-secret-watch=true` in `secrets-store` container or via helm using `--set filteredSecretWatch=true`.
+2. Enable filtered secret watch by setting `--filtered-watch-secret=true` in `secrets-store` container or via helm using `--set filteredWatchSecret=true`.
 
-**NOTE:** `--filtered-secret-watch=true` will be enabled by default in n+3 releases (`v0.0.25`). Please take the necessary action to label the `nodePublishSecretRef` secrets with the `secrets-store.csi.k8s.io/used=true` label.
+**NOTE:** `--filtered-watch-secret=true` will be enabled by default in n+3 releases (`v0.0.25`). Please take the necessary action to label the `nodePublishSecretRef` secrets with the `secrets-store.csi.k8s.io/used=true` label.
 </aside>

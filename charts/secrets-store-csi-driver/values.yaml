@@ -2,7 +2,7 @@ linux:
   enabled: true
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v0.0.20
+    tag: v0.0.21
     pullPolicy: Always
 
   driver:
@@ -63,7 +63,7 @@ windows:
   enabled: false
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v0.0.20
+    tag: v0.0.21
     pullPolicy: IfNotPresent
 
   driver:
@@ -144,11 +144,11 @@ syncSecret:
 ## e.g. provider1=0.0.2,provider2=0.0.3
 minimumProviderVersions:
 
-## ; delimited list of providers that support grpc for driver-provider [alpha]
-grpcSupportedProviders: gcp;azure;vault;
-
 ## Enable secret rotation feature [alpha]
 enableSecretRotation: false
 
 ## Secret rotation poll interval duration
 rotationPollInterval:
+
+## Filtered watch nodePublishSecretRef secrets
+filteredWatchSecret: false

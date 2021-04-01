@@ -25,7 +25,7 @@ REGISTRY ?= gcr.io/k8s-staging-csi-secrets-store
 IMAGE_NAME ?= driver
 # Release version is the current supported release for the driver
 # Update this version when the helm chart is being updated for release
-RELEASE_VERSION := v0.0.20
+RELEASE_VERSION := v0.0.21
 IMAGE_VERSION ?= v0.0.21
 # Use a custom version for E2E tests if we are testing in CI
 ifdef CI
@@ -293,7 +293,7 @@ e2e-helm-deploy:
 e2e-helm-deploy-release:
 	set -x; \
 	current_release=$(shell (echo ${RELEASE_VERSION} | sed s/"v"//)); \
-	helm install csi charts/secrets-store-csi-driver-$${current_release}.tgz --namespace default --wait --timeout=15m -v=5 --debug \
+	helm install csi-secrets-store charts/secrets-store-csi-driver-$${current_release}.tgz --namespace default --wait --timeout=15m -v=5 --debug \
 		--set linux.image.pullPolicy="IfNotPresent" \
 		--set windows.image.pullPolicy="IfNotPresent" \
 		--set windows.enabled=true \
