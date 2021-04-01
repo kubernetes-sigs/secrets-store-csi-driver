@@ -1,4 +1,4 @@
-ARG BASEIMAGE=us.gcr.io/k8s-artifacts-prod/build-image/debian-base-amd64:buster-v1.4.0
+ARG BASEIMAGE=us.gcr.io/k8s-artifacts-prod/build-image/debian-base-amd64:buster-v1.5.0
 
 FROM golang:1.16-alpine as builder
 WORKDIR /go/src/sigs.k8s.io/secrets-store-csi-driver
@@ -10,8 +10,7 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -a -ldflags "${LDFL
 
 FROM $BASEIMAGE
 COPY --from=builder /go/src/sigs.k8s.io/secrets-store-csi-driver/_output/secrets-store-csi /secrets-store-csi
-# upgrading libzstd1 due to CVE-2021-24032
-RUN clean-install ca-certificates cifs-utils mount apt libzstd1
+RUN clean-install ca-certificates cifs-utils mount
 
 LABEL maintainers="ritazh"
 LABEL description="Secrets Store CSI Driver"
