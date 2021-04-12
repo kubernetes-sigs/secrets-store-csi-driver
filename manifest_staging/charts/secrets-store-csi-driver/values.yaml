@@ -133,6 +133,7 @@ livenessProbe:
 ## Install Default RBAC roles and bindings
 rbac:
   install: true
+  pspEnabled: false
 
 ## Install RBAC roles and bindings required for K8S Secrets syncing. Change this
 ## to false after v0.0.14
