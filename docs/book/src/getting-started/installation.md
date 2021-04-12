@@ -19,10 +19,11 @@ Secrets Store CSI Driver allows users to customize their installation via Helm.
 
 ```bash
 helm repo add secrets-store-csi-driver https://raw.githubusercontent.com/kubernetes-sigs/secrets-store-csi-driver/master/charts
-helm install csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver
+helm install csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver --namespace kube-system
 ```
 
-Running the above `helm install` command will install the Secrets Store CSI Driver on Linux nodes.
+Running the above `helm install` command will install the Secrets Store CSI Driver on Linux nodes in the `kube-system`
+namespace.
 
 #### Values
 
@@ -66,23 +67,6 @@ NAME
 secretproviderclasses.secrets-store.csi.x-k8s.io
 secretproviderclasspodstatuses.secrets-store.csi.x-k8s.io
 ```
-
-<aside class="note warning">
-<h1>Warning</h1>
-
-**v0.0.17** and earlier installed the driver to the `default` namespace.
-Newer versions of the driver will install the driver to the `kube-system`
-namespace. After applying the new YAML files to your cluster run the following
-to clean up old resources:
-
-```bash
-kubectl delete daemonset csi-secrets-store --namespace=default
-kubectl delete daemonset csi-secrets-store-windows --namespace=default
-kubectl delete serviceaccount secrets-store-csi-driver --namespace=default
-```
-
-</aside>
-</details>
 
 ## Use the Secrets Store CSI Driver with a Provider
 
