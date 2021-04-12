@@ -53,7 +53,7 @@ As of Secrets Store CSI Driver `v0.0.21`, the memory consumption for the driver 
     b. `secrets-store.csi.k8s.io/used=true` label. This label needs to be set for all `nodePublishSecretRef`.
 3. Number of `SecretProviderClass` across all namespaces.
 4. Number of `SecretProviderClassPodStatus` created by Secrets Store CSI Driver for the pod on the same node as the application pod.
-   a. Secrets Store CSI Driver creates a `SecretProviderClassPodStatus` to map pod to `SecretProviderClass`. See [doc](./concepts.md#secretproviderclasspodstatus) for more details.
+   1. Secrets Store CSI Driver creates a `SecretProviderClassPodStatus` to map pod to `SecretProviderClass`. See [doc](./concepts.md#secretproviderclasspodstatus) for more details.
 
 <aside class="note warning">
 <h1>Warning</h1>
