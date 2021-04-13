@@ -153,6 +153,9 @@ livenessProbe:
   port: 9808
   logLevel: 2
 
+## Maximum size in bytes of gRPC response from plugins
+maxCallRecvMsgSize: 4194304
+
 ## Install Default RBAC roles and bindings
 rbac:
   install: true
