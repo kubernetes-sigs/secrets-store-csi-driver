@@ -183,10 +183,9 @@ rbac:
   install: true
   pspEnabled: false
 
-## Install RBAC roles and bindings required for K8S Secrets syncing. Change this
-## to false after v0.0.14
+## Install RBAC roles and bindings required for K8S Secrets syncing if true
 syncSecret:
-  enabled: true
+  enabled: false
 
 ## Enable secret rotation feature [alpha]
 enableSecretRotation: false

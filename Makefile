@@ -344,6 +344,7 @@ e2e-helm-deploy:
 		--set windows.image.tag=$(IMAGE_VERSION) \
 		--set windows.enabled=true \
 		--set linux.enabled=true \
+		--set syncSecret.enabled=true \
 		--set enableSecretRotation=true \
 		--set rotationPollInterval=30s
 
@@ -356,6 +357,7 @@ e2e-helm-deploy-release:
 		--set windows.image.pullPolicy="IfNotPresent" \
 		--set windows.enabled=true \
 		--set linux.enabled=true \
+		--set syncSecret.enabled=true \
 		--set enableSecretRotation=true \
 		--set rotationPollInterval=30s
 
