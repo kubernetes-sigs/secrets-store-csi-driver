@@ -24,6 +24,7 @@ import (
 	"os"
 	"regexp"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
@@ -154,6 +155,38 @@ func (p *PluginClientBuilder) Cleanup() {
 	p.conns = make(map[string]*grpc.ClientConn)
 }
 
+// HealthCheck enables periodic healthcheck for configured provider clients by making
+// a Version() RPC call. If the provider healthcheck fails, we log an error.
+//
+// This method blocks until the parent context is cancelled during termination.
+func (p *PluginClientBuilder) HealthCheck(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			p.lock.RLock()
+
+			for provider, client := range p.clients {
+				c, cancel := context.WithTimeout(ctx, 5*time.Second)
+				defer cancel()
+
+				runtimeVersion, err := Version(c, client)
+				if err != nil {
+					klog.V(4).ErrorS(err, "provider healthcheck failed", "provider", provider)
+					continue
+				}
+				klog.V(4).InfoS("provider healthcheck successful", "provider", provider, "runtimeVersion", runtimeVersion)
+			}
+
+			p.lock.RUnlock()
+		}
+	}
+}
+
 // MountContent calls the client's Mount() RPC with helpers to format the
 // request and interpret the response.
 func MountContent(ctx context.Context, client v1alpha1.CSIDriverProviderClient, attributes, secrets, targetPath, permission string, oldObjectVersions map[string]string) (map[string]string, string, error) {
@@ -207,4 +240,18 @@ func MountContent(ctx context.Context, client v1alpha1.CSIDriverProviderClient, 
 	}
 
 	return objectVersions, "", nil
+}
+
+// Version calls the client's Version() RPC
+// returns provider runtime version and error.
+func Version(ctx context.Context, client v1alpha1.CSIDriverProviderClient) (string, error) {
+	req := &v1alpha1.VersionRequest{
+		Version: "v1alpha1",
+	}
+
+	resp, err := client.Version(ctx, req)
+	if err != nil {
+		return "", err
+	}
+	return resp.RuntimeVersion, nil
 }
