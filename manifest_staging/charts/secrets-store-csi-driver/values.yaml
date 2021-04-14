@@ -152,3 +152,9 @@ rotationPollInterval:
 
 ## Filtered watch nodePublishSecretRef secrets
 filteredWatchSecret: false
+
+## Provider HealthCheck
+providerHealthCheck: false
+
+## Provider HealthCheck interval
+providerHealthCheckInterval: 2m

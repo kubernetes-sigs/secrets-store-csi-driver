@@ -64,6 +64,10 @@ var (
 	// This feature flag will be enabled by default after n+2 releases giving time for users to label all their existing credential secrets.
 	filteredWatchSecret = flag.Bool("filtered-watch-secret", false, "enable filtered watch for NodePublishSecretRef secrets with label secrets-store.csi.k8s.io/used=true")
 
+	// Enable optional healthcheck for provider clients that exist in memory
+	providerHealthCheck         = flag.Bool("provider-health-check", false, "Enable health check for configured providers")
+	providerHealthCheckInterval = flag.Duration("provider-health-check-interval", 2*time.Minute, "Provider healthcheck interval duration")
+
 	scheme = runtime.NewScheme()
 )
 
@@ -146,6 +150,12 @@ func main() {
 	// create provider clients
 	providerClients := secretsstore.NewPluginClientBuilder(*providerVolumePath)
 	defer providerClients.Cleanup()
+
+	// enable provider health check
+	if *providerHealthCheck {
+		klog.InfoS("provider health check enabled", "interval", *providerHealthCheckInterval)
+		go providerClients.HealthCheck(ctx, *providerHealthCheckInterval)
+	}
 
 	go func() {
 		klog.Infof("starting manager")

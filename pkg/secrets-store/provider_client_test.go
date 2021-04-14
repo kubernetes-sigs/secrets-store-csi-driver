@@ -25,6 +25,7 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 
@@ -333,4 +334,75 @@ func TestPluginClientBuilderErrorInvalid(t *testing.T) {
 	if _, err := cb.Get(ctx, "bad/provider/name"); errors.Unwrap(err) != ErrInvalidProvider {
 		t.Errorf("Get(%s) = %v, want %v", "bad/provider/name", err, ErrInvalidProvider)
 	}
+}
+
+func TestVersion(t *testing.T) {
+	cases := []struct {
+		name                   string
+		expectedRuntimeVersion string
+	}{
+		{
+			name:                   "provider version successful response",
+			expectedRuntimeVersion: "0.0.10",
+		},
+	}
+
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			socketPath := tmpdir.New(t, "", "ut")
+
+			pool := NewPluginClientBuilder(socketPath)
+			defer pool.Cleanup()
+
+			server, cleanup := fakeServer(t, socketPath, "provider1")
+			defer cleanup()
+
+			server.Start()
+
+			client, err := pool.Get(context.Background(), "provider1")
+			if err != nil {
+				t.Fatalf("expected err to be nil, got: %+v", err)
+			}
+
+			runtimeVersion, err := Version(context.TODO(), client)
+			if err != nil {
+				t.Errorf("expected err to be nil, got: %+v", err)
+			}
+			if test.expectedRuntimeVersion != runtimeVersion {
+				t.Errorf("expected version: %s, got: %s", test.expectedRuntimeVersion, runtimeVersion)
+			}
+		})
+	}
+}
+
+func TestPluginClientBuilder_HealthCheck(t *testing.T) {
+	// this test asserts the read lock and unlock semantics in the
+	// HealthCheck() method work as expected
+	path := tmpdir.New(t, "", "ut")
+
+	cb := NewPluginClientBuilder(path)
+	ctx := context.Background()
+	healthCheckInterval := 1 * time.Millisecond
+
+	provider := "server"
+	server, cleanup := fakeServer(t, path, provider)
+	defer cleanup()
+	server.Start()
+
+	// run the provider healthcheck
+	go cb.HealthCheck(ctx, healthCheckInterval)
+	var wg sync.WaitGroup
+
+	// try a concurrent get with the healthcheck running in the background
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if _, err := cb.Get(ctx, provider); err != nil {
+				t.Errorf("Get(%q) = %v, want nil", provider, err)
+			}
+		}()
+	}
+
+	wg.Wait()
 }
