@@ -17,6 +17,8 @@ limitations under the License.
 package fileutil
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/test_utils/tmpdir"
@@ -27,11 +29,13 @@ func TestGetMountedFiles(t *testing.T) {
 		name        string
 		targetPath  func(t *testing.T) string
 		expectedErr bool
+		expectedKey string
 	}{
 		{
 			name:        "target path not found",
 			targetPath:  func(t *testing.T) string { return "" },
 			expectedErr: true,
+			expectedKey: "",
 		},
 		{
 			name: "target path dir found",
@@ -39,14 +43,41 @@ func TestGetMountedFiles(t *testing.T) {
 				return tmpdir.New(t, "", "ut")
 			},
 			expectedErr: false,
+			expectedKey: "",
+		},
+		{
+			name: "target path dir/file found",
+			targetPath: func(t *testing.T) string {
+				dir := tmpdir.New(t, "", "ut")
+				os.Create(filepath.Join(dir, "secret.txt"))
+				return dir
+			},
+			expectedErr: false,
+			expectedKey: "secret.txt",
+		},
+		{
+			name: "target path dir/dir/file found",
+			targetPath: func(t *testing.T) string {
+				dir := tmpdir.New(t, "", "ut")
+				os.MkdirAll(filepath.Join(dir, "subdir"), 0700)
+				os.Create(filepath.Join(dir, "subdir", "secret.txt"))
+				return dir
+			},
+			expectedErr: false,
+			expectedKey: "subdir/secret.txt",
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := GetMountedFiles(test.targetPath(t))
+			got, err := GetMountedFiles(test.targetPath(t))
 			if test.expectedErr != (err != nil) {
 				t.Fatalf("expected err: %v, got: %+v", test.expectedErr, err)
+			}
+			if !test.expectedErr && test.expectedKey != "" {
+				if _, ok := got[test.expectedKey]; !ok {
+					t.Fatalf("expected key not found: %s", test.expectedKey)
+				}
 			}
 		})
 	}

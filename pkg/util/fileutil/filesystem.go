@@ -20,6 +20,7 @@ package fileutil
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -32,7 +33,21 @@ var (
 func GetMountedFiles(targetPath string) (map[string]string, error) {
 	paths := make(map[string]string)
 	// loop thru all the mounted files
-	files, err := os.ReadDir(targetPath)
+	var files []string
+	err := filepath.Walk(targetPath, func(path string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if fi.IsDir() {
+			return nil
+		}
+		relpath, err := filepath.Rel(targetPath, path)
+		if err != nil {
+			return err
+		}
+		files = append(files, relpath)
+		return nil
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list all files in target path %s, err: %v", targetPath, err)
 	}
@@ -44,7 +59,7 @@ func GetMountedFiles(targetPath string) (map[string]string, error) {
 		sep = `\`
 	}
 	for _, file := range files {
-		paths[file.Name()] = targetPath + sep + file.Name()
+		paths[file] = targetPath + sep + file
 	}
 	return paths, nil
 }
