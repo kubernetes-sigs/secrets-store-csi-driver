@@ -21,6 +21,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/test_utils/tmpdir"
 )
 
@@ -29,13 +31,12 @@ func TestGetMountedFiles(t *testing.T) {
 		name        string
 		targetPath  func(t *testing.T) string
 		expectedErr bool
-		expectedKey string
+		want        []string
 	}{
 		{
 			name:        "target path not found",
 			targetPath:  func(t *testing.T) string { return "" },
 			expectedErr: true,
-			expectedKey: "",
 		},
 		{
 			name: "target path dir found",
@@ -43,7 +44,6 @@ func TestGetMountedFiles(t *testing.T) {
 				return tmpdir.New(t, "", "ut")
 			},
 			expectedErr: false,
-			expectedKey: "",
 		},
 		{
 			name: "target path dir/file found",
@@ -53,7 +53,7 @@ func TestGetMountedFiles(t *testing.T) {
 				return dir
 			},
 			expectedErr: false,
-			expectedKey: "secret.txt",
+			want:        []string{"secret.txt"},
 		},
 		{
 			name: "target path dir/dir/file found",
@@ -64,7 +64,29 @@ func TestGetMountedFiles(t *testing.T) {
 				return dir
 			},
 			expectedErr: false,
-			expectedKey: "subdir/secret.txt",
+			want:        []string{"subdir/secret.txt"},
+		},
+		{
+			name: "target path with atomic_writer symlinks",
+			targetPath: func(t *testing.T) string {
+				dir := tmpdir.New(t, "", "ut")
+				writer, err := NewAtomicWriter(dir, "test")
+				if err != nil {
+					t.Fatalf("unable to create AtomicWriter: %s", err)
+				}
+				err = writer.Write(map[string]FileProjection{
+					"foo/bar.txt": {
+						Data: []byte("foo"),
+						Mode: 0700,
+					},
+				})
+				if err != nil {
+					t.Fatalf("unable to write FileProjection: %s", err)
+				}
+				return dir
+			},
+			expectedErr: false,
+			want:        []string{"foo/bar.txt"},
 		},
 	}
 
@@ -74,10 +96,14 @@ func TestGetMountedFiles(t *testing.T) {
 			if test.expectedErr != (err != nil) {
 				t.Fatalf("expected err: %v, got: %+v", test.expectedErr, err)
 			}
-			if !test.expectedErr && test.expectedKey != "" {
-				if _, ok := got[test.expectedKey]; !ok {
-					t.Fatalf("expected key not found: %s", test.expectedKey)
-				}
+
+			gotKeys := []string{}
+			for k := range got {
+				gotKeys = append(gotKeys, k)
+			}
+
+			if diff := cmp.Diff(test.want, gotKeys, cmpopts.EquateEmpty()); diff != "" {
+				t.Errorf("GetMountedFiles() keys mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

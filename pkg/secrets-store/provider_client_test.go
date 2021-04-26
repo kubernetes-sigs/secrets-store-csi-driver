@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"reflect"
 	"sync"
 	"testing"
@@ -33,6 +32,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/test_utils/tmpdir"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/fake"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 )
@@ -107,6 +107,33 @@ func TestMountContent(t *testing.T) {
 				"bar": 0777,
 			},
 		},
+		{
+			name:       "provider response with nested files",
+			permission: "777",
+			files: []*v1alpha1.File{
+				{
+					Path:     "foo",
+					Mode:     0644,
+					Contents: []byte("foo"),
+				},
+				{
+					Path:     "baz/bar",
+					Mode:     0777,
+					Contents: []byte("bar"),
+				},
+				{
+					Path:     "baz/qux",
+					Mode:     0777,
+					Contents: []byte("qux"),
+				},
+			},
+			objectVersions: map[string]string{"foo": "v1"},
+			expectedFiles: map[string]os.FileMode{
+				"foo":     0644,
+				"baz/bar": 0777,
+				"baz/qux": 0777,
+			},
+		},
 	}
 
 	for _, test := range cases {
@@ -140,18 +167,17 @@ func TestMountContent(t *testing.T) {
 
 			// check that file was written
 			gotFiles := make(map[string]os.FileMode)
-			filepath.Walk(targetPath, func(path string, info os.FileInfo, err error) error {
-				// skip mount folder
-				if path == targetPath {
-					return nil
-				}
-				rel, err := filepath.Rel(targetPath, path)
+			paths, err := fileutil.GetMountedFiles(targetPath)
+			if err != nil {
+				t.Fatalf("unable to read mounted files: %s", err)
+			}
+			for rel, abs := range paths {
+				info, err := os.Lstat(abs)
 				if err != nil {
-					return err
+					t.Fatalf("unable to read mounted files: %s", err)
 				}
 				gotFiles[rel] = info.Mode()
-				return nil
-			})
+			}
 
 			if diff := cmp.Diff(test.expectedFiles, gotFiles); diff != "" {
 				t.Errorf("MountContent() file mismatch (-want +got):\n%s", diff)
