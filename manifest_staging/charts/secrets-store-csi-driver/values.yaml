@@ -3,7 +3,7 @@ linux:
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
     tag: v0.0.21
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
 
   ## Prevent the CSI driver from being scheduled on virtual-kublet nodes
   affinity: 
@@ -27,8 +27,8 @@ linux:
 
   registrarImage:
     repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
-    tag: v2.1.0
-    pullPolicy: Always
+    tag: v2.2.0
+    pullPolicy: IfNotPresent
 
   registrar:
     resources:
@@ -42,8 +42,8 @@ linux:
 
   livenessProbeImage:
     repository: k8s.gcr.io/sig-storage/livenessprobe
-    tag: v2.2.0
-    pullPolicy: Always
+    tag: v2.3.0
+    pullPolicy: IfNotPresent
 
   livenessProbe:
     resources:
@@ -100,7 +100,7 @@ windows:
 
   registrarImage:
     repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
-    tag: v2.1.0
+    tag: v2.2.0
     pullPolicy: IfNotPresent
 
   registrar:
@@ -115,7 +115,7 @@ windows:
 
   livenessProbeImage:
     repository: k8s.gcr.io/sig-storage/livenessprobe
-    tag: v2.2.0
+    tag: v2.3.0
     pullPolicy: IfNotPresent
 
   livenessProbe:
