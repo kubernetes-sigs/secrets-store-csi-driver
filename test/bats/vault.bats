@@ -183,8 +183,14 @@ EOF
   result=$(kubectl exec $POD -- cat /mnt/secrets-store/bar1)
   [[ "$result" == "hello1" ]]
 
+  result=$(kubectl exec $POD -- cat /mnt/secrets-store/nest/foo1)
+  [[ "$result" == "hello1" ]]
+
   result=$(kubectl get secret foosecret -o jsonpath="{.data.pwd}" | base64 -d)
   [[ "$result" == "hello" ]]
+
+  result=$(kubectl get secret foosecret -o jsonpath="{.data.nested}" | base64 -d)
+  [[ "$result" == "hello1" ]]
 
   result=$(kubectl exec $POD -- printenv | grep SECRET_USERNAME | awk -F"=" '{ print $2 }' | tr -d '\r\n')
   [[ "$result" == "hello1" ]]
