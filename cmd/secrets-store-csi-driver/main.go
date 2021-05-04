@@ -29,13 +29,13 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/rotation"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
+	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	json "k8s.io/component-base/logs/json"
 	"k8s.io/klog/v2"
-
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
@@ -58,6 +58,7 @@ var (
 	rotationPollInterval = flag.Duration("rotation-poll-interval", 2*time.Minute, "Secret rotation poll interval duration")
 	enableProfile        = flag.Bool("enable-pprof", false, "enable pprof profiling")
 	profilePort          = flag.Int("pprof-port", 6065, "port for pprof profiling")
+	maxCallRecvMsgSize   = flag.Int("max-call-recv-msg-size", 1024*1024*4, "maximum size in bytes of gRPC response from plugins")
 
 	// enable filtered watch for NodePublishSecretRef secrets. The filtering is done on the csi driver label: secrets-store.csi.k8s.io/used=true
 	// For Kubernetes secrets used to provide credentials for use with the CSI driver, set the label by running: kubectl label secret secrets-store-creds secrets-store.csi.k8s.io/used=true
@@ -148,7 +149,7 @@ func main() {
 	ctx := withShutdownSignal(context.Background())
 
 	// create provider clients
-	providerClients := secretsstore.NewPluginClientBuilder(*providerVolumePath)
+	providerClients := secretsstore.NewPluginClientBuilder(*providerVolumePath, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(*maxCallRecvMsgSize)))
 	defer providerClients.Cleanup()
 
 	// enable provider health check

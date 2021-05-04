@@ -28,6 +28,9 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/test_utils/tmpdir"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/fake"
@@ -154,6 +157,45 @@ func TestMountContent(t *testing.T) {
 				t.Errorf("MountContent() file mismatch (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestMountContent_TooLarge(t *testing.T) {
+	socketPath := tmpdir.New(t, "", "ut")
+	targetPath := tmpdir.New(t, "", "ut")
+
+	// set a very small max message size
+	pool := NewPluginClientBuilder(socketPath, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(5)))
+	defer pool.Cleanup()
+
+	server, cleanup := fakeServer(t, socketPath, "provider1")
+	defer cleanup()
+
+	server.SetObjects(map[string]string{"foo": "v1"})
+	server.SetFiles([]*v1alpha1.File{
+		{
+			Path:     "foo",
+			Mode:     0644,
+			Contents: []byte("foo"),
+		},
+	})
+	server.Start()
+
+	client, err := pool.Get(context.Background(), "provider1")
+	if err != nil {
+		t.Fatalf("expected err to be nil, got: %+v", err)
+	}
+
+	// rpc error: code = ResourceExhausted desc = grpc: received message larger than max (28 vs. 5)
+	_, errorCode, err := MountContent(context.TODO(), client, "{}", "{}", targetPath, "777", nil)
+	if err == nil {
+		t.Errorf("expected err to be not nil")
+	}
+	if want := codes.ResourceExhausted; status.Code(err) != want {
+		t.Errorf("expected error code: %v, got: %+v", want, status.Code(err))
+	}
+	if want := "GRPCProviderError"; errorCode != want {
+		t.Errorf("expected error code: %v, got: %+v", want, errorCode)
 	}
 }
 

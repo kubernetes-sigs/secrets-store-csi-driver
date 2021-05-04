@@ -53,4 +53,13 @@ Secrets Store CSI Driver is deployed as a *DaemonSet*. The above error indicates
   NAME                       ATTACHREQUIRED   PODINFOONMOUNT   MODES       AGE
   secrets-store.csi.k8s.io   false            true             Ephemeral   110m
   ```
-  
+
+### Mount fails with `grpc: received message larger than max`
+
+If the files pulled in by the `SecretProviderClass` are larger than 4MiB you may observe `FailedMount` warnings with a
+message that includes `grpc: received message larger than max`. You can configure the driver to accept responses larger
+than 4MiB by specifying the `--max-call-recv-msg-size=<size in bytes>` argument to the `secrets-store` container in the
+`csi-secrets-store` DaemonSet.
+
+Note that this may also increase memory resource consumption of the `secrets-store` container, so you should also
+consider increasing the memory limit as well.
