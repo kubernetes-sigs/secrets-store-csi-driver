@@ -19,7 +19,7 @@ spec:
       containers:
       - name: vault
         image: registry.hub.docker.com/library/vault:1.4.2
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         args: ['server', '-dev']
         securityContext:
           capabilities:
