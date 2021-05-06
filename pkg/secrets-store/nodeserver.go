@@ -21,18 +21,16 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"runtime"
 
 	csicommon "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/mount"
+	mount "k8s.io/mount-utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -222,23 +220,11 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 		return nil, status.Error(codes.InvalidArgument, "Target path missing in request")
 	}
 	targetPath := req.GetTargetPath()
-	// Assume no mounted files if GetMountedFiles fails.
-	files, _ := fileutil.GetMountedFiles(targetPath)
 
 	if isMockTargetPath(targetPath) {
 		return &csi.NodeUnpublishVolumeResponse{}, nil
 	}
 
-	// remove files
-	if runtime.GOOS == "windows" {
-		for _, file := range files {
-			err = os.RemoveAll(file)
-			if err != nil {
-				klog.ErrorS(err, "failed to remove file from target path", "file", file)
-				return nil, status.Error(codes.Internal, err.Error())
-			}
-		}
-	}
 	err = mount.CleanupMountPoint(targetPath, ns.mounter, false)
 	if err != nil && !os.IsNotExist(err) {
 		klog.ErrorS(err, "failed to clean and unmount target path", "targetPath", targetPath)

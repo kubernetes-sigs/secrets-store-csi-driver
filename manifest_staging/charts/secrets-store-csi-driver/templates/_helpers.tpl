@@ -33,6 +33,10 @@ labels:
   helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
 {{- end -}}
 
+{{- define "sscd-psp.fullname" -}}
+{{- printf "%s-psp" (include "sscd.name" .) -}}
+{{- end }}
+
 {{/*
 Return the appropriate apiVersion for CSIDriver.
 */}}

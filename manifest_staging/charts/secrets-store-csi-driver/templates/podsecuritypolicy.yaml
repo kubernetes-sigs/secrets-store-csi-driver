@@ -1,0 +1,30 @@
+{{- if .Values.rbac.pspEnabled }}
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: {{ template "sscd-psp.fullname" . }}
+{{ include "sscd.labels" . | indent 2 }}
+spec:
+  seLinux:
+    rule: RunAsAny
+  privileged: true
+  volumes:
+    - hostPath
+    - secret
+  hostNetwork: false
+  hostPorts:
+    - min: 0
+      max: 65535
+  fsGroup:
+    ranges:
+      - max: 65535
+        min: 1
+    rule: MustRunAs
+  runAsUser:
+    rule: RunAsAny
+  supplementalGroups:
+    ranges:
+      - max: 65535
+        min: 1
+    rule: MustRunAs
+{{- end }}
