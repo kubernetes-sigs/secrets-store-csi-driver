@@ -19,6 +19,7 @@ package fileutil
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -49,7 +50,13 @@ func TestGetMountedFiles(t *testing.T) {
 			name: "target path dir/file found",
 			targetPath: func(t *testing.T) string {
 				dir := tmpdir.New(t, "", "ut")
-				os.Create(filepath.Join(dir, "secret.txt"))
+				f, err := os.Create(filepath.Join(dir, "secret.txt"))
+				if err != nil {
+					t.Fatalf("error writing file: %s", err)
+				}
+				if err := f.Close(); err != nil {
+					t.Fatalf("error writing file: %s", err)
+				}
 				return dir
 			},
 			expectedErr: false,
@@ -59,12 +66,20 @@ func TestGetMountedFiles(t *testing.T) {
 			name: "target path dir/dir/file found",
 			targetPath: func(t *testing.T) string {
 				dir := tmpdir.New(t, "", "ut")
-				os.MkdirAll(filepath.Join(dir, "subdir"), 0700)
-				os.Create(filepath.Join(dir, "subdir", "secret.txt"))
+				if err := os.MkdirAll(filepath.Join(dir, "subdir"), 0700); err != nil {
+					t.Fatalf("could not make subdir: %s", err)
+				}
+				f, err := os.Create(filepath.Join(dir, "subdir", "secret.txt"))
+				if err != nil {
+					t.Fatalf("could not write file: %s", err)
+				}
+				if err := f.Close(); err != nil {
+					t.Fatalf("error writing file: %s", err)
+				}
 				return dir
 			},
 			expectedErr: false,
-			want:        []string{"subdir/secret.txt"},
+			want:        []string{filepath.Join("subdir", "secret.txt")},
 		},
 		{
 			name: "target path with atomic_writer symlinks",
@@ -79,6 +94,14 @@ func TestGetMountedFiles(t *testing.T) {
 						Data: []byte("foo"),
 						Mode: 0700,
 					},
+					"foo/baz.txt": {
+						Data: []byte("baz"),
+						Mode: 0700,
+					},
+					"foo.txt": {
+						Data: []byte("foo.txt"),
+						Mode: 0700,
+					},
 				})
 				if err != nil {
 					t.Fatalf("unable to write FileProjection: %s", err)
@@ -86,7 +109,11 @@ func TestGetMountedFiles(t *testing.T) {
 				return dir
 			},
 			expectedErr: false,
-			want:        []string{"foo/bar.txt"},
+			want: []string{
+				"foo.txt",
+				filepath.Join("foo", "bar.txt"),
+				filepath.Join("foo", "baz.txt"),
+			},
 		},
 	}
 
@@ -101,6 +128,7 @@ func TestGetMountedFiles(t *testing.T) {
 			for k := range got {
 				gotKeys = append(gotKeys, k)
 			}
+			sort.Strings(gotKeys)
 
 			if diff := cmp.Diff(test.want, gotKeys, cmpopts.EquateEmpty()); diff != "" {
 				t.Errorf("GetMountedFiles() keys mismatch (-want +got):\n%s", diff)

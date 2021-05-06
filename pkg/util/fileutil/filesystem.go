@@ -36,14 +36,40 @@ var (
 func GetMountedFiles(targetPath string) (map[string]string, error) {
 	paths := make(map[string]string)
 
-	// atomic writer will write data to, but filepath.Walk does not follow
-	// symlinks
-	d, err := os.ReadDir(targetPath)
-	if err != nil {
-		return paths, err
+	// visitor is called for each file walked.
+	// root is the root that will be walked, and base is the starting path
+	// relative to targetPath when walking began
+	visitor := func(root, base string) filepath.WalkFunc {
+		return func(path string, info os.FileInfo, err error) error {
+			// if there was an error walking path immediately propagate it
+			if err != nil {
+				return err
+			}
+
+			// do not include directories in result
+			if info.IsDir() {
+				return nil
+			}
+
+			// find the relative path of the root that was walked
+			rel, err := filepath.Rel(root, path)
+			if err != nil {
+				return err
+			}
+
+			paths[filepath.Join(base, rel)] = path
+			return nil
+		}
 	}
 
-	// for each item in the targetPath, walk that item
+	// atomic writer will write data to, but filepath.Walk does not follow
+	// symlinks. follow any symlinks in the targetPath and then walk every item.
+	d, err := os.ReadDir(targetPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// for each file/directory in the targetPath, walk that entry
 	for _, entry := range d {
 		// skip the reserved paths of targetPath/..*
 		if strings.HasPrefix(entry.Name(), "..") {
@@ -52,7 +78,7 @@ func GetMountedFiles(targetPath string) (map[string]string, error) {
 
 		info, err := entry.Info()
 		if err != nil {
-			continue
+			return nil, err
 		}
 
 		// the path to the file relative to targetPath
@@ -61,67 +87,24 @@ func GetMountedFiles(targetPath string) (map[string]string, error) {
 
 		// the path before following the symlink
 		// i.e. targetPath/foo
-		p := filepath.Join(targetPath, info.Name())
+		root := filepath.Join(targetPath, base)
 
 		// for symlinks in the targetPath...
 		if info.Mode()&os.ModeSymlink != 0 {
 			// the resolved relative path
 			// i.e. ..data/foo
-			actual, err := os.Readlink(p)
+			actual, err := os.Readlink(root)
 			if err != nil {
-				continue
+				return nil, err
 			}
 
-			// the root path to walk
+			// update the root path to walk to be after following the symlink
 			// i.e. targetPath/..data/foo
-			root := filepath.Join(targetPath, actual)
+			root = filepath.Join(targetPath, actual)
+		}
 
-			if err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-				// if there was an error walking path immediately propagate it
-				if err != nil {
-					return err
-				}
-
-				// do not include directories in result
-				if info.IsDir() {
-					return nil
-				}
-
-				// We want the relative path before following the symbolic link.
-				// Compute the relative path within the symlink'd directory.
-				rel, err := filepath.Rel(root, path)
-				if err != nil {
-					return err
-				}
-				paths[filepath.Join(base, rel)] = path
-
-				return nil
-			}); err != nil {
-				return paths, err
-			}
-		} else {
-			if err := filepath.Walk(p, func(path string, info os.FileInfo, err error) error {
-				// if there was an error walking path immediately propagate it
-				if err != nil {
-					return err
-				}
-
-				// do not include directories in result
-				if info.IsDir() {
-					return nil
-				}
-
-				// determine relative path
-				rel, err := filepath.Rel(targetPath, path)
-				if err != nil {
-					return err
-				}
-				paths[rel] = path
-
-				return nil
-			}); err != nil {
-				return paths, err
-			}
+		if err := filepath.Walk(root, visitor(root, base)); err != nil {
+			return paths, err
 		}
 	}
 	return paths, nil

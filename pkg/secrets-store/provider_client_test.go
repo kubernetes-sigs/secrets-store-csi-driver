@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -64,6 +65,7 @@ func TestMountContent(t *testing.T) {
 		files          []*v1alpha1.File
 		// expectations
 		expectedFiles map[string]os.FileMode
+		skipon        string
 	}{
 		{
 			name:           "provider successful response (no files)",
@@ -77,13 +79,13 @@ func TestMountContent(t *testing.T) {
 			files: []*v1alpha1.File{
 				{
 					Path:     "foo",
-					Mode:     0644,
+					Mode:     0666,
 					Contents: []byte("foo"),
 				},
 			},
 			objectVersions: map[string]string{"foo": "v1"},
 			expectedFiles: map[string]os.FileMode{
-				"foo": 0644,
+				"foo": 0666,
 			},
 		},
 		{
@@ -92,23 +94,23 @@ func TestMountContent(t *testing.T) {
 			files: []*v1alpha1.File{
 				{
 					Path:     "foo",
-					Mode:     0644,
+					Mode:     0666,
 					Contents: []byte("foo"),
 				},
 				{
 					Path:     "bar",
-					Mode:     0777,
+					Mode:     0444,
 					Contents: []byte("bar"),
 				},
 			},
 			objectVersions: map[string]string{"foo": "v1"},
 			expectedFiles: map[string]os.FileMode{
-				"foo": 0644,
-				"bar": 0777,
+				"foo": 0666,
+				"bar": 0444,
 			},
 		},
 		{
-			name:       "provider response with nested files",
+			name:       "provider response with nested files (linux)",
 			permission: "777",
 			files: []*v1alpha1.File{
 				{
@@ -133,11 +135,46 @@ func TestMountContent(t *testing.T) {
 				"baz/bar": 0777,
 				"baz/qux": 0777,
 			},
+			skipon: "windows",
+		},
+		{
+			// note: this is a bit weird because the path `baz\bar` on windows
+			// should be a file `bar` nested in a folder `baz`. it _actually_
+			// works on linux though because the `\` character is just treated
+			// as part of the filename.
+			name:       "provider response with nested files (windows)",
+			permission: "777",
+			files: []*v1alpha1.File{
+				{
+					Path:     "foo",
+					Mode:     0444,
+					Contents: []byte("foo"),
+				},
+				{
+					Path:     "baz\\bar",
+					Mode:     0444,
+					Contents: []byte("bar"),
+				},
+				{
+					Path:     "baz\\qux",
+					Mode:     0666,
+					Contents: []byte("qux"),
+				},
+			},
+			objectVersions: map[string]string{"foo": "v1"},
+			expectedFiles: map[string]os.FileMode{
+				"foo":      0444,
+				"baz\\bar": 0444,
+				"baz\\qux": 0666,
+			},
 		},
 	}
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
+			if test.skipon == runtime.GOOS {
+				t.SkipNow()
+			}
 			socketPath := tmpdir.New(t, "", "ut")
 			targetPath := tmpdir.New(t, "", "ut")
 

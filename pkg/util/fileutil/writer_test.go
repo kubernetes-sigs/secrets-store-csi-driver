@@ -23,6 +23,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -34,6 +35,7 @@ func TestValidate_Success(t *testing.T) {
 	cases := []struct {
 		name    string
 		payload []*v1alpha1.File
+		skipon  string
 	}{
 		{
 			name: "valid double payload",
@@ -55,10 +57,21 @@ func TestValidate_Success(t *testing.T) {
 			},
 		},
 		{
-			name: "valid nested path",
+			name: "valid nested path (linux)",
 			payload: []*v1alpha1.File{
 				{
 					Path: "foo/bar",
+				},
+			},
+			skipon: "windows",
+		},
+		{
+			name: "valid nested path (windows)",
+			// note: on linux this will be treated as a file with name `foo\bar`
+			// not a file `bar` nested in the directory `foo`.
+			payload: []*v1alpha1.File{
+				{
+					Path: "foo\\bar",
 				},
 			},
 		},
@@ -66,6 +79,9 @@ func TestValidate_Success(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			if tc.skipon == runtime.GOOS {
+				t.SkipNow()
+			}
 			if err := Validate(tc.payload); err != nil {
 				t.Errorf("%v: unexpected error: %v", tc.name, err)
 			}
@@ -426,9 +442,18 @@ func readPayloads(path string, payloads []*v1alpha1.File) error {
 		if err != nil {
 			return err
 		}
-		if info.Mode() != fs.FileMode(p.Mode) {
-			return fmt.Errorf("unexpected file mode. got: %v, want: %v", info.Mode(), fs.FileMode(p.Mode))
+		if runtime.GOOS == "windows" {
+			// on windows only the 0200 bitmask is used by chmod
+			// https://golang.org/src/os/file.go?s=15847:15891#L522
+			if (info.Mode() & 0200) != (fs.FileMode(p.Mode) & 0200) {
+				return fmt.Errorf("unexpected file mode. got: %v, want: %v", info.Mode(), fs.FileMode(p.Mode))
+			}
+		} else {
+			if info.Mode() != fs.FileMode(p.Mode) {
+				return fmt.Errorf("unexpected file mode. got: %v, want: %v", info.Mode(), fs.FileMode(p.Mode))
+			}
 		}
+
 		contents, err := os.ReadFile(fp)
 		if err != nil {
 			return err
