@@ -117,11 +117,18 @@ setup() {
   result=$(kubectl exec $POD -- cat /mnt/secrets-store/secretalias)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
+  result=$(kubectl exec $POD -- cat /mnt/secrets-store/nested/secretalias)
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+
   result=$(kubectl exec $POD -- cat /mnt/secrets-store/$KEY_NAME)
   result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
   [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 
   result=$(kubectl get secret foosecret -o jsonpath="{.data.username}" | base64 -d)
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+
+  # test synced kubernetes secret data set from nested file
+  result=$(kubectl get secret foosecret -o jsonpath="{.data.nested}" | base64 -d)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   result=$(kubectl exec $POD -- printenv | grep SECRET_USERNAME) | awk -F"=" '{ print $2}'
