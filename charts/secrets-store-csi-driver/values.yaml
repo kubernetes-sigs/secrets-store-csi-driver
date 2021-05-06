@@ -1,3 +1,6 @@
+# -- Whether or not to install CRDs
+installCRDs: true
+
 linux:
   enabled: true
   image:
