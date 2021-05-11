@@ -83,6 +83,8 @@ KIND := kind
 KUBECTL := kubectl
 ENVSUBST := envsubst
 SHELLCHECK := $(TOOLS_BIN_DIR)/shellcheck-$(SHELLCHECK_VER)
+EKSCTL := eksctl
+AWS_CLI := aws
 
 # Test variables
 KIND_VERSION ?= 0.10.0
@@ -91,6 +93,11 @@ BATS_VERSION ?= 1.2.1
 TRIVY_VERSION ?= 0.14.0
 PROTOC_VERSION ?= 3.15.2
 SHELLCHECK_VER ?= v0.7.2
+
+# For aws integration tests 
+BUILD_TIMESTAMP_W_SEC := $(shell date +%Y-%m-%d-%H-%M-%S)
+EKS_CLUSTER_NAME := integ-cluster-$(BUILD_TIMESTAMP_W_SEC)
+AWS_REGION := us-west-2
 
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
@@ -149,6 +156,9 @@ $(KIND): ## Download and install kind
 
 $(AZURE_CLI): ## Download and install azure cli
 	curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+
+$(EKSCTL): ## Download and install eksctl 
+	curl -sSLO  https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_Linux_amd64.tar.gz && tar -zxvf eksctl_Linux_amd64.tar.gz && chmod +x eksctl && mv eksctl /usr/local/bin/
 
 $(KUBECTL): ## Install kubectl
 	curl -LO https://storage.googleapis.com/kubernetes-release/release/v$(KUBERNETES_VERSION)/bin/linux/amd64/kubectl && chmod +x ./kubectl && mv kubectl /usr/local/bin/
@@ -276,6 +286,10 @@ setup-kind: $(KIND)
 	if [ $$(kind get clusters) ]; then kind delete cluster; fi
 	kind create cluster --image kindest/node:v$(KUBERNETES_VERSION)
 
+.PHONY: setup-eks-cluster
+setup-eks-cluster: $(HELM) $(EKSCTL) $(BATS) $(ENVSUBST)
+	bash test/scripts/initialize_eks_cluster.bash $(EKS_CLUSTER_NAME) $(IMAGE_VERSION) 
+
 .PHONY: e2e-container
 e2e-container:
 ifdef TEST_WINDOWS
@@ -323,6 +337,10 @@ e2e-helm-deploy-release:
 e2e-kind-cleanup:
 	kind delete cluster --name kind
 
+.PHONY: e2e-eks-cleanup
+e2e-eks-cleanup: 
+	eksctl delete cluster --name $(EKS_CLUSTER_NAME) --region $(AWS_REGION)
+
 .PHONY: e2e-azure
 e2e-azure: $(AZURE_CLI)
 	bats -t test/bats/azure.bats
@@ -335,6 +353,10 @@ e2e-vault:
 e2e-gcp:
 	bats -t test/bats/gcp.bats
 
+.PHONY: e2e-aws
+e2e-aws:
+	bats -t test/bats/aws.bats
+	
 ## --------------------------------------
 ## Generate
 ## --------------------------------------

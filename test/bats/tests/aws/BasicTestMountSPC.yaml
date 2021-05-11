@@ -1,0 +1,29 @@
+apiVersion: secrets-store.csi.x-k8s.io/v1alpha1
+kind: SecretProviderClass
+metadata:
+  name: basic-test-mount-spc
+spec:
+  provider: aws   
+  secretObjects:
+  - secretName: secret
+    type: Opaque
+    data:
+    - objectName: SecretsManagerSync
+      key: username
+  parameters:
+    objects: | 
+        - objectName: "ParameterStoreTest1"
+          objectType: "ssmparameter"
+        - objectName: "ParameterStoreTestWithLongName"
+          objectAlias: "ParameterStoreTest2"
+          objectType: "ssmparameter"
+        - objectName: "ParameterStoreRotationTest"
+          objectType: "ssmparameter"
+        - objectName: "SecretsManagerRotationTest"
+          objectType: "secretsmanager"
+        - objectName: "SecretsManagerTest1"
+          objectType: "secretsmanager"
+        - objectName: arn:aws:secretsmanager:${REGION}:${ACCOUNT_NUMBER}:secret:SecretsManagerTest2
+          objectAlias: "SecretsManagerTest2"
+        - objectName: "SecretsManagerSync"
+          objectType: "secretsmanager"
