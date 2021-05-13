@@ -102,7 +102,7 @@ test: lint go-test
 
 .PHONY: go-test # Run unit tests
 go-test:
-	go test $(GO_FILES) -v
+	go test -cover $(GO_FILES) -v
 
 .PHONY: sanity-test # Run CSI sanity tests for the driver
 sanity-test:
