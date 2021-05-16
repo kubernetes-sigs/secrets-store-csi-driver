@@ -83,3 +83,4 @@ The following table lists the configurable parameters of the csi-secrets-store-p
 | `enableSecretRotation`                  | Enable secret rotation feature [alpha]                                                                                            | `false`                                             |
 | `rotationPollInterval`                  | Secret rotation poll interval duration                                                                                            | `"120s"`                                            |
 | `filteredWatchSecret`                   | Enable filtered watch for NodePublishSecretRef secrets with label `secrets-store.csi.k8s.io/used=true`                            | `false`                                             |
+| `imagePullSecrets`                      | Registry secret name if the docker registry needs authentication    for pulling images                      | `""`                                             |
