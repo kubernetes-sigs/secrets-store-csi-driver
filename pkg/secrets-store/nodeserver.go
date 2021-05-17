@@ -21,6 +21,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 
 	csicommon "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
@@ -223,6 +225,21 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 
 	if isMockTargetPath(targetPath) {
 		return &csi.NodeUnpublishVolumeResponse{}, nil
+	}
+
+	// for windows as the target path is not a mount point, we need to explicitly remove the contents from the
+	// dir to be able to cleanup the target path.
+	if runtime.GOOS == "windows" {
+		files, err := filepath.Glob(filepath.Join(targetPath, "*"))
+		if err != nil {
+			klog.ErrorS(err, "failed to get files from target path", "targetPath", targetPath)
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		for _, file := range files {
+			if err = os.RemoveAll(file); err != nil {
+				klog.ErrorS(err, "failed to delete file from target path", "targetPath", targetPath, "file", file)
+			}
+		}
 	}
 
 	err = mount.CleanupMountPoint(targetPath, ns.mounter, false)
