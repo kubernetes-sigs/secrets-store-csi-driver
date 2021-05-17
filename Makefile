@@ -322,7 +322,7 @@ e2e-gcp:
 ## --------------------------------------
 # Generate manifests e.g. CRD, RBAC etc.
 .PHONY: manifests
-manifests: $(CONTROLLER_GEN))
+manifests: $(CONTROLLER_GEN) $(KUSTOMIZE)
 	# Generate the base CRD/RBAC
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=secretproviderclasses-role paths="./apis/..." paths="./controllers" output:crd:artifacts:config=config/crd/bases
 	cp config/crd/bases/* manifest_staging/charts/secrets-store-csi-driver/templates
