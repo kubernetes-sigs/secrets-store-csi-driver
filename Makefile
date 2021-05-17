@@ -25,8 +25,8 @@ REGISTRY ?= gcr.io/k8s-staging-csi-secrets-store
 IMAGE_NAME ?= driver
 # Release version is the current supported release for the driver
 # Update this version when the helm chart is being updated for release
-RELEASE_VERSION := v0.0.21
-IMAGE_VERSION ?= v0.0.21
+RELEASE_VERSION := v0.0.22
+IMAGE_VERSION ?= v0.0.22
 # Use a custom version for E2E tests if we are testing in CI
 ifdef CI
 override IMAGE_VERSION := v0.1.0-e2e-$(BUILD_COMMIT)
