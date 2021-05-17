@@ -355,8 +355,9 @@ release-manifest:
 	$(MAKE) manifests
 	@sed -i "s/version: .*/version: ${NEWVERSION}/" manifest_staging/charts/secrets-store-csi-driver/Chart.yaml
 	@sed -i "s/appVersion: .*/appVersion: ${NEWVERSION}/" manifest_staging/charts/secrets-store-csi-driver/Chart.yaml
-	@sed -i "s/tag: .*/tag: ${NEWVERSION}/" manifest_staging/charts/secrets-store-csi-driver/values.yaml
-	@sed -i "s/image tag | .*/image tag | \`${NEWVERSION}\` |/" manifest_staging/charts/secrets-store-csi-driver/README.md
+	@sed -i "s/tag: v${CURRENTVERSION}/tag: v${NEWVERSION}/" manifest_staging/charts/secrets-store-csi-driver/values.yaml
+	@sed -i "s/v${CURRENTVERSION}/v${NEWVERSION}/" manifest_staging/charts/secrets-store-csi-driver/README.md
+	@sed -i "s/driver:v${CURRENTVERSION}/driver:v${NEWVERSION}/" manifest_staging/deploy/secrets-store-csi-driver.yaml manifest_staging/deploy/secrets-store-csi-driver-windows.yaml
 
 .PHONY: promote-staging-manifest
 promote-staging-manifest: #promote staging manifests to release dir
