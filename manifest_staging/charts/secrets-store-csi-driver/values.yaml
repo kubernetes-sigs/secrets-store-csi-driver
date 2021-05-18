@@ -185,3 +185,5 @@ providerHealthCheck: false
 
 ## Provider HealthCheck interval
 providerHealthCheckInterval: 2m
+
+imagePullSecrets: []
