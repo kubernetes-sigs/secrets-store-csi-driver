@@ -38,7 +38,7 @@ unless project evolves in important new directions and such release is necessary
 
 - A new release should be created on the _`second Wednesday`_ of each month. This schedule not only allows us to do bug fixes, but also provides an opportunity to address underline image vulnerabilities etc. if any.
 
-- Once the new version is decided(as per above guideline), release candidate branch should be created from `master` with name and tag `vX.Y.Z-rc.W`, for eg. if new version is going to be `v0.1.2` then release candidate branch should be `v0.1.2-rc.0`
+- Once the new version is decided(as per above guideline), release candidate branch should be created from `master` with name `vX.Y.Z-rc.W` followed by release with same tag, for eg. if new version is going to be `v0.1.2` then release candidate branch should be `v0.1.2-rc.0`
 
 - Run tests to ensure stability. If issues/bugs are found, submit patches to the RC's release branch and create a new RC with the tag `vX.Y.Z-rc.W+1`. Apply those same patches to the `master` branch. Repeat until the release is suitably stable.
 
