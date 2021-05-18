@@ -80,5 +80,6 @@ Publishing involves creating a release tag and creating a new Release on GitHub.
 ## Publishing
 
 1. Create a draft release in GitHub and associate it with the tag that was just created
-1. Write the release notes similar to [this](https://github.com/kubernetes-sigs/secrets-store-csi-driver/releases/tag/v0.0.12) and upload all the artifacts from the `deploy/` dir
-1. Publish release
+2. Collect release notes (example [tag compare](https://github.com/kubernetes-sigs/secrets-store-csi-driver/compare/v0.0.21...master))
+3. Write the release notes similar to [this](https://github.com/kubernetes-sigs/secrets-store-csi-driver/releases/tag/v0.0.12) and upload all the artifacts from the `deploy/` dir
+4. Publish release
