@@ -14,11 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Forked from kubernetes/pkg/volume/util/atomic_writer_test.go
-//  * tag: v1.20.5,
-//  * commit: 6b1d87acf3c8253c123756b9e61dac642678305f
-//  * link: https://github.com/kubernetes/kubernetes/blob/6b1d87acf3c8253c123756b9e61dac642678305f/pkg/volume/util/atomic_writer_test.go
-
 package fileutil
 
 import (
@@ -28,6 +23,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -35,89 +31,11 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 )
 
-func TestValidatePath_Success(t *testing.T) {
-	cases := []struct {
-		name string
-		path string
-	}{
-		{
-			name: "valid 1",
-			path: "i/am/well/behaved.txt",
-		},
-		{
-			name: "valid 2",
-			path: "keepyourheaddownandfollowtherules.txt",
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if err := validatePath(tc.path); err != nil {
-				t.Errorf("unexpected failure: %v", err)
-			}
-		})
-	}
-}
-
-func TestValidatePath_Error(t *testing.T) {
-	maxPath := strings.Repeat("a", maxPathLength+1)
-	maxFile := strings.Repeat("a", maxFileNameLength+1)
-
-	cases := []struct {
-		name string
-		path string
-	}{
-		{
-			name: "max path length",
-			path: maxPath,
-		},
-		{
-			name: "max file length",
-			path: maxFile,
-		},
-		{
-			name: "absolute failure",
-			path: "/dev/null",
-		},
-		{
-			name: "reserved path",
-			path: "..sneaky.txt",
-		},
-		{
-			name: "contains doubledot 1",
-			path: "hello/there/../../../../../../etc/passwd",
-		},
-		{
-			name: "contains doubledot 2",
-			path: "hello/../etc/somethingbad",
-		},
-		{
-			name: "empty",
-			path: "",
-		},
-		{
-			name: "parent",
-			path: "..",
-		},
-		{
-			name: "sibling",
-			path: "../sibling",
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if validatePath(tc.path) == nil {
-				t.Error("unexpected success")
-			}
-		})
-	}
-}
-
 func TestValidate_Success(t *testing.T) {
 	cases := []struct {
 		name    string
 		payload []*v1alpha1.File
+		skipon  string
 	}{
 		{
 			name: "valid double payload",
@@ -139,10 +57,21 @@ func TestValidate_Success(t *testing.T) {
 			},
 		},
 		{
-			name: "valid nested path",
+			name: "valid nested path (linux)",
 			payload: []*v1alpha1.File{
 				{
 					Path: "foo/bar",
+				},
+			},
+			skipon: "windows",
+		},
+		{
+			name: "valid nested path (windows)",
+			// note: on linux this will be treated as a file with name `foo\bar`
+			// not a file `bar` nested in the directory `foo`.
+			payload: []*v1alpha1.File{
+				{
+					Path: "foo\\bar",
 				},
 			},
 		},
@@ -150,6 +79,9 @@ func TestValidate_Success(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			if tc.skipon == runtime.GOOS {
+				t.SkipNow()
+			}
 			if err := Validate(tc.payload); err != nil {
 				t.Errorf("%v: unexpected error: %v", tc.name, err)
 			}
@@ -226,71 +158,115 @@ func TestValidate_Error(t *testing.T) {
 func TestWritePayloads(t *testing.T) {
 	cases := []struct {
 		name    string
-		payload []*v1alpha1.File
+		first   []*v1alpha1.File
+		second  []*v1alpha1.File
+		removed []string
 	}{
 		{
 			name: "simple payload",
-			payload: []*v1alpha1.File{
+			first: []*v1alpha1.File{
 				{
 					Path:     "foo",
 					Mode:     0644,
-					Contents: []byte("foo"),
+					Contents: []byte("first"),
+				},
+			},
+			second: []*v1alpha1.File{
+				{
+					Path:     "foo",
+					Mode:     0644,
+					Contents: []byte("second"),
 				},
 			},
 		},
 		{
 			name: "simple payload - mode",
-			payload: []*v1alpha1.File{
+			first: []*v1alpha1.File{
 				{
 					Path:     "foo",
 					Mode:     0440,
-					Contents: []byte("foo"),
+					Contents: []byte("first"),
+				},
+			},
+			second: []*v1alpha1.File{
+				{
+					Path:     "foo",
+					Mode:     0644,
+					Contents: []byte("second"),
 				},
 			},
 		},
 		{
 			name: "simple payload - mode2",
-			payload: []*v1alpha1.File{
+			first: []*v1alpha1.File{
 				{
 					Path:     "foo",
 					Mode:     0777,
-					Contents: []byte("foo"),
+					Contents: []byte("first"),
+				},
+			},
+			second: []*v1alpha1.File{
+				{
+					Path:     "foo",
+					Mode:     0777,
+					Contents: []byte("second"),
 				},
 			},
 		},
 		{
 			name: "simple payload - mode3",
-			payload: []*v1alpha1.File{
+			first: []*v1alpha1.File{
 				{
 					Path:     "foo",
 					Mode:     0666,
-					Contents: []byte("foo"),
+					Contents: []byte("first"),
+				},
+			},
+			second: []*v1alpha1.File{
+				{
+					Path:     "foo",
+					Mode:     0666,
+					Contents: []byte("second"),
 				},
 			},
 		},
 		{
 			name: "nested path payload",
-			payload: []*v1alpha1.File{
+			first: []*v1alpha1.File{
 				{
 					Path:     "foo/bar",
 					Mode:     0644,
-					Contents: []byte("foo"),
+					Contents: []byte("first"),
+				},
+			},
+			second: []*v1alpha1.File{
+				{
+					Path:     "foo/bar",
+					Mode:     0644,
+					Contents: []byte("second"),
 				},
 			},
 		},
 		{
 			name: "multiple nested paths",
-			payload: []*v1alpha1.File{
+			first: []*v1alpha1.File{
 				{
 					Path:     "foo/bar/baz",
 					Mode:     0644,
-					Contents: []byte("foo"),
+					Contents: []byte("first"),
+				},
+			},
+			second: []*v1alpha1.File{
+				{
+					Path:     "foo/bar/baz",
+					Mode:     0644,
+					Contents: []byte("second"),
 				},
 			},
 		},
 		{
 			name: "multiple nested paths and files",
-			payload: []*v1alpha1.File{
+			first: []*v1alpha1.File{
 				{
 					Path:     "foo/bar/baz",
 					Mode:     0644,
@@ -312,6 +288,82 @@ func TestWritePayloads(t *testing.T) {
 					Contents: []byte("root"),
 				},
 			},
+			second: []*v1alpha1.File{
+				{
+					Path:     "foo/bar/baz",
+					Mode:     0644,
+					Contents: []byte("second - foo"),
+				},
+				{
+					Path:     "foo/bar/2.txt",
+					Mode:     0644,
+					Contents: []byte("second - two"),
+				},
+				{
+					Path:     "foo/1.txt",
+					Mode:     0644,
+					Contents: []byte("second - one"),
+				},
+				{
+					Path:     "root.txt",
+					Mode:     0644,
+					Contents: []byte("second - root"),
+				},
+			},
+		},
+		{
+			name: "removed path - simple",
+			first: []*v1alpha1.File{
+				{
+					Path:     "foo.txt",
+					Mode:     0644,
+					Contents: []byte("root"),
+				},
+			},
+			second: []*v1alpha1.File{
+				{
+					Path:     "bar.txt",
+					Mode:     0644,
+					Contents: []byte("root"),
+				},
+			},
+			removed: []string{"foo.txt"},
+		},
+		{
+			name: "removed path - nested",
+			first: []*v1alpha1.File{
+				{
+					Path:     "a/foo.txt",
+					Mode:     0644,
+					Contents: []byte("root"),
+				},
+			},
+			second: []*v1alpha1.File{
+				{
+					Path:     "a/bar.txt",
+					Mode:     0644,
+					Contents: []byte("root"),
+				},
+			},
+			removed: []string{"a/foo.txt"},
+		},
+		{
+			name: "removed path - double nesting",
+			first: []*v1alpha1.File{
+				{
+					Path:     "a/b/foo.txt",
+					Mode:     0644,
+					Contents: []byte("root"),
+				},
+			},
+			second: []*v1alpha1.File{
+				{
+					Path:     "a/c/bar.txt",
+					Mode:     0644,
+					Contents: []byte("root"),
+				},
+			},
+			removed: []string{"a/b/foo.txt"},
 		},
 	}
 
@@ -319,14 +371,67 @@ func TestWritePayloads(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := tmpdir.New(t, "", "ut")
 
-			if err := WritePayloads(dir, tc.payload); err != nil {
-				t.Errorf("WritePayload() got error: %v", err)
+			// check that the first write succeeds and the contents match
+			if err := WritePayloads(dir, tc.first); err != nil {
+				t.Errorf("WritePayload(first) got error: %v", err)
 			}
 
-			if err := readPayloads(dir, tc.payload); err != nil {
-				t.Errorf("WritePayload() could not be read: %v", err)
+			if err := readPayloads(dir, tc.first); err != nil {
+				t.Errorf("WritePayload(first) could not be read: %v", err)
+			}
+
+			// check that the second write succeeds and the contents match,
+			// ensuring that the files have the updated values
+			if err := WritePayloads(dir, tc.second); err != nil {
+				t.Errorf("WritePayload(second) got error: %v", err)
+			}
+
+			if err := readPayloads(dir, tc.second); err != nil {
+				t.Errorf("WritePayload(second) could not be read: %v", err)
+			}
+
+			// check that files that should be removed by the second write are
+			// gone
+			for i := range tc.removed {
+				if _, err := os.Lstat(filepath.Join(dir, tc.removed[i])); os.IsNotExist(err) {
+					continue
+				}
+				t.Errorf("WritePayload() did not remove file: %s", tc.removed[i])
 			}
 		})
+	}
+}
+
+func TestWritePayloads_BackwardCompatible(t *testing.T) {
+	dir := tmpdir.New(t, "", "ut")
+
+	// write a file simulating the provider-style file writing
+	path := filepath.Join(dir, "foo.txt")
+	if err := os.WriteFile(path, []byte("old"), 0777); err != nil {
+		t.Fatalf("could not write old file: %s", err)
+	}
+
+	payload := []*v1alpha1.File{
+		{
+			Path:     "foo.txt",
+			Mode:     0777,
+			Contents: []byte("new"),
+		},
+	}
+
+	want := []byte("new")
+
+	if err := WritePayloads(dir, payload); err != nil {
+		t.Fatalf("could not write new file: %s", err)
+	}
+
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("could not read payload: %s", err)
+	}
+
+	if !bytes.Equal(got, want) {
+		t.Errorf("WritePayload() did not update the file contents. got: %s, want: %s", got, want)
 	}
 }
 
@@ -337,9 +442,18 @@ func readPayloads(path string, payloads []*v1alpha1.File) error {
 		if err != nil {
 			return err
 		}
-		if info.Mode() != fs.FileMode(p.Mode) {
-			return fmt.Errorf("unexpected file mode. got: %v, want: %v", info.Mode(), fs.FileMode(p.Mode))
+		if runtime.GOOS == "windows" {
+			// on windows only the 0200 bitmask is used by chmod
+			// https://golang.org/src/os/file.go?s=15847:15891#L522
+			if (info.Mode() & 0200) != (fs.FileMode(p.Mode) & 0200) {
+				return fmt.Errorf("unexpected file mode. got: %v, want: %v", info.Mode(), fs.FileMode(p.Mode))
+			}
+		} else {
+			if info.Mode() != fs.FileMode(p.Mode) {
+				return fmt.Errorf("unexpected file mode. got: %v, want: %v", info.Mode(), fs.FileMode(p.Mode))
+			}
 		}
+
 		contents, err := os.ReadFile(fp)
 		if err != nil {
 			return err

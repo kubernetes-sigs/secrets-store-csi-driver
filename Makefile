@@ -25,8 +25,8 @@ REGISTRY ?= gcr.io/k8s-staging-csi-secrets-store
 IMAGE_NAME ?= driver
 # Release version is the current supported release for the driver
 # Update this version when the helm chart is being updated for release
-RELEASE_VERSION := v0.0.21
-IMAGE_VERSION ?= v0.0.21
+RELEASE_VERSION := v0.0.22
+IMAGE_VERSION ?= v0.0.22
 # Use a custom version for E2E tests if we are testing in CI
 ifdef CI
 override IMAGE_VERSION := v0.1.0-e2e-$(BUILD_COMMIT)
@@ -322,7 +322,7 @@ e2e-gcp:
 ## --------------------------------------
 # Generate manifests e.g. CRD, RBAC etc.
 .PHONY: manifests
-manifests: $(CONTROLLER_GEN))
+manifests: $(CONTROLLER_GEN) $(KUSTOMIZE)
 	# Generate the base CRD/RBAC
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=secretproviderclasses-role paths="./apis/..." paths="./controllers" output:crd:artifacts:config=config/crd/bases
 	cp config/crd/bases/* manifest_staging/charts/secrets-store-csi-driver/templates
@@ -355,8 +355,9 @@ release-manifest:
 	$(MAKE) manifests
 	@sed -i "s/version: .*/version: ${NEWVERSION}/" manifest_staging/charts/secrets-store-csi-driver/Chart.yaml
 	@sed -i "s/appVersion: .*/appVersion: ${NEWVERSION}/" manifest_staging/charts/secrets-store-csi-driver/Chart.yaml
-	@sed -i "s/tag: .*/tag: ${NEWVERSION}/" manifest_staging/charts/secrets-store-csi-driver/values.yaml
-	@sed -i "s/image tag | .*/image tag | \`${NEWVERSION}\` |/" manifest_staging/charts/secrets-store-csi-driver/README.md
+	@sed -i "s/tag: v${CURRENTVERSION}/tag: v${NEWVERSION}/" manifest_staging/charts/secrets-store-csi-driver/values.yaml
+	@sed -i "s/v${CURRENTVERSION}/v${NEWVERSION}/" manifest_staging/charts/secrets-store-csi-driver/README.md
+	@sed -i "s/driver:v${CURRENTVERSION}/driver:v${NEWVERSION}/" manifest_staging/deploy/secrets-store-csi-driver.yaml manifest_staging/deploy/secrets-store-csi-driver-windows.yaml
 
 .PHONY: promote-staging-manifest
 promote-staging-manifest: #promote staging manifests to release dir
