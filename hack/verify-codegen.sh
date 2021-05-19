@@ -18,7 +18,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-SCRIPT_ROOT=$(dirname "${BASH_SOURCE}")/..
+SCRIPT_ROOT=$(dirname "${BASH_SOURCE[@]}")/..
 
-cd $SCRIPT_ROOT
-VERIFY_CODEGEN=true $SCRIPT_ROOT/hack/update-codegen.sh
+cd "$SCRIPT_ROOT"
+VERIFY_CODEGEN=true "$SCRIPT_ROOT"/hack/update-codegen.sh

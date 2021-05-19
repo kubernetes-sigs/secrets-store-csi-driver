@@ -82,6 +82,7 @@ AZURE_CLI := az
 KIND := kind
 KUBECTL := kubectl
 ENVSUBST := envsubst
+SHELLCHECK := $(TOOLS_BIN_DIR)/shellcheck-$(SHELLCHECK_VER)
 
 # Test variables
 KIND_VERSION ?= 0.10.0
@@ -89,6 +90,7 @@ KUBERNETES_VERSION ?= 1.20.2
 BATS_VERSION ?= 1.2.1
 TRIVY_VERSION ?= 0.14.0
 PROTOC_VERSION ?= 3.15.2
+SHELLCHECK_VER ?= v0.7.2
 
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
@@ -163,11 +165,23 @@ $(ENVSUBST): ## Install envsubst for running the tests
 $(PROTOC): ## Install protoc
 	curl -sSLO https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip && unzip protoc-${PROTOC_VERSION}-linux-x86_64.zip bin/protoc -d $(TOOLS_BIN_DIR) && rm protoc-${PROTOC_VERSION}-linux-x86_64.zip 
 
+$(SHELLCHECK): OS := $(shell uname | tr '[:upper:]' '[:lower:]')
+$(SHELLCHECK): ARCH := $(shell uname -m)
+$(SHELLCHECK):
+	mkdir -p $(TOOLS_BIN_DIR)
+	rm -rf "$(SHELLCHECK)*"
+	curl -sfOL "https://github.com/koalaman/shellcheck/releases/download/$(SHELLCHECK_VER)/shellcheck-$(SHELLCHECK_VER).$(OS).$(ARCH).tar.xz"
+	tar xf shellcheck-$(SHELLCHECK_VER).$(OS).$(ARCH).tar.xz
+	cp "shellcheck-$(SHELLCHECK_VER)/shellcheck" "$(SHELLCHECK)"
+	ln -sf "$(SHELLCHECK)" "$(TOOLS_BIN_DIR)/shellcheck"
+	chmod +x "$(TOOLS_BIN_DIR)/shellcheck" "$(SHELLCHECK)"
+	rm -rf shellcheck*
+
 ## --------------------------------------
 ## Linting
 ## --------------------------------------
 .PHONY: test-style
-test-style: lint lint-charts
+test-style: lint lint-charts shellcheck
 
 .PHONY: lint
 lint: $(GOLANGCI_LINT)
@@ -180,6 +194,10 @@ lint-full: $(GOLANGCI_LINT)
 lint-charts: $(HELM) # Run helm lint tests
 	helm lint --strict charts/secrets-store-csi-driver
 	helm lint --strict manifest_staging/charts/secrets-store-csi-driver
+
+.PHONY: shellcheck
+shellcheck: $(SHELLCHECK)
+	find . -name '*.sh' -not -path './docker/*' | xargs $(SHELLCHECK)
 
 ## --------------------------------------
 ## Builds
