@@ -71,17 +71,6 @@ linux:
   podAnnotations: {}
   podLabels: {}
 
-  # volumes is a list of volumes made available to secrets store csi driver.
-  volumes: null
-  #   - name: foo
-  #     emptyDir: {}
-
-  # volumeMounts is a list of volumeMounts for secrets store csi driver.
-  volumeMounts: null
-  #   - name: foo
-  #     mountPath: /bar
-  #     readOnly: true
-
 windows:
   enabled: false
   image:
