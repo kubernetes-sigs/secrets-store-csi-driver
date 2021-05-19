@@ -24,3 +24,6 @@ require (
 	k8s.io/mount-utils v0.21.0
 	sigs.k8s.io/controller-runtime v0.8.2
 )
+
+// fixes CVE-2020-29652
+replace golang.org/x/crypto => golang.org/x/crypto v0.0.0-20201216223049-8b5274cf687f
