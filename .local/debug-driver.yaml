@@ -78,14 +78,14 @@ spec:
             type: DirectoryOrCreate
 
 ---
-#Separate deployment to manage actual driver debugging independently of node registrar and livenessprobe
+#Separate deployment to manage actual driver debugging independent of node registrar and livenessprobe
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: debug-driver
   namespace: kube-system
 spec:
-  replicas: 1 #Keep single replica for debug
+  replicas: 1 #Keep single replica for debugging
   selector:
     matchLabels:
       app: debug-driver
