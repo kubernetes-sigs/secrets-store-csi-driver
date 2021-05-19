@@ -1,39 +1,87 @@
-It's much easier to debug code with breakpoints. It's also easier to develop new features or make changes to exiting ones with local debug capability. With this in mind, following steps provide a way to setup csi secret store driver for local debugging.
+# Overview
+It's much easier to debug code with breakpoints while developing new features or making changes to existing ones. With this in mind, following steps provides a way to setup csi secret store driver for local debugging.
 
 ## Prerequisites
-
-For this case we create a kubernetes cluster running locally on our system. Therefore we need the following software:
 
 * [Docker Desktop](https://docs.docker.com/get-docker)
 * [kind (Kubernetes in Docker)](https://kind.sigs.k8s.io)
 * [Kubectl](https://kubernetes.io/de/docs/tasks/tools/install-kubectl)
 * [Visual Studio Code](https://code.visualstudio.com/download)
+* [GOLang](https://golang.org/doc/install)
+* [VSCode GO extension](https://marketplace.visualstudio.com/items?itemName=golang.Go)
 
 
-### Creating a Kubernetes cluster
-Replace `hostPath` value in `.local/kind-config.yaml` to match with your local csi driver source code path
+### Creating local Kubernetes cluster
+- Replace `hostPath` value in [kind-config.yaml](kind-config.yaml) to match with your local csi driver source code path
 ``` yaml
 # YAML
 - hostPath: # /path/to/your/driver/secrets-store-csi-driver/codebase/on/host
 ```
-
-#### Install nginx-ingress
-
-For port 30123 to work, it is necessary to deploy an nginx controller as an ingress controller:
-
+- Create Kind cluster:
 ```sh
-kubectl create -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/static/provider/kind/deploy.yaml
+kind create cluster --config .local/kind-config.yaml
 ```
+
 
 ### Creating a docker image
-let's build our docker image from our [Dockerfile](Dockerfile):
+- Build docker image from [Dockerfile](Dockerfile):
 
 ```sh
-docker build -t debug-driver .
+docker build -t debug-driver -f .local/Dockerfile .
 ```
 
-After the build is done, load image `debug-driver:latest` on kind cluster:
+- Load image `debug-driver:latest` on kind cluster:
 
 ```sh
 kind load docker-image debug-driver:latest
+```
+
+### Deploy resources for debugging
+- Deploy following Driver resources:
+```sh
+kubectl apply -f deploy/rbac-secretproviderclass.yaml
+kubectl apply -f deploy/csidriver.yaml
+kubectl apply -f deploy/secrets-store.csi.x-k8s.io_secretproviderclasses.yaml
+kubectl apply -f deploy/secrets-store.csi.x-k8s.io_secretproviderclasspodstatuses.yaml
+kubectl apply -f deploy/rbac-secretprovidersyncing.yaml
+```
+
+- Deploy pv and pvc to mount codebase into the cluster:
+```sh
+kubectl apply -f .local/persistent-volume.yaml
+```
+
+- Deploy driver resources:
+```sh
+kubectl apply -f .local/debug-driver.yaml
+```
+- Check the logs of debug-driver pod to make sure `dlv` API server is listening:
+```
+API server listening at: [::]:30123
+```
+
+### launch.json configuration
+User following `launch.json` configuration to attach debugger.
+```json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Driver debug",
+            "type": "go",
+            "request": "attach",
+            "mode":"remote",
+            "remotePath": "/secrets-store-csi-driver-codebase",
+            "port": 30123,
+            "host": "127.0.0.1",
+            "showLog": true
+        }
+    ]
+}
+```
+Happy Debugging..
+
+### Cleanup
+```sh
+kind delete cluster
 ```
