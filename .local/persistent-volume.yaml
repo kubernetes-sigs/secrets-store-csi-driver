@@ -1,0 +1,27 @@
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: driver-pv
+spec:
+  storageClassName: hostpath
+  capacity:
+    storage: 256Mi
+  accessModes:
+  - ReadWriteOnce
+  hostPath:
+    path: /secrets-store-csi-driver-codebase
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: driver-pvc
+  namespace: kube-system
+spec:
+  storageClassName: hostpath
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 256Mi

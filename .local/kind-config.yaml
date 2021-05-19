@@ -1,0 +1,11 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  extraPortMappings:
+  - containerPort: 30123 # node port for the delve server
+    hostPort: 30123 # port on your host machine to communicate with the delve server
+    protocol: TCP
+  extraMounts:
+    - hostPath: <> #/path/to/driver/codebase/on/host
+      containerPath: /secrets-store-csi-driver-codebase # path to the project folder inside cluster
