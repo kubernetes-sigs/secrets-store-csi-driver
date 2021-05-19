@@ -1,5 +1,5 @@
 # Overview
-It's much easier to debug code with breakpoints while developing new features or making changes to existing ones. With this in mind, following steps provides a way to setup csi secret store driver for local debugging.
+It's much easier to debug code with breakpoints while developing new features or making changes to existing codebase. With this in mind, following steps provides a way to setup csi secret store driver for local debugging.
 
 ## Prerequisites
 
@@ -44,6 +44,8 @@ kubectl apply -f deploy/csidriver.yaml
 kubectl apply -f deploy/secrets-store.csi.x-k8s.io_secretproviderclasses.yaml
 kubectl apply -f deploy/secrets-store.csi.x-k8s.io_secretproviderclasspodstatuses.yaml
 kubectl apply -f deploy/rbac-secretprovidersyncing.yaml
+
+# deploy your specific provider
 ```
 
 - Deploy pv and pvc to mount codebase into the cluster:
@@ -51,7 +53,7 @@ kubectl apply -f deploy/rbac-secretprovidersyncing.yaml
 kubectl apply -f .local/persistent-volume.yaml
 ```
 
-- Deploy driver resources:
+- Deploy driver:
 ```sh
 kubectl apply -f .local/debug-driver.yaml
 ```
@@ -61,7 +63,7 @@ API server listening at: [::]:30123
 ```
 
 ### launch.json configuration
-User following `launch.json` configuration to attach debugger.
+Use following `launch.json` configuration to attach debugger.
 ```json
 {
     "version": "0.2.0",
@@ -81,7 +83,7 @@ User following `launch.json` configuration to attach debugger.
 ```
 Happy Debugging..
 
-### Cleanup
+## Cleanup
 ```sh
 kind delete cluster
 ```
