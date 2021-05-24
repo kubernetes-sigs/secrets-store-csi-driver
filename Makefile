@@ -26,7 +26,7 @@ IMAGE_NAME ?= driver
 # Release version is the current supported release for the driver
 # Update this version when the helm chart is being updated for release
 RELEASE_VERSION := v0.0.22
-IMAGE_VERSION ?= v0.0.22
+IMAGE_VERSION ?= v0.0.23-rc.0
 # Use a custom version for E2E tests if we are testing in CI
 ifdef CI
 override IMAGE_VERSION := v0.1.0-e2e-$(BUILD_COMMIT)
