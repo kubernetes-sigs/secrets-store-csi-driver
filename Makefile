@@ -15,6 +15,7 @@
 GOPATH  := $(shell go env GOPATH)
 GOARCH  := $(shell go env GOARCH)
 GOOS    := $(shell go env GOOS)
+GOPROXY := $(shell go env GOPROXY)
 
 ORG_PATH=sigs.k8s.io
 PROJECT_NAME := secrets-store-csi-driver
@@ -151,19 +152,19 @@ image-scan: $(TRIVY)
 
 $(CONTROLLER_GEN): $(TOOLS_MOD_DIR)/go.mod $(TOOLS_MOD_DIR)/go.sum $(TOOLS_MOD_DIR)/tools.go ## Build controller-gen from tools folder.
 	cd $(TOOLS_MOD_DIR) && \
-		go build -tags=tools -o $(TOOLS_BIN_DIR)/controller-gen sigs.k8s.io/controller-tools/cmd/controller-gen
+		GOPROXY=$(GOPROXY) go build -tags=tools -o $(TOOLS_BIN_DIR)/controller-gen sigs.k8s.io/controller-tools/cmd/controller-gen
 
 $(GOLANGCI_LINT): ## Build golangci-lint from tools folder.
 	cd $(TOOLS_MOD_DIR) && \
-		go build -tags=tools -o $(TOOLS_BIN_DIR)/golangci-lint github.com/golangci/golangci-lint/cmd/golangci-lint
+		GOPROXY=$(GOPROXY) go build -tags=tools -o $(TOOLS_BIN_DIR)/golangci-lint github.com/golangci/golangci-lint/cmd/golangci-lint
 
 $(KUSTOMIZE): ## Build kustomize from tools folder.
 	cd $(TOOLS_MOD_DIR) && \
-		go build -tags=tools -o $(TOOLS_BIN_DIR)/kustomize sigs.k8s.io/kustomize/kustomize/v3
+		GOPROXY=$(GOPROXY) go build -tags=tools -o $(TOOLS_BIN_DIR)/kustomize sigs.k8s.io/kustomize/kustomize/v3
 
 $(PROTOC_GEN_GO):
 	cd $(TOOLS_MOD_DIR) && \
-		go build -tags=tools -o $(TOOLS_BIN_DIR)/protoc-gen-go github.com/golang/protobuf/protoc-gen-go
+		GOPROXY=$(GOPROXY) go build -tags=tools -o $(TOOLS_BIN_DIR)/protoc-gen-go github.com/golang/protobuf/protoc-gen-go
 
 ## --------------------------------------
 ## Testing Binaries
@@ -235,28 +236,32 @@ shellcheck: $(SHELLCHECK)
 ## --------------------------------------
 .PHONY: build
 build:
-	CGO_ENABLED=0 GOOS=linux go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
+	GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=linux go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
 
 .PHONY: build-windows
 build-windows:
-	CGO_ENABLED=0 GOOS=windows go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
+	GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=windows go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
 
 .PHONY: build-darwin
 build-darwin:
-	CGO_ENABLED=0 GOOS=darwin go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
+	GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=darwin go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
 
 .PHONY: container
 container:
-	docker build --no-cache --build-arg LDFLAGS=$(LDFLAGS) -t $(IMAGE_TAG) -f docker/Dockerfile .
+	docker build --no-cache --build-arg GOPROXY=$(GOPROXY) --build-arg LDFLAGS=$(LDFLAGS) -t $(IMAGE_TAG) -f docker/Dockerfile .
 
 .PHONY: container-linux
 container-linux: docker-buildx-builder
-	docker buildx build --no-cache --output=type=$(OUTPUT_TYPE) --platform="linux/$(ARCH)" --build-arg LDFLAGS=$(LDFLAGS) \
+	docker buildx build --no-cache --output=type=$(OUTPUT_TYPE) --platform="linux/$(ARCH)" \
+		--build-arg GOPROXY=$(GOPROXY) \
+		--build-arg LDFLAGS=$(LDFLAGS) \
  		-t $(IMAGE_TAG)-linux-$(ARCH) -f docker/Dockerfile .
 
 .PHONY: container-windows
 container-windows: docker-buildx-builder
-	docker buildx build --no-cache --output=type=$(OUTPUT_TYPE) --platform="windows/$(ARCH)" --build-arg LDFLAGS=$(LDFLAGS) \
+	docker buildx build --no-cache --output=type=$(OUTPUT_TYPE) --platform="windows/$(ARCH)" \
+		--build-arg LDFLAGS=$(LDFLAGS) \
+		--build-arg GOPROXY=$(GOPROXY) \
 		--build-arg BASEIMAGE=mcr.microsoft.com/windows/nanoserver:$(OSVERSION) \
 		--build-arg BASEIMAGE_CORE=gcr.io/k8s-staging-e2e-test-images/windows-servercore-cache:1.0-linux-amd64-$(OSVERSION) \
  		-t $(IMAGE_TAG)-windows-$(OSVERSION)-$(ARCH) -f docker/windows.Dockerfile .
