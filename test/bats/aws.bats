@@ -7,34 +7,48 @@ SLEEP_TIME=1
 PROVIDER_YAML=https://raw.githubusercontent.com/aws/secrets-store-csi-driver-provider-aws/main/deployment/aws-provider-installer.yaml
 NAMESPACE=kube-system
 POD_NAME=basic-test-mount
-export REGION=us-west-2
-export ACCOUNT_NUMBER=$(aws --region $REGION  sts get-caller-identity --query Account --output text)
+export REGION=${REGION:-us-west-2}
 
+export ACCOUNT_NUMBER=$(aws --region $REGION  sts get-caller-identity --query Account --output text)
 BATS_TEST_DIR=test/bats/tests/aws
+
+
+if [ -z "$UUID" ]; then 
+   export UUID=secret-$(openssl rand -hex 6) 
+fi 
+
+export SM_TEST_1_NAME=SecretsManagerTest1-$UUID 
+export SM_TEST_2_NAME=SecretsManagerTest2-$UUID 
+export SM_SYNC_NAME=SecretsManagerSync-$UUID
+export SM_ROT_TEST_NAME=SecretsManagerRotationTest-$UUID
+
+export PM_TEST_1_NAME=ParameterStoreTest1-$UUID
+export PM_TEST_LONG_NAME=ParameterStoreTestWithLongName-$UUID 
+export PM_ROTATION_TEST_NAME=ParameterStoreRotationTest-$UUID
 
 setup_file() {
    #Create test secrets
-   aws secretsmanager create-secret --name SecretsManagerTest1 --secret-string SecretsManagerTest1Value --region $REGION
-   aws secretsmanager create-secret --name SecretsManagerTest2 --secret-string SecretsManagerTest2Value --region $REGION
-   aws secretsmanager create-secret --name SecretsManagerSync --secret-string SecretUser --region $REGION
+   aws secretsmanager create-secret --name $SM_TEST_1_NAME --secret-string SecretsManagerTest1Value --region $REGION
+   aws secretsmanager create-secret --name $SM_TEST_2_NAME --secret-string SecretsManagerTest2Value --region $REGION
+   aws secretsmanager create-secret --name $SM_SYNC_NAME --secret-string SecretUser --region $REGION
 
-   aws ssm put-parameter --name ParameterStoreTest1 --value ParameterStoreTest1Value --type SecureString --region $REGION
-   aws ssm put-parameter --name ParameterStoreTestWithLongName --value ParameterStoreTest2Value --type SecureString --region $REGION
+   aws ssm put-parameter --name $PM_TEST_1_NAME --value ParameterStoreTest1Value --type SecureString --region $REGION
+   aws ssm put-parameter --name $PM_TEST_LONG_NAME --value ParameterStoreTest2Value --type SecureString --region $REGION
 
-   aws ssm put-parameter --name ParameterStoreRotationTest --value BeforeRotation --type SecureString --region $REGION
-   aws secretsmanager create-secret --name SecretsManagerRotationTest --secret-string BeforeRotation --region $REGION
+   aws ssm put-parameter --name $PM_ROTATION_TEST_NAME --value BeforeRotation --type SecureString --region $REGION
+   aws secretsmanager create-secret --name $SM_ROT_TEST_NAME --secret-string BeforeRotation --region $REGION
 }
 
 teardown_file() {
-    aws secretsmanager delete-secret --secret-id SecretsManagerTest1 --force-delete-without-recovery --region $REGION
-    aws secretsmanager delete-secret --secret-id SecretsManagerTest2 --force-delete-without-recovery --region $REGION
-    aws secretsmanager delete-secret --secret-id SecretsManagerSync --force-delete-without-recovery --region $REGION
+    aws secretsmanager delete-secret --secret-id $SM_TEST_1_NAME --force-delete-without-recovery --region $REGION
+    aws secretsmanager delete-secret --secret-id $SM_TEST_2_NAME --force-delete-without-recovery --region $REGION
+    aws secretsmanager delete-secret --secret-id $SM_SYNC_NAME --force-delete-without-recovery --region $REGION
 
-    aws ssm delete-parameter --name ParameterStoreTest1 --region $REGION
-    aws ssm delete-parameter --name ParameterStoreTestWithLongName --region $REGION 
+    aws ssm delete-parameter --name $PM_TEST_1_NAME --region $REGION
+    aws ssm delete-parameter --name $PM_TEST_LONG_NAME --region $REGION 
 
-    aws ssm delete-parameter --name ParameterStoreRotationTest --region $REGION
-    aws secretsmanager delete-secret --secret-id SecretsManagerRotationTest --force-delete-without-recovery --region $REGION
+    aws ssm delete-parameter --name $PM_ROTATION_TEST_NAME --region $REGION
+    aws secretsmanager delete-secret --secret-id $SM_ROT_TEST_NAME --force-delete-without-recovery --region $REGION
 }
 
 @test "Install aws provider" {
@@ -74,27 +88,27 @@ teardown_file() {
 }
 
 @test "CSI inline volume test with rotation - parameter store" {
-   result=$(kubectl --namespace $NAMESPACE exec $POD_NAME -- cat /mnt/secrets-store/ParameterStoreRotationTest)
+   result=$(kubectl --namespace $NAMESPACE exec $POD_NAME -- cat /mnt/secrets-store/$PM_ROTATION_TEST_NAME)
    [[ "${result//$'\r'}" == "BeforeRotation" ]]
 
-   aws ssm put-parameter --name ParameterStoreRotationTest --value AfterRotation --type SecureString --overwrite --region $REGION
+   aws ssm put-parameter --name $PM_ROTATION_TEST_NAME --value AfterRotation --type SecureString --overwrite --region $REGION
    sleep 40
-   result=$(kubectl --namespace $NAMESPACE exec $POD_NAME -- cat /mnt/secrets-store/ParameterStoreRotationTest)
+   result=$(kubectl --namespace $NAMESPACE exec $POD_NAME -- cat /mnt/secrets-store/$PM_ROTATION_TEST_NAME)
    [[ "${result//$'\r'}" == "AfterRotation" ]]
 }
 
 @test "CSI inline volume test with rotation - secrets manager" {
-   result=$(kubectl --namespace $NAMESPACE exec $POD_NAME -- cat /mnt/secrets-store/SecretsManagerRotationTest)
+   result=$(kubectl --namespace $NAMESPACE exec $POD_NAME -- cat /mnt/secrets-store/$SM_ROT_TEST_NAME)
    [[ "${result//$'\r'}" == "BeforeRotation" ]]
   
-   aws secretsmanager put-secret-value --secret-id SecretsManagerRotationTest --secret-string AfterRotation --region $REGION
+   aws secretsmanager put-secret-value --secret-id $SM_ROT_TEST_NAME --secret-string AfterRotation --region $REGION
    sleep 40
-   result=$(kubectl --namespace $NAMESPACE exec $POD_NAME -- cat /mnt/secrets-store/SecretsManagerRotationTest)
+   result=$(kubectl --namespace $NAMESPACE exec $POD_NAME -- cat /mnt/secrets-store/$SM_ROT_TEST_NAME)
    [[ "${result//$'\r'}" == "AfterRotation" ]]
 }
 
 @test "CSI inline volume test with pod portability - read ssm parameters from pod" {
-   result=$(kubectl --namespace $NAMESPACE exec $POD_NAME -- cat /mnt/secrets-store/ParameterStoreTest1)
+   result=$(kubectl --namespace $NAMESPACE exec $POD_NAME -- cat /mnt/secrets-store/$PM_TEST_1_NAME)
    [[ "${result//$'\r'}" == "ParameterStoreTest1Value" ]]
 
    result=$(kubectl --namespace $NAMESPACE exec $POD_NAME -- cat /mnt/secrets-store/ParameterStoreTest2)
@@ -102,7 +116,7 @@ teardown_file() {
 }
 
 @test "CSI inline volume test with pod portability - read secrets manager secrets from pod" {
-    result=$(kubectl --namespace $NAMESPACE exec $POD_NAME -- cat /mnt/secrets-store/SecretsManagerTest1)
+    result=$(kubectl --namespace $NAMESPACE exec $POD_NAME -- cat /mnt/secrets-store/$SM_TEST_1_NAME)
     [[ "${result//$'\r'}" == "SecretsManagerTest1Value" ]]
    
     result=$(kubectl --namespace $NAMESPACE exec $POD_NAME -- cat /mnt/secrets-store/SecretsManagerTest2)
