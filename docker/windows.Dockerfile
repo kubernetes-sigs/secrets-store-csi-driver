@@ -9,6 +9,8 @@ ADD . .
 ARG TARGETARCH
 ARG TARGETOS
 ARG LDFLAGS
+ARG GOPROXY
+ENV GOPROXY=${GOPROXY}
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -a -ldflags "${LDFLAGS}" -o _output/secrets-store-csi.exe ./cmd/secrets-store-csi-driver
 
 FROM $BASEIMAGE
