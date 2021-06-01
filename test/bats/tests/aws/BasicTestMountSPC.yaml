@@ -8,22 +8,22 @@ spec:
   - secretName: secret
     type: Opaque
     data:
-    - objectName: SecretsManagerSync
+    - objectName: $SM_SYNC_NAME
       key: username
   parameters:
     objects: | 
-        - objectName: "ParameterStoreTest1"
-          objectType: "ssmparameter"
-        - objectName: "ParameterStoreTestWithLongName"
-          objectAlias: "ParameterStoreTest2"
-          objectType: "ssmparameter"
-        - objectName: "ParameterStoreRotationTest"
-          objectType: "ssmparameter"
-        - objectName: "SecretsManagerRotationTest"
-          objectType: "secretsmanager"
-        - objectName: "SecretsManagerTest1"
-          objectType: "secretsmanager"
-        - objectName: arn:aws:secretsmanager:${REGION}:${ACCOUNT_NUMBER}:secret:SecretsManagerTest2
-          objectAlias: "SecretsManagerTest2"
-        - objectName: "SecretsManagerSync"
-          objectType: "secretsmanager"
+        - objectName: $PM_TEST_1_NAME
+          objectType: ssmparameter
+        - objectName: $PM_TEST_LONG_NAME
+          objectAlias: ParameterStoreTest2
+          objectType: ssmparameter
+        - objectName: $PM_ROTATION_TEST_NAME
+          objectType: ssmparameter
+        - objectName: $SM_ROT_TEST_NAME
+          objectType: secretsmanager
+        - objectName: $SM_TEST_1_NAME
+          objectType: secretsmanager
+        - objectName: arn:aws:secretsmanager:${REGION}:${ACCOUNT_NUMBER}:secret:${SM_TEST_2_NAME}
+          objectAlias: SecretsManagerTest2
+        - objectName: $SM_SYNC_NAME
+          objectType: secretsmanager

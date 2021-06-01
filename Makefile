@@ -309,7 +309,7 @@ setup-kind: $(KIND)
 
 .PHONY: setup-eks-cluster
 setup-eks-cluster: $(HELM) $(EKSCTL) $(BATS) $(ENVSUBST)
-	bash test/scripts/initialize_eks_cluster.bash $(EKS_CLUSTER_NAME) $(IMAGE_VERSION) 
+	bash test/scripts/initialize_eks_cluster.bash $(EKS_CLUSTER_NAME) $(IMAGE_VERSION)  
 
 .PHONY: e2e-container
 e2e-container:
