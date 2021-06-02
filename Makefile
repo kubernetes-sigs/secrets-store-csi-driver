@@ -54,7 +54,7 @@ export GOPATH GOBIN GO111MODULE DOCKER_CLI_EXPERIMENTAL
 
 # Generate all combination of all OS, ARCH, and OSVERSIONS for iteration
 ALL_OS = linux windows
-ALL_ARCH.linux = amd64
+ALL_ARCH.linux = amd64 arm64
 ALL_OS_ARCH.linux = $(foreach arch, ${ALL_ARCH.linux}, linux-$(arch))
 ALL_ARCH.windows = amd64
 ALL_OSVERSIONS.windows := 1809 1903 1909 2004
@@ -240,7 +240,7 @@ build:
 
 .PHONY: build-windows
 build-windows:
-	GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=windows go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
+	GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=windows go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi.exe ./cmd/secrets-store-csi-driver
 
 .PHONY: build-darwin
 build-darwin:
@@ -253,15 +253,11 @@ container:
 .PHONY: container-linux
 container-linux: docker-buildx-builder
 	docker buildx build --no-cache --output=type=$(OUTPUT_TYPE) --platform="linux/$(ARCH)" \
-		--build-arg GOPROXY=$(GOPROXY) \
-		--build-arg LDFLAGS=$(LDFLAGS) \
  		-t $(IMAGE_TAG)-linux-$(ARCH) -f docker/Dockerfile .
 
 .PHONY: container-windows
 container-windows: docker-buildx-builder
 	docker buildx build --no-cache --output=type=$(OUTPUT_TYPE) --platform="windows/$(ARCH)" \
-		--build-arg LDFLAGS=$(LDFLAGS) \
-		--build-arg GOPROXY=$(GOPROXY) \
 		--build-arg BASEIMAGE=mcr.microsoft.com/windows/nanoserver:$(OSVERSION) \
 		--build-arg BASEIMAGE_CORE=gcr.io/k8s-staging-e2e-test-images/windows-servercore-cache:1.0-linux-amd64-$(OSVERSION) \
  		-t $(IMAGE_TAG)-windows-$(OSVERSION)-$(ARCH) -f docker/windows.Dockerfile .
@@ -274,7 +270,9 @@ docker-buildx-builder:
 
 .PHONY: container-all
 container-all:
-	$(MAKE) container-linux
+	for arch in $(ALL_ARCH.linux); do \
+		ARCH=$${arch} $(MAKE) container-linux; \
+	done
 	for osversion in $(ALL_OSVERSIONS.windows); do \
   		OSVERSION=$${osversion} $(MAKE) container-windows; \
   	done
