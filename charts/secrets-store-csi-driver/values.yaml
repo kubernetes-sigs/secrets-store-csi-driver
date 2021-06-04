@@ -2,8 +2,19 @@ linux:
   enabled: true
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v0.0.21
-    pullPolicy: Always
+    tag: v0.0.22
+    pullPolicy: IfNotPresent
+
+  ## Prevent the CSI driver from being scheduled on virtual-kublet nodes
+  affinity: 
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: type
+            operator: NotIn
+            values:
+            - virtual-kubelet
 
   driver:
     resources:
@@ -16,8 +27,8 @@ linux:
 
   registrarImage:
     repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
-    tag: v2.1.0
-    pullPolicy: Always
+    tag: v2.2.0
+    pullPolicy: IfNotPresent
 
   registrar:
     resources:
@@ -31,8 +42,8 @@ linux:
 
   livenessProbeImage:
     repository: k8s.gcr.io/sig-storage/livenessprobe
-    tag: v2.2.0
-    pullPolicy: Always
+    tag: v2.3.0
+    pullPolicy: IfNotPresent
 
   livenessProbe:
     resources:
@@ -42,6 +53,7 @@ linux:
       requests:
         cpu: 10m
         memory: 20Mi
+
 
   updateStrategy:
     type: RollingUpdate
@@ -63,8 +75,19 @@ windows:
   enabled: false
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v0.0.21
+    tag: v0.0.22
     pullPolicy: IfNotPresent
+
+  ## Prevent the CSI driver from being scheduled on virtual-kublet nodes
+  affinity: 
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: type
+            operator: NotIn
+            values:
+            - virtual-kubelet
 
   driver:
     resources:
@@ -77,7 +100,7 @@ windows:
 
   registrarImage:
     repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
-    tag: v2.1.0
+    tag: v2.2.0
     pullPolicy: IfNotPresent
 
   registrar:
@@ -92,7 +115,7 @@ windows:
 
   livenessProbeImage:
     repository: k8s.gcr.io/sig-storage/livenessprobe
-    tag: v2.2.0
+    tag: v2.3.0
     pullPolicy: IfNotPresent
 
   livenessProbe:
@@ -130,9 +153,13 @@ livenessProbe:
   port: 9808
   logLevel: 2
 
+## Maximum size in bytes of gRPC response from plugins
+maxCallRecvMsgSize: 4194304
+
 ## Install Default RBAC roles and bindings
 rbac:
   install: true
+  pspEnabled: false
 
 ## Install RBAC roles and bindings required for K8S Secrets syncing. Change this
 ## to false after v0.0.14
@@ -152,3 +179,9 @@ rotationPollInterval:
 
 ## Filtered watch nodePublishSecretRef secrets
 filteredWatchSecret: false
+
+## Provider HealthCheck
+providerHealthCheck: false
+
+## Provider HealthCheck interval
+providerHealthCheckInterval: 2m

@@ -73,6 +73,7 @@ type PluginClientBuilder struct {
 	conns      map[string]*grpc.ClientConn
 	socketPath string
 	lock       sync.RWMutex
+	opts       []grpc.DialOption
 }
 
 // NewPluginClientBuilder creates a PluginClientBuilder that will connect to
@@ -82,12 +83,23 @@ type PluginClientBuilder struct {
 // 		<path>/<plugin_name>.sock
 //
 // where <plugin_name> must match the PluginNameRe regular expression.
-func NewPluginClientBuilder(path string) *PluginClientBuilder {
+//
+// Additional grpc dial options can also be set through opts and will be used
+// when creating all clients.
+func NewPluginClientBuilder(path string, opts ...grpc.DialOption) *PluginClientBuilder {
 	return &PluginClientBuilder{
 		clients:    make(map[string]v1alpha1.CSIDriverProviderClient),
 		conns:      make(map[string]*grpc.ClientConn),
 		socketPath: path,
 		lock:       sync.RWMutex{},
+		opts: append(opts, []grpc.DialOption{
+			grpc.WithInsecure(), // the interface is only secured through filesystem ACLs
+			grpc.WithContextDialer(func(ctx context.Context, target string) (net.Conn, error) {
+				return (&net.Dialer{}).DialContext(ctx, "unix", target)
+			}),
+			grpc.WithDefaultServiceConfig(ServiceConfig),
+		}...,
+		),
 	}
 }
 
@@ -115,11 +127,7 @@ func (p *PluginClientBuilder) Get(ctx context.Context, provider string) (v1alpha
 
 	conn, err := grpc.Dial(
 		fmt.Sprintf("%s/%s.sock", p.socketPath, provider),
-		grpc.WithInsecure(), // the interface is only secured through filesystem ACLs
-		grpc.WithContextDialer(func(ctx context.Context, target string) (net.Conn, error) {
-			return (&net.Dialer{}).DialContext(ctx, "unix", target)
-		}),
-		grpc.WithDefaultServiceConfig(ServiceConfig),
+		p.opts...,
 	)
 	if err != nil {
 		return nil, err

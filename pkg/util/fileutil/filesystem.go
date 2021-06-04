@@ -18,7 +18,6 @@ limitations under the License.
 package fileutil
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -29,37 +28,84 @@ var (
 	targetPathRe = regexp.MustCompile(`[\\|\/]+pods[\\|\/]+(.+?)[\\|\/]+volumes[\\|\/]+kubernetes.io~csi[\\|\/]+(.+?)[\\|\/]+mount$`)
 )
 
-// GetMountedFiles returns all the mounted files names with filepath base as key
+// GetMountedFiles returns all the mounted files mapping their path relative to
+// targetPath to the absolute paths.
+//
+// This will filter out files by atomic_writer (which reserves file prefixed
+// `..` and follows the symlinks created by atomic_writer).
 func GetMountedFiles(targetPath string) (map[string]string, error) {
 	paths := make(map[string]string)
-	// loop thru all the mounted files
-	var files []string
-	err := filepath.Walk(targetPath, func(path string, fi os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if fi.IsDir() {
+
+	// visitor is called for each file walked.
+	// root is the root that will be walked, and base is the starting path
+	// relative to targetPath when walking began
+	visitor := func(root, base string) filepath.WalkFunc {
+		return func(path string, info os.FileInfo, err error) error {
+			// if there was an error walking path immediately propagate it
+			if err != nil {
+				return err
+			}
+
+			// do not include directories in result
+			if info.IsDir() {
+				return nil
+			}
+
+			// find the relative path of the root that was walked
+			rel, err := filepath.Rel(root, path)
+			if err != nil {
+				return err
+			}
+
+			paths[filepath.Join(base, rel)] = path
 			return nil
 		}
-		relpath, err := filepath.Rel(targetPath, path)
-		if err != nil {
-			return err
-		}
-		files = append(files, relpath)
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list all files in target path %s, err: %v", targetPath, err)
 	}
 
-	sep := "/"
-	if strings.HasPrefix(targetPath, "c:\\") {
-		sep = "\\"
-	} else if strings.HasPrefix(targetPath, `c:\`) {
-		sep = `\`
+	// atomic writer will write data to, but filepath.Walk does not follow
+	// symlinks. follow any symlinks in the targetPath and then walk every item.
+	d, err := os.ReadDir(targetPath)
+	if err != nil {
+		return nil, err
 	}
-	for _, file := range files {
-		paths[file] = targetPath + sep + file
+
+	// for each file/directory in the targetPath, walk that entry
+	for _, entry := range d {
+		// skip the reserved paths of targetPath/..*
+		if strings.HasPrefix(entry.Name(), "..") {
+			continue
+		}
+
+		info, err := entry.Info()
+		if err != nil {
+			return nil, err
+		}
+
+		// the path to the file relative to targetPath
+		// i.e. foo
+		base := info.Name()
+
+		// the path before following the symlink
+		// i.e. targetPath/foo
+		root := filepath.Join(targetPath, base)
+
+		// for symlinks in the targetPath...
+		if info.Mode()&os.ModeSymlink != 0 {
+			// the resolved relative path
+			// i.e. ..data/foo
+			actual, err := os.Readlink(root)
+			if err != nil {
+				return nil, err
+			}
+
+			// update the root path to walk to be after following the symlink
+			// i.e. targetPath/..data/foo
+			root = filepath.Join(targetPath, actual)
+		}
+
+		if err := filepath.Walk(root, visitor(root, base)); err != nil {
+			return paths, err
+		}
 	}
 	return paths, nil
 }

@@ -50,4 +50,14 @@ rules:
   - get
   - patch
   - update
+{{- if .Values.rbac.pspEnabled }}
+- apiGroups:
+  - policy
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - use
+  resourceNames:
+  - {{ template "sscd-psp.fullname" . }}
+{{- end }}
 {{ end }}

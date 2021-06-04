@@ -2,8 +2,8 @@ linux:
   enabled: true
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v0.0.21
-    pullPolicy: Always
+    tag: v0.0.22
+    pullPolicy: IfNotPresent
 
   ## Prevent the CSI driver from being scheduled on virtual-kublet nodes
   affinity: 
@@ -27,8 +27,8 @@ linux:
 
   registrarImage:
     repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
-    tag: v2.1.0
-    pullPolicy: Always
+    tag: v2.2.0
+    pullPolicy: IfNotPresent
 
   registrar:
     resources:
@@ -42,8 +42,8 @@ linux:
 
   livenessProbeImage:
     repository: k8s.gcr.io/sig-storage/livenessprobe
-    tag: v2.2.0
-    pullPolicy: Always
+    tag: v2.3.0
+    pullPolicy: IfNotPresent
 
   livenessProbe:
     resources:
@@ -71,11 +71,22 @@ linux:
   podAnnotations: {}
   podLabels: {}
 
+  # volumes is a list of volumes made available to secrets store csi driver.
+  volumes: null
+  #   - name: foo
+  #     emptyDir: {}
+
+  # volumeMounts is a list of volumeMounts for secrets store csi driver.
+  volumeMounts: null
+  #   - name: foo
+  #     mountPath: /bar
+  #     readOnly: true
+
 windows:
   enabled: false
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v0.0.21
+    tag: v0.0.22
     pullPolicy: IfNotPresent
 
   ## Prevent the CSI driver from being scheduled on virtual-kublet nodes
@@ -100,7 +111,7 @@ windows:
 
   registrarImage:
     repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
-    tag: v2.1.0
+    tag: v2.2.0
     pullPolicy: IfNotPresent
 
   registrar:
@@ -115,7 +126,7 @@ windows:
 
   livenessProbeImage:
     repository: k8s.gcr.io/sig-storage/livenessprobe
-    tag: v2.2.0
+    tag: v2.3.0
     pullPolicy: IfNotPresent
 
   livenessProbe:
@@ -143,6 +154,17 @@ windows:
   podAnnotations: {}
   podLabels: {}
 
+  # volumes is a list of volumes made available to secrets store csi driver.
+  volumes: null
+  #   - name: foo
+  #     emptyDir: {}
+
+  # volumeMounts is a list of volumeMounts for secrets store csi driver.
+  volumeMounts: null
+  #   - name: foo
+  #     mountPath: /bar
+  #     readOnly: true
+
 # log level. Uses V logs (klog)
 logVerbosity: 0
 
@@ -153,19 +175,17 @@ livenessProbe:
   port: 9808
   logLevel: 2
 
+## Maximum size in bytes of gRPC response from plugins
+maxCallRecvMsgSize: 4194304
+
 ## Install Default RBAC roles and bindings
 rbac:
   install: true
+  pspEnabled: false
 
-## Install RBAC roles and bindings required for K8S Secrets syncing. Change this
-## to false after v0.0.14
+## Install RBAC roles and bindings required for K8S Secrets syncing if true
 syncSecret:
-  enabled: true
-
-## [DEPRECATED] Minimum Provider Versions (optional)
-## A comma delimited list of key-value pairs of minimum provider versions
-## e.g. provider1=0.0.2,provider2=0.0.3
-minimumProviderVersions:
+  enabled: false
 
 ## Enable secret rotation feature [alpha]
 enableSecretRotation: false
@@ -181,3 +201,5 @@ providerHealthCheck: false
 
 ## Provider HealthCheck interval
 providerHealthCheckInterval: 2m
+
+imagePullSecrets: []

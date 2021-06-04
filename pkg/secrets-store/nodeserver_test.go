@@ -17,6 +17,7 @@ limitations under the License.
 package secretsstore
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -26,14 +27,13 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/test_utils/tmpdir"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/utils/mount"
+	mount "k8s.io/mount-utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -363,7 +363,7 @@ func TestNodeUnpublishVolume(t *testing.T) {
 			name: "Success for a mounted volume with a retry",
 			nodeUnpublishVolReq: csi.NodeUnpublishVolumeRequest{
 				VolumeId:   "testvolid1",
-				TargetPath: tmpdir.New(t, "", `*\\pods\\fakePod\\volumes\\kubernetes.io~csi\\myvol\\mount`),
+				TargetPath: tmpdir.New(t, "", `*mount`),
 			},
 			mountPoints:        []mount.MountPoint{},
 			shouldRetryUnmount: true,

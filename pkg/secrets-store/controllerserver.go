@@ -24,7 +24,7 @@ import (
 	"google.golang.org/grpc/status"
 	csicommon "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
 
-	"golang.org/x/net/context"
+	"context"
 )
 
 type controllerServer struct {
