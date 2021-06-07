@@ -23,10 +23,13 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/klog/v2"
 
@@ -213,6 +216,9 @@ func MountContent(ctx context.Context, client v1alpha1.CSIDriverProviderClient, 
 
 	resp, err := client.Mount(ctx, req)
 	if err != nil {
+		if isMaxRecvMsgSizeError(err) {
+			klog.ErrorS(err, "Set --max-call-recv-msg-size to configure larger maximum size in bytes of gRPC response")
+		}
 		return nil, internalerrors.GRPCProviderError, err
 	}
 	if resp != nil && resp.GetError() != nil && len(resp.GetError().Code) > 0 {
@@ -229,6 +235,8 @@ func MountContent(ctx context.Context, client v1alpha1.CSIDriverProviderClient, 
 	}
 
 	// warn if the proto response size is over 1 MiB.
+	// Individual k8s secrets are limited to 1MiB in size.
+	// Ref: https://kubernetes.io/docs/concepts/configuration/secret/#restrictions
 	if size := proto.Size(resp); size > 1048576 {
 		klog.InfoS("proto above 1MiB, secret sync may fail", "size", size)
 	}
@@ -262,4 +270,22 @@ func Version(ctx context.Context, client v1alpha1.CSIDriverProviderClient) (stri
 		return "", err
 	}
 	return resp.RuntimeVersion, nil
+}
+
+// isMaxRecvMsgSizeError checks if the grpc error is of ResourceExhausted type and
+// msg size is larger than max configured.
+func isMaxRecvMsgSizeError(err error) bool {
+	if status.Code(err) != codes.ResourceExhausted {
+		return false
+	}
+	// ResourceExhausted errors are not exclusively related to --max-call-recv-msg-size and could also be the result of propagating quota errors.
+	// Skipping errors that are related to the machine limits
+	if strings.Contains(err.Error(), "grpc: received message larger than max length allowed on current machine") {
+		return false
+	}
+	// Skipping ResourceExhausted errors that are other than internal grpc system errors
+	if !strings.Contains(err.Error(), "grpc: received message larger than max") {
+		return false
+	}
+	return true
 }
