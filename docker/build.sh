@@ -73,11 +73,10 @@ docker_version_check() {
 build_and_push() {
   docker_version_check
 
-  # only moby/buildkit:foreign-mediatype works on building Windows image now
-  # https://github.com/moby/buildkit/pull/1879
-  # Github issue: https://github.com/moby/buildkit/issues/1877
-  docker buildx create --name img-builder --use --driver-opt image=moby/buildkit:v0.7.2
-  trap "docker buildx rm img-builder" EXIT
+  docker buildx create --name img-builder --use
+  # List builder instances
+  docker buildx ls
+  trap "docker buildx ls && docker buildx rm img-builder" EXIT
 
   os_archs=$(listOsArchs)
   for os_arch in ${os_archs}; do
