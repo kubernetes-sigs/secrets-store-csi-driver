@@ -68,6 +68,7 @@ ARCH ?= amd64
 OSVERSION ?= 1809
 # Output type of docker buildx build
 OUTPUT_TYPE ?= registry
+QEMUVERSION ?= 5.2.0-2
 
 # Binaries
 GOLANGCI_LINT := $(TOOLS_BIN_DIR)/golangci-lint
@@ -228,7 +229,7 @@ lint-charts: $(HELM) # Run helm lint tests
 
 .PHONY: shellcheck
 shellcheck: $(SHELLCHECK)
-	find . -name '*.sh' -not -path './docker/*' | xargs $(SHELLCHECK)
+	$(SHELLCHECK) */*.sh
 
 ## --------------------------------------
 ## Builds
@@ -269,6 +270,9 @@ docker-buildx-builder:
 
 .PHONY: container-all
 container-all:
+	# Enable execution of multi-architecture containers
+	docker run --rm --privileged multiarch/qemu-user-static:$(QEMUVERSION) --reset -p yes
+
 	for arch in $(ALL_ARCH.linux); do \
 		ARCH=$${arch} $(MAKE) container-linux; \
 	done
