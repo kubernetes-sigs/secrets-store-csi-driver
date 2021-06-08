@@ -511,3 +511,43 @@ func TestPluginClientBuilder_HealthCheck(t *testing.T) {
 
 	wg.Wait()
 }
+
+func TestIsMaxRecvMsgSizeError(t *testing.T) {
+	cases := []struct {
+		name string
+		// inputs
+		err error
+		// expectations
+		want bool
+	}{
+		{
+			name: "not resource exhausted error",
+			err:  errors.New("failed to mount"),
+			want: false,
+		},
+		{
+			name: "generic resource exhausted error",
+			err:  status.Errorf(codes.ResourceExhausted, "user quota exceeded"),
+			want: false,
+		},
+		{
+			name: "resource exhausted error because of quota propagation",
+			err:  status.Errorf(codes.ResourceExhausted, "grpc: received message larger than max length allowed on current machine"),
+			want: false,
+		},
+		{
+			name: "resource exhausted error because message larger than max length",
+			err:  status.Errorf(codes.ResourceExhausted, "grpc: received message larger than max"),
+			want: true,
+		},
+	}
+
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			got := isMaxRecvMsgSizeError(test.err)
+			if got != test.want {
+				t.Errorf("isMaxRecvMsgSizeError() = %v, want %v", got, test.want)
+			}
+		})
+	}
+}
