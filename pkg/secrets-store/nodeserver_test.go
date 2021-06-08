@@ -17,6 +17,7 @@ limitations under the License.
 package secretsstore
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -26,7 +27,6 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/test_utils/tmpdir"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

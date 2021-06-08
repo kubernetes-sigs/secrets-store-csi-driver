@@ -48,12 +48,10 @@ var (
 	endpoint           = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
 	driverName         = flag.String("drivername", "secrets-store.csi.k8s.io", "name of the driver")
 	nodeID             = flag.String("nodeid", "", "node id")
-	debug              = flag.Bool("debug", false, "sets log to debug level [DEPRECATED]. Use -v=<log level> to configure log level.")
 	logFormatJSON      = flag.Bool("log-format-json", false, "set log formatter to json")
 	providerVolumePath = flag.String("provider-volume", "/etc/kubernetes/secrets-store-csi-providers", "Volume path for provider")
 	// this will be removed in a future release
 	metricsAddr          = flag.String("metrics-addr", ":8095", "The address the metric endpoint binds to")
-	_                    = flag.String("grpc-supported-providers", "", "[DEPRECATED] set list of providers that support grpc for driver-provider [alpha]")
 	enableSecretRotation = flag.Bool("enable-secret-rotation", false, "Enable secret rotation feature [alpha]")
 	rotationPollInterval = flag.Duration("rotation-poll-interval", 2*time.Minute, "Secret rotation poll interval duration")
 	enableProfile        = flag.Bool("enable-pprof", false, "enable pprof profiling")
@@ -86,9 +84,6 @@ func main() {
 
 	if *logFormatJSON {
 		klog.SetLogger(json.JSONLogger)
-	}
-	if *debug {
-		klog.Warning("--debug flag has been DEPRECATED and will be removed in future releases. Use -v=<log level> to configure log verbosity.")
 	}
 	if *enableProfile {
 		klog.Infof("Starting profiling on port %d", *profilePort)
