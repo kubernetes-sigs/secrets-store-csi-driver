@@ -24,7 +24,7 @@ This project strictly follows [semantic versioning](https://semver.org/spec/v2.0
 - They are backwards compatible.
 
 ### Major releases
-- Major releases contain breaking changes. Breaking changes refer to schema changes, flag changes, and behavior changes of Secrets Store CSI Driver that may require a clean install during upgrade and it may introduce changes that could break backward compatibility.
+- Major releases contain breaking changes. Breaking changes refer to schema changes and behavior changes of Secrets Store CSI Driver that may require a clean install during upgrade and it may introduce changes that could break backward compatibility.
 
 - Ideally we will avoid making multiple major releases to be always backward compatible, 
 unless project evolves in important new directions and such release is necessary.
@@ -36,7 +36,7 @@ unless project evolves in important new directions and such release is necessary
 ## Release Cadence and Branching
 - Secrets Store CSI Driver follows `monthly` release schedule.
 
-- A new release should be created on the _`second Wednesday`_ of each month. This schedule not only allows us to do bug fixes, but also provides an opportunity to address underline image vulnerabilities etc. if any.
+- A new release should be created in _`second week`_ of each month. This schedule not only allows us to do bug fixes, but also provides an opportunity to address underline image vulnerabilities etc. if any.
 
 - Once the new version is decided(as per above guideline), release candidate branch should be created from `master` with name `vX.Y.Z-rc.W` followed by release with same tag, for eg. if new version is going to be `v0.1.2` then release candidate branch should be `v0.1.2-rc.0`
 
