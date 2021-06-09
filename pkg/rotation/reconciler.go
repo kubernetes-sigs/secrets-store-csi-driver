@@ -84,6 +84,10 @@ type Reconciler struct {
 	crdClient            versioned.Interface
 }
 
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+// These permissions are required for secret rotation + nodePublishSecretRef
+// TODO (aramase) remove this as part of https://github.com/kubernetes-sigs/secrets-store-csi-driver/issues/585
+
 // NewReconciler returns a new reconciler for rotation
 func NewReconciler(s *runtime.Scheme, providerVolumePath, nodeName string, rotationPollInterval time.Duration, providerClients *secretsstore.PluginClientBuilder, filteredWatchSecret bool) (*Reconciler, error) {
 	config, err := buildConfig()

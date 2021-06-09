@@ -42,6 +42,10 @@ kubectl apply -f deploy/secrets-store-csi-driver.yaml
 # required to enable this feature
 kubectl apply -f deploy/rbac-secretprovidersyncing.yaml
 
+# If using the secret rotation feature, deploy the additional RBAC permissions
+# required to enable this feature
+kubectl apply -f deploy/rbac-secretproviderrotation.yaml
+
 # [OPTIONAL] To deploy driver on windows nodes
 kubectl apply -f deploy/secrets-store-csi-driver-windows.yaml
 ```

@@ -412,6 +412,14 @@ manifests: $(CONTROLLER_GEN) $(KUSTOMIZE)
 	@sed -i '1s/^/{{ if .Values.syncSecret.enabled }}\n/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-syncsecret.yaml
 	@sed -i '1s/^/{{ if .Values.syncSecret.enabled }}\n/gm; s/namespace: .*/namespace: {{ .Release.Namespace }}/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-syncsecret_binding.yaml
 
+	# Generate rotation specific RBAC
+	$(CONTROLLER_GEN) rbac:roleName=secretproviderrotation-role paths="./pkg/rotation" output:dir=config/rbac-rotation
+	$(KUSTOMIZE) build config/rbac-rotation -o manifest_staging/deploy/rbac-secretproviderrotation.yaml
+	cp config/rbac-rotation/role.yaml manifest_staging/charts/secrets-store-csi-driver/templates/role-rotation.yaml
+	cp config/rbac-rotation/role_binding.yaml manifest_staging/charts/secrets-store-csi-driver/templates/role-rotation_binding.yaml
+	@sed -i '1s/^/{{ if .Values.enableSecretRotation }}\n/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-rotation.yaml
+	@sed -i '1s/^/{{ if .Values.enableSecretRotation }}\n/gm; s/namespace: .*/namespace: {{ .Release.Namespace }}/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-rotation_binding.yaml
+
 .PHONY: generate-protobuf
 generate-protobuf: $(PROTOC) $(PROTOC_GEN_GO) # generates protobuf
 	$(PROTOC) -I . provider/v1alpha1/service.proto --go_out=plugins=grpc:. --plugin=$(PROTOC_GEN_GO)
