@@ -71,6 +71,26 @@ teardown_file() {
     assert_success
 }
 
+@test "Test rbac roles and role bindings exist" {
+  run kubectl get clusterrole/secretproviderclasses-role
+  assert_success
+
+  run kubectl get clusterrole/secretproviderrotation-role
+  assert_success
+
+  run kubectl get clusterrole/secretprovidersyncing-role
+  assert_success
+
+  run kubectl get clusterrolebinding/secretproviderclasses-rolebinding
+  assert_success
+
+  run kubectl get clusterrolebinding/secretproviderrotation-rolebinding
+  assert_success
+
+  run kubectl get clusterrolebinding/secretprovidersyncing-rolebinding
+  assert_success
+}
+
 @test "deploy aws secretproviderclass crd" {
     envsubst < $BATS_TEST_DIR/BasicTestMountSPC.yaml | kubectl --namespace $NAMESPACE apply -f -
 
