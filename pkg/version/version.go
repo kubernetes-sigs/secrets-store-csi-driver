@@ -24,7 +24,7 @@ var (
 	// BuildTime is the date for the binary build
 	BuildTime string
 	// BuildVersion is the secrets-store-csi-driver version. Will be overwritten from build.
-	BuildVersion string = "v0.0.0"
+	BuildVersion string = "local-dev"
 )
 
 // GetUserAgent returns a user agent of the format: csi-secrets-store/<controller name>/<version> (<goos>/<goarch>) <vcs>/<timestamp>
