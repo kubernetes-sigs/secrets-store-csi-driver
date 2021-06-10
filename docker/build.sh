@@ -20,11 +20,13 @@ set -o pipefail
 
 TASK=$1
 
-pushd `dirname "$0"`
+pushd "$(dirname "$0")"
 
 LDFLAGS="-X sigs.k8s.io/secrets-store-csi-driver/pkg/version.BuildVersion=${IMAGE_VERSION} \
  -X sigs.k8s.io/secrets-store-csi-driver/pkg/version.Vcs=${BUILD_COMMIT} \
  -X sigs.k8s.io/secrets-store-csi-driver/pkg/version.BuildTime=${BUILD_TIMESTAMP} -extldflags '-static'"
+
+QEMUVERSION=5.2.0-2
 
 # Returns list of all supported architectures from the BASEIMAGE file
 listOsArchs() {
@@ -73,6 +75,8 @@ docker_version_check() {
 build_and_push() {
   docker_version_check
 
+	# Enable execution of multi-architecture containers
+	docker run --rm --privileged multiarch/qemu-user-static:${QEMUVERSION} --reset -p yes
   docker buildx create --name img-builder --use
   # List builder instances
   docker buildx ls
@@ -129,7 +133,7 @@ manifest() {
     if [[ "$os_name" = "windows" ]]; then
       BASEIMAGE=$(getBaseImage "${os_arch}")
       # Getting the full OS version from the original image manifest list.
-      full_version=$(docker manifest inspect ${BASEIMAGE} | grep "os.version" | head -n 1 | awk '{print $2}') || true
+      full_version=$(docker manifest inspect "${BASEIMAGE}" | grep "os.version" | head -n 1 | awk '{print $2}') || true
 
       # At the moment, docker manifest annotate doesn't allow us to set the os.version, so we'll have to
       # it ourselves. The manifest list can be found locally as JSONs.
