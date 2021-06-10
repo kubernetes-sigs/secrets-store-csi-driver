@@ -1,6 +1,8 @@
 # Overview
 It's much easier to debug code with breakpoints while developing new features or making changes to existing codebase. With this in mind, following steps provides a way to setup csi secret store driver for local debugging.
 
+> NOTE: Steps in this guide are not tested by CI/CD. This is just one of the way to locally debug the code and a good starting point.
+
 ## Prerequisites
 
 * [Docker Desktop](https://docs.docker.com/get-docker)
