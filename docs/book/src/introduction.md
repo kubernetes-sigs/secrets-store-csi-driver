@@ -28,3 +28,4 @@ Join us to help define the direction and implementation of this project!
 - [Azure Provider](https://azure.github.io/secrets-store-csi-driver-provider-azure/)
 - [Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault)
 - [GCP Provider](https://github.com/GoogleCloudPlatform/secrets-store-csi-driver-provider-gcp)
+- [AWS Provider](https://github.com/aws/secrets-store-csi-driver-provider-aws)

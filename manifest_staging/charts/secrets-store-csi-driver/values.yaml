@@ -71,6 +71,17 @@ linux:
   podAnnotations: {}
   podLabels: {}
 
+  # volumes is a list of volumes made available to secrets store csi driver.
+  volumes: null
+  #   - name: foo
+  #     emptyDir: {}
+
+  # volumeMounts is a list of volumeMounts for secrets store csi driver.
+  volumeMounts: null
+  #   - name: foo
+  #     mountPath: /bar
+  #     readOnly: true
+
 windows:
   enabled: false
   image:
@@ -143,6 +154,17 @@ windows:
   podAnnotations: {}
   podLabels: {}
 
+  # volumes is a list of volumes made available to secrets store csi driver.
+  volumes: null
+  #   - name: foo
+  #     emptyDir: {}
+
+  # volumeMounts is a list of volumeMounts for secrets store csi driver.
+  volumeMounts: null
+  #   - name: foo
+  #     mountPath: /bar
+  #     readOnly: true
+
 # log level. Uses V logs (klog)
 logVerbosity: 0
 
@@ -161,15 +183,9 @@ rbac:
   install: true
   pspEnabled: false
 
-## Install RBAC roles and bindings required for K8S Secrets syncing. Change this
-## to false after v0.0.14
+## Install RBAC roles and bindings required for K8S Secrets syncing if true
 syncSecret:
-  enabled: true
-
-## [DEPRECATED] Minimum Provider Versions (optional)
-## A comma delimited list of key-value pairs of minimum provider versions
-## e.g. provider1=0.0.2,provider2=0.0.3
-minimumProviderVersions:
+  enabled: false
 
 ## Enable secret rotation feature [alpha]
 enableSecretRotation: false
@@ -185,3 +201,5 @@ providerHealthCheck: false
 
 ## Provider HealthCheck interval
 providerHealthCheckInterval: 2m
+
+imagePullSecrets: []

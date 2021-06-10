@@ -3,13 +3,15 @@ ARG BASEIMAGE_CORE=gcr.io/k8s-staging-e2e-test-images/windows-servercore-cache:1
 
 FROM --platform=linux/amd64 ${BASEIMAGE_CORE} as core
 
-FROM --platform=$BUILDPLATFORM golang:1.16-alpine as builder
+FROM --platform=$BUILDPLATFORM golang:1.16 as builder
 WORKDIR /go/src/sigs.k8s.io/secrets-store-csi-driver
 ADD . .
 ARG TARGETARCH
 ARG TARGETOS
-ARG LDFLAGS
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -a -ldflags "${LDFLAGS}" -o _output/secrets-store-csi.exe ./cmd/secrets-store-csi-driver
+
+RUN export GOOS=$TARGETOS && \
+    export GOARCH=$TARGETARCH && \
+    make build-windows
 
 FROM $BASEIMAGE
 LABEL description="Secrets Store CSI Driver"

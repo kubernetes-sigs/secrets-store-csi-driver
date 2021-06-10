@@ -12,6 +12,7 @@ The Secrets Store CSI driver `secrets-store.csi.k8s.io` allows Kubernetes to mou
 ## Want to help?
 
 Join us to help define the direction and implementation of this project!
+
 - Join the [#csi-secrets-store](https://kubernetes.slack.com/messages/csi-secrets-store) channel on [Kubernetes Slack](https://kubernetes.slack.com/).
 - Join the [Mailing list](https://groups.google.com/forum/#!forum/kubernetes-secrets-store-csi-driver) to receive notifications for releases, security announcements, etc.
 - Use [GitHub Issues](https://github.com/kubernetes-sigs/secrets-store-csi-driver/issues) to file bugs, request features, or ask questions asynchronously.
@@ -42,6 +43,18 @@ Follow these [steps](./.local/README.md) to setup Secrets Store CSI Driver for l
 ## Documentation
 
 Please see the [docs](https://secrets-store-csi-driver.sigs.k8s.io) for more in-depth information and supported features.
+
+## Getting involved and contributing
+
+Are you interested in contributing to secrets-store-csi-driver? We, the maintainers and community, would love your suggestions, contributions, and help! Also, the maintainers can be contacted at any time to learn more about how to get involved.
+
+In the interest of getting more new people involved, we tag issues with [`good first issue`](https://github.com/kubernetes-sigs/secrets-store-csi-driver/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3A%22good+first+issue%22). These are typically issues that have smaller scope but are good ways to start to get acquainted with the codebase.
+
+We also encourage ALL active community participants to act as if they are maintainers, even if you don't have "official" write permissions. This is a community effort, we are here to serve the Kubernetes community. If you have an active interest and you want to get involved, you have real power! Don't assume that the only people who can get things done around here are the "maintainers".
+
+We also would love to add more "official" maintainers, so show us what you can do!
+
+> Check out [Secrets Store CSI Driver Membership](./docs/MEMBERSHIP.md) for more information.
 
 ## Code of conduct
 

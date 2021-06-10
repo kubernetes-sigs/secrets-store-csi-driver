@@ -32,7 +32,7 @@ To implement a secrets-store-csi-driver provider, you can develop a new provider
   - The stub file and proto file are shared and hosted in the driver. Vendor-in the stub file and proto file in the provider
   - [fake server example](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/master/provider/fake/fake_server.go)
 - Provider runs as a *daemonset* and is deployed on the same host(s) as the secrets-store-csi-driver pods
-- Provider Unix Domain Socket volume path. The default volume path for providers is [/etc/kubernetes/secrets-store-csi-driver-providers](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/v0.0.14/deploy/secrets-store-csi-driver.yaml#L88-L89). Add the Unix Domain Socket to the dir in the format `/etc/kubernetes/secrets-store-csi-driver-providers/<provider name>.sock`
+- Provider Unix Domain Socket volume path. The default volume path for providers is [/etc/kubernetes/secrets-store-csi-providers](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/v0.0.14/deploy/secrets-store-csi-driver.yaml#L88-L89). Add the Unix Domain Socket to the dir in the format `/etc/kubernetes/secrets-store-csi-providers/<provider name>.sock`
 - The `<provider name>` in `<provider name>.sock` must match the regular expression `^[a-zA-Z0-9_-]{0,30}$`
 - Provider mounts `<kubelet root dir>/pods` (default: [`/var/lib/kubelet/pods`](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/v0.0.14/deploy/secrets-store-csi-driver.yaml#L86-L87)) with [`HostToContainer` mount propagation](https://kubernetes-csi.github.io/docs/deploying.html#driver-volume-mounts) to be able to write the external secrets store content to the volume target path
 

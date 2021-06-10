@@ -15,6 +15,7 @@
 GOPATH  := $(shell go env GOPATH)
 GOARCH  := $(shell go env GOARCH)
 GOOS    := $(shell go env GOOS)
+GOPROXY := $(shell go env GOPROXY)
 
 ORG_PATH=sigs.k8s.io
 PROJECT_NAME := secrets-store-csi-driver
@@ -26,7 +27,7 @@ IMAGE_NAME ?= driver
 # Release version is the current supported release for the driver
 # Update this version when the helm chart is being updated for release
 RELEASE_VERSION := v0.0.22
-IMAGE_VERSION ?= v0.0.22
+IMAGE_VERSION ?= v0.0.23-rc.0
 # Use a custom version for E2E tests if we are testing in CI
 ifdef CI
 override IMAGE_VERSION := v0.1.0-e2e-$(BUILD_COMMIT)
@@ -53,7 +54,7 @@ export GOPATH GOBIN GO111MODULE DOCKER_CLI_EXPERIMENTAL
 
 # Generate all combination of all OS, ARCH, and OSVERSIONS for iteration
 ALL_OS = linux windows
-ALL_ARCH.linux = amd64
+ALL_ARCH.linux = amd64 arm64
 ALL_OS_ARCH.linux = $(foreach arch, ${ALL_ARCH.linux}, linux-$(arch))
 ALL_ARCH.windows = amd64
 ALL_OSVERSIONS.windows := 1809 1903 1909 2004
@@ -67,7 +68,7 @@ ARCH ?= amd64
 OSVERSION ?= 1809
 # Output type of docker buildx build
 OUTPUT_TYPE ?= registry
-BUILDKIT_VERSION ?= v0.8.1
+QEMUVERSION ?= 5.2.0-2
 
 # Binaries
 GOLANGCI_LINT := $(TOOLS_BIN_DIR)/golangci-lint
@@ -82,6 +83,9 @@ AZURE_CLI := az
 KIND := kind
 KUBECTL := kubectl
 ENVSUBST := envsubst
+SHELLCHECK := $(TOOLS_BIN_DIR)/shellcheck-$(SHELLCHECK_VER)
+EKSCTL := eksctl
+AWS_CLI := aws
 
 # Test variables
 KIND_VERSION ?= 0.10.0
@@ -89,9 +93,36 @@ KUBERNETES_VERSION ?= 1.20.2
 BATS_VERSION ?= 1.2.1
 TRIVY_VERSION ?= 0.14.0
 PROTOC_VERSION ?= 3.15.2
+SHELLCHECK_VER ?= v0.7.2
+
+# For aws integration tests 
+BUILD_TIMESTAMP_W_SEC := $(shell date +%Y-%m-%d-%H-%M-%S)
+EKS_CLUSTER_NAME := integ-cluster-$(BUILD_TIMESTAMP_W_SEC)
+AWS_REGION := us-west-2
 
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
+
+## --------------------------------------
+## Validate golang version
+## --------------------------------------
+GO_MAJOR_VERSION = $(shell go version | cut -c 14- | cut -d' ' -f1 | cut -d'.' -f1)
+GO_MINOR_VERSION = $(shell go version | cut -c 14- | cut -d' ' -f1 | cut -d'.' -f2)
+MINIMUM_SUPPORTED_GO_MAJOR_VERSION = 1
+MINIMUM_SUPPORTED_GO_MINOR_VERSION = 16
+GO_VERSION_VALIDATION_ERR_MSG = Golang version is not supported, please update to at least $(MINIMUM_SUPPORTED_GO_MAJOR_VERSION).$(MINIMUM_SUPPORTED_GO_MINOR_VERSION)
+
+.PHONY: validate-go
+validate-go: ## Validates the installed version of go.
+	@if [ $(GO_MAJOR_VERSION) -gt $(MINIMUM_SUPPORTED_GO_MAJOR_VERSION) ]; then \
+		exit 0 ;\
+	elif [ $(GO_MAJOR_VERSION) -lt $(MINIMUM_SUPPORTED_GO_MAJOR_VERSION) ]; then \
+		echo '$(GO_VERSION_VALIDATION_ERR_MSG)';\
+		exit 1; \
+	elif [ $(GO_MINOR_VERSION) -lt $(MINIMUM_SUPPORTED_GO_MINOR_VERSION) ] ; then \
+		echo '$(GO_VERSION_VALIDATION_ERR_MSG)';\
+		exit 1; \
+	fi
 
 ## --------------------------------------
 ## Testing
@@ -102,7 +133,7 @@ test: lint go-test
 
 .PHONY: go-test # Run unit tests
 go-test:
-	go test $(GO_FILES) -v
+	go test -cover $(GO_FILES) -v
 
 .PHONY: sanity-test # Run CSI sanity tests for the driver
 sanity-test:
@@ -121,19 +152,19 @@ image-scan: $(TRIVY)
 
 $(CONTROLLER_GEN): $(TOOLS_MOD_DIR)/go.mod $(TOOLS_MOD_DIR)/go.sum $(TOOLS_MOD_DIR)/tools.go ## Build controller-gen from tools folder.
 	cd $(TOOLS_MOD_DIR) && \
-		go build -tags=tools -o $(TOOLS_BIN_DIR)/controller-gen sigs.k8s.io/controller-tools/cmd/controller-gen
+		GOPROXY=$(GOPROXY) go build -tags=tools -o $(TOOLS_BIN_DIR)/controller-gen sigs.k8s.io/controller-tools/cmd/controller-gen
 
 $(GOLANGCI_LINT): ## Build golangci-lint from tools folder.
 	cd $(TOOLS_MOD_DIR) && \
-		go build -tags=tools -o $(TOOLS_BIN_DIR)/golangci-lint github.com/golangci/golangci-lint/cmd/golangci-lint
+		GOPROXY=$(GOPROXY) go build -tags=tools -o $(TOOLS_BIN_DIR)/golangci-lint github.com/golangci/golangci-lint/cmd/golangci-lint
 
 $(KUSTOMIZE): ## Build kustomize from tools folder.
 	cd $(TOOLS_MOD_DIR) && \
-		go build -tags=tools -o $(TOOLS_BIN_DIR)/kustomize sigs.k8s.io/kustomize/kustomize/v3
+		GOPROXY=$(GOPROXY) go build -tags=tools -o $(TOOLS_BIN_DIR)/kustomize sigs.k8s.io/kustomize/kustomize/v3
 
 $(PROTOC_GEN_GO):
 	cd $(TOOLS_MOD_DIR) && \
-		go build -tags=tools -o $(TOOLS_BIN_DIR)/protoc-gen-go github.com/golang/protobuf/protoc-gen-go
+		GOPROXY=$(GOPROXY) go build -tags=tools -o $(TOOLS_BIN_DIR)/protoc-gen-go github.com/golang/protobuf/protoc-gen-go
 
 ## --------------------------------------
 ## Testing Binaries
@@ -147,6 +178,9 @@ $(KIND): ## Download and install kind
 
 $(AZURE_CLI): ## Download and install azure cli
 	curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+
+$(EKSCTL): ## Download and install eksctl 
+	curl -sSLO  https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_Linux_amd64.tar.gz && tar -zxvf eksctl_Linux_amd64.tar.gz && chmod +x eksctl && mv eksctl /usr/local/bin/
 
 $(KUBECTL): ## Install kubectl
 	curl -LO https://storage.googleapis.com/kubernetes-release/release/v$(KUBERNETES_VERSION)/bin/linux/amd64/kubectl && chmod +x ./kubectl && mv kubectl /usr/local/bin/
@@ -163,11 +197,23 @@ $(ENVSUBST): ## Install envsubst for running the tests
 $(PROTOC): ## Install protoc
 	curl -sSLO https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip && unzip protoc-${PROTOC_VERSION}-linux-x86_64.zip bin/protoc -d $(TOOLS_BIN_DIR) && rm protoc-${PROTOC_VERSION}-linux-x86_64.zip 
 
+$(SHELLCHECK): OS := $(shell uname | tr '[:upper:]' '[:lower:]')
+$(SHELLCHECK): ARCH := $(shell uname -m)
+$(SHELLCHECK):
+	mkdir -p $(TOOLS_BIN_DIR)
+	rm -rf "$(SHELLCHECK)*"
+	curl -sfOL "https://github.com/koalaman/shellcheck/releases/download/$(SHELLCHECK_VER)/shellcheck-$(SHELLCHECK_VER).$(OS).$(ARCH).tar.xz"
+	tar xf shellcheck-$(SHELLCHECK_VER).$(OS).$(ARCH).tar.xz
+	cp "shellcheck-$(SHELLCHECK_VER)/shellcheck" "$(SHELLCHECK)"
+	ln -sf "$(SHELLCHECK)" "$(TOOLS_BIN_DIR)/shellcheck"
+	chmod +x "$(TOOLS_BIN_DIR)/shellcheck" "$(SHELLCHECK)"
+	rm -rf shellcheck*
+
 ## --------------------------------------
 ## Linting
 ## --------------------------------------
 .PHONY: test-style
-test-style: lint lint-charts
+test-style: lint lint-charts shellcheck
 
 .PHONY: lint
 lint: $(GOLANGCI_LINT)
@@ -181,33 +227,37 @@ lint-charts: $(HELM) # Run helm lint tests
 	helm lint --strict charts/secrets-store-csi-driver
 	helm lint --strict manifest_staging/charts/secrets-store-csi-driver
 
+.PHONY: shellcheck
+shellcheck: $(SHELLCHECK)
+	$(SHELLCHECK) */*.sh
+
 ## --------------------------------------
 ## Builds
 ## --------------------------------------
 .PHONY: build
 build:
-	CGO_ENABLED=0 GOOS=linux go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
+	GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=linux go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
 
 .PHONY: build-windows
 build-windows:
-	CGO_ENABLED=0 GOOS=windows go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
+	GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=windows go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi.exe ./cmd/secrets-store-csi-driver
 
 .PHONY: build-darwin
 build-darwin:
-	CGO_ENABLED=0 GOOS=darwin go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
+	GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=darwin go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
 
 .PHONY: container
 container:
-	docker build --no-cache --build-arg LDFLAGS=$(LDFLAGS) -t $(IMAGE_TAG) -f docker/Dockerfile .
+	docker build --no-cache --build-arg GOPROXY=$(GOPROXY) --build-arg LDFLAGS=$(LDFLAGS) -t $(IMAGE_TAG) -f docker/Dockerfile .
 
 .PHONY: container-linux
 container-linux: docker-buildx-builder
-	docker buildx build --no-cache --output=type=$(OUTPUT_TYPE) --platform="linux/$(ARCH)" --build-arg LDFLAGS=$(LDFLAGS) \
+	docker buildx build --no-cache --output=type=$(OUTPUT_TYPE) --platform="linux/$(ARCH)" \
  		-t $(IMAGE_TAG)-linux-$(ARCH) -f docker/Dockerfile .
 
 .PHONY: container-windows
 container-windows: docker-buildx-builder
-	docker buildx build --no-cache --output=type=$(OUTPUT_TYPE) --platform="windows/$(ARCH)" --build-arg LDFLAGS=$(LDFLAGS) \
+	docker buildx build --no-cache --output=type=$(OUTPUT_TYPE) --platform="windows/$(ARCH)" \
 		--build-arg BASEIMAGE=mcr.microsoft.com/windows/nanoserver:$(OSVERSION) \
 		--build-arg BASEIMAGE_CORE=gcr.io/k8s-staging-e2e-test-images/windows-servercore-cache:1.0-linux-amd64-$(OSVERSION) \
  		-t $(IMAGE_TAG)-windows-$(OSVERSION)-$(ARCH) -f docker/windows.Dockerfile .
@@ -215,12 +265,17 @@ container-windows: docker-buildx-builder
 .PHONY: docker-buildx-builder
 docker-buildx-builder:
 	@if ! docker buildx ls | grep -q container-builder; then\
-		DOCKER_CLI_EXPERIMENTAL=enabled docker buildx create --name container-builder --use --driver-opt image=moby/buildkit:$(BUILDKIT_VERSION);\
+		DOCKER_CLI_EXPERIMENTAL=enabled docker buildx create --name container-builder --use;\
 	fi
 
 .PHONY: container-all
 container-all:
-	$(MAKE) container-linux
+	# Enable execution of multi-architecture containers
+	docker run --rm --privileged multiarch/qemu-user-static:$(QEMUVERSION) --reset -p yes
+
+	for arch in $(ALL_ARCH.linux); do \
+		ARCH=$${arch} $(MAKE) container-linux; \
+	done
 	for osversion in $(ALL_OSVERSIONS.windows); do \
   		OSVERSION=$${osversion} $(MAKE) container-windows; \
   	done
@@ -258,6 +313,10 @@ setup-kind: $(KIND)
 	if [ $$(kind get clusters) ]; then kind delete cluster; fi
 	kind create cluster --image kindest/node:v$(KUBERNETES_VERSION)
 
+.PHONY: setup-eks-cluster
+setup-eks-cluster: $(HELM) $(EKSCTL) $(BATS) $(ENVSUBST)
+	bash test/scripts/initialize_eks_cluster.bash $(EKS_CLUSTER_NAME) $(IMAGE_VERSION)  
+
 .PHONY: e2e-container
 e2e-container:
 ifdef TEST_WINDOWS
@@ -286,6 +345,7 @@ e2e-helm-deploy:
 		--set windows.image.tag=$(IMAGE_VERSION) \
 		--set windows.enabled=true \
 		--set linux.enabled=true \
+		--set syncSecret.enabled=true \
 		--set enableSecretRotation=true \
 		--set rotationPollInterval=30s
 
@@ -298,12 +358,17 @@ e2e-helm-deploy-release:
 		--set windows.image.pullPolicy="IfNotPresent" \
 		--set windows.enabled=true \
 		--set linux.enabled=true \
+		--set syncSecret.enabled=true \
 		--set enableSecretRotation=true \
 		--set rotationPollInterval=30s
 
 .PHONY: e2e-kind-cleanup
 e2e-kind-cleanup:
 	kind delete cluster --name kind
+
+.PHONY: e2e-eks-cleanup
+e2e-eks-cleanup: 
+	eksctl delete cluster --name $(EKS_CLUSTER_NAME) --region $(AWS_REGION)
 
 .PHONY: e2e-azure
 e2e-azure: $(AZURE_CLI)
@@ -317,6 +382,10 @@ e2e-vault:
 e2e-gcp:
 	bats -t test/bats/gcp.bats
 
+.PHONY: e2e-aws
+e2e-aws:
+	bats -t test/bats/aws.bats
+	
 ## --------------------------------------
 ## Generate
 ## --------------------------------------
@@ -331,7 +400,7 @@ manifests: $(CONTROLLER_GEN) $(KUSTOMIZE)
 	# generate rbac-secretproviderclass
 	$(KUSTOMIZE) build config/rbac -o manifest_staging/deploy/rbac-secretproviderclass.yaml
 	cp config/rbac/role.yaml config/rbac/role_binding.yaml config/rbac/serviceaccount.yaml manifest_staging/charts/secrets-store-csi-driver/templates/
-	@sed -i '1s/^/{{ if .Values.rbac.install }}\n/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role.yaml
+	@sed -i '1s/^/{{ if .Values.rbac.install }}\n/gm; $$s/$$/\n{{- if .Values.rbac.pspEnabled }}\n- apiGroups:\n  - policy\n  resources:\n  - podsecuritypolicies\n  verbs:\n  - use\n  resourceNames:\n  - {{ template "sscd-psp.fullname" . }}\n{{- end }}\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role.yaml
 	@sed -i '1s/^/{{ if .Values.rbac.install }}\n/gm; s/namespace: .*/namespace: {{ .Release.Namespace }}/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role_binding.yaml
 	@sed -i '1s/^/{{ if .Values.rbac.install }}\n/gm; s/namespace: .*/namespace: {{ .Release.Namespace }}/gm; $$s/$$/\n{{ include "sscd.labels" . | indent 2 }}\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/serviceaccount.yaml
 
@@ -342,6 +411,14 @@ manifests: $(CONTROLLER_GEN) $(KUSTOMIZE)
 	cp config/rbac-syncsecret/role_binding.yaml manifest_staging/charts/secrets-store-csi-driver/templates/role-syncsecret_binding.yaml
 	@sed -i '1s/^/{{ if .Values.syncSecret.enabled }}\n/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-syncsecret.yaml
 	@sed -i '1s/^/{{ if .Values.syncSecret.enabled }}\n/gm; s/namespace: .*/namespace: {{ .Release.Namespace }}/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-syncsecret_binding.yaml
+
+	# Generate rotation specific RBAC
+	$(CONTROLLER_GEN) rbac:roleName=secretproviderrotation-role paths="./pkg/rotation" output:dir=config/rbac-rotation
+	$(KUSTOMIZE) build config/rbac-rotation -o manifest_staging/deploy/rbac-secretproviderrotation.yaml
+	cp config/rbac-rotation/role.yaml manifest_staging/charts/secrets-store-csi-driver/templates/role-rotation.yaml
+	cp config/rbac-rotation/role_binding.yaml manifest_staging/charts/secrets-store-csi-driver/templates/role-rotation_binding.yaml
+	@sed -i '1s/^/{{ if .Values.enableSecretRotation }}\n/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-rotation.yaml
+	@sed -i '1s/^/{{ if .Values.enableSecretRotation }}\n/gm; s/namespace: .*/namespace: {{ .Release.Namespace }}/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-rotation_binding.yaml
 
 .PHONY: generate-protobuf
 generate-protobuf: $(PROTOC) $(PROTOC_GEN_GO) # generates protobuf

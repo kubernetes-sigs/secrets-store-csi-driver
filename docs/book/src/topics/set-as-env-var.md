@@ -46,28 +46,28 @@ metadata:
   name: secrets-store-inline
 spec:
   containers:
-    - name: busybox
-      image: k8s.gcr.io/e2e-test-images/busybox:1.29
-      command:
-      - "/bin/sleep"
-      - "10000"
-      volumeMounts:
-      - name: secrets-store01-inline
-        mountPath: "/mnt/secrets-store"
-        readOnly: true
-        env:
-        - name: SECRET_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: foosecret
-              key: username
-  volumes:
+  - name: busybox
+    image: k8s.gcr.io/e2e-test-images/busybox:1.29
+    command:
+    - "/bin/sleep"
+    - "10000"
+    volumeMounts:
     - name: secrets-store01-inline
-      csi:
-        driver: secrets-store.csi.k8s.io
-        readOnly: true
-        volumeAttributes:
-          secretProviderClass: "azure-sync"
+      mountPath: "/mnt/secrets-store"
+      readOnly: true
+    env:
+    - name: SECRET_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: foosecret
+          key: username
+  volumes:
+  - name: secrets-store01-inline
+    csi:
+      driver: secrets-store.csi.k8s.io
+      readOnly: true
+      volumeAttributes:
+        secretProviderClass: "azure-sync"
 ```
 
 </details>

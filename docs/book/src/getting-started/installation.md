@@ -42,6 +42,10 @@ kubectl apply -f deploy/secrets-store-csi-driver.yaml
 # required to enable this feature
 kubectl apply -f deploy/rbac-secretprovidersyncing.yaml
 
+# If using the secret rotation feature, deploy the additional RBAC permissions
+# required to enable this feature
+kubectl apply -f deploy/rbac-secretproviderrotation.yaml
+
 # [OPTIONAL] To deploy driver on windows nodes
 kubectl apply -f deploy/secrets-store-csi-driver-windows.yaml
 ```
@@ -75,3 +79,4 @@ Now that the Secrets Store CSI Driver has been deployed, select a provider from 
 - [Azure Provider](https://azure.github.io/secrets-store-csi-driver-provider-azure/)
 - [Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault)
 - [GCP Provider](https://github.com/GoogleCloudPlatform/secrets-store-csi-driver-provider-gcp)
+- [AWS Provider](https://github.com/aws/secrets-store-csi-driver-provider-aws)
