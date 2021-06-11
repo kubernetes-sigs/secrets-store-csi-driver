@@ -24,7 +24,6 @@ import (
 	_ "net/http/pprof" // #nosec
 	"time"
 
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/metrics"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/rotation"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
@@ -38,6 +37,7 @@ import (
 	json "k8s.io/component-base/logs/json"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	"sigs.k8s.io/secrets-store-csi-driver/controllers"
@@ -112,9 +112,13 @@ func main() {
 		LeaderElection:     false,
 		NewCache: cache.BuilderWithOptions(cache.Options{
 			SelectorsByObject: cache.SelectorsByObject{
+				// this enables filtered watch of pods based on the node name
+				// only pods running on the same node as the csi driver will be cached
 				&corev1.Pod{}: {
 					Field: fields.OneTermEqualSelector("spec.nodeName", *nodeID),
 				},
+				// this enables filtered watch of secretproviderclasspodstatuses based on the internal node label
+				// internal.secrets-store.csi.k8s.io/node-name=<node name> added by csi driver
 				&v1alpha1.SecretProviderClassPodStatus{}: {
 					Label: labels.SelectorFromSet(
 						labels.Set{
@@ -122,6 +126,8 @@ func main() {
 						},
 					),
 				},
+				// this enables filtered watch of secrets based on the label (secrets-store.csi.k8s.io/managed=true)
+				// added to the secrets created by the CSI driver
 				&corev1.Secret{}: {
 					Label: labels.SelectorFromSet(
 						labels.Set{
