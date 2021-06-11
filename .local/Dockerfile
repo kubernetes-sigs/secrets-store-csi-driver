@@ -1,4 +1,4 @@
-FROM golang:alpine
+FROM golang:1.16-alpine
 
 ENV CGO_ENABLED=0
 ENV GOROOT=/usr/local/go
