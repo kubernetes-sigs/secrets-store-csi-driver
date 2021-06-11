@@ -10,7 +10,6 @@ spec:
   - ReadWriteOnce
   hostPath:
     path: /secrets-store-csi-driver-codebase
-
 ---
 
 apiVersion: v1
