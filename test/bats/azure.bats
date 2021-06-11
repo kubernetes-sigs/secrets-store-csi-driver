@@ -361,7 +361,7 @@ setup() {
 }
 
 @test "Test filtered watch for nodePublishSecretRef" {
-  run helm upgrade csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --reuse-values --set filteredWatchSecret=true --wait --timeout=5m -v=5 --debug
+  run helm upgrade csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace=kube-system --reuse-values --set filteredWatchSecret=true --wait --timeout=5m -v=5 --debug
   assert_success
 
   kubectl create ns filtered-watch
