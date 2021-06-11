@@ -78,14 +78,14 @@ spec:
             type: DirectoryOrCreate
 
 ---
-#Separate deployment to manage actual driver debugging independent of node registrar and livenessprobe
+# Separate deployment to manage actual driver debugging independent of node registrar and livenessprobe
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: debug-driver
   namespace: kube-system
 spec:
-  replicas: 1 #Keep single replica for debugging
+  replicas: 1 # Keep single replica for debugging
   selector:
     matchLabels:
       app: debug-driver
@@ -97,7 +97,7 @@ spec:
       serviceAccountName: secrets-store-csi-driver
       containers:
         - name: debug-driver
-          image: debug-driver:latest #dlv debug image built locally
+          image: debug-driver:latest # dlv debug image built locally
           imagePullPolicy: IfNotPresent
           securityContext:
             privileged: true
@@ -140,7 +140,7 @@ spec:
             type: DirectoryOrCreate
 
 ---
-#Service to connect dlv apis
+# Service to connect dlv apis
 apiVersion: v1
 kind: Service
 metadata:
