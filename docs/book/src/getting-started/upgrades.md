@@ -12,6 +12,10 @@ Set `NAMESPACE` to the same namespace where the driver was originally installed,
 If you are upgrading from one of the following versions there may be additional
 steps that you should take.
 
+## pre `v0.0.23`
+
+`v0.0.23` sets `syncSecret.enabled=false` by default. This means the RBAC clusterrole and clusterrolebinding required for [sync mounted content as Kubernetes secret](https://secrets-store-csi-driver.sigs.k8s.io/topics/sync-as-kubernetes-secret.html) will no longer be created by default as part of `helm install/upgrade`. If you're using the driver to sync mounted content as Kubernetes secret, you'll need to set `syncSecret.enabled=true` as part of `helm install/upgrade`.
+
 ## pre `v0.0.20`
 
 `v0.0.20` removed support for non-gRPC based providers. Follow your provider
