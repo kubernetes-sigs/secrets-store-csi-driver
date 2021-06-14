@@ -37,6 +37,9 @@ Join us to help define the direction and implementation of this project!
 
 Check out the [installation instructions](https://secrets-store-csi-driver.sigs.k8s.io/getting-started/installation.html) to deploy the Secrets Store CSI Driver and providers. Get familiar with our [CRDs and core components](https://secrets-store-csi-driver.sigs.k8s.io/concepts.html)
 
+## Development Guide
+Follow these [steps](./.local/README.md) to setup Secrets Store CSI Driver for local debugging.
+
 ## Documentation
 
 Please see the [docs](https://secrets-store-csi-driver.sigs.k8s.io) for more in-depth information and supported features.
