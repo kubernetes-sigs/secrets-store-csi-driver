@@ -88,8 +88,8 @@ EKSCTL := eksctl
 AWS_CLI := aws
 
 # Test variables
-KIND_VERSION ?= 0.10.0
-KUBERNETES_VERSION ?= 1.20.2
+KIND_VERSION ?= 0.11.0
+KUBERNETES_VERSION ?= 1.21.1
 BATS_VERSION ?= 1.2.1
 TRIVY_VERSION ?= 0.14.0
 PROTOC_VERSION ?= 3.15.2
@@ -309,7 +309,7 @@ endif
 
 .PHONY: setup-kind
 setup-kind: $(KIND)
-	# Create kind cluster if it doesn't exist
+	# (Re)create kind cluster
 	if [ $$(kind get clusters) ]; then kind delete cluster; fi
 	kind create cluster --image kindest/node:v$(KUBERNETES_VERSION)
 
@@ -332,11 +332,11 @@ e2e-test: e2e-bootstrap e2e-helm-deploy # run test for windows
 
 .PHONY: e2e-teardown
 e2e-teardown: $(HELM)
-	helm delete csi-secrets-store --namespace default
+	helm delete csi-secrets-store --namespace kube-system
 
 .PHONY: e2e-helm-deploy
 e2e-helm-deploy:
-	helm install csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace default --wait --timeout=15m -v=5 --debug \
+	helm install csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace kube-system --wait --timeout=15m -v=5 --debug \
 		--set linux.image.pullPolicy="IfNotPresent" \
 		--set windows.image.pullPolicy="IfNotPresent" \
 		--set linux.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
@@ -353,7 +353,7 @@ e2e-helm-deploy:
 e2e-helm-deploy-release:
 	set -x; \
 	current_release=$(shell (echo ${RELEASE_VERSION} | sed s/"v"//)); \
-	helm install csi-secrets-store charts/secrets-store-csi-driver-$${current_release}.tgz --namespace default --wait --timeout=15m -v=5 --debug \
+	helm install csi-secrets-store charts/secrets-store-csi-driver-$${current_release}.tgz --namespace kube-system --wait --timeout=15m -v=5 --debug \
 		--set linux.image.pullPolicy="IfNotPresent" \
 		--set windows.image.pullPolicy="IfNotPresent" \
 		--set windows.enabled=true \
@@ -448,3 +448,10 @@ promote-staging-manifest: #promote staging manifests to release dir
 	@helm repo index ./charts/tmp --url https://raw.githubusercontent.com/kubernetes-sigs/secrets-store-csi-driver/master/charts --merge ./charts/index.yaml
 	@mv ./charts/tmp/* ./charts
 	@rm -rf ./charts/tmp
+
+## --------------------------------------
+## Local
+## --------------------------------------
+.PHONY: redeploy-driver
+redeploy-driver: e2e-container
+	kubectl delete pod $(shell kubectl get pod -n kube-system -l app=secrets-store-csi-driver -o jsonpath="{.items[0].metadata.name}") -n kube-system --force --grace-period 0

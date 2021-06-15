@@ -24,19 +24,20 @@ import (
 	_ "net/http/pprof" // #nosec
 	"time"
 
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/cache"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/metrics"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/rotation"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
 	"google.golang.org/grpc"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	json "k8s.io/component-base/logs/json"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	"sigs.k8s.io/secrets-store-csi-driver/controllers"
@@ -104,27 +105,36 @@ func main() {
 	cfg := ctrl.GetConfigOrDie()
 	cfg.UserAgent = version.GetUserAgent("controller")
 
-	// this enables filtered watch of pods based on the node name
-	// only pods running on the same node as the csi driver will be cached
-	fieldSelectorByResource := map[schema.GroupResource]string{
-		{Group: "", Resource: "pods"}: fields.OneTermEqualSelector("spec.nodeName", *nodeID).String(),
-	}
-	labelSelectorByResource := map[schema.GroupResource]string{
-		// this enables filtered watch of secretproviderclasspodstatuses based on the internal node label
-		// internal.secrets-store.csi.k8s.io/node-name=<node name> added by csi driver
-		{Group: v1alpha1.GroupVersion.Group, Resource: "secretproviderclasspodstatuses"}: fmt.Sprintf("%s=%s", v1alpha1.InternalNodeLabel, *nodeID),
-		// this enables filtered watch of secrets based on the label (secrets-store.csi.k8s.io/managed=true)
-		// added to the secrets created by the CSI driver
-		{Group: "", Resource: "secrets"}: fmt.Sprintf("%s=true", controllers.SecretManagedLabel),
-	}
-
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: *metricsAddr,
 		LeaderElection:     false,
-		NewCache: cache.Builder(cache.Options{
-			FieldSelectorByResource: fieldSelectorByResource,
-			LabelSelectorByResource: labelSelectorByResource,
+		NewCache: cache.BuilderWithOptions(cache.Options{
+			SelectorsByObject: cache.SelectorsByObject{
+				// this enables filtered watch of pods based on the node name
+				// only pods running on the same node as the csi driver will be cached
+				&corev1.Pod{}: {
+					Field: fields.OneTermEqualSelector("spec.nodeName", *nodeID),
+				},
+				// this enables filtered watch of secretproviderclasspodstatuses based on the internal node label
+				// internal.secrets-store.csi.k8s.io/node-name=<node name> added by csi driver
+				&v1alpha1.SecretProviderClassPodStatus{}: {
+					Label: labels.SelectorFromSet(
+						labels.Set{
+							v1alpha1.InternalNodeLabel: *nodeID,
+						},
+					),
+				},
+				// this enables filtered watch of secrets based on the label (secrets-store.csi.k8s.io/managed=true)
+				// added to the secrets created by the CSI driver
+				&corev1.Secret{}: {
+					Label: labels.SelectorFromSet(
+						labels.Set{
+							controllers.SecretManagedLabel: "true",
+						},
+					),
+				},
+			},
 		}),
 	})
 	if err != nil {
