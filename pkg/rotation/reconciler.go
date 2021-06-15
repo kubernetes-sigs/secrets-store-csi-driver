@@ -43,6 +43,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
+	"sigs.k8s.io/secrets-store-csi-driver/controllers"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned"
 	secretsStoreClient "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned"
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
@@ -251,6 +252,11 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 		// read secret from the informer cache
 		secret, err := r.store.GetNodePublishSecretRefSecret(secretName, secretNamespace)
 		if err != nil {
+			if apierrors.IsNotFound(err) {
+				klog.ErrorS(err,
+					fmt.Sprintf("nodePublishSecretRef not found. If the secret with name exists in namespace, label the secret by running 'kubectl label secret %s %s=true -n %s", secretName, controllers.SecretUsedLabel, secretNamespace),
+					"name", secretName, "namespace", secretNamespace)
+			}
 			errorReason = internalerrors.NodePublishSecretRefNotFound
 			r.generateEvent(pod, v1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to get node publish secret %s/%s, err: %+v", secretNamespace, secretName, err))
 			return fmt.Errorf("failed to get node publish secret %s/%s, err: %+v", secretNamespace, secretName, err)
