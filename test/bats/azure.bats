@@ -375,3 +375,23 @@ setup() {
   run az logout
   assert_success
 }
+
+@test "Test filtered-watch-secret=false for nodePublishSecretRef" {
+  run helm upgrade csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --reuse-values --set filteredWatchSecret=false --wait --timeout=5m -v=5 --debug --namespace kube-system
+  assert_success
+
+  kubectl create ns non-filtered-watch
+  kubectl create secret generic secrets-store-creds --from-literal clientid=${AZURE_CLIENT_ID} --from-literal clientsecret=${AZURE_CLIENT_SECRET} -n non-filtered-watch
+
+  envsubst < $BATS_TESTS_DIR/azure_v1alpha1_secretproviderclass.yaml | kubectl apply -n non-filtered-watch -f -
+  envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -n non-filtered-watch -f -
+
+  cmd="kubectl wait -n non-filtered-watch --for=condition=Ready --timeout=60s pod/secrets-store-inline-crd"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  run kubectl get pod/secrets-store-inline-crd -n non-filtered-watch
+  assert_success
+
+  result=$(kubectl exec -n non-filtered-watch secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME)
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+}
