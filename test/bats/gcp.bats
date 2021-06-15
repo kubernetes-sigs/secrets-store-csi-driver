@@ -37,6 +37,10 @@ setup() {
 @test "create gcp k8s secret for provider auth" {
   run kubectl create secret generic secrets-store-creds --namespace $NAMESPACE --from-literal=key.json="${GCP_SA_JSON}"
   assert_success
+
+  # label the node publish secret ref secret
+  run kubectl label secret secrets-store-creds secrets-store.csi.k8s.io/used=true
+  assert_success
 }
 
 @test "secretproviderclasses crd is established" {
@@ -85,29 +89,6 @@ setup() {
 }
 
 @test "CSI inline volume test with pod portability - read gcp kv secret from pod" {
-  result=$(kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$FILE_NAME)
-  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
-}
-
-@test "Test filtered watch for nodePublishSecretRef" {
-  run helm upgrade csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace=kube-system --reuse-values --set filteredWatchSecret=true --wait --timeout=5m -v=5 --debug
-  assert_success
-
-  kubectl create ns filtered-watch
-  kubectl create secret generic secrets-store-creds --from-literal=key.json="${GCP_SA_JSON}" -n filtered-watch
-  # label the node publish secret ref secret
-  run kubectl label secret secrets-store-creds secrets-store.csi.k8s.io/used=true -n filtered-watch
-  assert_success
-
-  envsubst < $BATS_TESTS_DIR/gcp_v1alpha1_secretproviderclass.yaml | kubectl apply -n filtered-watch -f -
-  envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -n filtered-watch -f -
-
-  cmd="kubectl wait -n filtered-watch --for=condition=Ready --timeout=60s pod/secrets-store-inline-crd"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
-
-  run kubectl get pod/secrets-store-inline-crd -n filtered-watch
-  assert_success
-
   result=$(kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$FILE_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 }

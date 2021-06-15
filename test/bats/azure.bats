@@ -52,6 +52,10 @@ setup() {
 @test "create azure k8s secret" {
   run kubectl create secret generic secrets-store-creds --from-literal clientid=${AZURE_CLIENT_ID} --from-literal clientsecret=${AZURE_CLIENT_SECRET}
   assert_success
+
+  # label the node publish secret ref secret
+  run kubectl label secret secrets-store-creds secrets-store.csi.k8s.io/used=true
+  assert_success
 }
 
 @test "secretproviderclasses crd is established" {
@@ -181,6 +185,10 @@ setup() {
   run kubectl create secret generic secrets-store-creds --from-literal clientid=${AZURE_CLIENT_ID} --from-literal clientsecret=${AZURE_CLIENT_SECRET} -n test-ns
   assert_success
 
+  # label the node publish secret ref secret
+  run kubectl label secret secrets-store-creds secrets-store.csi.k8s.io/used=true -n test-ns
+  assert_success
+
   envsubst < $BATS_TESTS_DIR/azure_v1alpha1_secretproviderclass_ns.yaml | kubectl apply -f -
 
   cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io"
@@ -231,6 +239,10 @@ setup() {
   assert_success
 
   run kubectl create secret generic secrets-store-creds --from-literal clientid=${AZURE_CLIENT_ID} --from-literal clientsecret=${AZURE_CLIENT_SECRET} -n negative-test-ns
+  assert_success
+
+  # label the node publish secret ref secret
+  run kubectl label secret secrets-store-creds secrets-store.csi.k8s.io/used=true -n negative-test-ns
   assert_success
 
   envsubst < $BATS_TESTS_DIR/deployment-synck8s-azure.yaml | kubectl apply -n negative-test-ns -f -
@@ -311,6 +323,10 @@ setup() {
   run kubectl create secret generic secrets-store-creds --from-literal clientid=${AZURE_CLIENT_ID} --from-literal clientsecret=${AZURE_CLIENT_SECRET} -n rotation
   assert_success
 
+  # label the node publish secret ref secret
+  run kubectl label secret secrets-store-creds secrets-store.csi.k8s.io/used=true -n rotation
+  assert_success
+
   run az login -u ${AZURE_CLIENT_ID} -p ${AZURE_CLIENT_SECRET} -t ${TENANT_ID} --service-principal
   assert_success
 
@@ -358,27 +374,4 @@ setup() {
 
   run az logout
   assert_success
-}
-
-@test "Test filtered watch for nodePublishSecretRef" {
-  run helm upgrade csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace=kube-system --reuse-values --set filteredWatchSecret=true --wait --timeout=5m -v=5 --debug
-  assert_success
-
-  kubectl create ns filtered-watch
-  kubectl create secret generic secrets-store-creds --from-literal clientid=${AZURE_CLIENT_ID} --from-literal clientsecret=${AZURE_CLIENT_SECRET} -n filtered-watch
-  # label the node publish secret ref secret
-  run kubectl label secret secrets-store-creds secrets-store.csi.k8s.io/used=true -n filtered-watch
-  assert_success
-
-  envsubst < $BATS_TESTS_DIR/azure_v1alpha1_secretproviderclass.yaml | kubectl apply -n filtered-watch -f -
-  envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -n filtered-watch -f -
-
-  cmd="kubectl wait -n filtered-watch --for=condition=Ready --timeout=60s pod/secrets-store-inline-crd"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
-
-  run kubectl get pod/secrets-store-inline-crd -n filtered-watch
-  assert_success
-
-  result=$(kubectl exec -n filtered-watch secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME)
-  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 }

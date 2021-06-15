@@ -41,56 +41,6 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
-        - name: secrets-store
-          image: k8s.gcr.io/csi-secrets-store/driver:v0.0.23
-          args:
-            - "--endpoint=$(CSI_ENDPOINT)"
-            - "--nodeid=$(KUBE_NODE_NAME)"
-            - "--provider-volume=/etc/kubernetes/secrets-store-csi-providers"
-            - "--metrics-addr=:8095"
-            - "--enable-secret-rotation=false"
-            - "--rotation-poll-interval=2m"
-            - "--filtered-watch-secret=true"
-            - "--provider-health-check=false"
-            - "--provider-health-check-interval=2m"
-          env:
-            - name: CSI_ENDPOINT
-              value: unix:///csi/csi.sock
-            - name: KUBE_NODE_NAME
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: spec.nodeName
-          imagePullPolicy: IfNotPresent
-          securityContext:
-            privileged: true
-          ports:
-            - containerPort: 9808
-              name: healthz
-              protocol: TCP
-          livenessProbe:
-              failureThreshold: 5
-              httpGet:
-                path: /healthz
-                port: healthz
-              initialDelaySeconds: 30
-              timeoutSeconds: 10
-              periodSeconds: 15
-          volumeMounts:
-            - name: plugin-dir
-              mountPath: /csi
-            - name: mountpoint-dir
-              mountPath: /var/lib/kubelet/pods
-              mountPropagation: Bidirectional
-            - name: providers-dir
-              mountPath: /etc/kubernetes/secrets-store-csi-providers
-          resources:
-            limits:
-              cpu: 200m
-              memory: 200Mi
-            requests:
-              cpu: 50m
-              memory: 100Mi
         - name: liveness-probe
           image: k8s.gcr.io/sig-storage/livenessprobe:v2.3.0
           imagePullPolicy: IfNotPresent
@@ -126,5 +76,82 @@ spec:
           hostPath:
             path: /etc/kubernetes/secrets-store-csi-providers
             type: DirectoryOrCreate
-      nodeSelector:
-        kubernetes.io/os: linux
+
+---
+# Separate deployment to manage actual driver debugging independent of node registrar and livenessprobe
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: debug-driver
+  namespace: kube-system
+spec:
+  replicas: 1 # Keep single replica for debugging
+  selector:
+    matchLabels:
+      app: debug-driver
+  template:
+    metadata:
+      labels:
+        app: debug-driver
+    spec:
+      serviceAccountName: secrets-store-csi-driver
+      containers:
+        - name: debug-driver
+          image: debug-driver:latest # dlv debug image built locally
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /secrets-store-csi-driver-codebase
+              name: driver-volume
+            - name: plugin-dir
+              mountPath: /csi
+            - name: mountpoint-dir
+              mountPath: /var/lib/kubelet/pods
+              mountPropagation: Bidirectional
+            - name: providers-dir
+              mountPath: /etc/kubernetes/secrets-store-csi-providers
+          resources:
+            limits:
+              cpu: 500m
+              memory: 1Gi
+            requests:
+              cpu: 250m
+              memory: 512Mi
+      volumes:
+        - name: driver-volume
+          persistentVolumeClaim:
+            claimName: driver-pvc
+        - name: mountpoint-dir
+          hostPath:
+            path: /var/lib/kubelet/pods
+            type: DirectoryOrCreate
+        - name: registration-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins_registry/
+            type: Directory
+        - name: plugin-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins/csi-secrets-store/
+            type: DirectoryOrCreate
+        - name: providers-dir
+          hostPath:
+            path: /etc/kubernetes/secrets-store-csi-providers
+            type: DirectoryOrCreate
+
+---
+# Service to connect dlv apis
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-debug
+  namespace: kube-system
+spec:
+  type: NodePort
+  selector:
+    app: debug-driver
+  ports:
+  - name: debug
+    port: 30123
+    targetPort: 30123
+    nodePort: 30123
