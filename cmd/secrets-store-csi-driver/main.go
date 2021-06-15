@@ -60,8 +60,7 @@ var (
 
 	// enable filtered watch for NodePublishSecretRef secrets. The filtering is done on the csi driver label: secrets-store.csi.k8s.io/used=true
 	// For Kubernetes secrets used to provide credentials for use with the CSI driver, set the label by running: kubectl label secret secrets-store-creds secrets-store.csi.k8s.io/used=true
-	// This feature flag will be enabled by default after n+2 releases giving time for users to label all their existing credential secrets.
-	filteredWatchSecret = flag.Bool("filtered-watch-secret", false, "enable filtered watch for NodePublishSecretRef secrets with label secrets-store.csi.k8s.io/used=true")
+	filteredWatchSecret = flag.Bool("filtered-watch-secret", true, "enable filtered watch for NodePublishSecretRef secrets with label secrets-store.csi.k8s.io/used=true")
 
 	// Enable optional healthcheck for provider clients that exist in memory
 	providerHealthCheck         = flag.Bool("provider-health-check", false, "Enable health check for configured providers")
