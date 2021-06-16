@@ -142,8 +142,8 @@ func (r *Reconciler) Run(stopCh <-chan struct{}) {
 				klog.ErrorS(err, "failed to list secret provider class pod status for node", "controller", "rotation")
 				continue
 			}
-			for _, spcps := range spcPodStatusList.Items {
-				key, err := cache.MetaNamespaceKeyFunc(&spcps)
+			for i := range spcPodStatusList.Items {
+				key, err := cache.MetaNamespaceKeyFunc(&spcPodStatusList.Items[i])
 				if err == nil {
 					r.queue.Add(key)
 				}
