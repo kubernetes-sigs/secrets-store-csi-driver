@@ -33,7 +33,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	v1 "k8s.io/api/core/v1"
 
@@ -46,7 +45,6 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	"sigs.k8s.io/secrets-store-csi-driver/controllers"
 	secretsStoreFakeClient "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned/fake"
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
 	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
 	providerfake "sigs.k8s.io/secrets-store-csi-driver/provider/fake"
 )
@@ -67,14 +65,7 @@ func setupScheme() (*runtime.Scheme, error) {
 }
 
 func newTestReconciler(s *runtime.Scheme, kubeClient kubernetes.Interface, crdClient *secretsStoreFakeClient.Clientset, rotationPollInterval time.Duration, socketPath string, filteredWatchSecret bool) (*Reconciler, error) {
-	store, err := k8s.New(kubeClient, crdClient, "nodeName", 5*time.Second, filteredWatchSecret)
-	if err != nil {
-		return nil, err
-	}
-
 	return &Reconciler{
-		store:                store,
-		scheme:               s,
 		providerVolumePath:   socketPath,
 		rotationPollInterval: rotationPollInterval,
 		providerClients:      secretsstore.NewPluginClientBuilder(socketPath),
@@ -446,7 +437,6 @@ func TestReconcileError(t *testing.T) {
 
 			testReconciler, err := newTestReconciler(scheme, kubeClient, crdClient, test.rotationPollInterval, test.socketPath, false)
 			g.Expect(err).NotTo(HaveOccurred())
-			err = testReconciler.store.Run(wait.NeverStop)
 			g.Expect(err).NotTo(HaveOccurred())
 
 			serverEndpoint := fmt.Sprintf("%s/%s.sock", test.socketPath, "provider1")
@@ -589,7 +579,6 @@ func TestReconcileNoError(t *testing.T) {
 
 		testReconciler, err := newTestReconciler(scheme, kubeClient, crdClient, 60*time.Second, socketPath, false)
 		g.Expect(err).NotTo(HaveOccurred())
-		err = testReconciler.store.Run(wait.NeverStop)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		serverEndpoint := fmt.Sprintf("%s/%s.sock", socketPath, "provider1")
@@ -630,7 +619,6 @@ func TestReconcileNoError(t *testing.T) {
 		kubeClient = fake.NewSimpleClientset(podToAdd, test.nodePublishSecretRefSecretToAdd)
 		testReconciler, err = newTestReconciler(scheme, kubeClient, crdClient, 60*time.Second, socketPath, false)
 		g.Expect(err).NotTo(HaveOccurred())
-		err = testReconciler.store.Run(wait.NeverStop)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		err = testReconciler.reconcile(context.TODO(), secretProviderClassPodStatusToProcess)
@@ -642,7 +630,6 @@ func TestReconcileNoError(t *testing.T) {
 		kubeClient = fake.NewSimpleClientset(podToAdd, test.nodePublishSecretRefSecretToAdd)
 		testReconciler, err = newTestReconciler(scheme, kubeClient, crdClient, 60*time.Second, socketPath, false)
 		g.Expect(err).NotTo(HaveOccurred())
-		err = testReconciler.store.Run(wait.NeverStop)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		err = testReconciler.reconcile(context.TODO(), secretProviderClassPodStatusToProcess)
@@ -729,7 +716,6 @@ func TestPatchSecret(t *testing.T) {
 
 			testReconciler, err := newTestReconciler(scheme, kubeClient, crdClient, 60*time.Second, "", false)
 			g.Expect(err).NotTo(HaveOccurred())
-			err = testReconciler.store.Run(wait.NeverStop)
 			g.Expect(err).NotTo(HaveOccurred())
 
 			err = testReconciler.patchSecret(context.TODO(), test.secretName, v1.NamespaceDefault, test.expectedSecretData)
