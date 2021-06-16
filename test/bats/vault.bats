@@ -113,6 +113,33 @@ EOF
   [[ "$result" == "hello1" ]]
 }
 
+@test "CSI inline volume test with pod portability - unmount succeeds" {
+  # https://github.com/kubernetes/kubernetes/pull/96702
+  # kubectl wait --for=delete does not work on already deleted pods.
+  # Instead we will start the wait before initiating the delete.
+  kubectl wait --for=delete --timeout=${WAIT_TIME}s pod/secrets-store-inline &
+  WAIT_PID=$!
+
+  sleep 1
+  run kubectl delete pod secrets-store-inline
+
+  # On Linux a failure to unmount the tmpfs will block the pod from being
+  # deleted.
+  run wait $WAIT_PID
+  assert_success
+
+  # Sleep to allow time for logs to propagate.
+  sleep 10
+  # save debug information to archive in case of failure
+  archive_info
+
+  # On Windows, the failed unmount calls from: https://github.com/kubernetes-sigs/secrets-store-csi-driver/pull/545
+  # do not prevent the pod from being deleted. Search through the driver logs
+  # for the error.
+  run bash -c "kubectl logs -l app=secrets-store-csi-driver --tail -1 -c secrets-store -n kube-system | grep '^E.*failed to clean and unmount target path.*$'"
+  assert_failure
+}
+
 @test "Sync with K8s secrets - create deployment" {
   kubectl apply -f $BATS_TESTS_DIR/vault_synck8s_v1alpha1_secretproviderclass.yaml
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
@@ -289,4 +316,8 @@ EOF
 
   run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret-1 default 1"
   assert_success
+}
+
+teardown_file() {
+  archive_info || true
 }
