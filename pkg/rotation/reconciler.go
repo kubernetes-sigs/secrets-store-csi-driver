@@ -41,7 +41,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
-	controller "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
@@ -92,7 +91,7 @@ type Reconciler struct {
 // TODO (aramase) remove this as part of https://github.com/kubernetes-sigs/secrets-store-csi-driver/issues/585
 
 // NewReconciler returns a new reconciler for rotation
-func NewReconciler(manager controller.Manager, s *runtime.Scheme, providerVolumePath, nodeName string, rotationPollInterval time.Duration, providerClients *secretsstore.PluginClientBuilder, filteredWatchSecret bool) (*Reconciler, error) {
+func NewReconciler(client client.Reader, s *runtime.Scheme, providerVolumePath, nodeName string, rotationPollInterval time.Duration, providerClients *secretsstore.PluginClientBuilder, filteredWatchSecret bool) (*Reconciler, error) {
 	config, err := buildConfig()
 	if err != nil {
 		return nil, err
@@ -117,7 +116,7 @@ func NewReconciler(manager controller.Manager, s *runtime.Scheme, providerVolume
 		eventRecorder:        recorder,
 		kubeClient:           kubeClient,
 		crdClient:            crdClient,
-		cache:                manager.GetCache(),
+		cache:                client,
 		secretStore:          secretStore,
 	}, nil
 }

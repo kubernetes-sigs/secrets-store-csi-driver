@@ -175,7 +175,7 @@ func main() {
 
 	// Secret rotation
 	if *enableSecretRotation {
-		rec, err := rotation.NewReconciler(mgr, scheme, *providerVolumePath, *nodeID, *rotationPollInterval, providerClients, *filteredWatchSecret)
+		rec, err := rotation.NewReconciler(mgr.GetCache(), scheme, *providerVolumePath, *nodeID, *rotationPollInterval, providerClients, *filteredWatchSecret)
 		if err != nil {
 			klog.Fatalf("failed to initialize rotation reconciler, error: %+v", err)
 		}
