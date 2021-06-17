@@ -50,6 +50,7 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned"
 	secretsStoreClient "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned"
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
 	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/k8sutil"
@@ -84,6 +85,8 @@ type Reconciler struct {
 	kubeClient           kubernetes.Interface
 	crdClient            versioned.Interface
 	cache                controllercache.Cache
+	secretStore          k8s.Store
+	manager              controller.Manager
 }
 
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
@@ -102,6 +105,10 @@ func NewReconciler(manager controller.Manager, s *runtime.Scheme, providerVolume
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&clientcorev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(s, v1.EventSource{Component: "csi-secrets-store-rotation"})
+	secretStore, err := k8s.New(kubeClient, 5*time.Second, filteredWatchSecret)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Reconciler{
 		providerVolumePath:   providerVolumePath,
@@ -113,6 +120,7 @@ func NewReconciler(manager controller.Manager, s *runtime.Scheme, providerVolume
 		kubeClient:           kubeClient,
 		crdClient:            crdClient,
 		cache:                manager.GetCache(),
+		secretStore:          secretStore,
 	}, nil
 }
 
@@ -123,6 +131,10 @@ func (r *Reconciler) Run(stopCh <-chan struct{}) {
 
 	ticker := time.NewTicker(r.rotationPollInterval)
 	defer ticker.Stop()
+
+	if err := r.secretStore.Run(stopCh); err != nil {
+		klog.Fatalf("failed to run informers for rotation reconciler, err: %+v", err)
+	}
 
 	// TODO (aramase) consider adding more workers to process reconcile concurrently
 	for i := 0; i < 1; i++ {
@@ -236,7 +248,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 
 	// get pod from manager's cache
 	pod := v1.Pod{}
-	err = r.cache.Get(
+	err = r.manager.GetCache().Get(
 		ctx,
 		client.ObjectKey{
 			Namespace: spcps.Namespace,
@@ -259,7 +271,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 
 	// get the secret provider class which pod status is referencing from manager's cache
 	spc := v1alpha1.SecretProviderClass{}
-	err = r.cache.Get(
+	err = r.manager.GetCache().Get(
 		ctx,
 		client.ObjectKey{
 			Namespace: spcps.Namespace,
@@ -317,16 +329,19 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 	// read the Kubernetes secret referenced in NodePublishSecretRef and marshal it
 	// This comprises the secret parameter in the MountRequest to the provider
 	if nodePublishSecretRef != nil {
-		// read secret from the manager's cache
-		secret := v1.Secret{}
-		err = r.cache.Get(
-			ctx,
-			client.ObjectKey{
-				Namespace: spcps.Namespace,
-				Name:      nodePublishSecretRef.Name,
-			},
-			&secret,
-		)
+		// // read secret from the manager's cache
+		// secret := v1.Secret{}
+		// err = r.cache.Get(
+		// 	ctx,
+		// 	client.ObjectKey{
+		// 		Namespace: spcps.Namespace,
+		// 		Name:      nodePublishSecretRef.Name,
+		// 	},
+		// 	&secret,
+		// )
+
+		// read secret from the informer cache
+		secret, err := r.secretStore.GetNodePublishSecretRefSecret(nodePublishSecretRef.Name, spcps.Namespace)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				klog.ErrorS(err,

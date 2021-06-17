@@ -134,13 +134,6 @@ func main() {
 						},
 					),
 				},
-				&corev1.Secret{}: {
-					Label: labels.SelectorFromSet(
-						labels.Set{
-							controllers.SecretUsedLabel: "true",
-						},
-					),
-				},
 			},
 		}),
 	})
