@@ -84,9 +84,9 @@ type Reconciler struct {
 	crdClient            versioned.Interface
 	// cache contains v1.Pod, v1alpha1.SecretProviderClassPodStatus (both filtered on *nodeID),
 	// v1.Secret (filtered on secrets-store.csi.k8s.io/managed=true)
-	cache                client.Reader
+	cache client.Reader
 	// secretStore stores Secret (filtered on secrets-store.csi.k8s.io/used=true)
-	secretStore          k8s.Store
+	secretStore k8s.Store
 }
 
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
@@ -119,9 +119,9 @@ func NewReconciler(client client.Reader, s *runtime.Scheme, providerVolumePath, 
 		eventRecorder:        recorder,
 		kubeClient:           kubeClient,
 		crdClient:            crdClient,
-		// cache store Pod, 
-		cache:                client,
-		secretStore:          secretStore,
+		// cache store Pod,
+		cache:       client,
+		secretStore: secretStore,
 	}, nil
 }
 
