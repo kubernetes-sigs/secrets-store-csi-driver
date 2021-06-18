@@ -16,7 +16,7 @@ Depending on how the application consumes the secret data:
 
 > NOTE: This alpha feature is not enabled by default.
 
-To enable auto rotation, enable the `--enable-secret-rotation` feature gate for the `secrets-store` container in the Secrets Store CSI Driver pods. The rotation poll interval can be configured using `--rotation-poll-interval`. The default rotation poll interval is `2m`. If using helm to install the driver, set `enableSecretRotation: true` and configure the rotation poll interval by setting `rotationPollInterval`. The rotation poll interval can be tuned based on how frequently the mounted contents for all pods and Kubernetes secrets need to be resynced to the latest.
+To enable auto rotation, enable the `--enable-secret-rotation` feature gate for the `secrets-store` container in the Secrets Store CSI Driver pods. The rotation poll interval can be configured using `--rotation-poll-interval`. The default rotation poll interval is `2m`. If using helm to install the driver, set `enableSecretRotation: true` and configure the rotation poll interval by setting `rotationPollInterval`. The rotation poll interval can be tuned based on how frequently the mounted contents for all pods and Kubernetes secrets need to be resynced to the latest. _Do not_ specify `objectVersion` in SecretProviderClass.
 
 - The Secrets Store CSI Driver will update the pod mount and the Kubernetes Secret defined in `secretObjects` of SecretProviderClass periodically based on the rotation poll interval to the latest value.
 - If the `SecretProviderClass` is updated after the pod was initially created
