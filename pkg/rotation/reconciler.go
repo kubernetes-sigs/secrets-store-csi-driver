@@ -145,8 +145,8 @@ func (r *Reconciler) Run(stopCh <-chan struct{}) {
 		case <-ticker.C:
 			// The spc pod status informer is configured to do a filtered list watch of spc pod statuses
 			// labeled for the same node as the driver. LIST will only return the filtered results.
-			spcPodStatusList := v1alpha1.SecretProviderClassPodStatusList{}
-			err := r.cache.List(context.Background(), &spcPodStatusList)
+			spcPodStatusList := &v1alpha1.SecretProviderClassPodStatusList{}
+			err := r.cache.List(context.Background(), spcPodStatusList)
 			if err != nil {
 				klog.ErrorS(err, "failed to list secret provider class pod status for node", "controller", "rotation")
 				continue
@@ -182,8 +182,7 @@ func (r *Reconciler) processNextItem() bool {
 	spcps := v1alpha1.SecretProviderClassPodStatus{}
 	keyParts := strings.Split(key.(string), "/")
 	if len(keyParts) < 2 {
-		err = fmt.Errorf("expected key format is namespace/name")
-		klog.V(5).ErrorS(err, "key is not in correct format", "spcps", key.(string), "controller", "rotation")
+		err = fmt.Errorf("key is not in correct format. expected key format is namespace/name")
 	} else {
 		err = r.cache.Get(
 			ctx,
