@@ -34,7 +34,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestGetSecret(t *testing.T) {
+func TestGetNodePublishSecretRefSecret(t *testing.T) {
 	g := NewWithT(t)
 
 	kubeClient := fake.NewSimpleClientset()
