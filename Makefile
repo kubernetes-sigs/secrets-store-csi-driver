@@ -311,7 +311,7 @@ endif
 setup-kind: $(KIND)
 	# (Re)create kind cluster
 	if [ $$(kind get clusters) ]; then kind delete cluster; fi
-	kind create cluster --image kindest/node:v$(KUBERNETES_VERSION)
+	kind create cluster --image kindest/node:v$(KUBERNETES_VERSION) --wait 5m
 
 .PHONY: setup-eks-cluster
 setup-eks-cluster: $(HELM) $(EKSCTL) $(BATS) $(ENVSUBST)
