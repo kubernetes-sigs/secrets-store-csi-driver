@@ -30,14 +30,17 @@ import (
 
 	"google.golang.org/grpc"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	json "k8s.io/component-base/logs/json"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	"sigs.k8s.io/secrets-store-csi-driver/controllers"
@@ -109,6 +112,9 @@ func main() {
 		Scheme:             scheme,
 		MetricsBindAddress: *metricsAddr,
 		LeaderElection:     false,
+		MapperProvider: func(c *rest.Config) (meta.RESTMapper, error) {
+			return apiutil.NewDynamicRESTMapper(c, apiutil.WithLazyDiscovery)
+		},
 		NewCache: cache.BuilderWithOptions(cache.Options{
 			SelectorsByObject: cache.SelectorsByObject{
 				// this enables filtered watch of pods based on the node name
