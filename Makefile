@@ -307,6 +307,9 @@ ifndef TEST_WINDOWS
 endif
 	docker pull $(IMAGE_TAG) || $(MAKE) e2e-container
 
+.PHONY: e2e-test-bootstrap
+e2e-test-bootstrap: $(HELM) $(BATS) $(KUBECTL) $(ENVSUBST) #setup all required binaries and kind cluster for testing
+
 .PHONY: setup-kind
 setup-kind: $(KIND)
 	# (Re)create kind cluster
