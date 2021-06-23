@@ -379,6 +379,11 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 		patchFn := func() (bool, error) {
 			// patch secret data with the new contents
 			if err := r.patchSecret(ctx, secretObj.SecretName, spcps.Namespace, datamap); err != nil {
+				// syncSecret.enabled is set to false by default in the helm chart for installing the driver in v0.0.23+
+				// that would result in a forbidden error, so generate a warning that can be helpful for debugging
+				if apierrors.IsForbidden(err) {
+					klog.Warning(controllers.SyncSecretForbiddenWarning)
+				}
 				klog.ErrorS(err, "failed to patch secret data", "secret", klog.ObjectRef{Namespace: spcNamespace, Name: secretName}, "spc", klog.KObj(spc), "controller", "rotation")
 				return false, nil
 			}
