@@ -377,7 +377,7 @@ setup() {
 
   #cleanup
   run kubectl delete namespace rotation
-  run kubectl delete namespace test-n`s
+  run kubectl delete namespace test-ns
 }
 
 @test "Test filtered-watch-secret=false for nodePublishSecretRef" {
