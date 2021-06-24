@@ -381,7 +381,9 @@ setup() {
 }
 
 @test "Test filtered-watch-secret=false for nodePublishSecretRef" {
-  run helm upgrade csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --reuse-values --set filteredWatchSecret=false --wait --timeout=5m -v=5 --debug --namespace kube-system
+  run echo ${HELM_CHART_DIR}
+  # run helm upgrade csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --reuse-values --set filteredWatchSecret=false --wait --timeout=5m -v=5 --debug --namespace kube-system
+  run helm upgrade csi-secrets-store ${HELM_CHART_DIR} --reuse-values --set filteredWatchSecret=false --wait --timeout=5m -v=5 --debug --namespace kube-system
   assert_success
 
   kubectl create ns non-filtered-watch
