@@ -31,7 +31,6 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -156,7 +155,7 @@ func GetSecretData(secretObjData []*v1alpha1.SecretObjectData, secretType corev1
 		dataKey := strings.TrimSpace(data.Key)
 
 		if len(objectName) == 0 {
-			return datamap, fmt.Errorf("object name in secretObjects.data")
+			return datamap, fmt.Errorf("object name in secretObjects.data is empty")
 		}
 		if len(dataKey) == 0 {
 			return datamap, fmt.Errorf("key in secretObjects.data is empty")
@@ -170,7 +169,7 @@ func GetSecretData(secretObjData []*v1alpha1.SecretObjectData, secretType corev1
 			return datamap, fmt.Errorf("failed to read file %s, err: %v", objectName, err)
 		}
 		datamap[dataKey] = content
-		if secretType == v1.SecretTypeTLS {
+		if secretType == corev1.SecretTypeTLS {
 			c, err := GetCertPart(content, dataKey)
 			if err != nil {
 				return datamap, fmt.Errorf("failed to get cert data from file %s, err: %+v", file, err)
