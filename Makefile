@@ -357,10 +357,6 @@ e2e-helm-upgrade:
 	helm upgrade csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace kube-system --wait --timeout=15m -v=5 --debug \
 		--set linux.image.pullPolicy="IfNotPresent" \
 		--set windows.image.pullPolicy="IfNotPresent" \
-		--set linux.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
-		--set linux.image.tag=$(IMAGE_VERSION) \
-		--set windows.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
-		--set windows.image.tag=$(IMAGE_VERSION) \
 		--set windows.enabled=true \
 		--set linux.enabled=true \
 		--set syncSecret.enabled=true \
