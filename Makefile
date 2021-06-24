@@ -356,6 +356,7 @@ e2e-helm-deploy:
 e2e-helm-upgrade:
 	helm upgrade csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace kube-system --reuse-values --wait --timeout=15m -v=5 --debug \
 		--set filteredWatchSecret=true \
+	kubectl apply -f crds/
 
 .PHONY: e2e-helm-deploy-release # test helm package for the release
 e2e-helm-deploy-release:
