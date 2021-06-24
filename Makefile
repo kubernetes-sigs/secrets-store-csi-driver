@@ -307,14 +307,11 @@ ifndef TEST_WINDOWS
 endif
 	docker pull $(IMAGE_TAG) || $(MAKE) e2e-container
 
-.PHONY: e2e-test-bootstrap
-e2e-test-bootstrap: $(HELM) $(BATS) $(KUBECTL) $(ENVSUBST) #setup all required binaries and kind cluster for testing
-
 .PHONY: setup-kind
 setup-kind: $(KIND)
 	# (Re)create kind cluster
 	if [ $$(kind get clusters) ]; then kind delete cluster; fi
-	kind create cluster --image kindest/node:v$(KUBERNETES_VERSION) --wait 5m
+	kind create cluster --image kindest/node:v$(KUBERNETES_VERSION)
 
 .PHONY: setup-eks-cluster
 setup-eks-cluster: $(HELM) $(EKSCTL) $(BATS) $(ENVSUBST)
