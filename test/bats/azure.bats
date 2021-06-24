@@ -374,10 +374,6 @@ setup() {
 
   run az logout
   assert_success
-
-  #cleanup
-  run kubectl delete namespace rotation
-  run kubectl delete namespace test-ns
 }
 
 @test "Test filtered-watch-secret=false for nodePublishSecretRef" {
@@ -402,8 +398,15 @@ setup() {
 
   result=$(kubectl exec -n non-filtered-watch secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+}
 
+teardown_file() {
   #cleanup
   run kubectl delete namespace non-filtered-watch
+  run kubectl delete namespace rotation
+  run kubectl delete namespace test-ns
+  
   run kubectl delete secret secrets-store-creds
+
+  run kubectl delete pods secrets-store-inline-crd secrets-store-inline-multiple-crd --force --grace-period 0
 }
