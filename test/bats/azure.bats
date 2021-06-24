@@ -381,7 +381,6 @@ setup() {
 }
 
 @test "Test filtered-watch-secret=false for nodePublishSecretRef" {
-  # run helm upgrade csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --reuse-values --set filteredWatchSecret=false --wait --timeout=5m -v=5 --debug --namespace kube-system
   local chart_dir=${HELM_CHART_DIR}
   if [ "${chart_dir}" -eq "" ]; then
     chart_dir=manifest_staging/charts/secrets-store-csi-driver
