@@ -103,6 +103,7 @@ build_and_push() {
     docker buildx build --no-cache --pull --push --platform "${os_name}/${arch}" -t "${IMAGE_TAG}-${suffix}" \
       --build-arg BASEIMAGE="${BASEIMAGE}" --build-arg BASEIMAGE_CORE="${BASEIMAGE_CORE}" \
       --build-arg TARGETARCH="${arch}" --build-arg TARGETOS="${os_name}" --build-arg LDFLAGS="${LDFLAGS}" \
+      --build-arg IMAGE_VERSION="${IMAGE_VERSION}" \
       -f "${dockerfile_name}" ..
   done
 }

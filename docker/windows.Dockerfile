@@ -8,6 +8,7 @@ WORKDIR /go/src/sigs.k8s.io/secrets-store-csi-driver
 ADD . .
 ARG TARGETARCH
 ARG TARGETOS
+ARG IMAGE_VERSION
 
 RUN export GOOS=$TARGETOS && \
     export GOARCH=$TARGETARCH && \
