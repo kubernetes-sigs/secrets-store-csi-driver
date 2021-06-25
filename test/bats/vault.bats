@@ -7,6 +7,7 @@ WAIT_TIME=120
 SLEEP_TIME=1
 
 export LABEL_VALUE=${LABEL_VALUE:-"test"}
+export ANNOTATION_VALUE=${ANNOTATION_VALUE:-"test"}
 
 @test "install vault provider" {
   # create the ns vault
@@ -150,6 +151,9 @@ EOF
 
   result=$(kubectl get secret foosecret -o jsonpath="{.metadata.labels.environment}")
   [[ "${result//$'\r'}" == "${LABEL_VALUE}" ]]
+
+  result=$(kubectl get secret foosecret -o jsonpath="{.metadata.annotations.kubed\.appscode\.com\/sync}")
+  [[ "${result//$'\r'}" == "${ANNOTATION_VALUE}" ]]
 
   result=$(kubectl get secret foosecret -o jsonpath="{.metadata.labels.secrets-store\.csi\.k8s\.io/managed}")
   [[ "${result//$'\r'}" == "true" ]]
