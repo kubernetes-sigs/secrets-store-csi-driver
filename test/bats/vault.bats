@@ -7,7 +7,7 @@ WAIT_TIME=120
 SLEEP_TIME=1
 
 export LABEL_VALUE=${LABEL_VALUE:-"test"}
-export ANNOTATION_VALUE=${ANNOTATION_VALUE:-"test"}
+export ANNOTATION_VALUE=${ANNOTATION_VALUE:-"app=test"}
 
 @test "install vault provider" {
   # create the ns vault
