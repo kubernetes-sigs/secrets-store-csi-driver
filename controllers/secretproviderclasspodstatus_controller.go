@@ -57,6 +57,8 @@ const (
 	SecretManagedLabel         = "secrets-store.csi.k8s.io/managed"
 	SecretUsedLabel            = "secrets-store.csi.k8s.io/used"
 	secretCreationFailedReason = "FailedToCreateSecret"
+
+	SyncSecretForbiddenWarning = "The secret operation failed with forbidden error. If you installed the CSI driver using helm, ensure syncSecret.enabled=true is set."
 )
 
 // SecretProviderClassPodStatusReconciler reconciles a SecretProviderClassPodStatus object
@@ -105,7 +107,7 @@ func (r *SecretProviderClassPodStatusReconciler) RunPatcher(ctx context.Context)
 }
 
 func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) error {
-	klog.V(5).Infof("patcher started")
+	klog.V(10).Infof("patcher started")
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -182,6 +184,11 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 				if !apierrors.IsConflict(err) || !apierrors.IsTimeout(err) {
 					klog.ErrorS(err, "failed to set owner ref for secret", "secret", klog.ObjectRef{Namespace: secret.Namespace, Name: secret.Name})
 				}
+				// syncSecret.enabled is set to false by default in the helm chart for installing the driver in v0.0.23+
+				// that would result in a forbidden error, so generate a warning that can be helpful for debugging
+				if apierrors.IsForbidden(err) {
+					klog.Warning(SyncSecretForbiddenWarning)
+				}
 				return false, nil
 			}
 			return true, nil
@@ -196,7 +203,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 		}
 	}
 
-	klog.V(5).Infof("patcher completed")
+	klog.V(10).Infof("patcher completed")
 	return nil
 }
 
@@ -294,6 +301,11 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 		exists, err := r.secretExists(ctx, secretName, req.Namespace)
 		if err != nil {
 			klog.ErrorS(err, "failed to check if secret exists", "secret", klog.ObjectRef{Namespace: req.Namespace, Name: secretName}, "spc", klog.KObj(spc), "pod", klog.KObj(pod), "spcps", klog.KObj(spcPodStatus))
+			// syncSecret.enabled is set to false by default in the helm chart for installing the driver in v0.0.23+
+			// that would result in a forbidden error, so generate a warning that can be helpful for debugging
+			if apierrors.IsForbidden(err) {
+				klog.Warning(SyncSecretForbiddenWarning)
+			}
 			errs = append(errs, fmt.Errorf("failed to check if secret %s exists, err: %+v", secretName, err))
 			continue
 		}
@@ -323,6 +335,11 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 			createFn := func() (bool, error) {
 				if err := r.createK8sSecret(ctx, secretName, req.Namespace, datamap, labelsMap, secretType); err != nil {
 					klog.ErrorS(err, "failed to create Kubernetes secret", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "secret", klog.ObjectRef{Namespace: req.Namespace, Name: secretName}, "spcps", klog.KObj(spcPodStatus))
+					// syncSecret.enabled is set to false by default in the helm chart for installing the driver in v0.0.23+
+					// that would result in a forbidden error, so generate a warning that can be helpful for debugging
+					if apierrors.IsForbidden(err) {
+						klog.Warning(SyncSecretForbiddenWarning)
+					}
 					return false, nil
 				}
 				return true, nil
