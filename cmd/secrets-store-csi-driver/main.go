@@ -131,7 +131,7 @@ func main() {
 						},
 					),
 				},
-				// this enables filtered watch of secrets based on the label (secrets-store.csi.k8s.io/managed=true)
+				// this enables filtered watch of secrets based on the label (eg. secrets-store.csi.k8s.io/managed=true)
 				// added to the secrets created by the CSI driver
 				&corev1.Secret{}: {
 					Label: labels.SelectorFromSet(
@@ -179,8 +179,9 @@ func main() {
 		reconciler.RunPatcher(ctx)
 	}()
 
+	// Secret rotation
 	if *enableSecretRotation {
-		rec, err := rotation.NewReconciler(scheme, *providerVolumePath, *nodeID, *rotationPollInterval, providerClients, *filteredWatchSecret)
+		rec, err := rotation.NewReconciler(mgr.GetCache(), scheme, *providerVolumePath, *nodeID, *rotationPollInterval, providerClients, *filteredWatchSecret)
 		if err != nil {
 			klog.Fatalf("failed to initialize rotation reconciler, error: %+v", err)
 		}
