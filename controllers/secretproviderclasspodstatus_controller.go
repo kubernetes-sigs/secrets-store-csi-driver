@@ -327,13 +327,17 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 			if secretObj.Labels != nil {
 				labelsMap = secretObj.Labels
 			}
+			annotationsMap := make(map[string]string)
+			if secretObj.Annotations != nil {
+				annotationsMap = secretObj.Annotations
+			}
 			// Set secrets-store.csi.k8s.io/managed=true label on the secret that's created and managed
 			// by the secrets-store-csi-driver. This label will be used to perform a filtered list watch
 			// only on secrets created and managed by the driver
 			labelsMap[SecretManagedLabel] = "true"
 
 			createFn := func() (bool, error) {
-				if err := r.createK8sSecret(ctx, secretName, req.Namespace, datamap, labelsMap, secretType); err != nil {
+				if err := r.createK8sSecret(ctx, secretName, req.Namespace, datamap, labelsMap, annotationsMap, secretType); err != nil {
 					klog.ErrorS(err, "failed to create Kubernetes secret", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "secret", klog.ObjectRef{Namespace: req.Namespace, Name: secretName}, "spcps", klog.KObj(spcPodStatus))
 					// syncSecret.enabled is set to false by default in the helm chart for installing the driver in v0.0.23+
 					// that would result in a forbidden error, so generate a warning that can be helpful for debugging
@@ -411,12 +415,13 @@ func (r *SecretProviderClassPodStatusReconciler) processIfBelongsToNode(objMeta 
 
 // createK8sSecret creates K8s secret with data from mounted files
 // If a secret with the same name already exists in the namespace of the pod, the error is nil.
-func (r *SecretProviderClassPodStatusReconciler) createK8sSecret(ctx context.Context, name, namespace string, datamap map[string][]byte, labelsmap map[string]string, secretType corev1.SecretType) error {
+func (r *SecretProviderClassPodStatusReconciler) createK8sSecret(ctx context.Context, name, namespace string, datamap map[string][]byte, labelsmap map[string]string, annotationsmap map[string]string, secretType corev1.SecretType) error {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-			Labels:    labelsmap,
+			Namespace:   namespace,
+			Name:        name,
+			Labels:      labelsmap,
+			Annotations: annotationsmap,
 		},
 		Type: secretType,
 		Data: datamap,
