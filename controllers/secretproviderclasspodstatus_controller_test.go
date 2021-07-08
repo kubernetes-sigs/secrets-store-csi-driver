@@ -53,12 +53,13 @@ func setupScheme() (*runtime.Scheme, error) {
 	return scheme, nil
 }
 
-func newSecret(name, namespace string, labels map[string]string) *v1.Secret {
+func newSecret(name, namespace string, labels map[string]string, annotations map[string]string) *v1.Secret {
 	return &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            name,
 			Namespace:       namespace,
 			Labels:          labels,
+			Annotations:     annotations,
 			ResourceVersion: "73659",
 		},
 	}
@@ -129,9 +130,10 @@ func TestSecretExists(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	labels := map[string]string{"environment": "test"}
+	annotations := map[string]string{"kubed.appscode.com/sync": "app=test"}
 
 	initObjects := []runtime.Object{
-		newSecret("my-secret", "default", labels),
+		newSecret("my-secret", "default", labels, annotations),
 	}
 
 	client := fake.NewFakeClientWithScheme(scheme, initObjects...)
@@ -164,9 +166,10 @@ func TestPatchSecretWithOwnerRef(t *testing.T) {
 		Name:       spcPodStatus.GetName(),
 	}
 	labels := map[string]string{"environment": "test"}
+	annotations := map[string]string{"kubed.appscode.com/sync": "app=test"}
 
 	initObjects := []runtime.Object{
-		newSecret("my-secret", "default", labels),
+		newSecret("my-secret", "default", labels, annotations),
 		spcPodStatus,
 	}
 	client := fake.NewFakeClientWithScheme(scheme, initObjects...)
@@ -189,18 +192,19 @@ func TestCreateK8sSecret(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	labels := map[string]string{"environment": "test"}
+	annotations := map[string]string{"kubed.appscode.com/sync": "app=test"}
 
 	initObjects := []runtime.Object{
-		newSecret("my-secret", "default", labels),
+		newSecret("my-secret", "default", labels, annotations),
 	}
 	client := fake.NewFakeClientWithScheme(scheme, initObjects...)
 	reconciler := newReconciler(client, scheme, "node1")
 
 	// secret already exists
-	err = reconciler.createK8sSecret(context.TODO(), "my-secret", "default", nil, labels, v1.SecretTypeOpaque)
+	err = reconciler.createK8sSecret(context.TODO(), "my-secret", "default", nil, labels, annotations, v1.SecretTypeOpaque)
 	g.Expect(err).NotTo(HaveOccurred())
 
-	err = reconciler.createK8sSecret(context.TODO(), "my-secret2", "default", nil, labels, v1.SecretTypeOpaque)
+	err = reconciler.createK8sSecret(context.TODO(), "my-secret2", "default", nil, labels, annotations, v1.SecretTypeOpaque)
 	g.Expect(err).NotTo(HaveOccurred())
 	secret := &v1.Secret{}
 	err = client.Get(context.TODO(), types.NamespacedName{Name: "my-secret2", Namespace: "default"}, secret)
@@ -245,7 +249,7 @@ func TestPatcherForStaticPod(t *testing.T) {
 		newSecretProviderClassPodStatus("pod1-default-spc1", "default", "node1"),
 		newSecretProviderClass("spc1", "default"),
 		newPod("pod1", "default", nil),
-		newSecret("secret1", "default", nil),
+		newSecret("secret1", "default", nil, nil),
 	}
 	client := fake.NewFakeClientWithScheme(scheme, initObjects...)
 	reconciler := newReconciler(client, scheme, "node1")
@@ -284,7 +288,7 @@ func TestPatcherForPodWithOwner(t *testing.T) {
 				UID:                "f39da13d-7246-4ef5-aed4-a6905f82cbcd",
 			},
 		}),
-		newSecret("secret1", "default", nil),
+		newSecret("secret1", "default", nil, nil),
 	}
 	client := fake.NewFakeClientWithScheme(scheme, initObjects...)
 	reconciler := newReconciler(client, scheme, "node1")

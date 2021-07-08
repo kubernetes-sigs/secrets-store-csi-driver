@@ -41,6 +41,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	"sigs.k8s.io/secrets-store-csi-driver/controllers"
@@ -73,9 +74,7 @@ const (
 // Reconciler reconciles and rotates contents in the pod
 // and Kubernetes secrets periodically
 type Reconciler struct {
-	store                k8s.Store
 	providerVolumePath   string
-	scheme               *runtime.Scheme
 	rotationPollInterval time.Duration
 	providerClients      *secretsstore.PluginClientBuilder
 	queue                workqueue.RateLimitingInterface
@@ -83,6 +82,11 @@ type Reconciler struct {
 	eventRecorder        record.EventRecorder
 	kubeClient           kubernetes.Interface
 	crdClient            versioned.Interface
+	// cache contains v1.Pod, v1alpha1.SecretProviderClassPodStatus (both filtered on *nodeID),
+	// v1.Secret (filtered on secrets-store.csi.k8s.io/managed=true)
+	cache client.Reader
+	// secretStore stores Secret (filtered on secrets-store.csi.k8s.io/used=true)
+	secretStore k8s.Store
 }
 
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
@@ -90,7 +94,7 @@ type Reconciler struct {
 // TODO (aramase) remove this as part of https://github.com/kubernetes-sigs/secrets-store-csi-driver/issues/585
 
 // NewReconciler returns a new reconciler for rotation
-func NewReconciler(s *runtime.Scheme, providerVolumePath, nodeName string, rotationPollInterval time.Duration, providerClients *secretsstore.PluginClientBuilder, filteredWatchSecret bool) (*Reconciler, error) {
+func NewReconciler(client client.Reader, s *runtime.Scheme, providerVolumePath, nodeName string, rotationPollInterval time.Duration, providerClients *secretsstore.PluginClientBuilder, filteredWatchSecret bool) (*Reconciler, error) {
 	config, err := buildConfig()
 	if err != nil {
 		return nil, err
@@ -98,17 +102,15 @@ func NewReconciler(s *runtime.Scheme, providerVolumePath, nodeName string, rotat
 	config.UserAgent = version.GetUserAgent("rotation")
 	kubeClient := kubernetes.NewForConfigOrDie(config)
 	crdClient := secretsStoreClient.NewForConfigOrDie(config)
-	store, err := k8s.New(kubeClient, crdClient, nodeName, 5*time.Second, filteredWatchSecret)
-	if err != nil {
-		return nil, err
-	}
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&clientcorev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(s, v1.EventSource{Component: "csi-secrets-store-rotation"})
+	secretStore, err := k8s.New(kubeClient, 5*time.Second, filteredWatchSecret)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Reconciler{
-		store:                store,
-		scheme:               s,
 		providerVolumePath:   providerVolumePath,
 		rotationPollInterval: rotationPollInterval,
 		providerClients:      providerClients,
@@ -117,6 +119,9 @@ func NewReconciler(s *runtime.Scheme, providerVolumePath, nodeName string, rotat
 		eventRecorder:        recorder,
 		kubeClient:           kubeClient,
 		crdClient:            crdClient,
+		// cache store Pod,
+		cache:       client,
+		secretStore: secretStore,
 	}, nil
 }
 
@@ -128,7 +133,7 @@ func (r *Reconciler) Run(stopCh <-chan struct{}) {
 	ticker := time.NewTicker(r.rotationPollInterval)
 	defer ticker.Stop()
 
-	if err := r.store.Run(stopCh); err != nil {
+	if err := r.secretStore.Run(stopCh); err != nil {
 		klog.Fatalf("failed to run informers for rotation reconciler, err: %+v", err)
 	}
 
@@ -144,19 +149,84 @@ func (r *Reconciler) Run(stopCh <-chan struct{}) {
 		case <-ticker.C:
 			// The spc pod status informer is configured to do a filtered list watch of spc pod statuses
 			// labeled for the same node as the driver. LIST will only return the filtered results.
-			spcpsList, err := r.store.ListSecretProviderClassPodStatus()
+			spcPodStatusList := &v1alpha1.SecretProviderClassPodStatusList{}
+			err := r.cache.List(context.Background(), spcPodStatusList)
 			if err != nil {
 				klog.ErrorS(err, "failed to list secret provider class pod status for node", "controller", "rotation")
 				continue
 			}
-			for _, spcps := range spcpsList {
-				key, err := cache.MetaNamespaceKeyFunc(spcps)
+			for i := range spcPodStatusList.Items {
+				key, err := cache.MetaNamespaceKeyFunc(&spcPodStatusList.Items[i])
 				if err == nil {
 					r.queue.Add(key)
 				}
 			}
 		}
 	}
+}
+
+// runWorker runs a thread that process the queue
+func (r *Reconciler) runWorker() {
+	for r.processNextItem() {
+
+	}
+}
+
+// processNextItem picks the next available item in the queue and triggers reconcile
+func (r *Reconciler) processNextItem() bool {
+	ctx := context.Background()
+	var err error
+
+	key, quit := r.queue.Get()
+	if quit {
+		return false
+	}
+	defer r.queue.Done(key)
+
+	spcps := &v1alpha1.SecretProviderClassPodStatus{}
+	keyParts := strings.Split(key.(string), "/")
+	if len(keyParts) < 2 {
+		err = fmt.Errorf("key is not in correct format. expected key format is namespace/name")
+	} else {
+		err = r.cache.Get(
+			ctx,
+			client.ObjectKey{
+				Namespace: keyParts[0],
+				Name:      keyParts[1],
+			},
+			spcps,
+		)
+	}
+
+	if err != nil {
+		// set the log level to 5 so we don't spam the logs with spc pod status not found
+		klog.V(5).ErrorS(err, "failed to get spc pod status", "spcps", key.(string), "controller", "rotation")
+		rateLimited := false
+		// If the error is that spc pod status not found in cache, only retry
+		// with a limit instead of infinite retries.
+		// The cache miss could be because of
+		//   1. The pod was deleted and the spc pod status no longer exists
+		//		We limit the requeue to only 5 times. After 5 times if the spc pod status
+		//		is no longer found, then it will be retried in the next reconcile Run if it's
+		//		an intermittent cache population delay.
+		//   2. The spc pod status has not yet been populated in the cache
+		// 		this is highly unlikely as the spc pod status was added to the queue
+		// 		in Run method after the List call from the same informer cache.
+		if apierrors.IsNotFound(err) {
+			rateLimited = true
+		}
+		r.handleError(err, key, rateLimited)
+		return true
+	}
+	klog.V(3).InfoS("reconciler started", "spcps", klog.KObj(spcps), "controller", "rotation")
+	if err = r.reconcile(ctx, spcps); err != nil {
+		klog.ErrorS(err, "failed to reconcile spc for pod", "spc",
+			spcps.Status.SecretProviderClassName, "pod", spcps.Status.PodName, "controller", "rotation")
+	}
+
+	klog.V(3).InfoS("reconciler completed", "spcps", klog.KObj(spcps), "controller", "rotation")
+	r.handleError(err, key, false)
+	return true
 }
 
 func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProviderClassPodStatus) (err error) {
@@ -176,12 +246,19 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 		r.reporter.reportRotationDuration(time.Since(begin).Seconds())
 	}()
 
-	// get pod from informer cache
-	podName, podNamespace := spcps.Status.PodName, spcps.Namespace
-	pod, err := r.store.GetPod(podName, podNamespace)
+	// get pod from manager's cache
+	pod := &v1.Pod{}
+	err = r.cache.Get(
+		ctx,
+		client.ObjectKey{
+			Namespace: spcps.Namespace,
+			Name:      spcps.Status.PodName,
+		},
+		pod,
+	)
 	if err != nil {
 		errorReason = internalerrors.PodNotFound
-		return fmt.Errorf("failed to get pod %s/%s, err: %+v", podNamespace, podName, err)
+		return fmt.Errorf("failed to get pod %s/%s, err: %+v", spcps.Namespace, spcps.Status.PodName, err)
 	}
 	// skip rotation if the pod is being terminated
 	// or the pod is in succeeded state (for jobs that complete aren't gc yet)
@@ -192,30 +269,36 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 		return nil
 	}
 
-	spcName, spcNamespace := spcps.Status.SecretProviderClassName, spcps.Namespace
-
-	// get the secret provider class the pod status is referencing from informer cache
-	spc, err := r.store.GetSecretProviderClass(spcName, spcNamespace)
+	// get the secret provider class which pod status is referencing from manager's cache
+	spc := &v1alpha1.SecretProviderClass{}
+	err = r.cache.Get(
+		ctx,
+		client.ObjectKey{
+			Namespace: spcps.Namespace,
+			Name:      spcps.Status.SecretProviderClassName,
+		},
+		spc,
+	)
 	if err != nil {
 		errorReason = internalerrors.SecretProviderClassNotFound
-		return fmt.Errorf("failed to get secret provider class %s/%s, err: %+v", spcNamespace, spcName, err)
+		return fmt.Errorf("failed to get secret provider class %s/%s, err: %+v", spcps.Namespace, spcps.Status.SecretProviderClassName, err)
 	}
 
 	// determine which pod volume this is associated with
 	podVol := k8sutil.SPCVolume(pod, spc.Name)
 	if podVol == nil {
 		errorReason = internalerrors.PodVolumeNotFound
-		return fmt.Errorf("could not find secret provider class pod status volume for pod %s/%s", podNamespace, podName)
+		return fmt.Errorf("could not find secret provider class pod status volume for pod %s/%s", pod.Namespace, pod.Name)
 	}
 
 	// validate TargetPath
 	if fileutil.GetPodUIDFromTargetPath(spcps.Status.TargetPath) != string(pod.UID) {
 		errorReason = internalerrors.UnexpectedTargetPath
-		return fmt.Errorf("secret provider class pod status targetPath did not match pod UID for pod %s/%s", podNamespace, podName)
+		return fmt.Errorf("secret provider class pod status(spcps) targetPath did not match pod UID for pod %s/%s", pod.Namespace, pod.Name)
 	}
 	if fileutil.GetVolumeNameFromTargetPath(spcps.Status.TargetPath) != podVol.Name {
 		errorReason = internalerrors.UnexpectedTargetPath
-		return fmt.Errorf("secret provider class pod status volume name did not match pod Volume for pod %s/%s", podNamespace, podName)
+		return fmt.Errorf("could not find secret provider class pod status volume for pod %s/%s", pod.Namespace, pod.Name)
 	}
 
 	parameters := make(map[string]string)
@@ -223,8 +306,8 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 		parameters = spc.Spec.Parameters
 	}
 	// Set these parameters to mimic the exact same attributes we get as part of NodePublishVolumeRequest
-	parameters[csipodname] = podName
-	parameters[csipodnamespace] = podNamespace
+	parameters[csipodname] = pod.Name
+	parameters[csipodnamespace] = pod.Namespace
 	parameters[csipoduid] = string(pod.UID)
 	parameters[csipodsa] = pod.Spec.ServiceAccountName
 
@@ -246,20 +329,17 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 	// read the Kubernetes secret referenced in NodePublishSecretRef and marshal it
 	// This comprises the secret parameter in the MountRequest to the provider
 	if nodePublishSecretRef != nil {
-		secretName := strings.TrimSpace(nodePublishSecretRef.Name)
-		secretNamespace := spcps.Namespace
-
 		// read secret from the informer cache
-		secret, err := r.store.GetNodePublishSecretRefSecret(secretName, secretNamespace)
+		secret, err := r.secretStore.GetNodePublishSecretRefSecret(nodePublishSecretRef.Name, spcps.Namespace)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				klog.ErrorS(err,
-					fmt.Sprintf("nodePublishSecretRef not found. If the secret with name exists in namespace, label the secret by running 'kubectl label secret %s %s=true -n %s", secretName, controllers.SecretUsedLabel, secretNamespace),
-					"name", secretName, "namespace", secretNamespace)
+					fmt.Sprintf("nodePublishSecretRef not found. If the secret with name exists in namespace, label the secret by running 'kubectl label secret %s %s=true -n %s", nodePublishSecretRef.Name, controllers.SecretUsedLabel, spcps.Namespace),
+					"name", nodePublishSecretRef.Name, "namespace", spcps.Namespace)
 			}
 			errorReason = internalerrors.NodePublishSecretRefNotFound
-			r.generateEvent(pod, v1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to get node publish secret %s/%s, err: %+v", secretNamespace, secretName, err))
-			return fmt.Errorf("failed to get node publish secret %s/%s, err: %+v", secretNamespace, secretName, err)
+			r.generateEvent(pod, v1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to get node publish secret %s/%s, err: %+v", spcps.Namespace, nodePublishSecretRef.Name, err))
+			return fmt.Errorf("failed to get node publish secret %s/%s, err: %+v", spcps.Namespace, nodePublishSecretRef.Name, err)
 		}
 
 		for k, v := range secret.Data {
@@ -319,7 +399,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 	// data is updated with the latest versions
 	if requiresUpdate {
 		// generate an event for successful mount update
-		r.generateEvent(pod, v1.EventTypeNormal, mountRotationCompleteReason, fmt.Sprintf("successfully rotated mounted contents for spc %s/%s", spcNamespace, spcName))
+		r.generateEvent(pod, v1.EventTypeNormal, mountRotationCompleteReason, fmt.Sprintf("successfully rotated mounted contents for spc %s/%s", spc.Namespace, spc.Name))
 		klog.InfoS("updating versions in spc pod status", "spcps", klog.KObj(spcps), "controller", "rotation")
 
 		var ov []v1alpha1.SecretProviderClassObject
@@ -343,7 +423,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 			Factor:   1.0,
 			Jitter:   0.1,
 		}, updateFn); err != nil {
-			r.generateEvent(pod, v1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to update versions in spc pod status %s, err: %+v", spcName, err))
+			r.generateEvent(pod, v1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to update versions in spc pod status %s, err: %+v", spc.Name, err))
 			return fmt.Errorf("failed to update spc pod status, err: %+v", err)
 		}
 	}
@@ -361,7 +441,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 		secretName := strings.TrimSpace(secretObj.SecretName)
 
 		if err = secretutil.ValidateSecretObject(*secretObj); err != nil {
-			r.generateEvent(pod, v1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed validation for secret object in spc %s/%s, err: %+v", spcNamespace, spcName, err))
+			r.generateEvent(pod, v1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed validation for secret object in spc %s/%s, err: %+v", spc.Namespace, spc.Name, err))
 			klog.ErrorS(err, "failed validation for secret object in spc", "spc", klog.KObj(spc), "controller", "rotation")
 			errs = append(errs, err)
 			continue
@@ -370,8 +450,8 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 		secretType := secretutil.GetSecretType(strings.TrimSpace(secretObj.Type))
 		var datamap map[string][]byte
 		if datamap, err = secretutil.GetSecretData(secretObj.Data, secretType, files); err != nil {
-			r.generateEvent(pod, v1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed to get data in spc %s/%s for secret %s, err: %+v", spcNamespace, spcName, secretName, err))
-			klog.ErrorS(err, "failed to get data in spc for secret", "spc", klog.KObj(spc), "secret", klog.ObjectRef{Namespace: spcNamespace, Name: secretName}, "controller", "rotation")
+			r.generateEvent(pod, v1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed to get data in spc %s/%s for secret %s, err: %+v", spc.Namespace, spc.Name, secretName, err))
+			klog.ErrorS(err, "failed to get data in spc for secret", "spc", klog.KObj(spc), "secret", klog.ObjectRef{Namespace: spc.Namespace, Name: secretName}, "controller", "rotation")
 			errs = append(errs, err)
 			continue
 		}
@@ -384,7 +464,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 				if apierrors.IsForbidden(err) {
 					klog.Warning(controllers.SyncSecretForbiddenWarning)
 				}
-				klog.ErrorS(err, "failed to patch secret data", "secret", klog.ObjectRef{Namespace: spcNamespace, Name: secretName}, "spc", klog.KObj(spc), "controller", "rotation")
+				klog.ErrorS(err, "failed to patch secret data", "secret", klog.ObjectRef{Namespace: spc.Namespace, Name: secretName}, "spc", klog.KObj(spc), "controller", "rotation")
 				return false, nil
 			}
 			return true, nil
@@ -425,7 +505,14 @@ func (r *Reconciler) updateSecretProviderClassPodStatus(ctx context.Context, spc
 // patchSecret patches secret with the new data and returns error if any
 func (r *Reconciler) patchSecret(ctx context.Context, name, namespace string, data map[string][]byte) error {
 	secret := &v1.Secret{}
-	secret, err := r.store.GetSecret(name, namespace)
+	err := r.cache.Get(
+		ctx,
+		client.ObjectKey{
+			Namespace: namespace,
+			Name:      name,
+		},
+		secret,
+	)
 	// if there is an error getting the secret -
 	// 1. The secret has been deleted due to an external client
 	// 		The secretproviderclasspodstatus controller will recreate the
@@ -469,52 +556,6 @@ func (r *Reconciler) patchSecret(ctx context.Context, name, namespace string, da
 	}
 	_, err = r.kubeClient.CoreV1().Secrets(namespace).Patch(ctx, name, types.MergePatchType, patch, metav1.PatchOptions{})
 	return err
-}
-
-// runWorker runs a thread that process the queue
-func (r *Reconciler) runWorker() {
-	for r.processNextItem() {
-
-	}
-}
-
-// processNextItem picks the next available item in the queue and triggers reconcile
-func (r *Reconciler) processNextItem() bool {
-	key, quit := r.queue.Get()
-	if quit {
-		return false
-	}
-	defer r.queue.Done(key)
-	spcps, err := r.store.GetSecretProviderClassPodStatus(key.(string))
-	if err != nil {
-		// set the log level to 5 so we don't spam the logs with spc pod status not found
-		klog.V(5).ErrorS(err, "failed to get spc pod status", "spcps", key.(string), "controller", "rotation")
-		rateLimited := false
-		// If the error is that spc pod status not found in cache, only retry
-		// with a limit instead of infinite retries.
-		// The cache miss could be because of
-		//   1. The pod was deleted and the spc pod status no longer exists
-		//		We limit the requeue to only 5 times. After 5 times if the spc pod status
-		//		is no longer found, then it will be retried in the next reconcile Run if it's
-		//		an intermittent cache population delay.
-		//   2. The spc pod status has not yet been populated in the cache
-		// 		this is highly unlikely as the spc pod status was added to the queue
-		// 		in Run method after the List call from the same informer cache.
-		if apierrors.IsNotFound(err) {
-			rateLimited = true
-		}
-		r.handleError(err, key, rateLimited)
-		return true
-	}
-	klog.V(3).InfoS("reconciler started", "spcps", klog.KObj(spcps), "controller", "rotation")
-	if err = r.reconcile(context.Background(), spcps); err != nil {
-		klog.ErrorS(err, "failed to reconcile spc for pod", "spc",
-			spcps.Status.SecretProviderClassName, "pod", spcps.Status.PodName, "controller", "rotation")
-	}
-
-	klog.V(3).InfoS("reconciler completed", "spcps", klog.KObj(spcps), "controller", "rotation")
-	r.handleError(err, key, false)
-	return true
 }
 
 // handleError requeue the key after 10s if there is an error while processing
