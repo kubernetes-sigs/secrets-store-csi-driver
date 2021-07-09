@@ -24,6 +24,7 @@ REPO_PATH="$(ORG_PATH)/$(PROJECT_NAME)"
 
 REGISTRY ?= gcr.io/k8s-staging-csi-secrets-store
 IMAGE_NAME ?= driver
+CRD_IMAGE_NAME ?= driver-crds
 # Release version is the current supported release for the driver
 # Update this version when the helm chart is being updated for release
 RELEASE_VERSION := v0.0.23
@@ -33,6 +34,7 @@ ifdef CI
 override IMAGE_VERSION := v0.1.0-e2e-$(BUILD_COMMIT)
 endif
 IMAGE_TAG=$(REGISTRY)/$(IMAGE_NAME):$(IMAGE_VERSION)
+CRD_IMAGE_TAG=$(REGISTRY)/$(CRD_IMAGE_NAME):$(IMAGE_VERSION)
 
 # build variables
 BUILD_TIMESTAMP := $$(date +%Y-%m-%d-%H:%M)
@@ -246,9 +248,26 @@ build-windows:
 build-darwin:
 	GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=darwin go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
 
+.PHONY: clean-crds
+clean-crds:
+	rm -rf _output/crds/*
+
+.PHONY: build-crds
+build-crds: clean-crds
+	mkdir -p _output/crds
+ifdef CI
+	cp -R manifest_staging/charts/secrets-store-csi-driver/crds/ _output/crds/
+else
+	cp -R charts/secrets-store-csi-driver/crds/ _output/crds/
+endif	
+
 .PHONY: container
 container:
 	docker build --no-cache --build-arg IMAGE_VERSION=$(IMAGE_VERSION) -t $(IMAGE_TAG) -f docker/Dockerfile .
+
+.PHONY: crd-container
+crd-container: build-crds
+	docker build --no-cache -t $(CRD_IMAGE_TAG) -f docker/crd.Dockerfile _output/crds
 
 .PHONY: container-linux
 container-linux: docker-buildx-builder
