@@ -7,6 +7,7 @@ WAIT_TIME=60
 SLEEP_TIME=1
 NAMESPACE=default
 PROVIDER_YAML=https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/deployment/provider-azure-installer.yaml
+NODE_SELECTOR_OS=linux
 BASE64_FLAGS="-w 0"
 if [[ "$OSTYPE" == *"darwin"* ]]; then
   BASE64_FLAGS="-b 0"
@@ -14,6 +15,7 @@ fi
 
 if [ $TEST_WINDOWS ]; then
   PROVIDER_YAML=https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/deployment/provider-azure-installer-windows.yaml
+  NODE_SELECTOR_OS=windows
 fi
 
 if [ -z "$AUTO_ROTATE_SECRET_NAME" ]; then
@@ -28,6 +30,7 @@ export KEY_NAME=${KEYVAULT_KEY_NAME:-key1}
 export KEY_VERSION=${KEYVAULT_KEY_VERSION:-7cc095105411491b84fe1b92ebbcf01a}
 export KEY_VALUE_CONTAINS=${KEYVAULT_KEY_VALUE:-"LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUF4K2FadlhJN2FldG5DbzI3akVScgpheklaQ2QxUlBCQVZuQU1XcDhqY05TQk5MOXVuOVJrenJHOFd1SFBXUXNqQTA2RXRIOFNSNWtTNlQvaGQwMFNRCk1aODBMTlNxYkkwTzBMcWMzMHNLUjhTQ0R1cEt5dkpkb01LSVlNWHQzUlk5R2Ywam1ucHNKOE9WbDFvZlRjOTIKd1RINXYyT2I1QjZaMFd3d25MWlNiRkFnSE1uTHJtdEtwZTVNcnRGU21nZS9SL0J5ZXNscGU0M1FubnpndzhRTwpzU3ZMNnhDU21XVW9WQURLL1MxREU0NzZBREM2a2hGTjF5ZHUzbjVBcnREVGI0c0FjUHdTeXB3WGdNM3Y5WHpnClFKSkRGT0JJOXhSTW9UM2FjUWl0Z0c2RGZibUgzOWQ3VU83M0o3dUFQWUpURG1pZGhrK0ZFOG9lbjZWUG9YRy8KNXdJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0t"}
 export LABEL_VALUE=${LABEL_VALUE:-"test"}
+export NODE_SELECTOR_OS=$NODE_SELECTOR_OS
 
 setup() {
   if [[ -z "${AZURE_CLIENT_ID}" ]] || [[ -z "${AZURE_CLIENT_SECRET}" ]]; then
@@ -40,8 +43,7 @@ setup() {
   run kubectl apply -f $PROVIDER_YAML --namespace $NAMESPACE	
   assert_success	
 
-  cmd="kubectl wait --for=condition=Ready --timeout=60s pod -l app=csi-secrets-store-provider-azure --namespace $NAMESPACE"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  kubectl wait --for=condition=Ready --timeout=120s pod -l app=csi-secrets-store-provider-azure --namespace $NAMESPACE
 
   AZURE_PROVIDER_POD=$(kubectl get pod --namespace $NAMESPACE -l app=csi-secrets-store-provider-azure -o jsonpath="{.items[0].metadata.name}")	
 
@@ -59,8 +61,7 @@ setup() {
 }
 
 @test "secretproviderclasses crd is established" {
-  cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
   run kubectl get crd/secretproviderclasses.secrets-store.csi.x-k8s.io
   assert_success
@@ -89,8 +90,7 @@ setup() {
 @test "deploy azure secretproviderclass crd" {
   envsubst < $BATS_TESTS_DIR/azure_v1alpha1_secretproviderclass.yaml | kubectl apply -f -
 
-  cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
   cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure -o yaml | grep azure"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
@@ -99,8 +99,7 @@ setup() {
 @test "CSI inline volume test with pod portability" {
   envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -f -
   
-  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/secrets-store-inline-crd"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  kubectl wait --for=condition=Ready --timeout=60s pod/secrets-store-inline-crd
 
   run kubectl get pod/secrets-store-inline-crd
   assert_success
@@ -122,8 +121,7 @@ setup() {
 @test "Sync with K8s secrets - create deployment" {
   envsubst < $BATS_TESTS_DIR/azure_synck8s_v1alpha1_secretproviderclass.yaml | kubectl apply -f - 
 
-  cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
   cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure-sync -o yaml | grep azure"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
@@ -131,8 +129,7 @@ setup() {
   envsubst < $BATS_TESTS_DIR/deployment-synck8s-azure.yaml | kubectl apply -f -
   envsubst < $BATS_TESTS_DIR/deployment-two-synck8s-azure.yaml | kubectl apply -f -
 
-  cmd="kubectl wait --for=condition=Ready --timeout=60s pod -l app=busybox"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  kubectl wait --for=condition=Ready --timeout=90s pod -l app=busybox
 }
 
 @test "Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences with multiple owners" {
@@ -191,8 +188,7 @@ setup() {
 
   envsubst < $BATS_TESTS_DIR/azure_v1alpha1_secretproviderclass_ns.yaml | kubectl apply -f -
 
-  cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
   cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure-sync -o yaml | grep azure"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
@@ -202,8 +198,7 @@ setup() {
 
   envsubst < $BATS_TESTS_DIR/deployment-synck8s-azure.yaml | kubectl apply -n test-ns -f -
 
-  cmd="kubectl wait --for=condition=Ready --timeout=60s pod -l app=busybox -n test-ns"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  kubectl wait --for=condition=Ready --timeout=60s pod -l app=busybox -n test-ns
 }
 
 @test "Test Namespaced scope SecretProviderClass - Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences" {
@@ -262,8 +257,7 @@ setup() {
 @test "deploy multiple azure secretproviderclass crd" {
   envsubst < $BATS_TESTS_DIR/azure_v1alpha1_multiple_secretproviderclass.yaml | kubectl apply -f -
 
-  cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
   cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure-spc-0 -o yaml | grep azure-spc-0"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
@@ -275,8 +269,7 @@ setup() {
 @test "deploy pod with multiple secret provider class" {
   envsubst < $BATS_TESTS_DIR/pod-azure-inline-volume-multiple-spc.yaml | kubectl apply -f -
   
-  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/secrets-store-inline-multiple-crd"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  kubectl wait --for=condition=Ready --timeout=60s pod/secrets-store-inline-multiple-crd
 
   run kubectl get pod/secrets-store-inline-multiple-crd
   assert_success
@@ -336,8 +329,7 @@ setup() {
   envsubst < $BATS_TESTS_DIR/rotation/azure_synck8s_v1alpha1_secretproviderclass.yaml | kubectl apply -n rotation -f -
   envsubst < $BATS_TESTS_DIR/rotation/pod-synck8s-azure.yaml | kubectl apply -n rotation -f -
 
-  cmd="kubectl wait -n rotation --for=condition=Ready --timeout=60s pod/secrets-store-inline-rotation"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  kubectl wait -n rotation --for=condition=Ready --timeout=60s pod/secrets-store-inline-rotation
 
   run kubectl get pod/secrets-store-inline-rotation -n rotation
   assert_success
@@ -390,8 +382,7 @@ setup() {
   envsubst < $BATS_TESTS_DIR/azure_v1alpha1_secretproviderclass.yaml | kubectl apply -n non-filtered-watch -f -
   envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -n non-filtered-watch -f -
 
-  cmd="kubectl wait -n non-filtered-watch --for=condition=Ready --timeout=60s pod/secrets-store-inline-crd"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  kubectl wait -n non-filtered-watch --for=condition=Ready --timeout=60s pod/secrets-store-inline-crd
 
   run kubectl get pod/secrets-store-inline-crd -n non-filtered-watch
   assert_success

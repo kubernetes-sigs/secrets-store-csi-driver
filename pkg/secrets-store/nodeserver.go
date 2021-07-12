@@ -53,6 +53,7 @@ const (
 	csipodnamespace          = "csi.storage.k8s.io/pod.namespace"
 	csipoduid                = "csi.storage.k8s.io/pod.uid"
 	csipodsa                 = "csi.storage.k8s.io/serviceAccount.name"
+	csipodsatokens           = "csi.storage.k8s.io/serviceAccount.tokens" //nolint
 	secretProviderClassField = "secretProviderClass"
 )
 
@@ -127,10 +128,16 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 	if isMockProvider(providerName) {
 		// mock provider is used only for running sanity tests against the driver
-		err := ns.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
-		if err != nil {
-			klog.ErrorS(err, "failed to mount", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
-			return nil, err
+
+		// TODO: until requiresRemount (#585) is supported, "mounted" will always be false
+		// and this code will always be called
+		if !mounted {
+			err := ns.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
+
+			if err != nil {
+				klog.ErrorS(err, "failed to mount", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
+				return nil, err
+			}
 		}
 		klog.Infof("skipping calling provider as it's mock")
 		return &csi.NodePublishVolumeResponse{}, nil
@@ -158,6 +165,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	parameters[csipodnamespace] = attrib[csipodnamespace]
 	parameters[csipoduid] = attrib[csipoduid]
 	parameters[csipodsa] = attrib[csipodsa]
+	parameters[csipodsatokens], _ = attrib[csipodsatokens] //nolint
 
 	// ensure it's read-only
 	if !req.GetReadonly() {
@@ -180,15 +188,19 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		return nil, err
 	}
 
-	// mount before providers can write content to it
-	// In linux Mount tmpfs mounts tmpfs to targetPath
-	// In windows Mount tmpfs checks if the targetPath exists and if not, will create the target path
-	// https://github.com/kubernetes/utils/blob/master/mount/mount_windows.go#L68-L71
-	err = ns.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
-	if err != nil {
-		errorReason = internalerrors.FailedToMount
-		klog.ErrorS(err, "failed to mount", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
-		return nil, err
+	// TODO: until requiresRemount (#585) is supported, "mounted" will always be false
+	// and this code will always be called
+	if !mounted {
+		// mount before providers can write content to it
+		// In linux Mount tmpfs mounts tmpfs to targetPath
+		// In windows Mount tmpfs checks if the targetPath exists and if not, will create the target path
+		// https://github.com/kubernetes/utils/blob/master/mount/mount_windows.go#L68-L71
+		err = ns.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
+		if err != nil {
+			errorReason = internalerrors.FailedToMount
+			klog.ErrorS(err, "failed to mount", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
+			return nil, err
+		}
 	}
 	mounted = true
 	var objectVersions map[string]string

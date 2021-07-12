@@ -29,7 +29,7 @@ Publishing involves creating a release tag and creating a new Release on GitHub.
     ```
   
 1. Once the PR is merged to master, the [prow job](https://testgrid.k8s.io/sig-auth-secrets-store-csi-driver#secrets-store-csi-driver-push-image) is triggered to build and push the new version to staging repo (`gcr.io/k8s-staging-csi-secrets-store/driver`)
-1. Once the prow job completes, follow the [instructions](https://github.com/kubernetes/k8s.io/tree/master/k8s.gcr.io#image-promoter) to promote the image to production repo
+1. Once the prow job completes, follow the [instructions](https://github.com/kubernetes/k8s.io/tree/main/k8s.gcr.io#image-promoter) to promote the image to production repo
     - Run generate script to append the new image to promoter manifest
 
     ```bash

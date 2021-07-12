@@ -1,6 +1,6 @@
 # Installation
 
-## Install the Secrets Store CSI Driver and provider
+## Install the Secrets Store CSI Driver
 
 ### Prerequisites
 
@@ -25,7 +25,14 @@ helm install csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver
 Running the above `helm install` command will install the Secrets Store CSI Driver on Linux nodes in the `kube-system`
 namespace.
 
-#### Values
+#### Optional Values
+
+Notably the following feature must be explicitly enabled:
+
+| Feature | Helm Parameter |
+|-----|-----|
+| [Sync as Kubernetes secret](../topics/sync-as-kubernetes-secret.md) | `syncSecret.enabled=true`|
+| [Secret Auto rotation](../topics/secret-auto-rotation.md) | `enableSecretRotation=true`|
 
 For a list of customizable values that can be injected when invoking helm install, please see the [Helm chart configurations](https://github.com/kubernetes-sigs/secrets-store-csi-driver/tree/master/charts/secrets-store-csi-driver#configuration).
 
@@ -72,11 +79,11 @@ secretproviderclasses.secrets-store.csi.x-k8s.io
 secretproviderclasspodstatuses.secrets-store.csi.x-k8s.io
 ```
 
-## Use the Secrets Store CSI Driver with a Provider
+## Install External Secret Providers
 
 Now that the Secrets Store CSI Driver has been deployed, select a provider from the supported provider list, then follow the installation steps for the provider:
 
-- [Azure Provider](https://azure.github.io/secrets-store-csi-driver-provider-azure/)
-- [Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault)
-- [GCP Provider](https://github.com/GoogleCloudPlatform/secrets-store-csi-driver-provider-gcp)
 - [AWS Provider](https://github.com/aws/secrets-store-csi-driver-provider-aws)
+- [Azure Provider](https://azure.github.io/secrets-store-csi-driver-provider-azure/)
+- [GCP Provider](https://github.com/GoogleCloudPlatform/secrets-store-csi-driver-provider-gcp)
+- [Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault)
