@@ -30,3 +30,5 @@ spec:
           secretProviderClass: "azure-auto-rotation"
         nodePublishSecretRef:
           name: secrets-store-creds
+  nodeSelector:
+    kubernetes.io/os: $NODE_SELECTOR_OS
