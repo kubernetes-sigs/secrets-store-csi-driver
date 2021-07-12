@@ -259,18 +259,22 @@ ifdef CI
 	cp -R manifest_staging/charts/secrets-store-csi-driver/crds/ _output/crds/
 else
 	cp -R charts/secrets-store-csi-driver/crds/ _output/crds/
-endif	
+endif
 
 .PHONY: container
-container:
+container: crd-container
 	docker build --no-cache --build-arg IMAGE_VERSION=$(IMAGE_VERSION) -t $(IMAGE_TAG) -f docker/Dockerfile .
 
 .PHONY: crd-container
 crd-container: build-crds
-	docker build --no-cache -t $(CRD_IMAGE_TAG) -f docker/crd.Dockerfile _output/crds
+	docker build --no-cache -t $(CRD_IMAGE_TAG) -f docker/crd.Dockerfile _output/crds/
+
+.PHONY: crd-container-linux
+crd-container-linux: build-crds
+	docker build --no-cache --platform="linux/$(ARCH)" -t $(CRD_IMAGE_TAG)-linux-$(ARCH) -f docker/crd.Dockerfile _output/crds/
 
 .PHONY: container-linux
-container-linux: docker-buildx-builder
+container-linux: docker-buildx-builder crd-container-linux
 	docker buildx build --no-cache --build-arg IMAGE_VERSION=$(IMAGE_VERSION) --output=type=$(OUTPUT_TYPE) --platform="linux/$(ARCH)" \
  		-t $(IMAGE_TAG)-linux-$(ARCH) -f docker/Dockerfile .
 
@@ -343,6 +347,7 @@ ifdef TEST_WINDOWS
 else
 	$(MAKE) container
 	kind load docker-image --name kind $(IMAGE_TAG)
+	kind load docker-image --name kind $(CRD_IMAGE_TAG)
 endif
 
 .PHONY: e2e-test
@@ -362,6 +367,10 @@ e2e-helm-deploy:
 		--set linux.image.tag=$(IMAGE_VERSION) \
 		--set windows.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
 		--set windows.image.tag=$(IMAGE_VERSION) \
+		--set linux.crds.image.repository=$(REGISTRY)/$(CRD_IMAGE_NAME) \
+		--set linux.crds.image.tag=$(IMAGE_VERSION) \
+		--set windows.crds.image.repository=$(REGISTRY)/$(CRD_IMAGE_NAME) \
+		--set windows.crds.image.tag=$(IMAGE_VERSION) \
 		--set windows.enabled=true \
 		--set linux.enabled=true \
 		--set syncSecret.enabled=true \

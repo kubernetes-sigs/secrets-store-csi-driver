@@ -54,7 +54,7 @@ spec:
   restartPolicy: Never
   containers:
     - name: delete-crds
-      image: hook:test
+      image: "{{ .Values.linux.crds.image.repository }}:{{ .Values.linux.crds.image.tag }}"
       imagePullPolicy: IfNotPresent
       command:
         - sh
@@ -62,4 +62,3 @@ spec:
         - >
          kubectl delete crd secretproviderclasses.secrets-store.csi.x-k8s.io --ignore-not-found;
          kubectl delete crd secretproviderclasspodstatuses.secrets-store.csi.x-k8s.io --ignore-not-found;
-

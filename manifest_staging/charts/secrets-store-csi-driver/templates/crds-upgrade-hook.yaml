@@ -54,7 +54,7 @@ spec:
   restartPolicy: OnFailure
   containers:
   - name: crds-upgrade
-    image: hook:test
+    image: "{{ .Values.linux.crds.image.repository }}:{{ .Values.linux.crds.image.tag }}"
     imagePullPolicy: {{ .Values.linux.registrarImage.pullPolicy }}
     command:
     - sh
@@ -65,3 +65,4 @@ spec:
   imagePullSecrets:
     {{ toYaml .Values.imagePullSecrets | indent 8 }}
   {{- end }}
+  
