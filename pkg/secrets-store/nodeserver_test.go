@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store/mocks"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/test_utils/tmpdir"
+	"sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
@@ -38,9 +39,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func testNodeServer(t *testing.T, mountPoints []mount.MountPoint, client client.Client, reporter StatsReporter) (*nodeServer, error) {
+func testNodeServer(t *testing.T, tmpDir string, mountPoints []mount.MountPoint, client client.Client, reporter StatsReporter) (*nodeServer, error) {
 	t.Helper()
-	tmpDir := tmpdir.New(t, "", "ut")
 	providerClients := NewPluginClientBuilder(tmpDir)
 	return newNodeServer(NewFakeDriver(), tmpDir, "testnode", mount.NewFakeMounter(mountPoints), providerClients, client, reporter)
 }
@@ -197,7 +197,7 @@ func TestNodePublishVolume(t *testing.T) {
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
 				TargetPath:       tmpdir.New(t, "", "ut"),
-				VolumeContext:    map[string]string{"secretProviderClass": "provider1", csipodname: "pod1", csipodnamespace: "default", csipoduid: "poduid1"},
+				VolumeContext:    map[string]string{"secretProviderClass": "provider1", csipodname: "pod1", csipodnamespace: "default", csipoduid: "poduid1", "providerName": "mock_provider"},
 				Readonly:         true,
 			},
 			initObjects: []runtime.Object{
@@ -216,12 +216,46 @@ func TestNodePublishVolume(t *testing.T) {
 			expectedErr:        false,
 			shouldRetryRemount: true,
 		},
+		{
+			name: "volume already mounted, refresh token",
+			nodePublishVolReq: csi.NodePublishVolumeRequest{
+				VolumeCapability: &csi.VolumeCapability{},
+				VolumeId:         "testvolid1",
+				TargetPath:       tmpdir.New(t, "", "ut"),
+				VolumeContext: map[string]string{
+					"secretProviderClass": "simple_provider",
+					csipodname:            "pod1",
+					csipodnamespace:       "default",
+					csipoduid:             "poduid1",
+					// not a real token, just for testing
+					csipodsatokens: `{"https://kubernetes.default.svc":{"token":"eyJhbGciOiJSUzI1NiIsImtpZCI6IjEyMyJ9.eyJhdWQiOlsiaHR0cHM6Ly9rdWJlcm5ldGVzLmRlZmF1bHQuc3ZjIl0sImV4cCI6MTYxMTk1OTM5NiwiaWF0IjoxNjExOTU4Nzk2LCJpc3MiOiJodHRwczovL2t1YmVybmV0ZXMuZGVmYXVsdC5zdmMiLCJrdWJlcm5ldGVzLmlvIjp7Im5hbWVzcGFjZSI6ImRlZmF1bHQiLCJzZXJ2aWNlYWNjb3VudCI6eyJuYW1lIjoiZGVmYXVsdCIsInVpZCI6IjA5MWUyNTU3LWJkODYtNDhhMC1iZmNmLWI1YTI4ZjRjODAyNCJ9fSwibmJmIjoxNjExOTU4Nzk2LCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6ZGVmYXVsdDpkZWZhdWx0In0.YNU2Z_gEE84DGCt8lh9GuE8gmoof-Pk_7emp3fsyj9pq16DRiDaLtOdprH-njpOYqvtT5Uf_QspFc_RwD_pdq9UJWCeLxFkRTsYR5WSjhMFcl767c4Cwp_oZPYhaHd1x7aU1emH-9oarrM__tr1hSmGoAc2I0gUSkAYFueaTUSy5e5d9QKDfjVljDRc7Yrp6qAAfd1OuDdk1XYIjrqTHk1T1oqGGlcd3lRM_dKSsW5I_YqgKMrjwNt8yOKcdKBrgQhgC42GZbFDRVJDJHs_Hq32xo-2s3PJ8UZ_alN4wv8EbuwB987_FHBTc_XAULHPvp0mCv2C5h0V2A7gzccv30A","expirationTimestamp":"2021-01-29T22:29:56Z"}}`,
+					"providerName": "simple_provider",
+				},
+				Readonly: true,
+			},
+			initObjects: []runtime.Object{
+				&v1alpha1.SecretProviderClass{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "simple_provider",
+						Namespace: "default",
+					},
+					Spec: v1alpha1.SecretProviderClassSpec{
+						Provider:   "simple_provider",
+						Parameters: map[string]string{"parameter1": "value1"},
+					},
+				},
+			},
+			mountPoints:        []mount.MountPoint{},
+			expectedErr:        false,
+			shouldRetryRemount: true,
+		},
 	}
 
 	s := scheme.Scheme
 	s.AddKnownTypes(schema.GroupVersion{Group: v1alpha1.GroupVersion.Group, Version: v1alpha1.GroupVersion.Version},
 		&v1alpha1.SecretProviderClass{},
 		&v1alpha1.SecretProviderClassList{},
+		&v1alpha1.SecretProviderClassPodStatus{},
 	)
 
 	for _, test := range tests {
@@ -238,7 +272,19 @@ func TestNodePublishVolume(t *testing.T) {
 				test.mountPoints = append(test.mountPoints, mount.MountPoint{Path: absFile})
 			}
 			r := mocks.NewFakeReporter()
-			ns, err := testNodeServer(t, test.mountPoints, fake.NewFakeClientWithScheme(s, test.initObjects...), r)
+
+			tmpDir := tmpdir.New(t, "", "ut")
+			server, err := e2eprovider.NewSimpleCSIProviderServer(
+				filepath.Join(tmpDir, "simple_provider.sock"),
+			)
+			if err != nil {
+				t.Fatalf("Error creating e2e test server: %v", err)
+			}
+			err = server.Start()
+			if err != nil {
+				t.Fatalf("Error starting e2e test server: %v", err)
+			}
+			ns, err := testNodeServer(t, tmpDir, test.mountPoints, fake.NewFakeClientWithScheme(s, test.initObjects...), r)
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
@@ -281,6 +327,7 @@ func TestNodePublishVolume(t *testing.T) {
 				}
 				numberOfAttempts--
 			}
+			server.Stop()
 		})
 	}
 }
@@ -314,7 +361,7 @@ func TestMountSecretsStoreObjectContent(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ns, err := testNodeServer(t, nil, fake.NewFakeClientWithScheme(nil), mocks.NewFakeReporter())
+			ns, err := testNodeServer(t, tmpdir.New(t, "", "ut"), nil, fake.NewFakeClientWithScheme(nil), mocks.NewFakeReporter())
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
@@ -389,7 +436,7 @@ func TestNodeUnpublishVolume(t *testing.T) {
 			}
 
 			r := mocks.NewFakeReporter()
-			ns, err := testNodeServer(t, test.mountPoints, fake.NewFakeClientWithScheme(s), r)
+			ns, err := testNodeServer(t, tmpdir.New(t, "", "ut"), test.mountPoints, fake.NewFakeClientWithScheme(s), r)
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
