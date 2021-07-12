@@ -278,8 +278,15 @@ container-linux: docker-buildx-builder crd-container-linux
 	docker buildx build --no-cache --build-arg IMAGE_VERSION=$(IMAGE_VERSION) --output=type=$(OUTPUT_TYPE) --platform="linux/$(ARCH)" \
  		-t $(IMAGE_TAG)-linux-$(ARCH) -f docker/Dockerfile .
 
+.PHONY: crd-container-windows
+crd-container-windows: build-crds
+	docker buildx build --no-cache --build-arg  --output=type=$(OUTPUT_TYPE) --platform="windows/$(ARCH)" \
+		--build-arg BASEIMAGE=mcr.microsoft.com/windows/nanoserver:$(OSVERSION) \
+		--build-arg BASEIMAGE_CORE=gcr.io/k8s-staging-e2e-test-images/windows-servercore-cache:1.0-linux-amd64-$(OSVERSION) \
+ 		-t $(CRD_IMAGE_TAG)-windows-$(OSVERSION)-$(ARCH) -f docker/windows.crd.Dockerfile _output/crds/
+
 .PHONY: container-windows
-container-windows: docker-buildx-builder
+container-windows: docker-buildx-builder crd-container-windows
 	docker buildx build --no-cache --build-arg IMAGE_VERSION=$(IMAGE_VERSION) --output=type=$(OUTPUT_TYPE) --platform="windows/$(ARCH)" \
 		--build-arg BASEIMAGE=mcr.microsoft.com/windows/nanoserver:$(OSVERSION) \
 		--build-arg BASEIMAGE_CORE=gcr.io/k8s-staging-e2e-test-images/windows-servercore-cache:1.0-linux-amd64-$(OSVERSION) \
@@ -320,6 +327,23 @@ push-manifest:
 	docker manifest push --purge $(IMAGE_TAG)
 	docker manifest inspect $(IMAGE_TAG)
 
+.PHONY: push-crd-manifest
+push-crd-manifest:
+	docker manifest create --amend $(CRD_IMAGE_TAG) $(foreach osarch, $(ALL_OS_ARCH), $(CRD_IMAGE_TAG)-${osarch})
+	# add "os.version" field to windows images (based on https://github.com/kubernetes/kubernetes/blob/master/build/pause/Makefile)
+	set -x; \
+	registry_prefix=$(shell (echo ${REGISTRY} | grep -Eq ".*[\/\.].*") && echo "" || echo "docker.io/"); \
+	manifest_image_folder=`echo "$${registry_prefix}${CRD_IMAGE_TAG}" | sed "s|/|_|g" | sed "s/:/-/"`; \
+	for arch in $(ALL_ARCH.windows); do \
+		for osversion in $(ALL_OSVERSIONS.windows); do \
+			BASEIMAGE=mcr.microsoft.com/windows/nanoserver:$${osversion}; \
+			full_version=`docker manifest inspect $${BASEIMAGE} | jq -r '.manifests[0].platform["os.version"]'`; \
+			sed -i -r "s/(\"os\"\:\"windows\")/\0,\"os.version\":\"$${full_version}\"/" "${HOME}/.docker/manifests/$${manifest_image_folder}/$${manifest_image_folder}-windows-$${osversion}-$${arch}"; \
+		done; \
+	done
+	docker manifest push --purge $(CRD_IMAGE_TAG)
+	docker manifest inspect $(CRD_IMAGE_TAG)
+
 ## --------------------------------------
 ## E2E Testing
 ## --------------------------------------
@@ -343,7 +367,7 @@ setup-eks-cluster: $(HELM) $(EKSCTL) $(BATS) $(ENVSUBST)
 .PHONY: e2e-container
 e2e-container:
 ifdef TEST_WINDOWS
-	$(MAKE) container-all push-manifest
+	$(MAKE) container-all push-manifest push-crd-manifest
 else
 	$(MAKE) container
 	kind load docker-image --name kind $(IMAGE_TAG)
@@ -376,6 +400,9 @@ e2e-helm-deploy:
 		--set syncSecret.enabled=true \
 		--set enableSecretRotation=true \
 		--set rotationPollInterval=30s
+
+	kubectl logs csi-secrets-store-secrets-store-csi-driver-upgrade-crds -n kube-system
+	kubectl logs csi-secrets-store-secrets-store-csi-driver-upgrade-crds
 
 .PHONY: e2e-helm-deploy-release # test helm package for the release
 e2e-helm-deploy-release:
