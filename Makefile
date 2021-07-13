@@ -384,7 +384,7 @@ e2e-teardown: $(HELM)
 
 .PHONY: e2e-helm-deploy
 e2e-helm-deploy:
-	helm install csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --dru-run --namespace kube-system --wait --timeout=15m -v=10 --debug \
+	helm install csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --dry-run --namespace kube-system --wait --timeout=15m -v=10 --debug \
 		--set linux.image.pullPolicy="IfNotPresent" \
 		--set windows.image.pullPolicy="IfNotPresent" \
 		--set linux.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
