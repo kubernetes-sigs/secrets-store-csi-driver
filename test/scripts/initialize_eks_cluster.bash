@@ -21,6 +21,10 @@ NAMESPACE="kube-system"
 AWS_SERVICE_ACCOUNT_NAME="basic-test-mount-sa"
 
 aws --region $AWS_REGION ecr get-login-password | docker login --username AWS --password-stdin $ECR_REGISTRY_URL
+aws ecr create-repository \
+    --repository-name driver-crds \
+    --region us-west-2
+
 REGISTRY=$ECR_REGISTRY_URL make container
 docker push $IMAGE_TAG
 docker push $CRD_IMAGE_TAG
