@@ -271,7 +271,7 @@ crd-container: build-crds
 
 .PHONY: crd-container-linux
 crd-container-linux: build-crds
-	docker build --no-cache --output=type=$(OUTPUT_TYPE) --platform="linux/$(ARCH)" -t $(CRD_IMAGE_TAG)-linux-$(ARCH) -f docker/crd.Dockerfile _output/crds/
+	docker buildx build --no-cache --output=type=$(OUTPUT_TYPE) --platform="linux/$(ARCH)" -t $(CRD_IMAGE_TAG)-linux-$(ARCH) -f docker/crd.Dockerfile _output/crds/
 
 .PHONY: container-linux
 container-linux: docker-buildx-builder crd-container-linux
