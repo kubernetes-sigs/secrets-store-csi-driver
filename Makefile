@@ -329,7 +329,7 @@ push-manifest:
 
 .PHONY: push-crd-manifest
 push-crd-manifest:
-	docker manifest create --amend $(CRD_IMAGE_TAG) $(foreach osarch, $(ALL_OS_ARCH), $(CRD_IMAGE_TAG)-${osarch})
+	docker manifest create --amend --insecure $(CRD_IMAGE_TAG) $(foreach osarch, $(ALL_OS_ARCH), $(CRD_IMAGE_TAG)-${osarch})
 	# add "os.version" field to windows images (based on https://github.com/kubernetes/kubernetes/blob/master/build/pause/Makefile)
 	set -x; \
 	registry_prefix=$(shell (echo ${REGISTRY} | grep -Eq ".*[\/\.].*") && echo "" || echo "docker.io/"); \
@@ -401,8 +401,8 @@ e2e-helm-deploy:
 		--set enableSecretRotation=true \
 		--set rotationPollInterval=30s
 
-	kubectl logs csi-secrets-store-secrets-store-csi-driver-upgrade-crds -n kube-system
-	kubectl logs csi-secrets-store-secrets-store-csi-driver-upgrade-crds
+	kubectl logs csi-secrets-store-secrets-store-csi-driver-upgrade-crds -n kube-system --ignore-not-found
+	kubectl logs csi-secrets-store-secrets-store-csi-driver-upgrade-crds --ignore-not-found
 
 .PHONY: e2e-helm-deploy-release # test helm package for the release
 e2e-helm-deploy-release:
