@@ -12,7 +12,6 @@ export REGION=${REGION:-us-west-2}
 export ACCOUNT_NUMBER=$(aws --region $REGION  sts get-caller-identity --query Account --output text)
 BATS_TEST_DIR=test/bats/tests/aws
 
-
 if [ -z "$UUID" ]; then 
    export UUID=secret-$(openssl rand -hex 6) 
 fi 
@@ -55,8 +54,7 @@ teardown_file() {
     run kubectl --namespace $NAMESPACE apply -f $PROVIDER_YAML  
     assert_success
 
-    cmd="kubectl --namespace $NAMESPACE wait --for=condition=Ready --timeout=60s pod -l app=csi-secrets-store-provider-aws"
-    wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+    kubectl --namespace $NAMESPACE wait --for=condition=Ready --timeout=120s pod -l app=csi-secrets-store-provider-aws
 
     PROVIDER_POD=$(kubectl --namespace $NAMESPACE get pod -l app=csi-secrets-store-provider-aws -o jsonpath="{.items[0].metadata.name}")	
     run kubectl --namespace $NAMESPACE get pod/$PROVIDER_POD
@@ -64,8 +62,7 @@ teardown_file() {
 }
 
 @test "secretproviderclasses crd is established" {
-    cmd="kubectl wait --namespace $NAMESPACE --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io"
-    wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+    kubectl wait --namespace $NAMESPACE --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
     run kubectl get crd/secretproviderclasses.secrets-store.csi.x-k8s.io
     assert_success
@@ -99,9 +96,8 @@ teardown_file() {
 }
 
 @test "CSI inline volume test with pod portability" {
-   kubectl --namespace $NAMESPACE  apply -f $BATS_TEST_DIR/BasicTestMount.yaml
-   cmd="kubectl --namespace $NAMESPACE  wait --for=condition=Ready --timeout=60s pod/basic-test-mount"
-   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+   kubectl --namespace $NAMESPACE apply -f $BATS_TEST_DIR/BasicTestMount.yaml
+   kubectl --namespace $NAMESPACE  wait --for=condition=Ready --timeout=60s pod/basic-test-mount
 
    run kubectl --namespace $NAMESPACE  get pod/$POD_NAME
    assert_success

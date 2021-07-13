@@ -25,8 +25,7 @@ setup() {
   run kubectl apply -f $PROVIDER_YAML --namespace $PROVIDER_NAMESPACE
   assert_success	
 
-  cmd="kubectl wait --for=condition=Ready --timeout=60s pod -l app=csi-secrets-store-provider-gcp --namespace $PROVIDER_NAMESPACE"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  kubectl wait --for=condition=Ready --timeout=120s pod -l app=csi-secrets-store-provider-gcp --namespace $PROVIDER_NAMESPACE
 
   GCP_PROVIDER_POD=$(kubectl get pod --namespace $PROVIDER_NAMESPACE -l app=csi-secrets-store-provider-gcp -o jsonpath="{.items[0].metadata.name}")	
 
@@ -44,8 +43,7 @@ setup() {
 }
 
 @test "secretproviderclasses crd is established" {
-  cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
   run kubectl get crd/secretproviderclasses.secrets-store.csi.x-k8s.io
   assert_success
@@ -81,8 +79,7 @@ setup() {
 @test "CSI inline volume test with pod portability" {
   envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -f -
   
-  cmd="kubectl wait --for=condition=Ready --timeout=60s pod/secrets-store-inline-crd"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  kubectl wait --for=condition=Ready --timeout=60s pod/secrets-store-inline-crd
 
   run kubectl get pod/secrets-store-inline-crd
   assert_success
@@ -103,8 +100,7 @@ setup() {
   envsubst < $BATS_TESTS_DIR/gcp_v1alpha1_secretproviderclass.yaml | kubectl apply -n non-filtered-watch -f -
   envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -n non-filtered-watch -f -
 
-  cmd="kubectl wait -n non-filtered-watch --for=condition=Ready --timeout=60s pod/secrets-store-inline-crd"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  kubectl wait -n non-filtered-watch --for=condition=Ready --timeout=60s pod/secrets-store-inline-crd
 
   run kubectl get pod/secrets-store-inline-crd -n non-filtered-watch
   assert_success
