@@ -271,7 +271,7 @@ crd-container: build-crds
 
 .PHONY: crd-container-linux
 crd-container-linux: build-crds
-	docker build --no-cache --platform="linux/$(ARCH)" -t $(CRD_IMAGE_TAG)-linux-$(ARCH) -f docker/crd.Dockerfile _output/crds/
+	docker build --no-cache --output=type=$(OUTPUT_TYPE) --platform="linux/$(ARCH)" -t $(CRD_IMAGE_TAG)-linux-$(ARCH) -f docker/crd.Dockerfile _output/crds/
 
 .PHONY: container-linux
 container-linux: docker-buildx-builder crd-container-linux
@@ -329,7 +329,7 @@ push-manifest:
 
 .PHONY: push-crd-manifest
 push-crd-manifest:
-	docker manifest create --amend --insecure $(CRD_IMAGE_TAG) $(foreach osarch, $(ALL_OS_ARCH), $(CRD_IMAGE_TAG)-${osarch})
+	docker manifest create --amend $(CRD_IMAGE_TAG) $(foreach osarch, $(ALL_OS_ARCH), $(CRD_IMAGE_TAG)-${osarch})
 	# add "os.version" field to windows images (based on https://github.com/kubernetes/kubernetes/blob/master/build/pause/Makefile)
 	set -x; \
 	registry_prefix=$(shell (echo ${REGISTRY} | grep -Eq ".*[\/\.].*") && echo "" || echo "docker.io/"); \
