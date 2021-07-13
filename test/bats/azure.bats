@@ -369,7 +369,11 @@ setup() {
 }
 
 @test "Test filtered-watch-secret=false for nodePublishSecretRef" {
-  run helm upgrade csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --reuse-values --set filteredWatchSecret=false --wait --timeout=5m -v=5 --debug --namespace kube-system
+  local chart_dir=${HELM_CHART_DIR}
+  if [[ "${chart_dir}" == "" ]]; then
+    chart_dir=manifest_staging/charts/secrets-store-csi-driver
+  fi
+  run helm upgrade csi-secrets-store "${chart_dir}" --reuse-values --set filteredWatchSecret=false --wait --timeout=5m -v=5 --debug --namespace kube-system
   assert_success
 
   kubectl create ns non-filtered-watch
@@ -385,4 +389,15 @@ setup() {
 
   result=$(kubectl exec -n non-filtered-watch secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+}
+
+teardown_file() {
+  #cleanup
+  run kubectl delete namespace non-filtered-watch
+  run kubectl delete namespace rotation
+  run kubectl delete namespace test-ns
+  
+  run kubectl delete secret secrets-store-creds
+
+  run kubectl delete pods secrets-store-inline-crd secrets-store-inline-multiple-crd --force --grace-period 0
 }

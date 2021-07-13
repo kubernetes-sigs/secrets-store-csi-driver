@@ -403,6 +403,15 @@ e2e-helm-deploy:
 
 	kubectl logs csi-secrets-store-secrets-store-csi-driver-upgrade-crds -n kube-system --ignore-not-found
 	kubectl logs csi-secrets-store-secrets-store-csi-driver-upgrade-crds --ignore-not-found
+	
+.PHONY: e2e-helm-upgrade
+e2e-helm-upgrade:
+	helm upgrade csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace kube-system --reuse-values --timeout=15m -v=5 --debug --set filteredWatchSecret=true \
+		--set linux.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
+		--set linux.image.tag=$(IMAGE_VERSION) \
+		--set windows.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
+		--set windows.image.tag=$(IMAGE_VERSION)
+	kubectl apply -f manifest_staging/charts/secrets-store-csi-driver/crds/
 
 .PHONY: e2e-helm-deploy-release # test helm package for the release
 e2e-helm-deploy-release:
