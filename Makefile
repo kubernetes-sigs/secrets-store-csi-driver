@@ -280,7 +280,7 @@ container-linux: docker-buildx-builder crd-container-linux
 
 .PHONY: crd-container-windows
 crd-container-windows: build-crds
-	docker buildx build --no-cache --build-arg  --output=type=$(OUTPUT_TYPE) --platform="windows/$(ARCH)" \
+	docker buildx build --no-cache --output=type=$(OUTPUT_TYPE) --platform="windows/$(ARCH)" \
 		--build-arg BASEIMAGE=mcr.microsoft.com/windows/nanoserver:$(OSVERSION) \
 		--build-arg BASEIMAGE_CORE=gcr.io/k8s-staging-e2e-test-images/windows-servercore-cache:1.0-linux-amd64-$(OSVERSION) \
  		-t $(CRD_IMAGE_TAG)-windows-$(OSVERSION)-$(ARCH) -f docker/windows.crd.Dockerfile _output/crds/
