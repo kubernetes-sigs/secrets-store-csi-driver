@@ -111,7 +111,7 @@ build_and_push() {
     if find charts/secrets-store-csi-driver/crds -mindepth 1 -maxdepth 1 | read -r; then
       if [[ "$os_name" != "windows" ]]; then
         docker buildx build --no-cache --pull --push --platform "${os_name}/${arch}" -t "${CRD_IMAGE_TAG}-${suffix}" \
-        -f crd.Dockerfile charts/secrets-store-csi-driver/crds
+        -f crd.Dockerfile ../charts/secrets-store-csi-driver/crds
       fi
     fi
   done
