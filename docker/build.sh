@@ -108,7 +108,7 @@ build_and_push() {
 
     # Build and push crd image
     # We always promote to prod from stg registry. So, Check if 'crd' dir from 'charts' exists rather than from 'manifest_staging' dir.
-    if find charts/secrets-store-csi-driver/crds -mindepth 1 -maxdepth 1 | read; then
+    if find charts/secrets-store-csi-driver/crds -mindepth 1 -maxdepth 1 | read -r; then
       if [[ "$os_name" != "windows" ]]; then
         docker buildx build --no-cache --pull --push --platform "${os_name}/${arch}" -t "${CRD_IMAGE_TAG}-${suffix}" \
         -f crd.Dockerfile charts/secrets-store-csi-driver/crds

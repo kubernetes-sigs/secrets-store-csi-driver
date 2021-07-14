@@ -377,7 +377,7 @@ e2e-helm-deploy:
 		--set syncSecret.enabled=true \
 		--set enableSecretRotation=true \
 		--set rotationPollInterval=30s
-	
+
 .PHONY: e2e-helm-upgrade
 e2e-helm-upgrade:
 	helm upgrade csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace kube-system --reuse-values --timeout=15m -v=5 --debug --set filteredWatchSecret=true \

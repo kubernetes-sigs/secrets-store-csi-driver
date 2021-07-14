@@ -67,4 +67,3 @@ spec:
   {{- end }}
   nodeSelector:
     kubernetes.io/os: linux
-  
