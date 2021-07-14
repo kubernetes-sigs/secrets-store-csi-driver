@@ -8,9 +8,10 @@ FROM --platform=$BUILDPLATFORM golang:1.16 as builder
 RUN curl -LO https://dl.k8s.io/release/v${KUBERNETES_VERSION}/bin/windows/amd64/kubectl.exe
 
 FROM $BASEIMAGE
-LABEL description="Secrets Store CSI Driver"
+LABEL description="Secrets Store CSI Driver CRDs"
 COPY * /crds/
 
 COPY --from=builder /go/kubectl.exe /kubectl.exe
 COPY --from=core /Windows/System32/netapi32.dll /Windows/System32/netapi32.dll
 USER ContainerAdministrator
+ENTRYPOINT ["/kubectl.exe"]
