@@ -53,13 +53,14 @@ spec:
   serviceAccountName: {{ template "sscd.fullname" . }}-upgrade-crds
   restartPolicy: OnFailure
   containers:
-  - name: crds-upgrade
-    image: "{{ .Values.linux.crds.image.repository }}:{{ .Values.linux.crds.image.tag }}"
-    args:
-    - apply
-    - -f
-    - /crds
-    imagePullPolicy: {{ .Values.linux.registrarImage.pullPolicy }}
+    - name: crds-upgrade
+      image: "{{ .Values.linux.crds.image.repository }}:{{ .Values.linux.crds.image.tag }}"
+      command:
+      - sh
+      - -c
+      - >
+       kubectl apply -f /crds;
+      imagePullPolicy: {{ .Values.linux.registrarImage.pullPolicy }}
   {{- if .Values.imagePullSecrets }}
   imagePullSecrets:
     {{ toYaml .Values.imagePullSecrets | indent 4 }}

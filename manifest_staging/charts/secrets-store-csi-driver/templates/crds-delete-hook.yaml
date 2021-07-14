@@ -56,11 +56,13 @@ spec:
     - name: delete-crds
       image: "{{ .Values.linux.crds.image.repository }}:{{ .Values.linux.crds.image.tag }}"
       args:
-      - delete
-      - crd
-      - secretproviderclasses.secrets-store.csi.x-k8s.io secretproviderclasspodstatuses.secrets-store.csi.x-k8s.io
-      - --ignore-not-found
       imagePullPolicy: {{ .Values.linux.registrarImage.pullPolicy }}
+      command:
+      - sh
+      - -c
+      - >
+       kubectl delete crd secretproviderclasses.secrets-store.csi.x-k8s.io --ignore-not-found;
+       kubectl delete crd secretproviderclasspodstatuses.secrets-store.csi.x-k8s.io --ignore-not-found;
   {{- if .Values.imagePullSecrets }}
   imagePullSecrets:
     {{ toYaml .Values.imagePullSecrets | indent 4 }}
