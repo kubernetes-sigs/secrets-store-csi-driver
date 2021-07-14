@@ -80,3 +80,25 @@ check_secret_deleted() {
   result=$(kubectl get secret -n ${namespace} | grep "^${secret}$" | wc -l)
   [[ "$result" -eq 0 ]]
 }
+
+archive_info() {
+  if [[ -z "${ARTIFACTS}" ]]; then
+    return 0
+  fi
+
+  FILE_PREFIX=$(date +"%FT%H%M%S")
+
+  # print all pod information
+  kubectl get pods -A -o json > ${ARTIFACTS}/${FILE_PREFIX}-pods.json
+
+  # print detailed pod information
+  kubectl describe pods --all-namespaces > ${ARTIFACTS}/${FILE_PREFIX}-pods-describe.txt
+
+  # print logs from the CSI Driver
+  #
+  # assumes driver is installed with helm into the `kube-system` namespace which
+  # sets the `app` selector to `secrets-store-csi-driver`.
+  #
+  # Note: the yaml deployment would require `app=csi-secrets-store`
+  kubectl logs -l app=secrets-store-csi-driver  --tail -1 -c secrets-store -n kube-system > ${ARTIFACTS}/${FILE_PREFIX}-csi-secrets-store-driver.logs
+}
