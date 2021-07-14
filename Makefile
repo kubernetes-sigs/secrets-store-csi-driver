@@ -320,6 +320,8 @@ push-manifest:
 	done
 	docker manifest push --purge $(IMAGE_TAG)
 	docker manifest inspect $(IMAGE_TAG)
+	docker manifest push --purge $(CRD_IMAGE_TAG)
+	docker manifest inspect $(CRD_IMAGE_TAG)
 
 ## --------------------------------------
 ## E2E Testing
