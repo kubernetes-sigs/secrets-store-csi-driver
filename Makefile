@@ -279,7 +279,7 @@ container-linux: docker-buildx-builder crd-container-linux
  		-t $(IMAGE_TAG)-linux-$(ARCH) -f docker/Dockerfile .
 
 .PHONY: container-windows
-container-windows: docker-buildx-builder crd-container-windows
+container-windows: docker-buildx-builder
 	docker buildx build --no-cache --build-arg IMAGE_VERSION=$(IMAGE_VERSION) --output=type=$(OUTPUT_TYPE) --platform="windows/$(ARCH)" \
 		--build-arg BASEIMAGE=mcr.microsoft.com/windows/nanoserver:$(OSVERSION) \
 		--build-arg BASEIMAGE_CORE=gcr.io/k8s-staging-e2e-test-images/windows-servercore-cache:1.0-linux-amd64-$(OSVERSION) \
