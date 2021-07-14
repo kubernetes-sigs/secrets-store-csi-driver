@@ -384,24 +384,7 @@ e2e-teardown: $(HELM)
 
 .PHONY: e2e-helm-deploy
 e2e-helm-deploy:
-	helm install csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --dry-run --namespace kube-system --wait --timeout=15m -v=5 --debug \
-		--set linux.image.pullPolicy="IfNotPresent" \
-		--set windows.image.pullPolicy="IfNotPresent" \
-		--set linux.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
-		--set linux.image.tag=$(IMAGE_VERSION) \
-		--set windows.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
-		--set windows.image.tag=$(IMAGE_VERSION) \
-		--set linux.crds.image.repository=$(REGISTRY)/$(CRD_IMAGE_NAME) \
-		--set linux.crds.image.tag=$(IMAGE_VERSION) \
-		--set windows.crds.image.repository=$(REGISTRY)/$(CRD_IMAGE_NAME) \
-		--set windows.crds.image.tag=$(IMAGE_VERSION) \
-		--set windows.enabled=true \
-		--set linux.enabled=true \
-		--set syncSecret.enabled=true \
-		--set enableSecretRotation=true \
-		--set rotationPollInterval=30s
-
-	helm install csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace kube-system --wait --timeout=15m -v=7 --debug \
+	helm install csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace kube-system --wait --timeout=15m -v=5 --debug \
 		--set linux.image.pullPolicy="IfNotPresent" \
 		--set windows.image.pullPolicy="IfNotPresent" \
 		--set linux.image.repository=$(REGISTRY)/$(IMAGE_NAME) \

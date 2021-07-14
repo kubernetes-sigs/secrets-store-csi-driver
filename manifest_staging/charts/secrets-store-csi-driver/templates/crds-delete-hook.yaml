@@ -56,5 +56,8 @@ spec:
     - name: delete-crds
       image: "{{ .Values.linux.crds.image.repository }}:{{ .Values.linux.crds.image.tag }}"
       args:
-      - delete crd secretproviderclasses.secrets-store.csi.x-k8s.io secretproviderclasspodstatuses.secrets-store.csi.x-k8s.io --ignore-not-found
+      - delete
+      - crd
+      - secretproviderclasses.secrets-store.csi.x-k8s.io secretproviderclasspodstatuses.secrets-store.csi.x-k8s.io
+      - --ignore-not-found
       imagePullPolicy: IfNotPresent
