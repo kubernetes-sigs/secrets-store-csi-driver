@@ -62,6 +62,8 @@ spec:
     imagePullPolicy: {{ .Values.linux.registrarImage.pullPolicy }}
   {{- if .Values.imagePullSecrets }}
   imagePullSecrets:
-    {{ toYaml .Values.imagePullSecrets | indent 8 }}
+    {{ toYaml .Values.imagePullSecrets | indent 4 }}
   {{- end }}
+  nodeSelector:
+    kubernetes.io/os: linux
   
