@@ -101,4 +101,10 @@ archive_info() {
   #
   # Note: the yaml deployment would require `app=csi-secrets-store`
   kubectl logs -l app=secrets-store-csi-driver  --tail -1 -c secrets-store -n kube-system > ${ARTIFACTS}/${FILE_PREFIX}-csi-secrets-store-driver.logs
+
+  # print client and server version information
+  kubectl version > ${ARTIFACTS}/${FILE_PREFIX}-kubectl-version.txt
+
+  # print generic cluster information
+  kubectl cluster-info dump > ${ARTIFACTS}/${FILE_PREFIX}-cluster-info.txt
 }
