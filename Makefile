@@ -375,10 +375,6 @@ e2e-helm-deploy-release:
 e2e-kind-cleanup:
 	kind delete cluster --name kind
 
-.PHONY: e2e-eks-cleanup
-e2e-eks-cleanup: 
-	eksctl delete cluster --name $(EKS_CLUSTER_NAME) --region $(AWS_REGION)
-
 .PHONY: e2e-azure
 e2e-azure: $(AZURE_CLI)
 	bats -t test/bats/azure.bats
@@ -393,7 +389,7 @@ e2e-gcp:
 
 .PHONY: e2e-aws
 e2e-aws:
-	bats -t test/bats/aws.bats
+	EKS_CLUSTER_NAME='$(EKS_CLUSTER_NAME)' bats -t test/bats/aws.bats
 	
 ## --------------------------------------
 ## Generate

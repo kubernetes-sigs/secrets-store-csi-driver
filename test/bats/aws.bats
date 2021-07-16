@@ -15,6 +15,8 @@ BATS_TEST_DIR=test/bats/tests/aws
 if [ -z "$UUID" ]; then 
    export UUID=secret-$(openssl rand -hex 6) 
 fi 
+echo "Running aws tests" >&2
+echo $EKS_CLUSTER_NAME >&2
 
 export SM_TEST_1_NAME=SecretsManagerTest1-$UUID 
 export SM_TEST_2_NAME=SecretsManagerTest2-$UUID 
@@ -39,6 +41,12 @@ setup_file() {
 }
 
 teardown_file() {
+    echo "teardown" >&2
+
+    eksctl delete cluster \
+        --name $EKS_CLUSTER_NAME \
+        --region $REGION
+
     aws secretsmanager delete-secret --secret-id $SM_TEST_1_NAME --force-delete-without-recovery --region $REGION
     aws secretsmanager delete-secret --secret-id $SM_TEST_2_NAME --force-delete-without-recovery --region $REGION
     aws secretsmanager delete-secret --secret-id $SM_SYNC_NAME --force-delete-without-recovery --region $REGION
