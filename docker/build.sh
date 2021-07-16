@@ -129,7 +129,7 @@ manifest() {
     splitOsArch "${os_arch}"
     # Add to manifest if os_arch starts with linux
     if [[ "$os_name" != "windows" ]]; then
-      crd_manifest+=($(echo "$os_arch" | sed "s~\/~-~g" | sed -e "s~[^ ]*~${CRD_IMAGE_TAG}\-&~g"))
+      crd_manifest+=("$(echo "$os_arch" | sed "s~\/~-~g" | sed -e "s~[^ ]*~${CRD_IMAGE_TAG}\-&~g")")
     fi
   done
   docker manifest create --amend "${CRD_IMAGE_TAG}" "${crd_manifest[@]}"
