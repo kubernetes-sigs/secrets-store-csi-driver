@@ -24,7 +24,7 @@
         "agentPoolProfiles": [
             {
                 "name": "windowspool1",
-                "count": 2,
+                "count": 1,
                 "vmSize": "Standard_D2s_v3",
                 "osDiskSizeGB": 128,
                 "availabilityProfile": "AvailabilitySet",
