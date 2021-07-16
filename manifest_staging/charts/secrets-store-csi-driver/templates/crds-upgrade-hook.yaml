@@ -58,7 +58,7 @@ spec:
       - -c
       - >
        kubectl apply -f /crds;
-      imagePullPolicy: {{ .Values.linux.registrarImage.pullPolicy }}
+      imagePullPolicy: {{ .Values.linux.crds.image.pullPolicy }}
   {{- if .Values.imagePullSecrets }}
   imagePullSecrets:
     {{ toYaml .Values.imagePullSecrets | indent 4 }}
