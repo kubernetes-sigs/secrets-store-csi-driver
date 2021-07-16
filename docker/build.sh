@@ -108,7 +108,7 @@ build_and_push() {
 
     # Build and push crd image
     # We always promote to prod from stg registry. So, Check if 'crd' dir from 'charts' exists rather than from 'manifest_staging' dir.
-    if find charts/secrets-store-csi-driver/crds -mindepth 1 -maxdepth 1 | read -r; then
+    if find ../charts/secrets-store-csi-driver/crds -mindepth 1 -maxdepth 1 | read -r; then
       if [[ "$os_name" != "windows" ]]; then
         docker buildx build --no-cache --pull --push --platform "${os_name}/${arch}" -t "${CRD_IMAGE_TAG}-${suffix}" \
         -f crd.Dockerfile ../charts/secrets-store-csi-driver/crds
@@ -129,10 +129,10 @@ manifest() {
     splitOsArch "${os_arch}"
     # Add to manifest if os_arch starts with linux
     if [[ "$os_name" != "windows" ]]; then
-      crd_manifest+=$(echo "$os_arch" | sed "s~\/~-~g" | sed -e "s~[^ ]*~driver-crds\-&~g")
+      crd_manifest+=($(echo "$os_arch" | sed "s~\/~-~g" | sed -e "s~[^ ]*~${CRD_IMAGE_TAG}\-&~g"))
     fi
   done
-  docker manifest create --amend "${CRD_IMAGE_NAME}" "${crd_manifest[@]}"
+  docker manifest create --amend "${CRD_IMAGE_TAG}" "${crd_manifest[@]}"
 
   # We will need the full registry name in order to set the "os.version" for Windows images.
   # If the ${REGISTRY} dcesn't have any slashes, it means that it's on dockerhub.
@@ -150,7 +150,7 @@ manifest() {
 
     # Annotate the crd images
     if [[ "$os_name" != "windows" ]]; then
-      docker manifest annotate --os "${os_name}" --arch "${arch}" "${CRD_IMAGE_NAME}" "${CRD_IMAGE_NAME}-${suffix}"
+      docker manifest annotate --os "${os_name}" --arch "${arch}" "${CRD_IMAGE_TAG}" "${CRD_IMAGE_TAG}-${suffix}"
     fi
 
     # For Windows images, we also need to include the "os.version" in the manifest list, so the Windows node
@@ -170,8 +170,8 @@ manifest() {
   echo "Manifest list:"
   docker manifest inspect "${IMAGE_TAG}"
   docker manifest push --purge "${IMAGE_TAG}"
-  docker manifest inspect "${CRD_IMAGE_NAME}"
-  docker manifest push --purge "${CRD_IMAGE_NAME}"
+  docker manifest inspect "${CRD_IMAGE_TAG}"
+  docker manifest push --purge "${CRD_IMAGE_TAG}"
 }
 
 shift
