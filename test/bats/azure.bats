@@ -5,7 +5,7 @@ load helpers
 BATS_TESTS_DIR=test/bats/tests/azure
 WAIT_TIME=60
 SLEEP_TIME=1
-NAMESPACE=default
+NAMESPACE=kube-system
 PROVIDER_YAML=https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/deployment/provider-azure-installer.yaml
 NODE_SELECTOR_OS=linux
 BASE64_FLAGS="-w 0"
@@ -419,6 +419,7 @@ setup() {
 }
 
 teardown_file() {
+  archive_provider "app=csi-secrets-store-provider-azure" || true
   archive_info || true
 
   #cleanup
