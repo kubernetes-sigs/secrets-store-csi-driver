@@ -270,11 +270,11 @@ crd-container: build-crds
 	docker build --no-cache -t $(CRD_IMAGE_TAG) -f docker/crd.Dockerfile _output/crds/
 
 .PHONY: crd-container-linux
-crd-container-linux: build-crds
+crd-container-linux: build-crds docker-buildx-builder
 	docker buildx build --no-cache --output=type=$(OUTPUT_TYPE) --platform="linux/$(ARCH)" -t $(CRD_IMAGE_TAG)-linux-$(ARCH) -f docker/crd.Dockerfile _output/crds/
 
 .PHONY: container-linux
-container-linux: docker-buildx-builder crd-container-linux
+container-linux: docker-buildx-builder
 	docker buildx build --no-cache --build-arg IMAGE_VERSION=$(IMAGE_VERSION) --output=type=$(OUTPUT_TYPE) --platform="linux/$(ARCH)" \
  		-t $(IMAGE_TAG)-linux-$(ARCH) -f docker/Dockerfile .
 
@@ -298,6 +298,7 @@ container-all:
 
 	for arch in $(ALL_ARCH.linux); do \
 		ARCH=$${arch} $(MAKE) container-linux; \
+		ARCH=$${arch} $(MAKE) crd-container-linux; \
 	done
 	for osversion in $(ALL_OSVERSIONS.windows); do \
   		OSVERSION=$${osversion} $(MAKE) container-windows; \
