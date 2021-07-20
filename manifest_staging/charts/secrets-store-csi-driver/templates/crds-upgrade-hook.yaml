@@ -53,11 +53,10 @@ spec:
   containers:
     - name: crds-upgrade
       image: "{{ .Values.linux.crds.image.repository }}:{{ .Values.linux.crds.image.tag }}"
-      command:
-      - sh
-      - -c
-      - >
-       kubectl apply -f /crds;
+      args:
+      - apply
+      - -f
+      - crds/
       imagePullPolicy: {{ .Values.linux.crds.image.pullPolicy }}
   {{- if .Values.imagePullSecrets }}
   imagePullSecrets:
