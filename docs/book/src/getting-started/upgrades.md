@@ -1,6 +1,7 @@
 # Upgrades
 
 This page includes instructions for upgrading the driver to the latest version.
+
 >**NOTE**: CRDs are moved to `crds` directory. Helm hooks are added to `pre-install` and `pre-upgrade` crds. This hook pod will only run on _linux_ nodes.
 
 ```bash
