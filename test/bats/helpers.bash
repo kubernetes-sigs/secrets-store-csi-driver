@@ -86,13 +86,14 @@ archive_info() {
     return 0
   fi
 
-  FILE_PREFIX=$(date +"%FT%H%M%S")
+  LOGS_DIR=${ARTIFACTS}/$(date +"%FT%H%M%S")
+  mkdir -p "${LOGS_DIR}"
 
   # print all pod information
-  kubectl get pods -A -o json > ${ARTIFACTS}/${FILE_PREFIX}-pods.json
+  kubectl get pods -A -o json > ${LOGS_DIR}/pods.json
 
   # print detailed pod information
-  kubectl describe pods --all-namespaces > ${ARTIFACTS}/${FILE_PREFIX}-pods-describe.txt
+  kubectl describe pods --all-namespaces > ${LOGS_DIR}/pods-describe.txt
 
   # print logs from the CSI Driver
   #
@@ -100,11 +101,13 @@ archive_info() {
   # sets the `app` selector to `secrets-store-csi-driver`.
   #
   # Note: the yaml deployment would require `app=csi-secrets-store`
-  kubectl logs -l app=secrets-store-csi-driver  --tail -1 -c secrets-store -n kube-system > ${ARTIFACTS}/${FILE_PREFIX}-csi-secrets-store-driver.logs
+  kubectl logs -l app=secrets-store-csi-driver  --tail -1 -c secrets-store -n kube-system > ${LOGS_DIR}/secrets-store.log
+  kubectl logs -l app=secrets-store-csi-driver  --tail -1 -c node-driver-registrar -n kube-system > ${LOGS_DIR}/node-driver-registrar.log
+  kubectl logs -l app=secrets-store-csi-driver  --tail -1 -c liveness-probe -n kube-system > ${LOGS_DIR}/liveness-probe.log
 
   # print client and server version information
-  kubectl version > ${ARTIFACTS}/${FILE_PREFIX}-kubectl-version.txt
+  kubectl version > ${LOGS_DIR}/kubectl-version.txt
 
   # print generic cluster information
-  kubectl cluster-info dump > ${ARTIFACTS}/${FILE_PREFIX}-cluster-info.txt
+  kubectl cluster-info dump > ${LOGS_DIR}/cluster-info.txt
 }
