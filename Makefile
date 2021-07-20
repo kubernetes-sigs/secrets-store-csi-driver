@@ -145,8 +145,10 @@ sanity-test:
 image-scan: $(TRIVY)
 	# show all vulnerabilities
 	$(TRIVY) --severity MEDIUM,HIGH,CRITICAL $(IMAGE_TAG)
+	$(TRIVY) --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
 	# show vulnerabilities that have been fixed
 	$(TRIVY) --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(IMAGE_TAG)
+	$(TRIVY) --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
 
 ## --------------------------------------
 ## Tooling Binaries
@@ -267,11 +269,12 @@ container: crd-container
 
 .PHONY: crd-container
 crd-container: build-crds
-	docker build --no-cache -t $(CRD_IMAGE_TAG) -f docker/crd.Dockerfile _output/crds/
+	docker build --no-cache --build-arg ARCH=$(ARCH) -t $(CRD_IMAGE_TAG) -f docker/crd.Dockerfile _output/crds/
 
 .PHONY: crd-container-linux
 crd-container-linux: build-crds docker-buildx-builder
-	docker buildx build --no-cache --output=type=$(OUTPUT_TYPE) --platform="linux/$(ARCH)" -t $(CRD_IMAGE_TAG)-linux-$(ARCH) -f docker/crd.Dockerfile _output/crds/
+	docker buildx build --no-cache --output=type=$(OUTPUT_TYPE) --platform="linux/$(ARCH)" \
+		--build-arg ARCH=$(ARCH) -t $(CRD_IMAGE_TAG)-linux-$(ARCH) -f docker/crd.Dockerfile _output/crds/
 
 .PHONY: container-linux
 container-linux: docker-buildx-builder
@@ -364,7 +367,7 @@ e2e-teardown: $(HELM)
 
 .PHONY: e2e-helm-deploy
 e2e-helm-deploy:
-	helm install csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace kube-system --wait --timeout=15m -v=5 --debug \
+	helm install csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace kube-system --wait --timeout=5m -v=5 --debug \
 		--set linux.image.pullPolicy="IfNotPresent" \
 		--set windows.image.pullPolicy="IfNotPresent" \
 		--set linux.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
@@ -381,7 +384,7 @@ e2e-helm-deploy:
 
 .PHONY: e2e-helm-upgrade
 e2e-helm-upgrade:
-	helm upgrade csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace kube-system --reuse-values --timeout=15m -v=5 --debug --set filteredWatchSecret=true \
+	helm upgrade csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace kube-system --reuse-values --timeout=5m -v=5 --debug --set filteredWatchSecret=true \
 		--set linux.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
 		--set linux.image.tag=$(IMAGE_VERSION) \
 		--set windows.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
@@ -392,7 +395,7 @@ e2e-helm-upgrade:
 e2e-helm-deploy-release:
 	set -x; \
 	current_release=$(shell (echo ${RELEASE_VERSION} | sed s/"v"//)); \
-	helm install csi-secrets-store charts/secrets-store-csi-driver-$${current_release}.tgz --namespace kube-system --wait --timeout=15m -v=5 --debug \
+	helm install csi-secrets-store charts/secrets-store-csi-driver-$${current_release}.tgz --namespace kube-system --wait --timeout=5m -v=5 --debug \
 		--set linux.image.pullPolicy="IfNotPresent" \
 		--set windows.image.pullPolicy="IfNotPresent" \
 		--set windows.enabled=true \
