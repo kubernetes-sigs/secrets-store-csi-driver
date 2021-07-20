@@ -24,6 +24,7 @@ REPO_PATH="$(ORG_PATH)/$(PROJECT_NAME)"
 
 REGISTRY ?= gcr.io/k8s-staging-csi-secrets-store
 IMAGE_NAME ?= driver
+CRD_IMAGE_NAME ?= driver-crds
 # Release version is the current supported release for the driver
 # Update this version when the helm chart is being updated for release
 RELEASE_VERSION := v0.0.23
@@ -33,6 +34,7 @@ ifdef CI
 override IMAGE_VERSION := v0.1.0-e2e-$(BUILD_COMMIT)
 endif
 IMAGE_TAG=$(REGISTRY)/$(IMAGE_NAME):$(IMAGE_VERSION)
+CRD_IMAGE_TAG=$(REGISTRY)/$(CRD_IMAGE_NAME):$(IMAGE_VERSION)
 
 # build variables
 BUILD_TIMESTAMP := $$(date +%Y-%m-%d-%H:%M)
@@ -246,9 +248,30 @@ build-windows:
 build-darwin:
 	GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=darwin go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
 
+.PHONY: clean-crds
+clean-crds:
+	rm -rf _output/crds/*
+
+.PHONY: build-crds
+build-crds: clean-crds
+	mkdir -p _output/crds
+ifdef CI
+	cp -R manifest_staging/charts/secrets-store-csi-driver/crds/ _output/crds/
+else
+	cp -R charts/secrets-store-csi-driver/crds/ _output/crds/
+endif
+
 .PHONY: container
-container:
+container: crd-container
 	docker build --no-cache --build-arg IMAGE_VERSION=$(IMAGE_VERSION) -t $(IMAGE_TAG) -f docker/Dockerfile .
+
+.PHONY: crd-container
+crd-container: build-crds
+	docker build --no-cache -t $(CRD_IMAGE_TAG) -f docker/crd.Dockerfile _output/crds/
+
+.PHONY: crd-container-linux
+crd-container-linux: build-crds docker-buildx-builder
+	docker buildx build --no-cache --output=type=$(OUTPUT_TYPE) --platform="linux/$(ARCH)" -t $(CRD_IMAGE_TAG)-linux-$(ARCH) -f docker/crd.Dockerfile _output/crds/
 
 .PHONY: container-linux
 container-linux: docker-buildx-builder
@@ -275,6 +298,7 @@ container-all:
 
 	for arch in $(ALL_ARCH.linux); do \
 		ARCH=$${arch} $(MAKE) container-linux; \
+		ARCH=$${arch} $(MAKE) crd-container-linux; \
 	done
 	for osversion in $(ALL_OSVERSIONS.windows); do \
   		OSVERSION=$${osversion} $(MAKE) container-windows; \
@@ -283,6 +307,7 @@ container-all:
 .PHONY: push-manifest
 push-manifest:
 	docker manifest create --amend $(IMAGE_TAG) $(foreach osarch, $(ALL_OS_ARCH), $(IMAGE_TAG)-${osarch})
+	docker manifest create --amend $(CRD_IMAGE_TAG) $(foreach osarch, $(ALL_OS_ARCH.linux), $(CRD_IMAGE_TAG)-${osarch})
 	# add "os.version" field to windows images (based on https://github.com/kubernetes/kubernetes/blob/master/build/pause/Makefile)
 	set -x; \
 	registry_prefix=$(shell (echo ${REGISTRY} | grep -Eq ".*[\/\.].*") && echo "" || echo "docker.io/"); \
@@ -296,6 +321,8 @@ push-manifest:
 	done
 	docker manifest push --purge $(IMAGE_TAG)
 	docker manifest inspect $(IMAGE_TAG)
+	docker manifest push --purge $(CRD_IMAGE_TAG)
+	docker manifest inspect $(CRD_IMAGE_TAG)
 
 ## --------------------------------------
 ## E2E Testing
@@ -324,6 +351,7 @@ ifdef TEST_WINDOWS
 else
 	$(MAKE) container
 	kind load docker-image --name kind $(IMAGE_TAG)
+	kind load docker-image --name kind $(CRD_IMAGE_TAG)
 endif
 
 .PHONY: e2e-test
@@ -343,6 +371,8 @@ e2e-helm-deploy:
 		--set linux.image.tag=$(IMAGE_VERSION) \
 		--set windows.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
 		--set windows.image.tag=$(IMAGE_VERSION) \
+		--set linux.crds.image.repository=$(REGISTRY)/$(CRD_IMAGE_NAME) \
+		--set linux.crds.image.tag=$(IMAGE_VERSION) \
 		--set windows.enabled=true \
 		--set linux.enabled=true \
 		--set syncSecret.enabled=true \
