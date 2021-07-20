@@ -81,6 +81,21 @@ check_secret_deleted() {
   [[ "$result" -eq 0 ]]
 }
 
+# Usage:
+#
+# archive_provider "<pod label selector>"
+#
+# provider pod must be in kube-system
+archive_provider() {
+  if [[ -z "${ARTIFACTS}" ]]; then
+    return 0
+  fi
+
+  FILE_PREFIX=$(date +"%FT%H%M%S")
+
+  kubectl logs -l $1 --tail -1 -n kube-system > ${ARTIFACTS}/${FILE_PREFIX}-provider.logs
+}
+
 archive_info() {
   if [[ -z "${ARTIFACTS}" ]]; then
     return 0
