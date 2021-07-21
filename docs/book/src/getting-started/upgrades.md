@@ -2,6 +2,8 @@
 
 This page includes instructions for upgrading the driver to the latest version.
 
+>**NOTE**: [CustomResourceDefinitions](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) (CRDs) have been moved from `templates` to `crds` directory in the helm charts. To manage the lifecycle of the CRDs during install/upgrade, helm `pre-install` and `pre-upgrade` hook has been added. This hook will create a pod that runs only on **linux** nodes and deploys the CRDs in the Kubernetes cluster.
+
 ```bash
 helm upgrade csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver --namespace=NAMESPACE
 ```
