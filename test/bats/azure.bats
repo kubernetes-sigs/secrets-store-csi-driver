@@ -99,7 +99,7 @@ setup() {
 @test "CSI inline volume test with pod portability" {
   envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -f -
   
-  kubectl wait --for=condition=Ready --timeout=60s pod/secrets-store-inline-crd
+  kubectl wait --for=condition=Ready --timeout=180s pod/secrets-store-inline-crd
 
   run kubectl get pod/secrets-store-inline-crd
   assert_success
@@ -409,7 +409,7 @@ setup() {
   envsubst < $BATS_TESTS_DIR/azure_v1alpha1_secretproviderclass.yaml | kubectl apply -n non-filtered-watch -f -
   envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -n non-filtered-watch -f -
 
-  kubectl wait -n non-filtered-watch --for=condition=Ready --timeout=60s pod/secrets-store-inline-crd
+  kubectl wait -n non-filtered-watch --for=condition=Ready --timeout=180s pod/secrets-store-inline-crd
 
   run kubectl get pod/secrets-store-inline-crd -n non-filtered-watch
   assert_success
