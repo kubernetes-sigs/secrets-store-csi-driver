@@ -64,7 +64,7 @@ linux:
   providersDir: /etc/kubernetes/secrets-store-csi-providers
   nodeSelector: {}
   tolerations: []
-  metricsAddr: ":8095"
+  metricsAddr: "8095"
   env: []
   priorityClassName: ""
   daemonsetAnnotations: {}
@@ -147,7 +147,7 @@ windows:
   providersDir: C:\k\secrets-store-csi-providers
   nodeSelector: {}
   tolerations: []
-  metricsAddr: ":8095"
+  metricsAddr: "8095"
   env: []
   priorityClassName: ""
   daemonsetAnnotations: {}

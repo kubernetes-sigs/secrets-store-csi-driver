@@ -55,7 +55,7 @@ var (
 	logFormatJSON      = flag.Bool("log-format-json", false, "set log formatter to json")
 	providerVolumePath = flag.String("provider-volume", "/etc/kubernetes/secrets-store-csi-providers", "Volume path for provider")
 	// this will be removed in a future release
-	metricsAddr          = flag.String("metrics-addr", ":8095", "The address the metric endpoint binds to")
+	metricsAddr          = flag.Int("metrics-addr", "8095", "The address the metric endpoint binds to")
 	enableSecretRotation = flag.Bool("enable-secret-rotation", false, "Enable secret rotation feature [alpha]")
 	rotationPollInterval = flag.Duration("rotation-poll-interval", 2*time.Minute, "Secret rotation poll interval duration")
 	enableProfile        = flag.Bool("enable-pprof", false, "enable pprof profiling")
@@ -110,7 +110,7 @@ func main() {
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:             scheme,
-		MetricsBindAddress: *metricsAddr,
+		MetricsBindAddress: fmt.Sprintf(":%d", metricsAddr),
 		LeaderElection:     false,
 		MapperProvider: func(c *rest.Config) (meta.RESTMapper, error) {
 			return apiutil.NewDynamicRESTMapper(c, apiutil.WithLazyDiscovery)
