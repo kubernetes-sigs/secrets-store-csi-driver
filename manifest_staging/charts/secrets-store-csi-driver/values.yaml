@@ -2,7 +2,7 @@ linux:
   enabled: true
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v0.0.23
+    tag: v0.1.0
     pullPolicy: IfNotPresent
   
   crds:
@@ -92,7 +92,7 @@ windows:
   enabled: false
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v0.0.23
+    tag: v0.1.0
     pullPolicy: IfNotPresent
 
   ## Prevent the CSI driver from being scheduled on virtual-kublet nodes

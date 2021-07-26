@@ -27,8 +27,8 @@ IMAGE_NAME ?= driver
 CRD_IMAGE_NAME ?= driver-crds
 # Release version is the current supported release for the driver
 # Update this version when the helm chart is being updated for release
-RELEASE_VERSION := v0.0.23
-IMAGE_VERSION ?= v0.1.0-rc.0
+RELEASE_VERSION := v0.1.0
+IMAGE_VERSION ?= v0.1.0
 # Use a custom version for E2E tests if we are testing in CI
 ifdef CI
 override IMAGE_VERSION := v0.1.0-e2e-$(BUILD_COMMIT)
@@ -437,7 +437,7 @@ e2e-aws:
 manifests: $(CONTROLLER_GEN) $(KUSTOMIZE)
 	# Generate the base CRD/RBAC
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=secretproviderclasses-role paths="./apis/..." paths="./controllers" output:crd:artifacts:config=config/crd/bases
-	cp config/crd/bases/* manifest_staging/charts/secrets-store-csi-driver/templates
+	cp config/crd/bases/* manifest_staging/charts/secrets-store-csi-driver/crds
 	cp config/crd/bases/* manifest_staging/deploy/
 
 	# generate rbac-secretproviderclass
