@@ -436,7 +436,7 @@ e2e-aws:
 manifests: $(CONTROLLER_GEN) $(KUSTOMIZE)
 	# Generate the base CRD/RBAC
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=secretproviderclasses-role paths="./apis/..." paths="./controllers" output:crd:artifacts:config=config/crd/bases
-	cp config/crd/bases/* manifest_staging/charts/secrets-store-csi-driver/templates
+	cp config/crd/bases/* manifest_staging/charts/secrets-store-csi-driver/crds
 	cp config/crd/bases/* manifest_staging/deploy/
 
 	# generate rbac-secretproviderclass
