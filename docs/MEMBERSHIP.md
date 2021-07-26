@@ -76,7 +76,8 @@ Description: Reviewers are Contributors who are able to review code for quality 
 
 * Privileges:
   * Invitations to Contributor events
-  * Eligible to become a reviewer or approver
+  * Eligible to become an approver
+  * May give "lgtm" comment for code contributions
 
 **Note:** Acceptance of code contributions requires at least one approver in addition to the assigned reviewers.
 
@@ -123,7 +124,7 @@ A Maintainer has the rights, responsiblities, and requirements of an Approver, p
 * Requirements
   * Experience as an Approver for at least 6 months   
   * Demonstrates a broad knowledge of the project across multiple areas
-  * Is able to exercise judgement for the good of the project, independant of their employer, social circles, or teams
+  * Is able to exercise judgement for the good of the project, independent of their employer, social circles, or teams
   * Mentors other Contributors
   
 * Additional privileges:
