@@ -363,12 +363,8 @@ setup() {
 }
 
 @test "Test auto rotation of mount contents and K8s secrets" {
-  run kubectl cp -n rotation secrets-store-inline-rotation:/mnt/secrets-store/secretalias $BATS_TMPDIR/before_rotation
-  assert_success
-
-  result=$(cat $BATS_TMPDIR/before_rotation)
+  result=$(kubectl exec -n rotation secrets-store-inline-rotation -- cat /mnt/secrets-store/secretalias)
   [[ "${result//$'\r'}" == "secret" ]]
-  rm $BATS_TMPDIR/before_rotation
 
   result=$(kubectl get secret -n rotation rotationsecret -o jsonpath="{.data.username}" | base64 -d)
   [[ "${result//$'\r'}" == "secret" ]]
@@ -378,12 +374,8 @@ setup() {
 
   sleep 60
 
-  run kubectl cp -n rotation secrets-store-inline-rotation:/mnt/secrets-store/secretalias $BATS_TMPDIR/after_rotation
-  assert_success
-
-  result=$(cat $BATS_TMPDIR/after_rotation)
+  result=$(kubectl exec -n rotation secrets-store-inline-rotation -- cat /mnt/secrets-store/secretalias)
   [[ "${result//$'\r'}" == "rotated" ]]
-  rm $BATS_TMPDIR/after_rotation
 
   result=$(kubectl get secret -n rotation rotationsecret -o jsonpath="{.data.username}" | base64 -d)
   [[ "${result//$'\r'}" == "rotated" ]]

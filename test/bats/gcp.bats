@@ -54,23 +54,23 @@ export SECRET_VALUE=${SECRET_VALUE:-"aHVudGVyMg=="}
 }
 
 @test "deploy gcp secretproviderclass crd" {
-  envsubst < $BATS_TESTS_DIR/gcp_v1alpha1_secretproviderclass.yaml | kubectl apply -f -
+  envsubst < $BATS_TESTS_DIR/gcp_v1alpha1_secretproviderclass.yaml | kubectl apply --namespace=$NAMESPACE -f -
 
-  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/gcp -o yaml | grep gcp"
+  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/gcp --namespace=$NAMESPACE -o yaml | grep gcp"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 }
 
 @test "CSI inline volume test with pod portability" {
-  envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -f -
+  envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply --namespace=$NAMESPACE -f -
   
-  kubectl wait --for=condition=Ready --timeout=60s pod/secrets-store-inline-crd
+  kubectl wait --for=condition=Ready --timeout=60s --namespace=$NAMESPACE pod/secrets-store-inline-crd
 
-  run kubectl get pod/secrets-store-inline-crd
+  run kubectl get pod/secrets-store-inline-crd --namespace=$NAMESPACE
   assert_success
 }
 
 @test "CSI inline volume test with pod portability - read gcp kv secret from pod" {
-  result=$(kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$FILE_NAME)
+  result=$(kubectl exec secrets-store-inline-crd --namespace=$NAMESPACE -- cat /mnt/secrets-store/$FILE_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 }
 
@@ -78,11 +78,11 @@ export SECRET_VALUE=${SECRET_VALUE:-"aHVudGVyMg=="}
   # https://github.com/kubernetes/kubernetes/pull/96702
   # kubectl wait --for=delete does not work on already deleted pods.
   # Instead we will start the wait before initiating the delete.
-  kubectl wait --for=delete --timeout=${WAIT_TIME}s pod/secrets-store-inline-crd &
+  kubectl wait --for=delete --timeout=${WAIT_TIME}s --namespace=$NAMESPACE pod/secrets-store-inline-crd &
   WAIT_PID=$!
 
   sleep 1
-  run kubectl delete pod secrets-store-inline-crd
+  run kubectl delete pod secrets-store-inline-crd --namespace=$NAMESPACE
 
   # On Linux a failure to unmount the tmpfs will block the pod from being
   # deleted.
