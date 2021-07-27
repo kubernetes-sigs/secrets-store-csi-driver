@@ -28,6 +28,5 @@ func BuildSecretObjectData(files map[string]string, secretObj *v1alpha1.SecretOb
 			ObjectName: key,
 			Key:        renamedKey,
 		})
-
 	}
 }

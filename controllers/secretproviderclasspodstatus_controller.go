@@ -41,14 +41,13 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/secretutil"
 
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	client "sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	apiruntime "k8s.io/apimachinery/pkg/runtime"
+
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -66,7 +65,7 @@ const (
 type SecretProviderClassPodStatusReconciler struct {
 	client.Client
 	mutex         *sync.Mutex
-	scheme        *apiruntime.Scheme
+	scheme        *runtime.Scheme
 	nodeID        string
 	reader        client.Reader
 	writer        client.Writer
@@ -136,7 +135,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 			spcMap[namespace+"/"+spcName] = *spc
 		}
 		// get the pod and check if the pod has a owner reference
-		pod := &v1.Pod{}
+		pod := &corev1.Pod{}
 		err = r.reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: spcPodStatuses[i].Status.PodName}, pod)
 		if err != nil {
 			return fmt.Errorf("failed to fetch pod during patching, err: %+v", err)
@@ -239,7 +238,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 
 	// Obtain the full pod metadata. An object reference is needed for sending
 	// events and the UID is helpful for validating the SPCPS TargetPath.
-	pod := &v1.Pod{}
+	pod := &corev1.Pod{}
 	if err := r.reader.Get(ctx, client.ObjectKey{Namespace: req.Namespace, Name: spcPodStatus.Status.PodName}, pod); err != nil {
 		klog.ErrorS(err, "failed to get pod", "pod", klog.ObjectRef{Namespace: req.Namespace, Name: spcPodStatus.Status.PodName})
 		if apierrors.IsNotFound(err) {
@@ -250,7 +249,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 	// skip reconcile if the pod is being terminated
 	// or the pod is in succeeded state (for jobs that complete aren't gc yet)
 	// or the pod is in a failed state (all containers get terminated)
-	if !pod.GetDeletionTimestamp().IsZero() || pod.Status.Phase == v1.PodSucceeded || pod.Status.Phase == v1.PodFailed {
+	if !pod.GetDeletionTimestamp().IsZero() || pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
 		klog.V(5).InfoS("pod is being terminated, skipping reconcile", "pod", klog.KObj(pod))
 		return ctrl.Result{}, nil
 	}
@@ -288,6 +287,10 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 
 	for _, secretObj := range spc.Spec.SecretObjects {
 		if secretObj.SyncAll {
+			if secretutil.GetSecretType(strings.TrimSpace(secretObj.Type)) != corev1.SecretTypeOpaque {
+				return ctrl.Result{}, fmt.Errorf("secret provider class %s/%s cannot use syncAll for non-opaque secrets", spc.Namespace, spc.Name)
+			}
+
 			spcutil.BuildSecretObjectData(files, secretObj)
 		}
 	}
@@ -436,6 +439,7 @@ func (r *SecretProviderClassPodStatusReconciler) createK8sSecret(ctx context.Con
 	}
 
 	err := r.writer.Create(ctx, secret)
+
 	if err == nil {
 		klog.InfoS("successfully created Kubernetes secret", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
 		return nil
@@ -490,7 +494,7 @@ func (r *SecretProviderClassPodStatusReconciler) patchSecretWithOwnerRef(ctx con
 
 // secretExists checks if the secret with name and namespace already exists
 func (r *SecretProviderClassPodStatusReconciler) secretExists(ctx context.Context, name, namespace string) (bool, error) {
-	o := &v1.Secret{}
+	o := &corev1.Secret{}
 	secretKey := types.NamespacedName{
 		Namespace: namespace,
 		Name:      name,
