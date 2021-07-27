@@ -63,5 +63,5 @@ If the secret rotation feature is enabled and filtered secret watch is not enabl
 1. Label all existing `nodePublishSecretRef` secrets with `secrets-store.csi.k8s.io/used=true` by running `kubectl label secret <node publish secret ref name> secrets-store.csi.k8s.io/used=true`.
 2. Enable filtered secret watch by setting `--filtered-watch-secret=true` in `secrets-store` container or via helm using `--set filteredWatchSecret=true`.
 
-**NOTE:** `--filtered-watch-secret=true` will be enabled by default in n+3 releases (`v0.0.25`). Please take the necessary action to label the `nodePublishSecretRef` secrets with the `secrets-store.csi.k8s.io/used=true` label.
+**NOTE:** `--filtered-watch-secret=true` is enabled by default in [v0.1.0](https://github.com/kubernetes-sigs/secrets-store-csi-driver/releases/tag/v0.1.0) release. Please take the necessary action to label the `nodePublishSecretRef` secrets with the `secrets-store.csi.k8s.io/used=true` label before upgrade.
 </aside>
