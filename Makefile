@@ -365,6 +365,18 @@ e2e-test: e2e-bootstrap e2e-helm-deploy # run test for windows
 e2e-teardown: $(HELM)
 	helm delete csi-secrets-store --namespace kube-system
 
+.PHONY: e2e-deploy-manifest
+e2e-deploy-manifest:
+	kubectl apply -f manifest_staging/deploy/csidriver.yaml
+	kubectl apply -f manifest_staging/deploy/rbac-secretproviderclass.yaml
+	kubectl apply -f manifest_staging/deploy/rbac-secretproviderrotation.yaml
+	kubectl apply -f manifest_staging/deploy/rbac-secretprovidersyncing.yaml
+	kubectl apply -f manifest_staging/deploy/secrets-store-csi-driver-windows.yaml
+	kubectl apply -f manifest_staging/deploy/secrets-store.csi.x-k8s.io_secretproviderclasses.yaml
+	kubectl apply -f manifest_staging/deploy/secrets-store.csi.x-k8s.io_secretproviderclasspodstatuses.yaml
+
+	yq e '.spec.template.spec.containers[1].image = "$(IMAGE_TAG)"' 'manifest_staging/deploy/secrets-store-csi-driver.yaml' | kubectl apply -f -
+
 .PHONY: e2e-helm-deploy
 e2e-helm-deploy:
 	helm install csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace kube-system --wait --timeout=5m -v=5 --debug \
