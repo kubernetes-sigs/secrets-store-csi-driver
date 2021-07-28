@@ -88,6 +88,7 @@ ENVSUBST := envsubst
 SHELLCHECK := $(TOOLS_BIN_DIR)/shellcheck-$(SHELLCHECK_VER)
 EKSCTL := eksctl
 AWS_CLI := aws
+YQ := yq
 
 # Test variables
 KIND_VERSION ?= 0.11.0
@@ -96,6 +97,7 @@ BATS_VERSION ?= 1.2.1
 TRIVY_VERSION ?= 0.14.0
 PROTOC_VERSION ?= 3.15.2
 SHELLCHECK_VER ?= v0.7.2
+YQ_VERSION ?= v4.11.2
 
 # For aws integration tests 
 BUILD_TIMESTAMP_W_SEC := $(shell date +%Y-%m-%d-%H-%M-%S)
@@ -200,6 +202,9 @@ $(ENVSUBST): ## Install envsubst for running the tests
 
 $(PROTOC): ## Install protoc
 	curl -sSLO https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip && unzip protoc-${PROTOC_VERSION}-linux-x86_64.zip bin/protoc -d $(TOOLS_BIN_DIR) && rm protoc-${PROTOC_VERSION}-linux-x86_64.zip 
+
+$(YQ): ## Install yq for running the tests
+	curl -LO https://github.com/mikefarah/yq/releases/download/$(YQ_VERSION)/yq_linux_amd64 && chmod +x ./yq_linux_amd64 && mv yq_linux_amd64 /usr/local/bin/yq
 
 $(SHELLCHECK): OS := $(shell uname | tr '[:upper:]' '[:lower:]')
 $(SHELLCHECK): ARCH := $(shell uname -m)
@@ -331,7 +336,7 @@ push-manifest:
 ## E2E Testing
 ## --------------------------------------
 .PHONY: e2e-bootstrap
-e2e-bootstrap: $(HELM) $(BATS) $(KIND) $(KUBECTL) $(ENVSUBST) #setup all required binaries and kind cluster for testing
+e2e-bootstrap: $(HELM) $(BATS) $(KIND) $(KUBECTL) $(ENVSUBST) $(YQ) #setup all required binaries and kind cluster for testing
 ifndef TEST_WINDOWS
 	$(MAKE) setup-kind
 endif
