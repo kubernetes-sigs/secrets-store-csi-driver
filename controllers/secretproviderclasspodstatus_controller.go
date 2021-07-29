@@ -264,7 +264,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 		return ctrl.Result{}, err
 	}
 
-	if len(spc.Spec.SecretObjects) == 0 {
+	if len(spc.Spec.SecretObjects) == 0 && !spc.Spec.SyncOptions.SyncAll {
 		klog.InfoS("no secret objects defined for spc, nothing to reconcile", "spc", klog.KObj(spc), "spcps", klog.KObj(spcPodStatus))
 		return ctrl.Result{}, nil
 	}
@@ -285,9 +285,13 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 
 	files, err := fileutil.GetMountedFiles(spcPodStatus.Status.TargetPath)
 
+	if spc.Spec.SyncOptions.SyncAll {
+		spc.Spec.SecretObjects = spcutil.BuildSecretObjects(files, spc.Spec.SyncOptions.Type)
+	}
+
 	for _, secretObj := range spc.Spec.SecretObjects {
 		if secretObj.SyncAll {
-			if secretutil.GetSecretType(strings.TrimSpace(secretObj.Type)) != corev1.SecretTypeOpaque {
+			if secretutil.GetSecretType(strings.TrimSpace(secretObj.Type)) != corev1.SecretTypeOpaque && secretutil.GetSecretType(strings.TrimSpace(secretObj.Type)) != corev1.SecretTypeBasicAuth {
 				return ctrl.Result{}, fmt.Errorf("secret provider class %s/%s cannot use syncAll for non-opaque secrets", spc.Namespace, spc.Name)
 			}
 

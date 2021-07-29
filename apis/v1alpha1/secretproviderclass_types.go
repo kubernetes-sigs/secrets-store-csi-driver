@@ -55,6 +55,14 @@ type SecretObject struct {
 	SyncAll bool `json:"syncAll,omitempty"`
 }
 
+// SyncOptions defines the desired state of synced K8s secret objects and replaces SecretObject
+type SyncOptions struct {
+	// syncs all secrets listed in the parameters field of SecretProviderClass
+	SyncAll bool `json:"syncAll,omitempty"`
+	// type of K8s secret object
+	Type string `json:"type,omitempty"`
+}
+
 // SecretProviderClassSpec defines the desired state of SecretProviderClass
 type SecretProviderClassSpec struct {
 	// Configuration for provider name
@@ -62,6 +70,7 @@ type SecretProviderClassSpec struct {
 	// Configuration for specific provider
 	Parameters    map[string]string `json:"parameters,omitempty"`
 	SecretObjects []*SecretObject   `json:"secretObjects,omitempty"`
+	SyncOptions   SyncOptions       `json:"syncOptions,omitempty"`
 }
 
 // ByPodStatus defines the state of SecretProviderClass as seen by

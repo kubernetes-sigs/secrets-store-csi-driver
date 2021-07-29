@@ -429,11 +429,16 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 		}
 	}
 
-	if len(spc.Spec.SecretObjects) == 0 {
+	if len(spc.Spec.SecretObjects) == 0 && !spc.Spec.SyncOptions.SyncAll {
 		klog.InfoS("spc doesn't contain secret objects", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "controller", "rotation")
 		return nil
 	}
+
 	files, err := fileutil.GetMountedFiles(spcps.Status.TargetPath)
+
+	if spc.Spec.SyncOptions.SyncAll {
+		spc.Spec.SecretObjects = spcutil.BuildSecretObjects(files, spc.Spec.SyncOptions.Type)
+	}
 
 	for _, secretObj := range spc.Spec.SecretObjects {
 		if secretObj.SyncAll {

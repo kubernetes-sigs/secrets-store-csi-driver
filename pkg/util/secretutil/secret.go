@@ -121,6 +121,21 @@ func getPrivateKey(data []byte) ([]byte, error) {
 	return pem.EncodeToMemory(block), nil
 }
 
+type basicAuthCreds struct {
+	Username string
+	Password string
+}
+
+// getCredentials parses the mounted content and returns the required
+// key-value pairs for a kubernetes.io/basic-auth K8s secret
+func getCredentials(data []byte) basicAuthCreds {
+	credentials := strings.Split(string(data), ";")
+	return basicAuthCreds{
+		Username: credentials[0],
+		Password: credentials[1],
+	}
+}
+
 // GetSecretType returns a k8s secret type.
 // Kubernetes doesn't impose any constraints on the type name: https://kubernetes.io/docs/concepts/configuration/secret/#secret-types
 // If the secret type is empty, then default is Opaque.
@@ -175,6 +190,13 @@ func GetSecretData(secretObjData []*v1alpha1.SecretObjectData, secretType corev1
 				return datamap, fmt.Errorf("failed to get cert data from file %s, err: %+v", file, err)
 			}
 			datamap[dataKey] = c
+		}
+		if secretType == corev1.SecretTypeBasicAuth {
+			credentials := getCredentials(content)
+			delete(datamap, dataKey)
+
+			datamap["username"] = []byte(credentials.Username)
+			datamap["password"] = []byte(credentials.Password)
 		}
 	}
 	return datamap, nil
