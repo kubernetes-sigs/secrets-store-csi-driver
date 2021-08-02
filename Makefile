@@ -371,7 +371,7 @@ e2e-teardown: $(HELM)
 	helm delete csi-secrets-store --namespace kube-system
 
 .PHONY: e2e-helm-deploy
-e2e-helm-deploy:
+e2e-helm-deploy: export IS_YAML_TEST = true
 	kubectl apply -f manifest_staging/deploy/csidriver.yaml
 	kubectl apply -f manifest_staging/deploy/rbac-secretproviderclass.yaml
 	kubectl apply -f manifest_staging/deploy/rbac-secretproviderrotation.yaml
