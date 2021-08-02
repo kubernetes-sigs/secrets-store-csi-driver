@@ -349,7 +349,7 @@ setup-kind: $(KIND)
 	kind create cluster --image kindest/node:v$(KUBERNETES_VERSION)
 
 .PHONY: setup-eks-cluster
-setup-eks-cluster: $(HELM) $(EKSCTL) $(BATS) $(ENVSUBST)
+setup-eks-cluster: $(HELM) $(EKSCTL) $(BATS) $(ENVSUBST) $(YQ)
 	bash test/scripts/initialize_eks_cluster.bash $(EKS_CLUSTER_NAME) $(IMAGE_VERSION)  
 
 .PHONY: e2e-container
