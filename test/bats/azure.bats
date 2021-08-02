@@ -388,6 +388,10 @@ setup() {
 }
 
 @test "Test filtered-watch-secret=false for nodePublishSecretRef" {
+  if [[ "${IS_YAML_TEST}" == "true" ]]; then
+    skip "Testing with deployment manifest YAMLs"
+  fi
+
   local chart_dir=${HELM_CHART_DIR}
   if [[ "${chart_dir}" == "" ]]; then
     chart_dir=manifest_staging/charts/secrets-store-csi-driver
