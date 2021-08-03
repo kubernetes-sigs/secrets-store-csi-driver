@@ -792,7 +792,7 @@ func checkVolumeContents(targetDir, tcName string, payload map[string]FileProjec
 		if strings.HasPrefix(info.Name(), "..") {
 			continue
 		}
-		if info.Mode()&os.ModeSymlink != 0 {
+		if info.Type()&os.ModeSymlink != 0 {
 			p := filepath.Join(targetDir, info.Name())
 			actual, err := os.Readlink(p)
 			if err != nil {
