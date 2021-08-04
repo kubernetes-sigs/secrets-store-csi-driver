@@ -79,3 +79,4 @@ cscope.*
 demo/
 docs/book/book
 __debug_bin
+test/e2eprovider/fake-provider

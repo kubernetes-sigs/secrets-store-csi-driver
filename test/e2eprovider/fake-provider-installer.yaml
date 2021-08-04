@@ -1,46 +1,33 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: csi-secrets-store-provider-azure
+  name: csi-secrets-store-fake-provider
 ---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   labels:
-    app: csi-secrets-store-provider-azure
-  name: csi-secrets-store-provider-azure
+    app: csi-secrets-store-fake-provider
+  name: csi-secrets-store-fake-provider
 spec:
   updateStrategy:
     type: RollingUpdate
   selector:
     matchLabels:
-      app: csi-secrets-store-provider-azure
+      app: csi-secrets-store-fake-provider
   template:
     metadata:
       labels:
-        app: csi-secrets-store-provider-azure
+        app: csi-secrets-store-fake-provider
     spec:
-      serviceAccountName: csi-secrets-store-provider-azure
+      serviceAccountName: csi-secrets-store-fake-provider
       hostNetwork: true
       containers:
-        - name: provider-azure-installer
-          image: mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v0.1.0
+        - name: fake-provider
+          image: replace/this/image/at/build/time
           imagePullPolicy: IfNotPresent
           args:
-            - --endpoint=unix:///provider/azure.sock
-            - --construct-pem-chain=false
-            - --healthz-port=8989
-            - --healthz-path=/healthz
-            - --healthz-timeout=5s
-            - --driver-write-secrets=true
-          livenessProbe:
-            httpGet:
-              path: /healthz
-              port: 8989
-            failureThreshold: 3
-            initialDelaySeconds: 5
-            timeoutSeconds: 10
-            periodSeconds: 30
+            - --endpoint=unix:///provider/fake-provider.sock
           resources:
             requests:
               cpu: 50m

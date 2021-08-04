@@ -25,16 +25,21 @@ REPO_PATH="$(ORG_PATH)/$(PROJECT_NAME)"
 REGISTRY ?= gcr.io/k8s-staging-csi-secrets-store
 IMAGE_NAME ?= driver
 CRD_IMAGE_NAME ?= driver-crds
+FAKE_PROVIDER_IMAGE_NAME ?= fake-provider
+
 # Release version is the current supported release for the driver
 # Update this version when the helm chart is being updated for release
 RELEASE_VERSION := v0.1.0
 IMAGE_VERSION ?= v0.1.0
+
 # Use a custom version for E2E tests if we are testing in CI
 ifdef CI
 override IMAGE_VERSION := v0.1.0-e2e-$(BUILD_COMMIT)
 endif
+
 IMAGE_TAG=$(REGISTRY)/$(IMAGE_NAME):$(IMAGE_VERSION)
 CRD_IMAGE_TAG=$(REGISTRY)/$(CRD_IMAGE_NAME):$(IMAGE_VERSION)
+FAKE_PROVIDER_IMAGE_TAG=$(REGISTRY)/$(FAKE_PROVIDER_IMAGE_NAME):$(IMAGE_VERSION)
 
 # build variables
 BUILD_TIMESTAMP := $$(date +%Y-%m-%d-%H:%M)
@@ -242,6 +247,10 @@ shellcheck: $(SHELLCHECK)
 build:
 	GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=linux go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
 
+.PHONY: build-fake-provider
+build-fake-provider:
+	cd test/e2eprovider && GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=linux go build -a -o fake-provider
+
 .PHONY: build-windows
 build-windows:
 	GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=windows go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi.exe ./cmd/secrets-store-csi-driver
@@ -262,6 +271,10 @@ ifdef CI
 else
 	cp -R charts/secrets-store-csi-driver/crds/ _output/crds/
 endif
+
+.PHONY: fake-provider-container
+fake-provider-container:
+	docker build --no-cache -t $(FAKE_PROVIDER_IMAGE_TAG) -f test/e2eprovider/Dockerfile .
 
 .PHONY: container
 container: crd-container
@@ -357,6 +370,11 @@ else
 	kind load docker-image --name kind $(CRD_IMAGE_TAG)
 endif
 
+.PHONY: e2e-fake-provider-container
+e2e-fake-provider-container:
+	$(MAKE) fake-provider-container
+	kind load docker-image --name kind $(FAKE_PROVIDER_IMAGE_TAG)
+
 .PHONY: e2e-test
 e2e-test: e2e-bootstrap e2e-helm-deploy # run test for windows
 	$(MAKE) e2e-azure
@@ -364,6 +382,10 @@ e2e-test: e2e-bootstrap e2e-helm-deploy # run test for windows
 .PHONY: e2e-teardown
 e2e-teardown: $(HELM)
 	helm delete csi-secrets-store --namespace kube-system
+
+.PHONY: e2e-fake-provider-deploy
+e2e-fake-provider-deploy:
+	yq e 'select(.kind == "DaemonSet").spec.template.spec.containers[0].image = "$(FAKE_PROVIDER_IMAGE_TAG)"' 'test/e2eprovider/fake-provider-installer.yaml' | kubectl apply -f -
 
 .PHONY: e2e-helm-deploy
 e2e-helm-deploy:

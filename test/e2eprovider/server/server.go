@@ -109,8 +109,8 @@ func (m *SimpleCSIProviderServer) Mount(ctx context.Context, req *v1alpha1.Mount
 				Contents: []byte(content.Token),
 			})
 			resp.ObjectVersion = append(resp.ObjectVersion, &v1alpha1.ObjectVersion{
-				Id: fmt.Sprintf("secret/%s", path),
-				Version: "v1"
+				Id:      fmt.Sprintf("secret/%s", path),
+				Version: "v1",
 			})
 		}
 		resp.Files = append(resp.Files, files...)
@@ -130,8 +130,8 @@ func (m *SimpleCSIProviderServer) Mount(ctx context.Context, req *v1alpha1.Mount
 				Contents: []byte(kv.Value),
 			})
 			resp.ObjectVersion = append(resp.ObjectVersion, &v1alpha1.ObjectVersion{
-				Id: fmt.Sprintf("secret/%s", kv.Key),
-				Version: "v1"
+				Id:      fmt.Sprintf("secret/%s", kv.Key),
+				Version: "v1",
 			})
 		}
 		resp.Files = append(resp.Files, files...)
@@ -143,8 +143,8 @@ func (m *SimpleCSIProviderServer) Mount(ctx context.Context, req *v1alpha1.Mount
 		Contents: []byte("bar"),
 	})
 	resp.ObjectVersion = append(resp.ObjectVersion, &v1alpha1.ObjectVersion{
-		Id: fmt.Sprintf("secret/%s", "foo"),
-		Version: "v1"
+		Id:      fmt.Sprintf("secret/%s", "foo"),
+		Version: "v1",
 	})
 
 	return resp, nil
