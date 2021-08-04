@@ -136,6 +136,17 @@ func (m *SimpleCSIProviderServer) Mount(ctx context.Context, req *v1alpha1.Mount
 		}
 		resp.Files = append(resp.Files, files...)
 	}
+
+	// Always return "foo=bar" secret
+	resp.Files = append(resp.Files, &v1alpha1.File{
+		Path:     "foo",
+		Contents: []byte("bar"),
+	})
+	resp.ObjectVersion = append(resp.ObjectVersion, &v1alpha1.ObjectVersion{
+		Id: fmt.Sprintf("secret/%s", "foo"),
+		Version: "v1"
+	})
+
 	return resp, nil
 }
 
