@@ -1,4 +1,4 @@
-package e2eprovider
+package server
 
 import (
 	"context"

@@ -1,4 +1,4 @@
-package e2eprovider
+package server
 
 import (
 	"context"
@@ -12,40 +12,52 @@ import (
 
 	"google.golang.org/grpc"
 	"k8s.io/klog/v2"
+	util "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 	"sigs.k8s.io/yaml"
 )
 
+// SimpleSecretKeyValue struct represents a secret key value pair
 type SimpleSecretKeyValue struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }
 
+// KubernetesTokenContent struct represents a kubernetes token
 type KubernetesTokenContent struct {
 	Token               string    `json:"token"`
 	ExpirationTimestamp time.Time `json:"expirationTimestamp"`
 }
 
+// SimpleCSIProviderServer is a mock csi-provider server
 type SimpleCSIProviderServer struct {
 	grpcServer *grpc.Server
 	listener   net.Listener
-	socketPath string
+	SocketPath string
+	network    string
 }
 
 // NewSimpleCSIProviderServer returns a mock csi-provider grpc server
-func NewSimpleCSIProviderServer(socketPath string) (*SimpleCSIProviderServer, error) {
+func NewSimpleCSIProviderServer(endpoint string) (*SimpleCSIProviderServer, error) {
+	network, address, err := util.ParseEndpoint(endpoint)
+	if err != nil {
+		klog.Fatal(err.Error())
+	}
+
 	server := grpc.NewServer()
 	s := &SimpleCSIProviderServer{
 		grpcServer: server,
-		socketPath: socketPath,
+		SocketPath: address,
+		network:    network,
 	}
 	v1alpha1.RegisterCSIDriverProviderServer(server, s)
 	return s, nil
 }
 
+// Start starts the mock csi-provider server
 func (m *SimpleCSIProviderServer) Start() error {
 	var err error
-	m.listener, err = net.Listen("unix", m.socketPath)
+	m.listener, err = net.Listen(m.network, m.SocketPath)
 	if err != nil {
 		return err
 	}
@@ -53,6 +65,7 @@ func (m *SimpleCSIProviderServer) Start() error {
 	return nil
 }
 
+// Stop stops the mock csi-provider server
 func (m *SimpleCSIProviderServer) Stop() {
 	m.grpcServer.GracefulStop()
 }
