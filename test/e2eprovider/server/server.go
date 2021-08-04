@@ -57,10 +57,13 @@ func NewSimpleCSIProviderServer(endpoint string) (*SimpleCSIProviderServer, erro
 // Start starts the mock csi-provider server
 func (m *SimpleCSIProviderServer) Start() error {
 	var err error
+
 	m.listener, err = net.Listen(m.network, m.SocketPath)
 	if err != nil {
 		return err
 	}
+
+	klog.Infof("Listening for connections on address: %v", m.listener.Addr())
 	go m.grpcServer.Serve(m.listener)
 	return nil
 }
@@ -94,27 +97,28 @@ func (m *SimpleCSIProviderServer) Mount(ctx context.Context, req *v1alpha1.Mount
 	}
 
 	if rawTokenContent, ok := attrib["csi.storage.k8s.io/serviceAccount.tokens"]; ok {
-		tokens := map[string]KubernetesTokenContent{}
-		err := json.Unmarshal([]byte(rawTokenContent), &tokens)
-		if err != nil {
-			klog.Errorf("Error unmarshaling tokens attribute: %v", err)
-		}
-		files := []*v1alpha1.File{}
-		for sub, content := range tokens {
-			u, _ := url.Parse(sub)
+		if rawTokenContent != "" {
+			tokens := map[string]KubernetesTokenContent{}
+			err := json.Unmarshal([]byte(rawTokenContent), &tokens)
+			if err != nil {
+				klog.Errorf("Error unmarshaling tokens attribute: %v", err)
+			}
+			files := []*v1alpha1.File{}
+			for sub, content := range tokens {
+				u, _ := url.Parse(sub)
 
-			path := filepath.Join(u.Hostname(), u.EscapedPath())
-			files = append(files, &v1alpha1.File{
-				Path:     path,
-				Contents: []byte(content.Token),
-			})
-			resp.ObjectVersion = append(resp.ObjectVersion, &v1alpha1.ObjectVersion{
-				Id:      fmt.Sprintf("secret/%s", path),
-				Version: "v1",
-			})
+				path := filepath.Join(u.Hostname(), u.EscapedPath())
+				files = append(files, &v1alpha1.File{
+					Path:     path,
+					Contents: []byte(content.Token),
+				})
+				resp.ObjectVersion = append(resp.ObjectVersion, &v1alpha1.ObjectVersion{
+					Id:      fmt.Sprintf("secret/%s", path),
+					Version: "v1",
+				})
+			}
+			resp.Files = append(resp.Files, files...)
 		}
-		resp.Files = append(resp.Files, files...)
-
 	}
 	if rawSecretContent, ok := attrib["secrets"]; ok {
 		secretContents := []SimpleSecretKeyValue{}
@@ -137,7 +141,7 @@ func (m *SimpleCSIProviderServer) Mount(ctx context.Context, req *v1alpha1.Mount
 		resp.Files = append(resp.Files, files...)
 	}
 
-	// Always return "foo=bar" secret
+	// return "foo=bar" secret
 	resp.Files = append(resp.Files, &v1alpha1.File{
 		Path:     "foo",
 		Contents: []byte("bar"),

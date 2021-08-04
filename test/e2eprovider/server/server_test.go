@@ -51,6 +51,10 @@ func TestMount(t *testing.T) {
 						Id:      "secret/password",
 						Version: "v1",
 					},
+					{
+						Id:      "secret/foo",
+						Version: "v1",
+					},
 				},
 				Files: []*v1alpha1.File{
 					{
@@ -64,6 +68,10 @@ func TestMount(t *testing.T) {
 					{
 						Path:     "password",
 						Contents: []byte("1234"),
+					},
+					{
+						Path:     "foo",
+						Contents: []byte("bar"),
 					},
 				},
 			},
