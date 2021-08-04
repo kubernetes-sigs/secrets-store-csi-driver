@@ -390,7 +390,7 @@ e2e-teardown: $(HELM)
 
 .PHONY: e2e-fake-provider-deploy
 e2e-fake-provider-deploy:
-	yq e 'select(.kind == "DaemonSet").spec.template.spec.containers[0].image = "$(FAKE_PROVIDER_IMAGE_TAG)"' 'test/e2eprovider/fake-provider-installer.yaml' | kubectl apply -f -
+	yq e 'select(.kind == "DaemonSet").spec.template.spec.containers[0].image = "$(FAKE_PROVIDER_IMAGE_TAG)"' 'test/e2eprovider/fake-provider-installer.yaml' | kubectl apply -n kube-system -f -
 
 .PHONY: e2e-deploy-manifest
 e2e-deploy-manifest:
