@@ -93,6 +93,7 @@ ENVSUBST := envsubst
 SHELLCHECK := $(TOOLS_BIN_DIR)/shellcheck-$(SHELLCHECK_VER)
 EKSCTL := eksctl
 AWS_CLI := aws
+YQ := yq
 
 # Test variables
 KIND_VERSION ?= 0.11.0
@@ -101,6 +102,7 @@ BATS_VERSION ?= 1.2.1
 TRIVY_VERSION ?= 0.14.0
 PROTOC_VERSION ?= 3.15.2
 SHELLCHECK_VER ?= v0.7.2
+YQ_VERSION ?= v4.11.2
 
 # For aws integration tests 
 BUILD_TIMESTAMP_W_SEC := $(shell date +%Y-%m-%d-%H-%M-%S)
@@ -205,6 +207,9 @@ $(ENVSUBST): ## Install envsubst for running the tests
 
 $(PROTOC): ## Install protoc
 	curl -sSLO https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip && unzip protoc-${PROTOC_VERSION}-linux-x86_64.zip bin/protoc -d $(TOOLS_BIN_DIR) && rm protoc-${PROTOC_VERSION}-linux-x86_64.zip 
+
+$(YQ): ## Install yq for running the tests
+	curl -LO https://github.com/mikefarah/yq/releases/download/$(YQ_VERSION)/yq_linux_amd64 && chmod +x ./yq_linux_amd64 && mv yq_linux_amd64 /usr/local/bin/yq
 
 $(SHELLCHECK): OS := $(shell uname | tr '[:upper:]' '[:lower:]')
 $(SHELLCHECK): ARCH := $(shell uname -m)
@@ -344,7 +349,7 @@ push-manifest:
 ## E2E Testing
 ## --------------------------------------
 .PHONY: e2e-bootstrap
-e2e-bootstrap: $(HELM) $(BATS) $(KIND) $(KUBECTL) $(ENVSUBST) #setup all required binaries and kind cluster for testing
+e2e-bootstrap: $(HELM) $(BATS) $(KIND) $(KUBECTL) $(ENVSUBST) $(YQ) #setup all required binaries and kind cluster for testing
 ifndef TEST_WINDOWS
 	$(MAKE) setup-kind
 endif
@@ -357,7 +362,7 @@ setup-kind: $(KIND)
 	kind create cluster --image kindest/node:v$(KUBERNETES_VERSION)
 
 .PHONY: setup-eks-cluster
-setup-eks-cluster: $(HELM) $(EKSCTL) $(BATS) $(ENVSUBST)
+setup-eks-cluster: $(HELM) $(EKSCTL) $(BATS) $(ENVSUBST) $(YQ)
 	bash test/scripts/initialize_eks_cluster.bash $(EKS_CLUSTER_NAME) $(IMAGE_VERSION)  
 
 .PHONY: e2e-container
@@ -386,6 +391,19 @@ e2e-teardown: $(HELM)
 .PHONY: e2e-fake-provider-deploy
 e2e-fake-provider-deploy:
 	yq e 'select(.kind == "DaemonSet").spec.template.spec.containers[0].image = "$(FAKE_PROVIDER_IMAGE_TAG)"' 'test/e2eprovider/fake-provider-installer.yaml' | kubectl apply -f -
+
+.PHONY: e2e-deploy-manifest
+e2e-deploy-manifest:
+	kubectl apply -f manifest_staging/deploy/csidriver.yaml
+	kubectl apply -f manifest_staging/deploy/rbac-secretproviderclass.yaml
+	kubectl apply -f manifest_staging/deploy/rbac-secretproviderrotation.yaml
+	kubectl apply -f manifest_staging/deploy/rbac-secretprovidersyncing.yaml
+	kubectl apply -f manifest_staging/deploy/secrets-store.csi.x-k8s.io_secretproviderclasses.yaml
+	kubectl apply -f manifest_staging/deploy/secrets-store.csi.x-k8s.io_secretproviderclasspodstatuses.yaml
+
+	yq e '(.spec.template.spec.containers[1].image = "$(IMAGE_TAG)") | (.spec.template.spec.containers[1].args as $$x | $$x += "--enable-secret-rotation=true" | $$x[-1] style="double") | (.spec.template.spec.containers[1].args as $$x | $$x += "--rotation-poll-interval=30s" | $$x[-1] style="double")' 'manifest_staging/deploy/secrets-store-csi-driver.yaml' | kubectl apply -f -
+
+	yq e '(.spec.template.spec.containers[1].args as $$x | $$x += "--enable-secret-rotation=true" | $$x[-1] style="double") | (.spec.template.spec.containers[1].args as $$x | $$x += "--rotation-poll-interval=30s" | $$x[-1] style="double")' 'manifest_staging/deploy/secrets-store-csi-driver-windows.yaml' | kubectl apply -f -
 
 .PHONY: e2e-helm-deploy
 e2e-helm-deploy:

@@ -22,6 +22,10 @@ if [ -z "$AUTO_ROTATE_SECRET_NAME" ]; then
     export AUTO_ROTATE_SECRET_NAME=secret-$(openssl rand -hex 6)
 fi
 
+if [ -z "$IS_YAML_TEST" ]; then
+    export IS_YAML_TEST=false
+fi
+
 export KEYVAULT_NAME=${KEYVAULT_NAME:-csi-secrets-store-e2e}
 export SECRET_NAME=${KEYVAULT_SECRET_NAME:-secret1}
 export SECRET_VERSION=${KEYVAULT_SECRET_VERSION:-""}
@@ -388,6 +392,10 @@ setup() {
 }
 
 @test "Test filtered-watch-secret=false for nodePublishSecretRef" {
+  if [[ "${IS_YAML_TEST}" == "true" ]]; then
+    skip "Testing with deployment manifest YAMLs"
+  fi
+
   local chart_dir=${HELM_CHART_DIR}
   if [[ "${chart_dir}" == "" ]]; then
     chart_dir=manifest_staging/charts/secrets-store-csi-driver
