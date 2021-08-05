@@ -77,3 +77,30 @@ export NODE_SELECTOR_OS=$NODE_SELECTOR_OS
   result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
   [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 }
+
+@test "CSI inline volume test with pod portability - unmount succeeds" {
+  # https://github.com/kubernetes/kubernetes/pull/96702
+  # kubectl wait --for=delete does not work on already deleted pods.
+  # Instead we will start the wait before initiating the delete.
+  kubectl wait --for=delete --timeout=${WAIT_TIME}s pod/secrets-store-inline-crd &
+  WAIT_PID=$!
+
+  sleep 1
+  run kubectl delete pod secrets-store-inline-crd
+
+  # On Linux a failure to unmount the tmpfs will block the pod from being
+  # deleted.
+  run wait $WAIT_PID
+  assert_success
+
+  # Sleep to allow time for logs to propagate.
+  sleep 10
+  # save debug information to archive in case of failure
+  archive_info
+
+  # On Windows, the failed unmount calls from: https://github.com/kubernetes-sigs/secrets-store-csi-driver/pull/545
+  # do not prevent the pod from being deleted. Search through the driver logs
+  # for the error.
+  run bash -c "kubectl logs -l app=secrets-store-csi-driver --tail -1 -c secrets-store -n kube-system | grep '^E.*failed to clean and unmount target path.*$'"
+  assert_failure
+}
