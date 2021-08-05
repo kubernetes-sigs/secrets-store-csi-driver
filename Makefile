@@ -25,11 +25,12 @@ REPO_PATH="$(ORG_PATH)/$(PROJECT_NAME)"
 REGISTRY ?= gcr.io/k8s-staging-csi-secrets-store
 IMAGE_NAME ?= driver
 CRD_IMAGE_NAME ?= driver-crds
-FAKE_PROVIDER_IMAGE_NAME ?= fake-provider
+E2E_PROVIDER_IMAGE_NAME ?= e2e-provider
 
 # Release version is the current supported release for the driver
 # Update this version when the helm chart is being updated for release
-RELEASE_VERSION := v0.1.0
+RELEASE_VERSION := 
+
 IMAGE_VERSION ?= v0.1.0
 
 # Use a custom version for E2E tests if we are testing in CI
@@ -39,7 +40,7 @@ endif
 
 IMAGE_TAG=$(REGISTRY)/$(IMAGE_NAME):$(IMAGE_VERSION)
 CRD_IMAGE_TAG=$(REGISTRY)/$(CRD_IMAGE_NAME):$(IMAGE_VERSION)
-FAKE_PROVIDER_IMAGE_TAG=$(REGISTRY)/$(FAKE_PROVIDER_IMAGE_NAME):$(IMAGE_VERSION)
+E2E_PROVIDER_IMAGE_TAG=$(REGISTRY)/$(E2E_PROVIDER_IMAGE_NAME):$(IMAGE_VERSION)
 
 # build variables
 BUILD_TIMESTAMP := $$(date +%Y-%m-%d-%H:%M)
@@ -252,9 +253,9 @@ shellcheck: $(SHELLCHECK)
 build:
 	GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=linux go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
 
-.PHONY: build-fake-provider
-build-fake-provider:
-	cd test/e2eprovider && GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=linux go build -a -o fake-provider
+.PHONY: build-e2e-provider
+build-e2e-provider:
+	cd test/e2eprovider && GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=linux go build -a -o e2e-provider
 
 .PHONY: build-windows
 build-windows:
@@ -277,9 +278,9 @@ else
 	cp -R charts/secrets-store-csi-driver/crds/ _output/crds/
 endif
 
-.PHONY: fake-provider-container
-fake-provider-container:
-	docker build --no-cache -t $(FAKE_PROVIDER_IMAGE_TAG) -f test/e2eprovider/Dockerfile .
+.PHONY: e2e-provider-container
+e2e-provider-container:
+	docker build --no-cache -t $(E2E_PROVIDER_IMAGE_TAG) -f test/e2eprovider/Dockerfile .
 
 .PHONY: container
 container: crd-container
@@ -377,8 +378,8 @@ endif
 
 .PHONY: e2e-fake-provider-container
 e2e-fake-provider-container:
-	$(MAKE) fake-provider-container
-	kind load docker-image --name kind $(FAKE_PROVIDER_IMAGE_TAG)
+	$(MAKE) e2e-provider-container
+	kind load docker-image --name kind $(E2E_PROVIDER_IMAGE_TAG)
 
 .PHONY: e2e-test
 e2e-test: e2e-bootstrap e2e-helm-deploy # run test for windows
@@ -388,9 +389,9 @@ e2e-test: e2e-bootstrap e2e-helm-deploy # run test for windows
 e2e-teardown: $(HELM)
 	helm delete csi-secrets-store --namespace kube-system
 
-.PHONY: e2e-fake-provider-deploy
-e2e-fake-provider-deploy:
-	yq e 'select(.kind == "DaemonSet").spec.template.spec.containers[0].image = "$(FAKE_PROVIDER_IMAGE_TAG)"' 'test/e2eprovider/fake-provider-installer.yaml' | kubectl apply -n kube-system -f -
+.PHONY: e2e-provider-deploy
+e2e-provider-deploy:
+	yq e 'select(.kind == "DaemonSet").spec.template.spec.containers[0].image = "$(E2E_PROVIDER_IMAGE_TAG)"' 'test/e2eprovider/e2e-provider-installer.yaml' | kubectl apply -n kube-system -f -
 
 .PHONY: e2e-deploy-manifest
 e2e-deploy-manifest:
@@ -452,6 +453,10 @@ e2e-kind-cleanup:
 .PHONY: e2e-eks-cleanup
 e2e-eks-cleanup: 
 	eksctl delete cluster --name $(EKS_CLUSTER_NAME) --region $(AWS_REGION)
+
+.PHONY: e2e-provider
+e2e-provider:
+	bats -t test/bats/e2e-provider.bats
 
 .PHONY: e2e-azure
 e2e-azure: $(AZURE_CLI)
