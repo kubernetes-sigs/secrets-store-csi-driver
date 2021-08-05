@@ -137,11 +137,11 @@ test: lint go-test
 
 .PHONY: go-test # Run unit tests
 go-test:
-	go test -cover $(GO_FILES) -v
+	go test -mod=vendor -cover $(GO_FILES) -v
 
 .PHONY: sanity-test # Run CSI sanity tests for the driver
 sanity-test:
-	go test -v ./test/sanity
+	go test -mod=vendor -v ./test/sanity
 
 .PHONY: image-scan
 image-scan: $(TRIVY)
@@ -245,15 +245,15 @@ shellcheck: $(SHELLCHECK)
 ## --------------------------------------
 .PHONY: build
 build:
-	GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=linux go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
+	GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=linux go build -mod=vendor -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
 
 .PHONY: build-windows
 build-windows:
-	GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=windows go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi.exe ./cmd/secrets-store-csi-driver
+	GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=windows go build -mod=vendor -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi.exe ./cmd/secrets-store-csi-driver
 
 .PHONY: build-darwin
 build-darwin:
-	GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=darwin go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
+	GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=darwin go build -mod=vendor -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
 
 .PHONY: clean-crds
 clean-crds:
@@ -516,3 +516,11 @@ promote-staging-manifest: #promote staging manifests to release dir
 .PHONY: redeploy-driver
 redeploy-driver: e2e-container
 	kubectl delete pod $(shell kubectl get pod -n kube-system -l app=secrets-store-csi-driver -o jsonpath="{.items[0].metadata.name}") -n kube-system --force --grace-period 0
+
+## --------------------------------------
+## Vendor
+## --------------------------------------
+.PHONY: vendor
+vendor:
+	go mod tidy
+	go mod vendor
