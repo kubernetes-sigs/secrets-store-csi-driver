@@ -15,7 +15,7 @@ export SECRET_VALUE=${KEYVAULT_SECRET_VALUE:-"bar"}
 # export key vars
 export KEY_NAME=${KEYVAULT_KEY_NAME:-fookey}
 export KEY_VERSION=${KEYVAULT_KEY_VERSION:-"v1"}
-export KEY_VALUE_CONTAINS=${KEYVAULT_KEY_VALUE:-"barkey"}
+export KEY_VALUE_CONTAINS=${KEYVAULT_KEY_VALUE:-"LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KVGhpcyBpcyBmYWtlIGtleQotLS0tLUVORCBQVUJMSUMgS0VZLS0tLS0K"}
 
 # export node selector var
 export NODE_SELECTOR_OS=$NODE_SELECTOR_OS
@@ -63,4 +63,17 @@ export NODE_SELECTOR_OS=$NODE_SELECTOR_OS
 
   run kubectl get pod/secrets-store-inline-crd
   assert_success
+}
+
+@test "CSI inline volume test with pod portability - read kv secret from pod" {
+  wait_for_process $WAIT_TIME $SLEEP_TIME "kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME | grep '${SECRET_VALUE}'"
+
+  result=$(kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME)
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+}
+
+@test "CSI inline volume test with pod portability - read kv key from pod" {
+  result=$(kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$KEY_NAME)
+  result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
+  [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 }

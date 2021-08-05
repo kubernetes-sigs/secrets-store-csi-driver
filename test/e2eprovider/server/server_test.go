@@ -78,8 +78,10 @@ func TestMount(t *testing.T) {
 						Contents: []byte("bar"),
 					},
 					{
-						Path:     "fookey",
-						Contents: []byte("barkey"),
+						Path: "fookey",
+						Contents: []byte(`-----BEGIN PUBLIC KEY-----
+This is fake key
+-----END PUBLIC KEY-----`),
 					},
 				},
 			},
