@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	endpoint = flag.String("endpoint", "unix:///tmp/fake-provider.sock", "CSI provier gRPC endpoint")
+	endpoint = flag.String("endpoint", "unix:///tmp/e2e-provider.sock", "CSI provier gRPC endpoint")
 )
 
 func main() {
@@ -25,7 +25,7 @@ func main() {
 
 	fakeProviderServer, err := server.NewSimpleCSIProviderServer(*endpoint)
 	if err != nil {
-		klog.Fatalf("failed to get new fake provider server, err: %+v", err)
+		klog.Fatalf("failed to get new fake e2e provider server, err: %+v", err)
 	}
 
 	if err := os.Remove(fakeProviderServer.SocketPath); err != nil && !os.IsNotExist(err) {
@@ -34,11 +34,11 @@ func main() {
 
 	err = fakeProviderServer.Start()
 	if err != nil {
-		klog.Fatalf("failed to start fake provider server, err: %+v", err)
+		klog.Fatalf("failed to start fake e2e provider server, err: %+v", err)
 	}
 
 	<-signalChan
 	// gracefully stop the grpc server
-	klog.Infof("terminating the fake server")
+	klog.Infof("terminating the e2e provider server")
 	fakeProviderServer.Stop()
 }

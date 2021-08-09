@@ -1,33 +1,33 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: csi-secrets-store-fake-provider
+  name: csi-secrets-store-e2e-provider
 ---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   labels:
-    app: csi-secrets-store-fake-provider
-  name: csi-secrets-store-fake-provider
+    app: csi-secrets-store-e2e-provider
+  name: csi-secrets-store-e2e-provider
 spec:
   updateStrategy:
     type: RollingUpdate
   selector:
     matchLabels:
-      app: csi-secrets-store-fake-provider
+      app: csi-secrets-store-e2e-provider
   template:
     metadata:
       labels:
-        app: csi-secrets-store-fake-provider
+        app: csi-secrets-store-e2e-provider
     spec:
-      serviceAccountName: csi-secrets-store-fake-provider
+      serviceAccountName: csi-secrets-store-e2e-provider
       hostNetwork: true
       containers:
-        - name: fake-provider
+        - name: e2e-provider
           image: replace/this/image/at/build/time
           imagePullPolicy: IfNotPresent
           args:
-            - --endpoint=unix:///provider/fake-provider.sock
+            - --endpoint=unix:///provider/e2e-provider.sock
           resources:
             requests:
               cpu: 50m

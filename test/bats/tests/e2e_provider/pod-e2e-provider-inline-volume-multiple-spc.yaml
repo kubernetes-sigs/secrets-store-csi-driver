@@ -1,0 +1,46 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: secrets-store-inline-multiple-crd
+spec:
+  terminationGracePeriodSeconds: 0
+  containers:
+  - image: k8s.gcr.io/e2e-test-images/busybox:1.29
+    name: busybox
+    imagePullPolicy: IfNotPresent
+    command:
+    - "/bin/sleep"
+    - "10000"
+    volumeMounts:
+    - name: secrets-store-inline-0
+      mountPath: "/mnt/secrets-store-0"
+      readOnly: true
+    - name: secrets-store-inline-1
+      mountPath: "/mnt/secrets-store-1"
+      readOnly: true
+    env:
+    - name: SECRET_USERNAME_0
+      valueFrom:
+        secretKeyRef:
+          name: foosecret-0
+          key: username
+    - name: SECRET_USERNAME_1
+      valueFrom:
+        secretKeyRef:
+          name: foosecret-1
+          key: username
+  volumes:
+    - name: secrets-store-inline-0
+      csi:
+        driver: secrets-store.csi.k8s.io
+        readOnly: true
+        volumeAttributes:
+          secretProviderClass: "e2e-provider-spc-0"
+    - name: secrets-store-inline-1
+      csi:
+        driver: secrets-store.csi.k8s.io
+        readOnly: true
+        volumeAttributes:
+          secretProviderClass: "e2e-provider-spc-1"
+  nodeSelector:
+    kubernetes.io/os: $NODE_SELECTOR_OS

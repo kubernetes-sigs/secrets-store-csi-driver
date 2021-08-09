@@ -10,10 +10,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"google.golang.org/grpc"
-	"k8s.io/klog/v2"
 	util "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
+	"sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/types"
+
+	"google.golang.org/grpc"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 )
 
@@ -78,6 +80,10 @@ func (m *SimpleCSIProviderServer) Mount(ctx context.Context, req *v1alpha1.Mount
 	var attrib, secret map[string]string
 	var filePermission os.FileMode
 	var err error
+	klog.Infof("Attributes: %v", attrib)
+	resp := &v1alpha1.MountResponse{
+		ObjectVersion: []*v1alpha1.ObjectVersion{},
+	}
 
 	if err = json.Unmarshal([]byte(req.GetAttributes()), &attrib); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal attributes, error: %+v", err)
@@ -92,8 +98,57 @@ func (m *SimpleCSIProviderServer) Mount(ctx context.Context, req *v1alpha1.Mount
 		return nil, fmt.Errorf("missing target path")
 	}
 
-	resp := &v1alpha1.MountResponse{
-		ObjectVersion: []*v1alpha1.ObjectVersion{},
+	objectsStrings := attrib["objects"]
+	if objectsStrings == "" {
+		return nil, fmt.Errorf("objects is not set")
+	}
+
+	var objects types.StringArray
+	err = yaml.Unmarshal([]byte(objectsStrings), &objects)
+	if err != nil {
+		return nil, fmt.Errorf("failed to yaml unmarshal objects, error: %w", err)
+	}
+
+	keyVaultObjects := []types.KeyVaultObject{}
+	for i, object := range objects.Array {
+		var keyVaultObject types.KeyVaultObject
+		err = yaml.Unmarshal([]byte(object), &keyVaultObject)
+		if err != nil {
+			return nil, fmt.Errorf("unmarshal failed for keyVaultObjects at index %d, error: %w", i, err)
+		}
+
+		keyVaultObjects = append(keyVaultObjects, keyVaultObject)
+	}
+
+	for _, keyVaultObject := range keyVaultObjects {
+		fileName := keyVaultObject.ObjectName
+		if keyVaultObject.ObjectAlias != "" {
+			fileName = keyVaultObject.ObjectAlias
+		}
+
+		if keyVaultObject.ObjectName == "foo" {
+			resp.Files = append(resp.Files, &v1alpha1.File{
+				Path:     fileName,
+				Contents: []byte("bar"),
+			})
+			resp.ObjectVersion = append(resp.ObjectVersion, &v1alpha1.ObjectVersion{
+				Id:      fmt.Sprintf("secret/%s", fileName),
+				Version: "v1",
+			})
+		}
+
+		if keyVaultObject.ObjectName == "fookey" {
+			resp.Files = append(resp.Files, &v1alpha1.File{
+				Path: fileName,
+				Contents: []byte(`-----BEGIN PUBLIC KEY-----
+This is fake key
+-----END PUBLIC KEY-----`),
+			})
+			resp.ObjectVersion = append(resp.ObjectVersion, &v1alpha1.ObjectVersion{
+				Id:      fmt.Sprintf("secret/%s", fileName),
+				Version: "v1",
+			})
+		}
 	}
 
 	if rawTokenContent, ok := attrib["csi.storage.k8s.io/serviceAccount.tokens"]; ok {
@@ -141,27 +196,27 @@ func (m *SimpleCSIProviderServer) Mount(ctx context.Context, req *v1alpha1.Mount
 		resp.Files = append(resp.Files, files...)
 	}
 
-	// return "foo=bar" secret
-	resp.Files = append(resp.Files, &v1alpha1.File{
-		Path:     "foo",
-		Contents: []byte("bar"),
-	})
-	resp.ObjectVersion = append(resp.ObjectVersion, &v1alpha1.ObjectVersion{
-		Id:      fmt.Sprintf("secret/%s", "foo"),
-		Version: "v1",
-	})
+	// // return "foo=bar" secret
+	// resp.Files = append(resp.Files, &v1alpha1.File{
+	// 	Path:     "foo",
+	// 	Contents: []byte("bar"),
+	// })
+	// resp.ObjectVersion = append(resp.ObjectVersion, &v1alpha1.ObjectVersion{
+	// 	Id:      fmt.Sprintf("secret/%s", "foo"),
+	// 	Version: "v1",
+	// })
 
-	// return "fookey=barkey" key
-	resp.Files = append(resp.Files, &v1alpha1.File{
-		Path: "fookey",
-		Contents: []byte(`-----BEGIN PUBLIC KEY-----
-This is fake key
------END PUBLIC KEY-----`),
-	})
-	resp.ObjectVersion = append(resp.ObjectVersion, &v1alpha1.ObjectVersion{
-		Id:      fmt.Sprintf("secret/%s", "fookey"),
-		Version: "v1",
-	})
+	// 	// return "fookey=barkey" key
+	// 	resp.Files = append(resp.Files, &v1alpha1.File{
+	// 		Path: "fookey",
+	// 		Contents: []byte(`-----BEGIN PUBLIC KEY-----
+	// This is fake key
+	// -----END PUBLIC KEY-----`),
+	// 	})
+	// 	resp.ObjectVersion = append(resp.ObjectVersion, &v1alpha1.ObjectVersion{
+	// 		Id:      fmt.Sprintf("secret/%s", "fookey"),
+	// 		Version: "v1",
+	// 	})
 
 	return resp, nil
 }

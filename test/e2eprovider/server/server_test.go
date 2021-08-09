@@ -29,6 +29,15 @@ func TestMount(t *testing.T) {
   value: "local-user"
 - key: "password"
   value: "1234"`,
+  						"objects": `array:
+  - |
+    objectName: foo
+    objectType: secret                     # object types: secret, key or cert
+    objectVersion: v1         # [OPTIONAL] object versions, default to latest if empty
+  - |
+    objectName: fookey
+    objectType: key
+    objectVersion: v1`,
 					}
 					data, _ := json.Marshal(attributes)
 					return string(data)
