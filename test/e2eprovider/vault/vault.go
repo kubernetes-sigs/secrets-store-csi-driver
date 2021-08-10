@@ -21,9 +21,6 @@ type E2eVault struct {
 type Vault interface {
 	// GetSecret returns the value of the given secret.
 	GetSecret(name string) (string, string, error)
-
-	// CreateSecret creates a new secret with the given name and value.
-	CreateSecret(name string, value string) error
 }
 
 // NewVault creates a new fake Vault.
@@ -47,40 +44,21 @@ func (v *E2eVault) GetSecret(name string) (string, string, error) {
 		return "", "", err
 	}
 
-	test := string(secret.Data[name])
-	klog.Info(test)
-
 	return string(secret.Data[name]), secret.GetLabels()["version"], nil
-}
-
-// CreateSecret creates a new secret with the given name and value.
-func (v *E2eVault) CreateSecret(name string, value string) error {
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		Data: map[string][]byte{
-			name: []byte(value),
-		},
-	}
-	_, err := v.KubeClient.CoreV1().Secrets(v.VaultNamespaceName).Create(context.TODO(), secret, metav1.CreateOptions{})
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // populateVault populates the fake Vault with default secrets.
 func populateVault(kubeClient *kubernetes.Clientset) (string, error) {
-	// check for secret namespace
 	vaultNamespaceName := "e2e-vault"
+
+	// check for secret namespace
 	namespaceList, err := kubeClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		klog.Errorf("Error listing namespaces: %v", err)
 		return vaultNamespaceName, err // don't populate if we can't list namespaces
 	}
 
+	// delete if namespace already exists
 	gracePeriod := int64(0)
 	for _, namespace := range namespaceList.Items {
 		if namespace.Name == vaultNamespaceName {
@@ -92,6 +70,7 @@ func populateVault(kubeClient *kubernetes.Clientset) (string, error) {
 				klog.Fatalf("error deleting namespace %s: %v", vaultNamespaceName, err)
 			}
 
+			// wait for namespace to be deleted
 			for {
 				namespaceList, err := kubeClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 				if err != nil {

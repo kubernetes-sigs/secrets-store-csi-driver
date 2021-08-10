@@ -83,7 +83,7 @@ func (m *E2eProviderServer) Mount(ctx context.Context, req *v1alpha1.MountReques
 	var attrib, secret map[string]string
 	var filePermission os.FileMode
 	var err error
-	klog.Infof("Attributes: %v", attrib)
+	
 	resp := &v1alpha1.MountResponse{
 		ObjectVersion: []*v1alpha1.ObjectVersion{},
 	}

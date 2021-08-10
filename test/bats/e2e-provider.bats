@@ -20,6 +20,11 @@ export KEY_VALUE_CONTAINS=${KEYVAULT_KEY_VALUE:-"LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0
 # export node selector var
 export NODE_SELECTOR_OS=$NODE_SELECTOR_OS
 
+# auto rotate secret name
+if [ -z "$AUTO_ROTATE_SECRET_NAME" ]; then
+    export AUTO_ROTATE_SECRET_NAME=secret-$(openssl rand -hex 6)
+fi
+
 @test "secretproviderclasses crd is established" {
   skip
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
@@ -50,7 +55,7 @@ export NODE_SELECTOR_OS=$NODE_SELECTOR_OS
 }
 
 @test "deploy e2e-provider secretproviderclass crd" {
-  # skip
+  skip
   envsubst < $BATS_TESTS_DIR/e2e_provider_v1alpha1_secretproviderclass.yaml | kubectl apply -f -
 
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
@@ -60,7 +65,7 @@ export NODE_SELECTOR_OS=$NODE_SELECTOR_OS
 }
 
 @test "CSI inline volume test with pod portability" {
-  # skip
+  skip
   envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -f -
   
   kubectl wait --for=condition=Ready --timeout=180s pod/secrets-store-inline-crd
@@ -296,5 +301,50 @@ export NODE_SELECTOR_OS=$NODE_SELECTOR_OS
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret-1 default 1"
+  assert_success
+}
+
+@test "Test auto rotation of mount contents and K8s secrets - Create deployment" {
+  # skip
+  run kubectl create ns rotation
+  assert_success
+
+  run kubectl create secret generic ${AUTO_ROTATE_SECRET_NAME} --from-literal=${AUTO_ROTATE_SECRET_NAME}=secret -n e2e-vault
+  assert_success
+
+  run kubectl label secret ${AUTO_ROTATE_SECRET_NAME} version=v1 -n e2e-vault
+  assert_success
+
+  envsubst < $BATS_TESTS_DIR/rotation/e2e_provider_synck8s_v1alpha1_secretproviderclass.yaml | kubectl apply -n rotation -f -
+  envsubst < $BATS_TESTS_DIR/rotation/pod-synck8s-e2e-provider.yaml | kubectl apply -n rotation -f -
+
+  kubectl wait -n rotation --for=condition=Ready --timeout=60s pod/secrets-store-inline-rotation
+
+  run kubectl get pod/secrets-store-inline-rotation -n rotation
+  assert_success
+}
+
+@test "Test auto rotation of mount contents and K8s secrets" {
+  # skip
+  result=$(kubectl exec -n rotation secrets-store-inline-rotation -- cat /mnt/secrets-store/secretalias)
+  [[ "${result//$'\r'}" == "secret" ]]
+
+  result=$(kubectl get secret -n rotation rotationsecret -o jsonpath="{.data.username}" | base64 -d)
+  [[ "${result//$'\r'}" == "secret" ]]
+
+  kubectl create secret generic ${AUTO_ROTATE_SECRET_NAME} --save-config --dry-run=client --from-literal=${AUTO_ROTATE_SECRET_NAME}=rotated -o yaml | kubectl apply -n e2e-vault -f -
+
+  run kubectl label --overwrite=true secret ${AUTO_ROTATE_SECRET_NAME} version=v2 -n e2e-vault
+  assert_success
+
+  sleep 60
+
+  result=$(kubectl exec -n rotation secrets-store-inline-rotation -- cat /mnt/secrets-store/secretalias)
+  [[ "${result//$'\r'}" == "rotated" ]]
+
+  result=$(kubectl get secret -n rotation rotationsecret -o jsonpath="{.data.username}" | base64 -d)
+  [[ "${result//$'\r'}" == "rotated" ]]
+
+  run kubectl delete secret ${AUTO_ROTATE_SECRET_NAME} -n e2e-vault
   assert_success
 }
