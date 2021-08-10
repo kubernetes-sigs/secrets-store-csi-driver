@@ -26,7 +26,6 @@ if [ -z "$AUTO_ROTATE_SECRET_NAME" ]; then
 fi
 
 @test "secretproviderclasses crd is established" {
-  skip
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
   run kubectl get crd/secretproviderclasses.secrets-store.csi.x-k8s.io
@@ -34,7 +33,6 @@ fi
 }
 
 @test "Test rbac roles and role bindings exist" {
-  skip
   run kubectl get clusterrole/secretproviderclasses-role
   assert_success
 
@@ -55,7 +53,6 @@ fi
 }
 
 @test "deploy e2e-provider secretproviderclass crd" {
-  skip
   envsubst < $BATS_TESTS_DIR/e2e_provider_v1alpha1_secretproviderclass.yaml | kubectl apply -f -
 
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
@@ -65,7 +62,6 @@ fi
 }
 
 @test "CSI inline volume test with pod portability" {
-  skip
   envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -f -
   
   kubectl wait --for=condition=Ready --timeout=180s pod/secrets-store-inline-crd
@@ -75,7 +71,6 @@ fi
 }
 
 @test "CSI inline volume test with pod portability - read kv secret from pod" {
-  skip
   wait_for_process $WAIT_TIME $SLEEP_TIME "kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME | grep '${SECRET_VALUE}'"
 
   result=$(kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME)
@@ -83,14 +78,12 @@ fi
 }
 
 @test "CSI inline volume test with pod portability - read kv key from pod" {
-  skip
   result=$(kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$KEY_NAME)
   result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
   [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 }
 
 @test "CSI inline volume test with pod portability - unmount succeeds" {
-  skip
   # https://github.com/kubernetes/kubernetes/pull/96702
   # kubectl wait --for=delete does not work on already deleted pods.
   # Instead we will start the wait before initiating the delete.
@@ -118,7 +111,6 @@ fi
 }
 
 @test "Sync with K8s secrets - create deployment" {
-  skip
   envsubst < $BATS_TESTS_DIR/e2e_provider_synck8s_v1alpha1_secretproviderclass.yaml | kubectl apply -f - 
 
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
@@ -133,7 +125,6 @@ fi
 }
 
 @test "Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences with multiple owners" {
-  skip
   POD=$(kubectl get pod -l app=busybox -o jsonpath="{.items[0].metadata.name}")
 
   result=$(kubectl exec $POD -- cat /mnt/secrets-store/secretalias)
@@ -160,7 +151,6 @@ fi
 }
 
 @test "Sync with K8s secrets - delete deployment, check owner ref updated, check secret deleted" {
-  skip
   run kubectl delete -f $BATS_TESTS_DIR/deployment-synck8s-e2e-provider.yaml
   assert_success
 
@@ -178,7 +168,6 @@ fi
 }
 
 @test "Test Namespaced scope SecretProviderClass - create deployment" {
-  skip
   run kubectl create ns test-ns
   assert_success
 
@@ -198,7 +187,6 @@ fi
 }
 
 @test "Test Namespaced scope SecretProviderClass - Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences" {
-  skip
   POD=$(kubectl get pod -l app=busybox -n test-ns -o jsonpath="{.items[0].metadata.name}")
 
   result=$(kubectl exec -n test-ns $POD -- cat /mnt/secrets-store/secretalias)
@@ -219,7 +207,6 @@ fi
 }
 
 @test "Test Namespaced scope SecretProviderClass - Sync with K8s secrets - delete deployment, check secret deleted" {
-  skip
   run kubectl delete -f $BATS_TESTS_DIR/deployment-synck8s-e2e-provider.yaml -n test-ns
   assert_success
 
@@ -228,7 +215,6 @@ fi
 }
 
 @test "Test Namespaced scope SecretProviderClass - Should fail when no secret provider class in same namespace" {
-  skip
   run kubectl create ns negative-test-ns
   assert_success
 
@@ -247,7 +233,6 @@ fi
 }
 
 @test "deploy multiple e2e provier secretproviderclass crd" {
-  skip
   envsubst < $BATS_TESTS_DIR/e2e-provider_v1alpha1_multiple_secretproviderclass.yaml | kubectl apply -f -
 
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
@@ -260,7 +245,6 @@ fi
 }
 
 @test "deploy pod with multiple secret provider class" {
-  skip
   envsubst < $BATS_TESTS_DIR/pod-e2e-provider-inline-volume-multiple-spc.yaml | kubectl apply -f -
   
   kubectl wait --for=condition=Ready --timeout=60s pod/secrets-store-inline-multiple-crd
@@ -270,7 +254,6 @@ fi
 }
 
 @test "CSI inline volume test with multiple secret provider class" {
-  skip
   result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/secretalias)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
@@ -305,7 +288,6 @@ fi
 }
 
 @test "Test auto rotation of mount contents and K8s secrets - Create deployment" {
-  # skip
   run kubectl create ns rotation
   assert_success
 
@@ -325,7 +307,6 @@ fi
 }
 
 @test "Test auto rotation of mount contents and K8s secrets" {
-  # skip
   result=$(kubectl exec -n rotation secrets-store-inline-rotation -- cat /mnt/secrets-store/secretalias)
   [[ "${result//$'\r'}" == "secret" ]]
 
@@ -347,4 +328,36 @@ fi
 
   run kubectl delete secret ${AUTO_ROTATE_SECRET_NAME} -n e2e-vault
   assert_success
+}
+
+@test "Test filtered-watch-secret=false" {
+  if [[ "${IS_YAML_TEST}" == "true" ]]; then
+    skip "Testing with deployment manifest YAMLs"
+  fi
+
+  local chart_dir=${HELM_CHART_DIR}
+  if [[ "${chart_dir}" == "" ]]; then
+    chart_dir=manifest_staging/charts/secrets-store-csi-driver
+  fi
+  run helm upgrade csi-secrets-store "${chart_dir}" --reuse-values --set filteredWatchSecret=false --wait --timeout=5m -v=5 --debug --namespace kube-system
+  assert_success
+
+  cmd="kubectl get crd secretproviderclasses.secrets-store.csi.x-k8s.io -o yaml | grep 'helm.sh/resource-policy: keep'"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  cmd="kubectl get crd secretproviderclasspodstatuses.secrets-store.csi.x-k8s.io -o yaml | grep 'helm.sh/resource-policy: keep'"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  kubectl create ns non-filtered-watch
+
+  envsubst < $BATS_TESTS_DIR/e2e_provider_v1alpha1_secretproviderclass.yaml | kubectl apply -n non-filtered-watch -f -
+  envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -n non-filtered-watch -f -
+
+  kubectl wait -n non-filtered-watch --for=condition=Ready --timeout=180s pod/secrets-store-inline-crd
+
+  run kubectl get pod/secrets-store-inline-crd -n non-filtered-watch
+  assert_success
+
+  result=$(kubectl exec -n non-filtered-watch secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME)
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 }

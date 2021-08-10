@@ -5,10 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"net/url"
 	"os"
-	"path/filepath"
-	"time"
 
 	util "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
@@ -19,18 +16,6 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 )
-
-// SimpleSecretKeyValue struct represents a secret key value pair
-type SimpleSecretKeyValue struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-}
-
-// KubernetesTokenContent struct represents a kubernetes token
-type KubernetesTokenContent struct {
-	Token               string    `json:"token"`
-	ExpirationTimestamp time.Time `json:"expirationTimestamp"`
-}
 
 // E2eProviderServer is a mock csi-provider server
 type E2eProviderServer struct {
@@ -55,7 +40,9 @@ func NewE2eProviderServer(endpoint string, vault vault.Vault) (*E2eProviderServe
 		network:    network,
 		Vault:      vault,
 	}
+
 	v1alpha1.RegisterCSIDriverProviderServer(server, s)
+	
 	return s, nil
 }
 
@@ -83,7 +70,7 @@ func (m *E2eProviderServer) Mount(ctx context.Context, req *v1alpha1.MountReques
 	var attrib, secret map[string]string
 	var filePermission os.FileMode
 	var err error
-	
+
 	resp := &v1alpha1.MountResponse{
 		ObjectVersion: []*v1alpha1.ObjectVersion{},
 	}
@@ -143,73 +130,6 @@ func (m *E2eProviderServer) Mount(ctx context.Context, req *v1alpha1.MountReques
 			Version: version,
 		})
 	}
-
-	if rawTokenContent, ok := attrib["csi.storage.k8s.io/serviceAccount.tokens"]; ok {
-		if rawTokenContent != "" {
-			tokens := map[string]KubernetesTokenContent{}
-			err := json.Unmarshal([]byte(rawTokenContent), &tokens)
-			if err != nil {
-				klog.Errorf("Error unmarshaling tokens attribute: %v", err)
-			}
-			files := []*v1alpha1.File{}
-			for sub, content := range tokens {
-				u, _ := url.Parse(sub)
-
-				path := filepath.Join(u.Hostname(), u.EscapedPath())
-				files = append(files, &v1alpha1.File{
-					Path:     path,
-					Contents: []byte(content.Token),
-				})
-				resp.ObjectVersion = append(resp.ObjectVersion, &v1alpha1.ObjectVersion{
-					Id:      fmt.Sprintf("secret/%s", path),
-					Version: "v1",
-				})
-			}
-			resp.Files = append(resp.Files, files...)
-		}
-	}
-	if rawSecretContent, ok := attrib["secrets"]; ok {
-		secretContents := []SimpleSecretKeyValue{}
-		err := yaml.Unmarshal([]byte(rawSecretContent), &secretContents)
-		if err != nil {
-			klog.Errorf("Error unmarshaling secret attribute: %v", err)
-		}
-
-		files := []*v1alpha1.File{}
-		for _, kv := range secretContents {
-			files = append(files, &v1alpha1.File{
-				Path:     kv.Key,
-				Contents: []byte(kv.Value),
-			})
-			resp.ObjectVersion = append(resp.ObjectVersion, &v1alpha1.ObjectVersion{
-				Id:      fmt.Sprintf("secret/%s", kv.Key),
-				Version: "v1",
-			})
-		}
-		resp.Files = append(resp.Files, files...)
-	}
-
-	// // return "foo=bar" secret
-	// resp.Files = append(resp.Files, &v1alpha1.File{
-	// 	Path:     "foo",
-	// 	Contents: []byte("bar"),
-	// })
-	// resp.ObjectVersion = append(resp.ObjectVersion, &v1alpha1.ObjectVersion{
-	// 	Id:      fmt.Sprintf("secret/%s", "foo"),
-	// 	Version: "v1",
-	// })
-
-	// 	// return "fookey=barkey" key
-	// 	resp.Files = append(resp.Files, &v1alpha1.File{
-	// 		Path: "fookey",
-	// 		Contents: []byte(`-----BEGIN PUBLIC KEY-----
-	// This is fake key
-	// -----END PUBLIC KEY-----`),
-	// 	})
-	// 	resp.ObjectVersion = append(resp.ObjectVersion, &v1alpha1.ObjectVersion{
-	// 		Id:      fmt.Sprintf("secret/%s", "fookey"),
-	// 		Version: "v1",
-	// 	})
 
 	return resp, nil
 }
