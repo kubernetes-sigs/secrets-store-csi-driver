@@ -6,8 +6,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"k8s.io/klog/v2"
 	"sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/server"
+	"sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/vault"
+
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -23,7 +25,13 @@ func main() {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGTERM, syscall.SIGINT, os.Interrupt)
 
-	fakeProviderServer, err := server.NewSimpleCSIProviderServer(*endpoint)
+	// Get fake Vault
+	vault, err := vault.NewVault()
+	if err != nil {
+		klog.Fatalf("failed to get new fake vault, err: %+v", err)
+	}
+
+	fakeProviderServer, err := server.NewE2eProviderServer(*endpoint, vault)
 	if err != nil {
 		klog.Fatalf("failed to get new fake e2e provider server, err: %+v", err)
 	}

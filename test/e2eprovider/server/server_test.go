@@ -10,7 +10,7 @@ import (
 )
 
 func TestMount(t *testing.T) {
-	server := &SimpleCSIProviderServer{}
+	server := &E2eProviderServer{}
 
 	cases := []struct {
 		name    string

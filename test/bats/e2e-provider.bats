@@ -50,7 +50,7 @@ export NODE_SELECTOR_OS=$NODE_SELECTOR_OS
 }
 
 @test "deploy e2e-provider secretproviderclass crd" {
-  skip
+  # skip
   envsubst < $BATS_TESTS_DIR/e2e_provider_v1alpha1_secretproviderclass.yaml | kubectl apply -f -
 
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
@@ -60,7 +60,7 @@ export NODE_SELECTOR_OS=$NODE_SELECTOR_OS
 }
 
 @test "CSI inline volume test with pod portability" {
-  skip
+  # skip
   envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -f -
   
   kubectl wait --for=condition=Ready --timeout=180s pod/secrets-store-inline-crd

@@ -13,6 +13,7 @@ import (
 	util "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 	"sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/types"
+	"sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/vault"
 
 	"google.golang.org/grpc"
 	"k8s.io/klog/v2"
@@ -31,33 +32,35 @@ type KubernetesTokenContent struct {
 	ExpirationTimestamp time.Time `json:"expirationTimestamp"`
 }
 
-// SimpleCSIProviderServer is a mock csi-provider server
-type SimpleCSIProviderServer struct {
+// E2eProviderServer is a mock csi-provider server
+type E2eProviderServer struct {
 	grpcServer *grpc.Server
 	listener   net.Listener
 	SocketPath string
 	network    string
+	Vault      vault.Vault
 }
 
-// NewSimpleCSIProviderServer returns a mock csi-provider grpc server
-func NewSimpleCSIProviderServer(endpoint string) (*SimpleCSIProviderServer, error) {
+// NewE2eProviderServer returns a mock csi-provider grpc server
+func NewE2eProviderServer(endpoint string, vault vault.Vault) (*E2eProviderServer, error) {
 	network, address, err := util.ParseEndpoint(endpoint)
 	if err != nil {
 		klog.Fatal(err.Error())
 	}
 
 	server := grpc.NewServer()
-	s := &SimpleCSIProviderServer{
+	s := &E2eProviderServer{
 		grpcServer: server,
 		SocketPath: address,
 		network:    network,
+		Vault:      vault,
 	}
 	v1alpha1.RegisterCSIDriverProviderServer(server, s)
 	return s, nil
 }
 
 // Start starts the mock csi-provider server
-func (m *SimpleCSIProviderServer) Start() error {
+func (m *E2eProviderServer) Start() error {
 	var err error
 
 	m.listener, err = net.Listen(m.network, m.SocketPath)
@@ -71,12 +74,12 @@ func (m *SimpleCSIProviderServer) Start() error {
 }
 
 // Stop stops the mock csi-provider server
-func (m *SimpleCSIProviderServer) Stop() {
+func (m *E2eProviderServer) Stop() {
 	m.grpcServer.GracefulStop()
 }
 
 // Mount implements provider csi-provider method
-func (m *SimpleCSIProviderServer) Mount(ctx context.Context, req *v1alpha1.MountRequest) (*v1alpha1.MountResponse, error) {
+func (m *E2eProviderServer) Mount(ctx context.Context, req *v1alpha1.MountRequest) (*v1alpha1.MountResponse, error) {
 	var attrib, secret map[string]string
 	var filePermission os.FileMode
 	var err error
@@ -126,29 +129,19 @@ func (m *SimpleCSIProviderServer) Mount(ctx context.Context, req *v1alpha1.Mount
 			fileName = keyVaultObject.ObjectAlias
 		}
 
-		if keyVaultObject.ObjectName == "foo" {
-			resp.Files = append(resp.Files, &v1alpha1.File{
-				Path:     fileName,
-				Contents: []byte("bar"),
-			})
-			resp.ObjectVersion = append(resp.ObjectVersion, &v1alpha1.ObjectVersion{
-				Id:      fmt.Sprintf("secret/%s", fileName),
-				Version: "v1",
-			})
+		secret, version, err := m.Vault.GetSecret(keyVaultObject.ObjectName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get secret from keyvault, error: %w", err)
 		}
 
-		if keyVaultObject.ObjectName == "fookey" {
-			resp.Files = append(resp.Files, &v1alpha1.File{
-				Path: fileName,
-				Contents: []byte(`-----BEGIN PUBLIC KEY-----
-This is fake key
------END PUBLIC KEY-----`),
-			})
-			resp.ObjectVersion = append(resp.ObjectVersion, &v1alpha1.ObjectVersion{
-				Id:      fmt.Sprintf("secret/%s", fileName),
-				Version: "v1",
-			})
-		}
+		resp.Files = append(resp.Files, &v1alpha1.File{
+			Path:     fileName,
+			Contents: []byte(secret),
+		})
+		resp.ObjectVersion = append(resp.ObjectVersion, &v1alpha1.ObjectVersion{
+			Id:      fmt.Sprintf("secret/%s", fileName),
+			Version: version,
+		})
 	}
 
 	if rawTokenContent, ok := attrib["csi.storage.k8s.io/serviceAccount.tokens"]; ok {
@@ -222,7 +215,7 @@ This is fake key
 }
 
 // Version implements provider csi-provider method
-func (m *SimpleCSIProviderServer) Version(ctx context.Context, req *v1alpha1.VersionRequest) (*v1alpha1.VersionResponse, error) {
+func (m *E2eProviderServer) Version(ctx context.Context, req *v1alpha1.VersionRequest) (*v1alpha1.VersionResponse, error) {
 	return &v1alpha1.VersionResponse{
 		Version:        "v1alpha1",
 		RuntimeName:    "SimpleProvider",

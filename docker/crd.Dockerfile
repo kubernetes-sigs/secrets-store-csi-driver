@@ -3,7 +3,7 @@ ARG KUBE_VERSION=v1.21.2
 ARG ARCH
 
 RUN apk add --no-cache curl && \
-    curl --retry 5 -LO https://storage.googleapis.com/kubernetes-release/release/${KUBE_VERSION}/bin/linux/${ARCH}/kubectl && \
+    curl -LO https://storage.googleapis.com/kubernetes-release/release/${KUBE_VERSION}/bin/linux/${ARCH}/kubectl && \
     chmod +x kubectl
 
 FROM gcr.io/distroless/static
