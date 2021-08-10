@@ -18,6 +18,7 @@ package secretsstore
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,7 +26,7 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store/mocks"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/test_utils/tmpdir"
-	"sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider"
+	server "sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/server"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
@@ -274,8 +275,9 @@ func TestNodePublishVolume(t *testing.T) {
 			r := mocks.NewFakeReporter()
 
 			tmpDir := tmpdir.New(t, "", "ut")
-			server, err := e2eprovider.NewSimpleCSIProviderServer(
-				filepath.Join(tmpDir, "simple_provider.sock"),
+			server, err := server.NewE2eProviderServer(
+				fmt.Sprintf("%s%s", "unix://", filepath.Join(tmpDir, "simple_provider.sock")),
+				nil,
 			)
 			if err != nil {
 				t.Fatalf("Error creating e2e test server: %v", err)

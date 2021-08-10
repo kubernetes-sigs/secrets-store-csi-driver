@@ -1,4 +1,4 @@
-package server
+package e2eprovider
 
 import (
 	"context"
@@ -9,16 +9,16 @@ import (
 
 	util "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
-	"sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/types"
-	"sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/vault"
+	types "sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/types"
+	vault "sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/vault"
 
 	"google.golang.org/grpc"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 )
 
-// E2eProviderServer is a mock csi-provider server
-type E2eProviderServer struct {
+// Server is a mock csi-provider server
+type Server struct {
 	grpcServer *grpc.Server
 	listener   net.Listener
 	SocketPath string
@@ -27,14 +27,14 @@ type E2eProviderServer struct {
 }
 
 // NewE2eProviderServer returns a mock csi-provider grpc server
-func NewE2eProviderServer(endpoint string, vault vault.Vault) (*E2eProviderServer, error) {
+func NewE2eProviderServer(endpoint string, vault vault.Vault) (*Server, error) {
 	network, address, err := util.ParseEndpoint(endpoint)
 	if err != nil {
 		klog.Fatal(err.Error())
 	}
 
 	server := grpc.NewServer()
-	s := &E2eProviderServer{
+	s := &Server{
 		grpcServer: server,
 		SocketPath: address,
 		network:    network,
@@ -42,12 +42,12 @@ func NewE2eProviderServer(endpoint string, vault vault.Vault) (*E2eProviderServe
 	}
 
 	v1alpha1.RegisterCSIDriverProviderServer(server, s)
-	
+
 	return s, nil
 }
 
 // Start starts the mock csi-provider server
-func (m *E2eProviderServer) Start() error {
+func (m *Server) Start() error {
 	var err error
 
 	m.listener, err = net.Listen(m.network, m.SocketPath)
@@ -61,12 +61,12 @@ func (m *E2eProviderServer) Start() error {
 }
 
 // Stop stops the mock csi-provider server
-func (m *E2eProviderServer) Stop() {
+func (m *Server) Stop() {
 	m.grpcServer.GracefulStop()
 }
 
 // Mount implements provider csi-provider method
-func (m *E2eProviderServer) Mount(ctx context.Context, req *v1alpha1.MountRequest) (*v1alpha1.MountResponse, error) {
+func (m *Server) Mount(ctx context.Context, req *v1alpha1.MountRequest) (*v1alpha1.MountResponse, error) {
 	var attrib, secret map[string]string
 	var filePermission os.FileMode
 	var err error
@@ -135,7 +135,7 @@ func (m *E2eProviderServer) Mount(ctx context.Context, req *v1alpha1.MountReques
 }
 
 // Version implements provider csi-provider method
-func (m *E2eProviderServer) Version(ctx context.Context, req *v1alpha1.VersionRequest) (*v1alpha1.VersionResponse, error) {
+func (m *Server) Version(ctx context.Context, req *v1alpha1.VersionRequest) (*v1alpha1.VersionResponse, error) {
 	return &v1alpha1.VersionResponse{
 		Version:        "v1alpha1",
 		RuntimeName:    "SimpleProvider",

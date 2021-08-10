@@ -12,4 +12,7 @@ require (
 	sigs.k8s.io/yaml v1.2.0
 )
 
-replace sigs.k8s.io/secrets-store-csi-driver => ../..
+replace (
+	sigs.k8s.io/secrets-store-csi-driver => ../..
+	sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider => ./
+)

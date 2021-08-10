@@ -6,8 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/server"
-	"sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/vault"
+	server "sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/server"
+	vault "sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/vault"
 
 	"k8s.io/klog/v2"
 )

@@ -1,4 +1,4 @@
-package vault
+package e2eprovider
 
 import (
 	"context"

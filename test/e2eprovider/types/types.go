@@ -1,4 +1,4 @@
-package types
+package e2eprovider
 
 // KeyVaultObject holds keyvault object related config
 type KeyVaultObject struct {
