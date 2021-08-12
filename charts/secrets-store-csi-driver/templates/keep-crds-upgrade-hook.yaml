@@ -72,3 +72,10 @@ spec:
         imagePullPolicy: {{ .Values.linux.crds.image.pullPolicy }}
       nodeSelector:
         kubernetes.io/os: linux
+{{- if .Values.linux.nodeSelector }}
+{{- toYaml .Values.linux.nodeSelector | nindent 8 }}
+{{- end }}
+{{- with .Values.linux.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+{{- end }}
