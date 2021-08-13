@@ -56,6 +56,10 @@ spec:
   template:
     metadata:
       name: {{ template "sscd.fullname" . }}-upgrade-crds
+      {{- if .Values.linux.crds.annotations }}
+      annotations:
+        {{ toYaml .Values.linux.crds.annotations}}
+      {{- end }}
     spec:
       serviceAccountName: {{ template "sscd.fullname" . }}-upgrade-crds
       restartPolicy: Never
