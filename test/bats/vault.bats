@@ -236,7 +236,7 @@ EOF
   result=$(kubectl get secret foosecret -o jsonpath="{.data.bar1}" | base64 -d)
   [[ "$result" == "hello1" ]]
 
-  result=$(kubectl get secret foosecret -o jsonpath="{.data.nested_bar}" | base64 -d)
+  result=$(kubectl get secret foosecret -o jsonpath="{.data.nested-bar}" | base64 -d)
   [[ "$result" == "hello" ]]
 
   result=$(kubectl exec $POD -- printenv | grep SECRET_USERNAME | awk -F"=" '{ print $2 }' | tr -d '\r\n')

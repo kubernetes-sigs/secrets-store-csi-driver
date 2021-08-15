@@ -121,7 +121,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 	}
 
 	spcPodStatuses := spcPodStatusList.Items
-	for i := range spcPodStatuses {
+	for i, spcPodStatus := range spcPodStatuses {
 		spcName := spcPodStatuses[i].Status.SecretProviderClassName
 		spc := &v1alpha1.SecretProviderClass{}
 		namespace := spcPodStatuses[i].Namespace
@@ -140,6 +140,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 		if err != nil {
 			return fmt.Errorf("failed to fetch pod during patching, err: %+v", err)
 		}
+
 		var ownerRefs []metav1.OwnerReference
 		for _, ownerRef := range pod.GetOwnerReferences() {
 			ownerRefs = append(ownerRefs, metav1.OwnerReference{
@@ -149,6 +150,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 				Name:       ownerRef.Name,
 			})
 		}
+
 		// If a pod has no owner references, then it's a static pod and
 		// doesn't belong to a replicaset. In this case, use the spcps as
 		// owner reference just like we do it today
@@ -165,6 +167,15 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 				Name:       spcPodStatuses[i].GetName(),
 			}
 			ownerRefs = append(ownerRefs, ref)
+		}
+
+		if spc.Spec.SyncOptions.SyncAll {
+			files, err := fileutil.GetMountedFiles(spcPodStatus.Status.TargetPath)
+			if err != nil {
+				klog.ErrorS(err, "failed to get mounted files", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "spcps", klog.KObj(&spcPodStatus))
+			} else {
+				spc.Spec.SecretObjects = spcutil.BuildSecretObjects(files, secretutil.GetSecretType(strings.TrimSpace(spc.Spec.SyncOptions.Type)))
+			}
 		}
 
 		for _, secret := range spc.Spec.SecretObjects {
@@ -286,13 +297,13 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 	files, err := fileutil.GetMountedFiles(spcPodStatus.Status.TargetPath)
 
 	if spc.Spec.SyncOptions.SyncAll {
-		spc.Spec.SecretObjects = spcutil.BuildSecretObjects(files, spc.Spec.SyncOptions.Type)
+		spc.Spec.SecretObjects = spcutil.BuildSecretObjects(files, secretutil.GetSecretType(strings.TrimSpace(spc.Spec.SyncOptions.Type)))
 	}
 
 	for _, secretObj := range spc.Spec.SecretObjects {
 		if secretObj.SyncAll {
-			if secretutil.GetSecretType(strings.TrimSpace(secretObj.Type)) != corev1.SecretTypeOpaque && secretutil.GetSecretType(strings.TrimSpace(secretObj.Type)) != corev1.SecretTypeBasicAuth {
-				return ctrl.Result{}, fmt.Errorf("secret provider class %s/%s cannot use syncAll for non-opaque secrets", spc.Namespace, spc.Name)
+			if secretutil.GetSecretType(strings.TrimSpace(secretObj.Type)) != corev1.SecretTypeOpaque {
+				return ctrl.Result{}, fmt.Errorf("secret provider class %s/%s cannot use secretObjects[*].syncAll for non-opaque secrets", spc.Namespace, spc.Name)
 			}
 
 			spcutil.BuildSecretObjectData(files, secretObj)

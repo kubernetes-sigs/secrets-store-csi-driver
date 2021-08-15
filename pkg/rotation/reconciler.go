@@ -437,13 +437,13 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 	files, err := fileutil.GetMountedFiles(spcps.Status.TargetPath)
 
 	if spc.Spec.SyncOptions.SyncAll {
-		spc.Spec.SecretObjects = spcutil.BuildSecretObjects(files, spc.Spec.SyncOptions.Type)
+		spc.Spec.SecretObjects = spcutil.BuildSecretObjects(files, secretutil.GetSecretType(strings.TrimSpace(spc.Spec.SyncOptions.Type)))
 	}
 
 	for _, secretObj := range spc.Spec.SecretObjects {
 		if secretObj.SyncAll {
 			if secretutil.GetSecretType(strings.TrimSpace(secretObj.Type)) != v1.SecretTypeOpaque {
-				return fmt.Errorf("secret provider class %s/%s cannot use syncAll for non-opaque secrets", spc.Namespace, spc.Name)
+				return fmt.Errorf("secret provider class %s/%s cannot use secretObjects[*].syncAll for non-opaque secrets", spc.Namespace, spc.Name)
 			}
 
 			spcutil.BuildSecretObjectData(files, secretObj)

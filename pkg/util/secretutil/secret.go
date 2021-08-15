@@ -38,6 +38,8 @@ const (
 	privateKeyType    = "PRIVATE KEY"
 	privateKeyTypeRSA = "RSA PRIVATE KEY"
 	privateKeyTypeEC  = "EC PRIVATE KEY"
+	basicAuthUsername = "username"
+	basicAuthPassword = "password"
 )
 
 // getCertPart returns the certificate or the private key part of the cert
@@ -195,8 +197,8 @@ func GetSecretData(secretObjData []*v1alpha1.SecretObjectData, secretType corev1
 			credentials := getCredentials(content)
 			delete(datamap, dataKey)
 
-			datamap["username"] = []byte(credentials.Username)
-			datamap["password"] = []byte(credentials.Password)
+			datamap[basicAuthUsername] = []byte(credentials.Username)
+			datamap[basicAuthPassword] = []byte(credentials.Password)
 		}
 	}
 	return datamap, nil
