@@ -12,7 +12,7 @@ linux:
       pullPolicy: IfNotPresent
     annotations: {}
 
-  ## Prevent the CSI driver from being scheduled on virtual-kublet nodes
+  ## Prevent the CSI driver from being scheduled on virtual-kubelet nodes
   affinity: 
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -34,7 +34,7 @@ linux:
 
   registrarImage:
     repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
-    tag: v2.2.0
+    tag: v2.3.0
     pullPolicy: IfNotPresent
 
   registrar:
@@ -96,7 +96,7 @@ windows:
     tag: v0.2.0
     pullPolicy: IfNotPresent
 
-  ## Prevent the CSI driver from being scheduled on virtual-kublet nodes
+  ## Prevent the CSI driver from being scheduled on virtual-kubelet nodes
   affinity: 
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -118,7 +118,7 @@ windows:
 
   registrarImage:
     repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
-    tag: v2.2.0
+    tag: v2.3.0
     pullPolicy: IfNotPresent
 
   registrar:
