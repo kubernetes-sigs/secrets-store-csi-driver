@@ -394,7 +394,7 @@ e2e-helm-deploy:
 		--set windows.image.tag=$(IMAGE_VERSION) \
 		--set linux.crds.image.repository=$(REGISTRY)/$(CRD_IMAGE_NAME) \
 		--set linux.crds.image.tag=$(IMAGE_VERSION) \
-		--set linux.crds.annotations."myAnnotation"=test
+		--set linux.crds.annotations."myAnnotation"=test \
 		--set windows.enabled=true \
 		--set linux.enabled=true \
 		--set syncSecret.enabled=true \
@@ -409,7 +409,7 @@ e2e-helm-upgrade:
 		--set windows.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
 		--set windows.image.tag=$(IMAGE_VERSION) \
 		--set linux.crds.image.repository=$(REGISTRY)/$(CRD_IMAGE_NAME) \
-		--set linux.crds.image.tag=$(IMAGE_VERSION)
+		--set linux.crds.image.tag=$(IMAGE_VERSION) \
 		--set linux.crds.annotations."myAnnotation"=test
 
 .PHONY: e2e-helm-deploy-release # test helm package for the release
