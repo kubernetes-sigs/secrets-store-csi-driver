@@ -276,7 +276,7 @@ func TestNodePublishVolume(t *testing.T) {
 
 			tmpDir := tmpdir.New(t, "", "ut")
 			server, err := server.NewE2eProviderServer(
-				fmt.Sprintf("%s%s", "unix://", filepath.Join(tmpDir, "simple_provider.sock")),
+				fmt.Sprintf("unix://%s", filepath.Join(tmpDir, "simple_provider.sock")),
 				nil,
 			)
 			if err != nil {
