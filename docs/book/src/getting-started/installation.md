@@ -1,5 +1,12 @@
 # Installation
 
+<aside class="note">
+<h1>Note</h1>
+
+The helm chart repository URL has changed to `https://kuberentes-sigs.github.io/secrets-store-csi-driver/charts`
+
+</aside>
+
 ## Install the Secrets Store CSI Driver
 
 ### Prerequisites
@@ -18,7 +25,7 @@ Secrets Store CSI Driver allows users to customize their installation via Helm.
 > Recommended to use Helm3
 
 ```bash
-helm repo add secrets-store-csi-driver https://raw.githubusercontent.com/kubernetes-sigs/secrets-store-csi-driver/master/charts
+helm repo add secrets-store-csi-driver https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts
 helm install csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver --namespace kube-system
 ```
 
@@ -29,10 +36,10 @@ namespace.
 
 Notably the following feature must be explicitly enabled:
 
-| Feature | Helm Parameter |
-|-----|-----|
-| [Sync as Kubernetes secret](../topics/sync-as-kubernetes-secret.md) | `syncSecret.enabled=true`|
-| [Secret Auto rotation](../topics/secret-auto-rotation.md) | `enableSecretRotation=true`|
+| Feature                                                             | Helm Parameter              |
+| ------------------------------------------------------------------- | --------------------------- |
+| [Sync as Kubernetes secret](../topics/sync-as-kubernetes-secret.md) | `syncSecret.enabled=true`   |
+| [Secret Auto rotation](../topics/secret-auto-rotation.md)           | `enableSecretRotation=true` |
 
 For a list of customizable values that can be injected when invoking helm install, please see the [Helm chart configurations](https://github.com/kubernetes-sigs/secrets-store-csi-driver/tree/master/charts/secrets-store-csi-driver#configuration).
 

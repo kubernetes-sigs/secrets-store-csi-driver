@@ -10,14 +10,31 @@ Quick start instructions for the setup and configuration of secrets-store-csi-dr
 
 ### Installing the chart
 
-Add the chart repo
+> Note: The helm chart repository URL has changed from `https://raw.githubusercontent.com/kuberentes-sigs/secrets-store-csi-driver/master/charts` to `https://kuberentes-sigs.github.io/secrets-store-csi-driver/charts`.
+
+<details>
+<summary>Update helm chart repositories if using the old URL</summary>
+
+Run the following commands to update your Helm chart repositories if using the old URL:
+
 ```bash
-$ helm repo add secrets-store-csi-driver https://raw.githubusercontent.com/kubernetes-sigs/secrets-store-csi-driver/master/charts
+helm repo rm secrets-store-csi-driver
+helm repo add secrets-store-csi-driver https://kuberentes-sigs.github.io/secrets-store-csi-driver/charts
+helm repo update
 ```
 
-Helm v3.0+
+</details>
+
+#### Add the chart repo
+
 ```bash
-$ helm install csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver
+helm repo add secrets-store-csi-driver https://kuberentes-sigs.github.io/secrets-store-csi-driver/charts
+```
+
+#### Install chart using Helm v3.0+
+
+```bash
+helm install csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver
 ```
 
 ### Configuration
@@ -30,7 +47,7 @@ The following table lists the configurable parameters of the csi-secrets-store-p
 | `fullnameOverride`                      | String to fully override secrets-store-csi-driver.fullname template with a string                                     | `""`                                                    |
 | `linux.image.repository`                | Linux image repository                                                                                                | `k8s.gcr.io/csi-secrets-store/driver`                   |
 | `linux.image.pullPolicy`                | Linux image pull policy                                                                                               | `IfNotPresent`                                          |
-| `linux.image.tag`                       | Linux image tag                                                                                                       | `v0.2.0`                                               |
+| `linux.image.tag`                       | Linux image tag                                                                                                       | `v0.2.0`                                                |
 | `linux.affinity`                        | Linux affinity                                                                                                        | `key: type; operator: NotIn; values: [virtual-kubelet]` |
 | `linux.driver.resources`                | The resource request/limits for the linux secrets-store container image                                               | `limits: 200m CPU, 200Mi; requests: 50m CPU, 100Mi`     |
 | `linux.enabled`                         | Install secrets store csi driver on linux nodes                                                                       | true                                                    |
@@ -58,7 +75,7 @@ The following table lists the configurable parameters of the csi-secrets-store-p
 | `linux.updateStrategy`                  | Configure a custom update strategy for the daemonset on linux nodes                                                   | `RollingUpdate with 1 maxUnavailable`                   |
 | `windows.image.repository`              | Windows image repository                                                                                              | `k8s.gcr.io/csi-secrets-store/driver`                   |
 | `windows.image.pullPolicy`              | Windows image pull policy                                                                                             | `IfNotPresent`                                          |
-| `windows.image.tag`                     | Windows image tag                                                                                                     | `v0.2.0`                                               |
+| `windows.image.tag`                     | Windows image tag                                                                                                     | `v0.2.0`                                                |
 | `windows.affinity`                      | Windows affinity                                                                                                      | `key: type; operator: NotIn; values: [virtual-kubelet]` |
 | `windows.driver.resources`              | The resource request/limits for the windows secrets-store container image                                             | `limits: 400m CPU, 400Mi; requests: 50m CPU, 100Mi`     |
 | `windows.enabled`                       | Install secrets store csi driver on windows nodes                                                                     | false                                                   |
