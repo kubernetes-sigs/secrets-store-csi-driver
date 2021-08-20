@@ -65,7 +65,7 @@ func (m *Server) Start() error {
 		return err
 	}
 
-	klog.Infof("Listening for connections on address: %v", m.listener.Addr())
+	klog.InfoS("Listening for connections on address:", m.listener.Addr())
 	go m.grpcServer.Serve(m.listener)
 	return nil
 }
@@ -102,8 +102,6 @@ func (m *Server) Mount(ctx context.Context, req *v1alpha1.MountRequest) (*v1alph
 	if objectsStrings == "" {
 		return nil, fmt.Errorf("objects is not set")
 	}
-	fmt.Printf("objects: %s\n", objectsStrings)
-	fmt.Printf("attrib: %+v\n", attrib)
 
 	var objects types.StringArray
 	err = yaml.Unmarshal([]byte(objectsStrings), &objects)

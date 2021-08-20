@@ -40,6 +40,6 @@ func main() {
 
 	<-signalChan
 	// gracefully stop the grpc server
-	klog.Infof("terminating the e2e provider server")
+	klog.InfoS("terminating the e2e provider server")
 	fakeProviderServer.Stop()
 }
