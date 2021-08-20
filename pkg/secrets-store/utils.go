@@ -17,19 +17,19 @@ limitations under the License.
 package secretsstore
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 
-	"context"
+	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 )
 
 // ensureMountPoint ensures mount point is valid
@@ -141,4 +141,14 @@ func getParametersFromSPC(spc *v1alpha1.SecretProviderClass) (map[string]string,
 		return nil, fmt.Errorf("parameters not set in %s/%s", spc.Namespace, spc.Name)
 	}
 	return spc.Spec.Parameters, nil
+}
+
+// isMockProvider returns true if the provider is mock
+func isMockProvider(provider string) bool {
+	return strings.EqualFold(provider, "mock_provider")
+}
+
+// isMockTargetPath returns true if the target path is mock
+func isMockTargetPath(targetPath string) bool {
+	return strings.EqualFold(targetPath, "/tmp/csi/mount")
 }

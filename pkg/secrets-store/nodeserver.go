@@ -25,7 +25,6 @@ import (
 	"path/filepath"
 	"runtime"
 
-	csicommon "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -37,7 +36,6 @@ import (
 )
 
 type nodeServer struct {
-	*csicommon.DefaultNodeServer
 	providerVolumePath string
 	mounter            mount.Interface
 	reporter           StatsReporter
@@ -272,6 +270,9 @@ func (ns *nodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 	if len(req.GetStagingTargetPath()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Target path missing in request")
 	}
+	if req.GetVolumeCapability() == nil {
+		return nil, status.Error(codes.InvalidArgument, "Volume capability missing in request")
+	}
 
 	return &csi.NodeStageVolumeResponse{}, nil
 }
@@ -309,11 +310,39 @@ func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, provid
 		return nil, "", fmt.Errorf("error connecting to provider %q: %w", providerName, err)
 	}
 
-	klog.InfoS("Using grpc client", "provider", providerName, "pod", podName)
+	klog.InfoS("Using gRPC client", "provider", providerName, "pod", podName)
 
 	return MountContent(ctx, client, attributes, secrets, targetPath, permission, nil)
 }
 
+func (ns *nodeServer) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
+	klog.Info("node: getting default node info")
+
+	return &csi.NodeGetInfoResponse{
+		NodeId: ns.nodeID,
+	}, nil
+}
+
 func (ns *nodeServer) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "NodeExpandVolume is not implemented")
+}
+
+func (ns *nodeServer) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
+	caps := []*csi.NodeServiceCapability{
+		{
+			Type: &csi.NodeServiceCapability_Rpc{
+				Rpc: &csi.NodeServiceCapability_RPC{
+					Type: csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
+				},
+			},
+		},
+	}
+
+	return &csi.NodeGetCapabilitiesResponse{
+		Capabilities: caps,
+	}, nil
+}
+
+func (ns *nodeServer) NodeGetVolumeStats(ctx context.Context, in *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "")
 }

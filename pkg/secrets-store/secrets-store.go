@@ -19,34 +19,41 @@ package secretsstore
 import (
 	"context"
 
-	"github.com/container-storage-interface/spec/lib/go/csi"
-	mount "k8s.io/mount-utils"
-
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	csicommon "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
 	"k8s.io/klog/v2"
+	mount "k8s.io/mount-utils"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // SecretsStore implements the IdentityServer, ControllerServer and
 // NodeServer CSI interfaces.
 type SecretsStore struct {
-	driver *csicommon.CSIDriver
-	ns     *nodeServer
-	cs     *controllerServer
-	ids    *identityServer
+	endpoint string
+
+	ns  *nodeServer
+	cs  *controllerServer
+	ids *identityServer
 }
 
-// GetDriver returns a new secrets store driver
-func GetDriver() *SecretsStore {
-	return &SecretsStore{}
+func NewSecretsStoreDriver(driverName, nodeID, endpoint, providerVolumePath string, providerClients *PluginClientBuilder, client client.Client) *SecretsStore {
+	klog.InfoS("Initializing Secrets Store CSI Driver", "driver", driverName, "version", version.BuildVersion, "buildTime", version.BuildTime)
+
+	ns, err := newNodeServer(providerVolumePath, nodeID, mount.New(""), providerClients, client, NewStatsReporter())
+	if err != nil {
+		klog.Fatalf("failed to initialize node server, error: %+v", err)
+	}
+
+	return &SecretsStore{
+		endpoint: endpoint,
+		ns:       ns,
+		cs:       newControllerServer(),
+		ids:      newIdentityServer(driverName, version.BuildVersion),
+	}
 }
 
-func newNodeServer(d *csicommon.CSIDriver, providerVolumePath, nodeID string, mounter mount.Interface, providerClients *PluginClientBuilder, client client.Client, statsReporter StatsReporter) (*nodeServer, error) {
+func newNodeServer(providerVolumePath, nodeID string, mounter mount.Interface, providerClients *PluginClientBuilder, client client.Client, statsReporter StatsReporter) (*nodeServer, error) {
 	return &nodeServer{
-		DefaultNodeServer:  csicommon.NewDefaultNodeServer(d),
 		providerVolumePath: providerVolumePath,
 		mounter:            mounter,
 		reporter:           statsReporter,
@@ -56,50 +63,9 @@ func newNodeServer(d *csicommon.CSIDriver, providerVolumePath, nodeID string, mo
 	}, nil
 }
 
-func newControllerServer(d *csicommon.CSIDriver) *controllerServer {
-	return &controllerServer{
-		DefaultControllerServer: csicommon.NewDefaultControllerServer(d),
-		vols:                    make(map[string]csi.Volume),
-	}
-}
-
-func newIdentityServer(d *csicommon.CSIDriver) *identityServer {
-	return &identityServer{
-		DefaultIdentityServer: csicommon.NewDefaultIdentityServer(d),
-	}
-}
-
 // Run starts the CSI plugin
-func (s *SecretsStore) Run(ctx context.Context, driverName, nodeID, endpoint, providerVolumePath string, providerClients *PluginClientBuilder, client client.Client) {
-	klog.Infof("Driver: %v ", driverName)
-	klog.Infof("Version: %s, BuildTime: %s", version.BuildVersion, version.BuildTime)
-	klog.Infof("Provider Volume Path: %s", providerVolumePath)
-	klog.Infof("GRPC supported providers will be dynamically created")
-
-	// Initialize default library driver
-	s.driver = csicommon.NewCSIDriver(driverName, version.BuildVersion, nodeID)
-	if s.driver == nil {
-		klog.Fatal("Failed to initialize SecretsStore CSI Driver.")
-	}
-	s.driver.AddControllerServiceCapabilities(
-		[]csi.ControllerServiceCapability_RPC_Type{
-			csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-		})
-	s.driver.AddVolumeCapabilityAccessModes([]csi.VolumeCapability_AccessMode_Mode{
-		csi.VolumeCapability_AccessMode_SINGLE_NODE_READER_ONLY,
-		csi.VolumeCapability_AccessMode_MULTI_NODE_READER_ONLY,
-	})
-
-	ns, err := newNodeServer(s.driver, providerVolumePath, nodeID, mount.New(""), providerClients, client, NewStatsReporter())
-	if err != nil {
-		klog.Fatalf("failed to initialize node server, error: %+v", err)
-	}
-
-	s.ns = ns
-	s.cs = newControllerServer(s.driver)
-	s.ids = newIdentityServer(s.driver)
-
-	server := csicommon.NewNonBlockingGRPCServer()
-	server.Start(ctx, endpoint, s.ids, s.cs, s.ns)
+func (s *SecretsStore) Run(ctx context.Context) {
+	server := NewNonBlockingGRPCServer()
+	server.Start(ctx, s.endpoint, s.ids, s.cs, s.ns)
 	server.Wait()
 }

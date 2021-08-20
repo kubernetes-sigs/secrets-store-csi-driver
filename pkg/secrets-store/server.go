@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2021 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,19 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package csicommon
+package secretsstore
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 
-	"google.golang.org/grpc"
-
 	"github.com/container-storage-interface/spec/lib/go/csi"
-
+	pbSanitizer "github.com/kubernetes-csi/csi-lib-utils/protosanitizer"
+	"google.golang.org/grpc"
 	"k8s.io/klog/v2"
 )
 
@@ -42,6 +43,7 @@ type NonBlockingGRPCServer interface {
 	ForceStop()
 }
 
+// NewNonBlockingGRPCServer returns a new non blocking grpc server
 func NewNonBlockingGRPCServer() NonBlockingGRPCServer {
 	return &nonBlockingGRPCServer{}
 }
@@ -52,19 +54,23 @@ type nonBlockingGRPCServer struct {
 	server *grpc.Server
 }
 
+// Start the server
 func (s *nonBlockingGRPCServer) Start(ctx context.Context, endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer) {
 	s.wg.Add(1)
 	go s.serve(ctx, endpoint, ids, cs, ns)
 }
 
+// Wait for the server to stop
 func (s *nonBlockingGRPCServer) Wait() {
 	s.wg.Wait()
 }
 
+// Stop the server
 func (s *nonBlockingGRPCServer) Stop() {
 	s.server.GracefulStop()
 }
 
+// ForceStop stops the server forcefully
 func (s *nonBlockingGRPCServer) ForceStop() {
 	s.server.Stop()
 }
@@ -72,7 +78,7 @@ func (s *nonBlockingGRPCServer) ForceStop() {
 func (s *nonBlockingGRPCServer) serve(ctx context.Context, endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer) {
 	defer s.wg.Done()
 
-	proto, addr, err := ParseEndpoint(endpoint)
+	proto, addr, err := parseEndpoint(endpoint)
 	if err != nil {
 		klog.Fatal(err.Error())
 	}
@@ -82,13 +88,13 @@ func (s *nonBlockingGRPCServer) serve(ctx context.Context, endpoint string, ids 
 			addr = "/" + addr
 		}
 		if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
-			klog.Fatalf("Failed to remove %s, error: %s", addr, err.Error())
+			klog.Fatalf("failed to remove %s, error: %s", addr, err.Error())
 		}
 	}
 
 	listener, err := net.Listen(proto, addr)
 	if err != nil {
-		klog.Fatalf("Failed to listen: %v", err)
+		klog.Fatalf("failed to listen: %v", err)
 	}
 	defer listener.Close()
 
@@ -108,15 +114,37 @@ func (s *nonBlockingGRPCServer) serve(ctx context.Context, endpoint string, ids 
 		csi.RegisterNodeServer(server, ns)
 	}
 
-	klog.Infof("Listening for connections on address: %v", listener.Addr())
+	klog.InfoS("Listening for connections", "address", listener.Addr().String())
 
 	go func() {
 		err = server.Serve(listener)
 		if err != nil {
-			klog.Errorf("Failed to serve: %v", err)
+			klog.ErrorS(err, "failed to serve")
 		}
 	}()
 
 	<-ctx.Done()
 	server.GracefulStop()
+}
+
+func parseEndpoint(ep string) (string, string, error) {
+	if strings.HasPrefix(strings.ToLower(ep), "unix://") || strings.HasPrefix(strings.ToLower(ep), "tcp://") {
+		s := strings.SplitN(ep, "://", 2)
+		if s[1] != "" {
+			return s[0], s[1], nil
+		}
+	}
+	return "", "", fmt.Errorf("Invalid endpoint: %v", ep)
+}
+
+func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	klog.V(3).Infof("GRPC call: %s", info.FullMethod)
+	klog.V(3).Infof("GRPC request: %s", pbSanitizer.StripSecrets(req).String())
+	resp, err := handler(ctx, req)
+	if err != nil {
+		klog.Errorf("GRPC error: %v", err)
+	} else {
+		klog.V(3).Infof("GRPC response: %s", pbSanitizer.StripSecrets(resp).String())
+	}
+	return resp, err
 }
