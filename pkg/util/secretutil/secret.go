@@ -122,26 +122,14 @@ func getPrivateKey(data []byte) ([]byte, error) {
 	return pem.EncodeToMemory(block), nil
 }
 
-// GetSecretType returns a k8s secret type, defaults to Opaque
+// GetSecretType returns a k8s secret type.
+// Kubernetes doesn't impose any constraints on the type name: https://kubernetes.io/docs/concepts/configuration/secret/#secret-types
+// If the secret type is empty, then default is Opaque.
 func GetSecretType(sType string) corev1.SecretType {
-	switch sType {
-	case "kubernetes.io/basic-auth":
-		return corev1.SecretTypeBasicAuth
-	case "bootstrap.kubernetes.io/token":
-		return corev1.SecretTypeBootstrapToken
-	case "kubernetes.io/dockerconfigjson":
-		return corev1.SecretTypeDockerConfigJson
-	case "kubernetes.io/dockercfg":
-		return corev1.SecretTypeDockercfg
-	case "kubernetes.io/ssh-auth":
-		return corev1.SecretTypeSSHAuth
-	case "kubernetes.io/service-account-token":
-		return corev1.SecretTypeServiceAccountToken
-	case "kubernetes.io/tls":
-		return corev1.SecretTypeTLS
-	default:
+	if sType == "" {
 		return corev1.SecretTypeOpaque
 	}
+	return corev1.SecretType(sType)
 }
 
 // ValidateSecretObject performs basic validation of the secret provider class
