@@ -36,6 +36,25 @@ func setup() {
 	}
 }
 
+func TestMockServer(t *testing.T) {
+	cases := []struct {
+		name string
+	}{
+		{
+			name: "start",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := testMockServer.Start()
+			if err != nil {
+				t.Errorf("Did not expect error on server start: %v", err)
+			}
+		})
+	}
+}
+
 func TestMount(t *testing.T) {
 	cases := []struct {
 		name    string
