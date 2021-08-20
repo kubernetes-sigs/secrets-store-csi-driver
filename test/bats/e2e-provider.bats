@@ -20,11 +20,6 @@ export KEY_VALUE_CONTAINS=${KEYVAULT_KEY_VALUE:-"LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0
 # export node selector var
 export NODE_SELECTOR_OS=$NODE_SELECTOR_OS
 
-# auto rotate secret name
-if [ -z "$AUTO_ROTATE_SECRET_NAME" ]; then
-    export AUTO_ROTATE_SECRET_NAME=secret-$(openssl rand -hex 6)
-fi
-
 @test "secretproviderclasses crd is established" {
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
