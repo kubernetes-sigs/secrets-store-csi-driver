@@ -43,7 +43,7 @@ import (
 func testNodeServer(t *testing.T, tmpDir string, mountPoints []mount.MountPoint, client client.Client, reporter StatsReporter) (*nodeServer, error) {
 	t.Helper()
 	providerClients := NewPluginClientBuilder(tmpDir)
-	return newNodeServer(NewFakeDriver(), tmpDir, "testnode", mount.NewFakeMounter(mountPoints), providerClients, client, reporter)
+	return newNodeServer(tmpDir, "testnode", mount.NewFakeMounter(mountPoints), providerClients, client, reporter)
 }
 
 func TestNodePublishVolume(t *testing.T) {

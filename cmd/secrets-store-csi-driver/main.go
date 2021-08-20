@@ -64,6 +64,7 @@ var (
 
 	// enable filtered watch for NodePublishSecretRef secrets. The filtering is done on the csi driver label: secrets-store.csi.k8s.io/used=true
 	// For Kubernetes secrets used to provide credentials for use with the CSI driver, set the label by running: kubectl label secret secrets-store-creds secrets-store.csi.k8s.io/used=true
+	// This feature is enabled by default starting v0.1.0 and can't be disabled starting v1.0.0 release.
 	filteredWatchSecret = flag.Bool("filtered-watch-secret", true, "enable filtered watch for NodePublishSecretRef secrets with label secrets-store.csi.k8s.io/used=true")
 
 	// Enable optional healthcheck for provider clients that exist in memory
@@ -95,8 +96,9 @@ func main() {
 			klog.ErrorS(http.ListenAndServe(addr, nil), "unable to start profiling server")
 		}()
 	}
-	if *filteredWatchSecret {
-		klog.Infof("Filtered watch for nodePublishSecretRef secret based on secrets-store.csi.k8s.io/used=true label enabled")
+
+	if !*filteredWatchSecret {
+		klog.Warning("Filtered watch for nodePublishSecretRef secret based on secrets-store.csi.k8s.io/used=true label can't be disabled. The --filtered-watch-secret flag will be deprecated in future releases.")
 	}
 
 	// initialize metrics exporter before creating measurements
@@ -181,15 +183,15 @@ func main() {
 
 	// Secret rotation
 	if *enableSecretRotation {
-		rec, err := rotation.NewReconciler(mgr.GetCache(), scheme, *providerVolumePath, *nodeID, *rotationPollInterval, providerClients, *filteredWatchSecret)
+		rec, err := rotation.NewReconciler(mgr.GetCache(), scheme, *providerVolumePath, *nodeID, *rotationPollInterval, providerClients)
 		if err != nil {
 			klog.Fatalf("failed to initialize rotation reconciler, error: %+v", err)
 		}
 		go rec.Run(ctx.Done())
 	}
 
-	driver := secretsstore.GetDriver()
-	driver.Run(ctx, *driverName, *nodeID, *endpoint, *providerVolumePath, providerClients, mgr.GetClient())
+	driver := secretsstore.NewSecretsStoreDriver(*driverName, *nodeID, *endpoint, *providerVolumePath, providerClients, mgr.GetClient())
+	driver.Run(ctx)
 }
 
 // withShutdownSignal returns a copy of the parent context that will close if

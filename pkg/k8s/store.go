@@ -55,13 +55,13 @@ type k8sStore struct {
 }
 
 // New returns store.Store for NodePublishSecretRefSecret
-func New(kubeClient kubernetes.Interface, resyncPeriod time.Duration, filteredWatchSecret bool) (Store, error) {
+func New(kubeClient kubernetes.Interface, resyncPeriod time.Duration) (Store, error) {
 	store := &k8sStore{
 		informers: &Informer{},
 		listers:   &Lister{},
 	}
 
-	store.informers.NodePublishSecretRefSecret = newNodePublishSecretRefSecretInformer(kubeClient, resyncPeriod, filteredWatchSecret)
+	store.informers.NodePublishSecretRefSecret = newNodePublishSecretRefSecretInformer(kubeClient, resyncPeriod)
 	store.listers.NodePublishSecretRefSecret.Store = store.informers.NodePublishSecretRefSecret.GetStore()
 
 	return store, nil
@@ -90,17 +90,13 @@ func (i *Informer) run(stopCh <-chan struct{}) error {
 }
 
 // newNodePublishSecretRefSecretInformer returns a NodePublishSecretRef informer
-func newNodePublishSecretRefSecretInformer(kubeClient kubernetes.Interface, resyncPeriod time.Duration, filteredWatchSecret bool) cache.SharedIndexInformer {
-	var tweakListOptionsFunc internalinterfaces.TweakListOptionsFunc
-	if filteredWatchSecret {
-		tweakListOptionsFunc = usedFilterForSecret()
-	}
+func newNodePublishSecretRefSecretInformer(kubeClient kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
 	return coreInformers.NewFilteredSecretInformer(
 		kubeClient,
 		v1.NamespaceAll,
 		resyncPeriod,
 		cache.Indexers{},
-		tweakListOptionsFunc,
+		usedFilterForSecret(),
 	)
 }
 

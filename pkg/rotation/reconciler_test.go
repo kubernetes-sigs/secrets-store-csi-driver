@@ -68,8 +68,8 @@ func setupScheme() (*runtime.Scheme, error) {
 	return scheme, nil
 }
 
-func newTestReconciler(client client.Reader, s *runtime.Scheme, kubeClient kubernetes.Interface, crdClient *secretsStoreFakeClient.Clientset, rotationPollInterval time.Duration, socketPath string, filteredWatchSecret bool) (*Reconciler, error) {
-	secretStore, err := k8s.New(kubeClient, 5*time.Second, filteredWatchSecret)
+func newTestReconciler(client client.Reader, s *runtime.Scheme, kubeClient kubernetes.Interface, crdClient *secretsStoreFakeClient.Clientset, rotationPollInterval time.Duration, socketPath string) (*Reconciler, error) {
+	secretStore, err := k8s.New(kubeClient, 5*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -454,7 +454,7 @@ func TestReconcileError(t *testing.T) {
 			}
 			client := controllerfake.NewFakeClientWithScheme(scheme, initObjects...)
 
-			testReconciler, err := newTestReconciler(client, scheme, kubeClient, crdClient, test.rotationPollInterval, test.socketPath, false)
+			testReconciler, err := newTestReconciler(client, scheme, kubeClient, crdClient, test.rotationPollInterval, test.socketPath)
 			g.Expect(err).NotTo(HaveOccurred())
 
 			err = testReconciler.secretStore.Run(wait.NeverStop)
@@ -489,18 +489,7 @@ func TestReconcileNoError(t *testing.T) {
 		nodePublishSecretRefSecretToAdd *v1.Secret
 	}{
 		{
-			name:                 "filtered watch for nodePublishSecretRef not enabled",
-			filteredWatchEnabled: false,
-			nodePublishSecretRefSecretToAdd: &v1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "secret1",
-					Namespace: "default",
-				},
-				Data: map[string][]byte{"clientid": []byte("clientid")},
-			},
-		},
-		{
-			name:                 "filtered watch for nodePublishSecretRef enabled",
+			name:                 "filtered watch for nodePublishSecretRef",
 			filteredWatchEnabled: true,
 			nodePublishSecretRefSecretToAdd: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -607,7 +596,7 @@ func TestReconcileNoError(t *testing.T) {
 		}
 		client := controllerfake.NewFakeClientWithScheme(scheme, initObjects...)
 
-		testReconciler, err := newTestReconciler(client, scheme, kubeClient, crdClient, 60*time.Second, socketPath, false)
+		testReconciler, err := newTestReconciler(client, scheme, kubeClient, crdClient, 60*time.Second, socketPath)
 		g.Expect(err).NotTo(HaveOccurred())
 		err = testReconciler.secretStore.Run(wait.NeverStop)
 		g.Expect(err).NotTo(HaveOccurred())
@@ -651,7 +640,7 @@ func TestReconcileNoError(t *testing.T) {
 			test.nodePublishSecretRefSecretToAdd,
 		}
 		client = controllerfake.NewFakeClientWithScheme(scheme, initObjects...)
-		testReconciler, err = newTestReconciler(client, scheme, kubeClient, crdClient, 60*time.Second, socketPath, false)
+		testReconciler, err = newTestReconciler(client, scheme, kubeClient, crdClient, 60*time.Second, socketPath)
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(err).NotTo(HaveOccurred())
 
@@ -667,7 +656,7 @@ func TestReconcileNoError(t *testing.T) {
 			test.nodePublishSecretRefSecretToAdd,
 		}
 		client = controllerfake.NewFakeClientWithScheme(scheme, initObjects...)
-		testReconciler, err = newTestReconciler(client, scheme, kubeClient, crdClient, 60*time.Second, socketPath, false)
+		testReconciler, err = newTestReconciler(client, scheme, kubeClient, crdClient, 60*time.Second, socketPath)
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(err).NotTo(HaveOccurred())
 
@@ -758,7 +747,7 @@ func TestPatchSecret(t *testing.T) {
 			}
 			client := controllerfake.NewFakeClientWithScheme(scheme, initObjects...)
 
-			testReconciler, err := newTestReconciler(client, scheme, kubeClient, crdClient, 60*time.Second, "", false)
+			testReconciler, err := newTestReconciler(client, scheme, kubeClient, crdClient, 60*time.Second, "")
 			g.Expect(err).NotTo(HaveOccurred())
 			err = testReconciler.secretStore.Run(wait.NeverStop)
 			g.Expect(err).NotTo(HaveOccurred())
@@ -783,7 +772,7 @@ func TestPatchSecret(t *testing.T) {
 func TestHandleError(t *testing.T) {
 	g := NewWithT(t)
 
-	testReconciler, err := newTestReconciler(nil, nil, nil, nil, 60*time.Second, "", false)
+	testReconciler, err := newTestReconciler(nil, nil, nil, nil, 60*time.Second, "")
 	g.Expect(err).NotTo(HaveOccurred())
 
 	testReconciler.handleError(errors.New("failed error"), "key1", false)

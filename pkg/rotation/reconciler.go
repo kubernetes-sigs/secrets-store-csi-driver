@@ -94,7 +94,7 @@ type Reconciler struct {
 // TODO (aramase) remove this as part of https://github.com/kubernetes-sigs/secrets-store-csi-driver/issues/585
 
 // NewReconciler returns a new reconciler for rotation
-func NewReconciler(client client.Reader, s *runtime.Scheme, providerVolumePath, nodeName string, rotationPollInterval time.Duration, providerClients *secretsstore.PluginClientBuilder, filteredWatchSecret bool) (*Reconciler, error) {
+func NewReconciler(client client.Reader, s *runtime.Scheme, providerVolumePath, nodeName string, rotationPollInterval time.Duration, providerClients *secretsstore.PluginClientBuilder) (*Reconciler, error) {
 	config, err := buildConfig()
 	if err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func NewReconciler(client client.Reader, s *runtime.Scheme, providerVolumePath, 
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&clientcorev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(s, v1.EventSource{Component: "csi-secrets-store-rotation"})
-	secretStore, err := k8s.New(kubeClient, 5*time.Second, filteredWatchSecret)
+	secretStore, err := k8s.New(kubeClient, 5*time.Second)
 	if err != nil {
 		return nil, err
 	}

@@ -586,3 +586,28 @@ g+Ia2YI15BzapW0agqSSTlfGMoQHaPRh1+XYtkOd/xb4xc8d+gc0
 		})
 	}
 }
+
+func TestGetSecretType(t *testing.T) {
+	tests := []struct {
+		name   string
+		actual string
+		want   corev1.SecretType
+	}{
+		{
+			name:   "empty secret type",
+			actual: "",
+			want:   corev1.SecretTypeOpaque,
+		},
+		{
+			name:   "secret type is custom",
+			actual: "custom",
+			want:   corev1.SecretType("custom"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.want, GetSecretType(test.actual))
+		})
+	}
+}

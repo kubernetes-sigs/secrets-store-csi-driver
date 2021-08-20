@@ -34,9 +34,9 @@ const (
 )
 
 func TestSanity(t *testing.T) {
-	driver := secretsstore.GetDriver()
+	driver := secretsstore.NewSecretsStoreDriver("secrets-store.csi.k8s.io", "somenodeid", endpoint, providerVolumePath, nil, nil)
 	go func() {
-		driver.Run(context.Background(), "secrets-store.csi.k8s.io", "somenodeid", endpoint, providerVolumePath, nil, nil)
+		driver.Run(context.Background())
 	}()
 
 	tmpPath := filepath.Join(os.TempDir(), "csi")
@@ -49,6 +49,9 @@ func TestSanity(t *testing.T) {
 	config.RemoveTargetPath = func(targetPath string) error {
 		return os.RemoveAll(targetPath)
 	}
+	// setting idempotent count to 0 will skip the idempotent tests
+	// these tests depend on the Controller service which is not implemented in CSI driver
+	config.IdempotentCount = 0
 
 	version.BuildVersion = "mock"
 	version.BuildTime = time.Now().String()
