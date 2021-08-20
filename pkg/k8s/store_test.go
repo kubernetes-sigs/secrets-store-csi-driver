@@ -39,7 +39,7 @@ func TestGetNodePublishSecretRefSecret(t *testing.T) {
 
 	kubeClient := fake.NewSimpleClientset()
 
-	testStore, err := New(kubeClient, 1*time.Millisecond, false)
+	testStore, err := New(kubeClient, 1*time.Millisecond)
 	g.Expect(err).NotTo(HaveOccurred())
 	err = testStore.Run(wait.NeverStop)
 	g.Expect(err).NotTo(HaveOccurred())
