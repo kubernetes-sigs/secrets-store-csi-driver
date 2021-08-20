@@ -375,8 +375,8 @@ else
 	kind load docker-image --name kind $(CRD_IMAGE_TAG)
 endif
 
-.PHONY: e2e-fake-provider-container
-e2e-fake-provider-container:
+.PHONY: e2e-mock-provider-container
+e2e-mock-provider-container:
 	$(MAKE) e2e-provider-container
 	kind load docker-image --name kind $(E2E_PROVIDER_IMAGE_TAG)
 
