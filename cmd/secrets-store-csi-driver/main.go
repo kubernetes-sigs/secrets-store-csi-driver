@@ -188,8 +188,8 @@ func main() {
 		go rec.Run(ctx.Done())
 	}
 
-	driver := secretsstore.GetDriver()
-	driver.Run(ctx, *driverName, *nodeID, *endpoint, *providerVolumePath, providerClients, mgr.GetClient())
+	driver := secretsstore.NewSecretsStoreDriver(*driverName, *nodeID, *endpoint, *providerVolumePath, providerClients, mgr.GetClient())
+	driver.Run(ctx)
 }
 
 // withShutdownSignal returns a copy of the parent context that will close if

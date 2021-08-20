@@ -139,9 +139,10 @@ test: lint go-test
 go-test:
 	go test -cover $(GO_FILES) -v
 
+# skipping Controller tests as this driver only implements Node and Identity service.
 .PHONY: sanity-test # Run CSI sanity tests for the driver
 sanity-test:
-	go test -v ./test/sanity
+	go test -v ./test/sanity -ginkgo.skip=Controller\|should.work\|NodeStageVolume
 
 .PHONY: image-scan
 image-scan: $(TRIVY)

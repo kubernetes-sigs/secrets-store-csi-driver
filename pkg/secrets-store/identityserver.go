@@ -19,14 +19,23 @@ package secretsstore
 import (
 	"context"
 
-	csicommon "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
-
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"k8s.io/klog/v2"
 )
 
 type identityServer struct {
-	*csicommon.DefaultIdentityServer
+	name    string
+	version string
+}
+
+func newIdentityServer(name, version string) *identityServer {
+	return &identityServer{
+		name:    name,
+		version: version,
+	}
 }
 
 // Probe check whether the plugin is running or not.
@@ -35,4 +44,34 @@ type identityServer struct {
 // means driver is working as expected.
 func (ids *identityServer) Probe(ctx context.Context, req *csi.ProbeRequest) (*csi.ProbeResponse, error) {
 	return &csi.ProbeResponse{Ready: &wrappers.BoolValue{Value: true}}, nil
+}
+
+// GetPluginInfo returns plugin information.
+func (ids *identityServer) GetPluginInfo(ctx context.Context, req *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
+	if ids.name == "" {
+		return nil, status.Error(codes.Unavailable, "driver name not configured")
+	}
+	if ids.version == "" {
+		return nil, status.Error(codes.Unavailable, "driver version not configured")
+	}
+	return &csi.GetPluginInfoResponse{
+		Name:          ids.name,
+		VendorVersion: ids.version,
+	}, nil
+}
+
+func (ids *identityServer) GetPluginCapabilities(ctx context.Context, req *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
+	klog.V(5).Infof("using default plugin capabilities in identity server")
+
+	return &csi.GetPluginCapabilitiesResponse{
+		Capabilities: []*csi.PluginCapability{
+			{
+				Type: &csi.PluginCapability_Service_{
+					Service: &csi.PluginCapability_Service{
+						Type: csi.PluginCapability_Service_CONTROLLER_SERVICE,
+					},
+				},
+			},
+		},
+	}, nil
 }
