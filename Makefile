@@ -254,7 +254,7 @@ build:
 
 .PHONY: build-e2e-provider
 build-e2e-provider:
-	cd test/e2eprovider && GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=linux go build -a -o e2e-provider
+	cd test/e2eprovider && GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=linux go build -a -tags "e2e" -o e2e-provider
 
 .PHONY: build-windows
 build-windows:
