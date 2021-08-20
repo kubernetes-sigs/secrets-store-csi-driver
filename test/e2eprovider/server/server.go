@@ -1,6 +1,6 @@
 // +build e2e
 
-package e2eprovider
+package server
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 
 	util "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
-	types "sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/types"
+	"sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/types"
 
 	"google.golang.org/grpc"
 	"k8s.io/klog/v2"
@@ -22,7 +22,7 @@ var (
 	secrets = map[string]string{
 		"foo": "secret",
 		"fookey": `-----BEGIN PUBLIC KEY-----
-This is fake key
+This is mock key
 -----END PUBLIC KEY-----`,
 	}
 

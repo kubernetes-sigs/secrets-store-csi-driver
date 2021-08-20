@@ -1,6 +1,6 @@
 // +build e2e
 
-package e2eprovider
+package types
 
 // MockSecretsStoreObject holds mock object related config
 type MockSecretsStoreObject struct {

@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	server "sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/server"
+	"sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/server"
 
 	"k8s.io/klog/v2"
 )
@@ -26,16 +26,16 @@ func main() {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGTERM, syscall.SIGINT, os.Interrupt)
 
-	fakeProviderServer, err := server.NewE2EProviderServer(*endpoint)
+	mockProviderServer, err := server.NewE2EProviderServer(*endpoint)
 	if err != nil {
 		klog.Fatalf("failed to get new fake e2e provider server, err: %+v", err)
 	}
 
-	if err := os.Remove(fakeProviderServer.SocketPath); err != nil && !os.IsNotExist(err) {
-		klog.Fatalf("failed to remove %s, error: %s", fakeProviderServer.SocketPath, err.Error())
+	if err := os.Remove(mockProviderServer.SocketPath); err != nil && !os.IsNotExist(err) {
+		klog.Fatalf("failed to remove %s, error: %s", mockProviderServer.SocketPath, err.Error())
 	}
 
-	err = fakeProviderServer.Start()
+	err = mockProviderServer.Start()
 	if err != nil {
 		klog.Fatalf("failed to start fake e2e provider server, err: %+v", err)
 	}
@@ -43,5 +43,5 @@ func main() {
 	<-signalChan
 	// gracefully stop the grpc server
 	klog.InfoS("terminating the e2e provider server")
-	fakeProviderServer.Stop()
+	mockProviderServer.Stop()
 }
