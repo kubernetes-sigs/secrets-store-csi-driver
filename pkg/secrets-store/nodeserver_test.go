@@ -275,9 +275,8 @@ func TestNodePublishVolume(t *testing.T) {
 			r := mocks.NewFakeReporter()
 
 			tmpDir := tmpdir.New(t, "", "ut")
-			server, err := server.NewE2eProviderServer(
+			server, err := server.NewE2EProviderServer(
 				fmt.Sprintf("unix://%s", filepath.Join(tmpDir, "simple_provider.sock")),
-				nil,
 			)
 			if err != nil {
 				t.Fatalf("Error creating e2e test server: %v", err)

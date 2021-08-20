@@ -10,7 +10,7 @@ NODE_SELECTOR_OS=linux
 # export secret vars
 export SECRET_NAME=${KEYVAULT_SECRET_NAME:-foo}
 export SECRET_VERSION=${KEYVAULT_SECRET_VERSION:-"v1"}
-export SECRET_VALUE=${KEYVAULT_SECRET_VALUE:-"bar"}
+export SECRET_VALUE=${KEYVAULT_SECRET_VALUE:-"secret"}
 
 # export key vars
 export KEY_NAME=${KEYVAULT_KEY_NAME:-fookey}
@@ -127,7 +127,7 @@ fi
 @test "Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences with multiple owners" {
   POD=$(kubectl get pod -l app=busybox -o jsonpath="{.items[0].metadata.name}")
 
-  result=$(kubectl exec $POD -- cat /mnt/secrets-store/secretalias)
+  result=$(kubectl exec $POD -- cat /mnt/secrets-store/$SECRET_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   result=$(kubectl exec $POD -- cat /mnt/secrets-store/$KEY_NAME)
@@ -189,7 +189,7 @@ fi
 @test "Test Namespaced scope SecretProviderClass - Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences" {
   POD=$(kubectl get pod -l app=busybox -n test-ns -o jsonpath="{.items[0].metadata.name}")
 
-  result=$(kubectl exec -n test-ns $POD -- cat /mnt/secrets-store/secretalias)
+  result=$(kubectl exec -n test-ns $POD -- cat /mnt/secrets-store/$SECRET_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   result=$(kubectl exec -n test-ns $POD -- cat /mnt/secrets-store/$KEY_NAME)
@@ -233,7 +233,7 @@ fi
 }
 
 @test "deploy multiple e2e provier secretproviderclass crd" {
-  envsubst < $BATS_TESTS_DIR/e2e-provider_v1alpha1_multiple_secretproviderclass.yaml | kubectl apply -f -
+  envsubst < $BATS_TESTS_DIR/e2e_provider_v1alpha1_multiple_secretproviderclass.yaml | kubectl apply -f -
 
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
@@ -254,14 +254,14 @@ fi
 }
 
 @test "CSI inline volume test with multiple secret provider class" {
-  result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/secretalias)
+  result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/$SECRET_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/$KEY_NAME)
   result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
   [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 
-  result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/secretalias)
+  result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/$SECRET_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/$KEY_NAME)
@@ -291,12 +291,6 @@ fi
   run kubectl create ns rotation
   assert_success
 
-  run kubectl create secret generic ${AUTO_ROTATE_SECRET_NAME} --from-literal=${AUTO_ROTATE_SECRET_NAME}=secret -n e2e-vault
-  assert_success
-
-  run kubectl label secret ${AUTO_ROTATE_SECRET_NAME} version=v1 -n e2e-vault
-  assert_success
-
   envsubst < $BATS_TESTS_DIR/rotation/e2e_provider_synck8s_v1alpha1_secretproviderclass.yaml | kubectl apply -n rotation -f -
   envsubst < $BATS_TESTS_DIR/rotation/pod-synck8s-e2e-provider.yaml | kubectl apply -n rotation -f -
 
@@ -307,27 +301,19 @@ fi
 }
 
 @test "Test auto rotation of mount contents and K8s secrets" {
-  result=$(kubectl exec -n rotation secrets-store-inline-rotation -- cat /mnt/secrets-store/secretalias)
+  result=$(kubectl exec -n rotation secrets-store-inline-rotation -- cat /mnt/secrets-store/$SECRET_NAME)
   [[ "${result//$'\r'}" == "secret" ]]
 
   result=$(kubectl get secret -n rotation rotationsecret -o jsonpath="{.data.username}" | base64 -d)
   [[ "${result//$'\r'}" == "secret" ]]
-
-  kubectl create secret generic ${AUTO_ROTATE_SECRET_NAME} --save-config --dry-run=client --from-literal=${AUTO_ROTATE_SECRET_NAME}=rotated -o yaml | kubectl apply -n e2e-vault -f -
-
-  run kubectl label --overwrite=true secret ${AUTO_ROTATE_SECRET_NAME} version=v2 -n e2e-vault
-  assert_success
-
+  
   sleep 60
 
-  result=$(kubectl exec -n rotation secrets-store-inline-rotation -- cat /mnt/secrets-store/secretalias)
+  result=$(kubectl exec -n rotation secrets-store-inline-rotation -- cat /mnt/secrets-store/$SECRET_NAME)
   [[ "${result//$'\r'}" == "rotated" ]]
 
   result=$(kubectl get secret -n rotation rotationsecret -o jsonpath="{.data.username}" | base64 -d)
   [[ "${result//$'\r'}" == "rotated" ]]
-
-  run kubectl delete secret ${AUTO_ROTATE_SECRET_NAME} -n e2e-vault
-  assert_success
 }
 
 @test "Test filtered-watch-secret=false" {

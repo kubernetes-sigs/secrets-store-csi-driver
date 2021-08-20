@@ -10,11 +10,23 @@ import (
 	util "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 	types "sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/types"
-	vault "sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/vault"
 
 	"google.golang.org/grpc"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
+)
+
+var (
+	secrets = map[string]string{
+		"foo": "secret",
+		"fookey": `-----BEGIN PUBLIC KEY-----
+This is fake key
+-----END PUBLIC KEY-----`,
+	}
+
+	podCache = make(map[string]bool)
+
+	podUIDAttribute = "csi.storage.k8s.io/pod.uid"
 )
 
 // Server is a mock csi-provider server
@@ -23,11 +35,10 @@ type Server struct {
 	listener   net.Listener
 	SocketPath string
 	network    string
-	Vault      vault.Vault
 }
 
-// NewE2eProviderServer returns a mock csi-provider grpc server
-func NewE2eProviderServer(endpoint string, vault vault.Vault) (*Server, error) {
+// NewE2EProviderServer returns a mock csi-provider grpc server
+func NewE2EProviderServer(endpoint string) (*Server, error) {
 	network, address, err := util.ParseEndpoint(endpoint)
 	if err != nil {
 		klog.Fatal(err.Error())
@@ -38,7 +49,6 @@ func NewE2eProviderServer(endpoint string, vault vault.Vault) (*Server, error) {
 		grpcServer: server,
 		SocketPath: address,
 		network:    network,
-		Vault:      vault,
 	}
 
 	v1alpha1.RegisterCSIDriverProviderServer(server, s)
@@ -92,6 +102,8 @@ func (m *Server) Mount(ctx context.Context, req *v1alpha1.MountRequest) (*v1alph
 	if objectsStrings == "" {
 		return nil, fmt.Errorf("objects is not set")
 	}
+	fmt.Printf("objects: %s\n", objectsStrings)
+	fmt.Printf("attrib: %+v\n", attrib)
 
 	var objects types.StringArray
 	err = yaml.Unmarshal([]byte(objectsStrings), &objects)
@@ -99,39 +111,53 @@ func (m *Server) Mount(ctx context.Context, req *v1alpha1.MountRequest) (*v1alph
 		return nil, fmt.Errorf("failed to yaml unmarshal objects, error: %w", err)
 	}
 
-	keyVaultObjects := []types.KeyVaultObject{}
+	mockSecretsStoreObjects := []types.MockSecretsStoreObject{}
 	for i, object := range objects.Array {
-		var keyVaultObject types.KeyVaultObject
-		err = yaml.Unmarshal([]byte(object), &keyVaultObject)
+		var mockSecretsStoreObject types.MockSecretsStoreObject
+		err = yaml.Unmarshal([]byte(object), &mockSecretsStoreObject)
 		if err != nil {
 			return nil, fmt.Errorf("unmarshal failed for keyVaultObjects at index %d, error: %w", i, err)
 		}
 
-		keyVaultObjects = append(keyVaultObjects, keyVaultObject)
+		mockSecretsStoreObjects = append(mockSecretsStoreObjects, mockSecretsStoreObject)
 	}
 
-	for _, keyVaultObject := range keyVaultObjects {
-		fileName := keyVaultObject.ObjectName
-		if keyVaultObject.ObjectAlias != "" {
-			fileName = keyVaultObject.ObjectAlias
-		}
-
-		secret, version, err := m.Vault.GetSecret(keyVaultObject.ObjectName)
+	for _, mockSecretsStoreObject := range mockSecretsStoreObjects {
+		secretFile, version, err := getSecret(mockSecretsStoreObject.ObjectName, attrib[podUIDAttribute])
 		if err != nil {
-			return nil, fmt.Errorf("failed to get secret from keyvault, error: %w", err)
+			return nil, fmt.Errorf("failed to get secret, error: %w", err)
 		}
 
-		resp.Files = append(resp.Files, &v1alpha1.File{
-			Path:     fileName,
-			Contents: []byte(secret),
-		})
-		resp.ObjectVersion = append(resp.ObjectVersion, &v1alpha1.ObjectVersion{
-			Id:      fmt.Sprintf("secret/%s", fileName),
-			Version: version,
-		})
+		resp.Files = append(resp.Files, secretFile)
+		resp.ObjectVersion = append(resp.ObjectVersion, version)
 	}
+	podCache[attrib[podUIDAttribute]] = true
 
 	return resp, nil
+}
+
+func getSecret(secretName, podUID string) (*v1alpha1.File, *v1alpha1.ObjectVersion, error) {
+	secretVersion := "v1"
+	secretContent := secrets[secretName]
+
+	// If pod found in cache, then it means that pod is being called for the second time for rotation
+	// In this case, we should return the 'rotated' secret.
+	if ok := podCache[podUID]; ok {
+		secretVersion = "v2"
+		secretContent = "rotated"
+	}
+
+	secretFile := &v1alpha1.File{
+		Path:     secretName,
+		Contents: []byte(secretContent),
+	}
+
+	version := &v1alpha1.ObjectVersion{
+		Id:      fmt.Sprintf("secret/%s", secretName),
+		Version: secretVersion,
+	}
+
+	return secretFile, version, nil
 }
 
 // Version implements provider csi-provider method
