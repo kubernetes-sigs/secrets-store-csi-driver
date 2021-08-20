@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
-	util "sigs.k8s.io/secrets-store-csi-driver/pkg/csi-common"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 	"sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/types"
 
@@ -41,9 +41,16 @@ type Server struct {
 
 // NewE2EProviderServer returns a mock csi-provider grpc server
 func NewE2EProviderServer(endpoint string) (*Server, error) {
-	network, address, err := util.ParseEndpoint(endpoint)
-	if err != nil {
-		klog.Fatal(err.Error())
+	network := ""
+	address := ""
+	if strings.HasPrefix(strings.ToLower(endpoint), "unix://") || strings.HasPrefix(strings.ToLower(endpoint), "tcp://") {
+		s := strings.SplitN(endpoint, "://", 2)
+		if s[1] != "" {
+			network = s[0]
+			address = s[1]
+		} else {
+			return nil, fmt.Errorf("Invalid endpoint: %s", endpoint)
+		}
 	}
 
 	server := grpc.NewServer()

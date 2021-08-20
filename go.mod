@@ -14,13 +14,13 @@ require (
 	go.opentelemetry.io/otel v0.20.0
 	go.opentelemetry.io/otel/exporters/metric/prometheus v0.20.0
 	go.opentelemetry.io/otel/metric v0.20.0
-	google.golang.org/grpc v1.38.0
+	google.golang.org/grpc v1.39.0
 	google.golang.org/protobuf v1.26.0
 	k8s.io/api v0.22.0
 	k8s.io/apimachinery v0.22.0
 	k8s.io/client-go v0.22.0
 	k8s.io/component-base v0.22.0
-	k8s.io/klog/v2 v2.9.0	
+	k8s.io/klog/v2 v2.10.0
 	k8s.io/mount-utils v0.21.0
 	sigs.k8s.io/controller-runtime v0.9.0
 	sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider v0.0.0-00010101000000-000000000000
