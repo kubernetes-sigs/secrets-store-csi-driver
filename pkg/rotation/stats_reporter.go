@@ -17,9 +17,9 @@ import (
 	"context"
 	"runtime"
 
-	"go.opentelemetry.io/otel/api/global"
-	"go.opentelemetry.io/otel/api/metric"
-	"go.opentelemetry.io/otel/label"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/global"
 )
 
 var (
@@ -52,15 +52,15 @@ func newStatsReporter() StatsReporter {
 }
 
 func (r *reporter) reportRotationCtMetric(provider string, wasRotated bool) {
-	labels := []label.KeyValue{label.String(providerKey, provider), label.String(osTypeKey, runtimeOS), label.Bool(rotatedKey, wasRotated)}
+	labels := []attribute.KeyValue{attribute.String(providerKey, provider), attribute.String(osTypeKey, runtimeOS), attribute.Bool(rotatedKey, wasRotated)}
 	rotationReconcileTotal.Add(context.Background(), 1, labels...)
 }
 
 func (r *reporter) reportRotationErrorCtMetric(provider, errType string, wasRotated bool) {
-	labels := []label.KeyValue{label.String(providerKey, provider), label.String(errorKey, errType), label.String(osTypeKey, runtimeOS), label.Bool(rotatedKey, wasRotated)}
+	labels := []attribute.KeyValue{attribute.String(providerKey, provider), attribute.String(errorKey, errType), attribute.String(osTypeKey, runtimeOS), attribute.Bool(rotatedKey, wasRotated)}
 	rotationReconcileErrorTotal.Add(context.Background(), 1, labels...)
 }
 
 func (r *reporter) reportRotationDuration(duration float64) {
-	r.meter.RecordBatch(context.Background(), []label.KeyValue{label.String(osTypeKey, runtimeOS)}, rotationReconcileDuration.Measurement(duration))
+	r.meter.RecordBatch(context.Background(), []attribute.KeyValue{attribute.String(osTypeKey, runtimeOS)}, rotationReconcileDuration.Measurement(duration))
 }

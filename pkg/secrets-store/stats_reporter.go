@@ -17,9 +17,9 @@ import (
 	"context"
 	"runtime"
 
-	"go.opentelemetry.io/otel/api/global"
-	"go.opentelemetry.io/otel/api/metric"
-	"go.opentelemetry.io/otel/label"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/global"
 )
 
 var (
@@ -60,28 +60,28 @@ func NewStatsReporter() StatsReporter {
 }
 
 func (r *reporter) ReportNodePublishCtMetric(provider string) {
-	labels := []label.KeyValue{label.String(providerKey, provider), label.String(osTypeKey, runtimeOS)}
+	labels := []attribute.KeyValue{attribute.String(providerKey, provider), attribute.String(osTypeKey, runtimeOS)}
 	nodePublishTotal.Add(context.Background(), 1, labels...)
 }
 
 func (r *reporter) ReportNodeUnPublishCtMetric() {
-	nodeUnPublishTotal.Add(context.Background(), 1, []label.KeyValue{label.String(osTypeKey, runtimeOS)}...)
+	nodeUnPublishTotal.Add(context.Background(), 1, []attribute.KeyValue{attribute.String(osTypeKey, runtimeOS)}...)
 }
 
 func (r *reporter) ReportNodePublishErrorCtMetric(provider, errType string) {
-	labels := []label.KeyValue{label.String(providerKey, provider), label.String(errorKey, errType), label.String(osTypeKey, runtimeOS)}
+	labels := []attribute.KeyValue{attribute.String(providerKey, provider), attribute.String(errorKey, errType), attribute.String(osTypeKey, runtimeOS)}
 	nodePublishErrorTotal.Add(context.Background(), 1, labels...)
 }
 
 func (r *reporter) ReportNodeUnPublishErrorCtMetric() {
-	nodeUnPublishErrorTotal.Add(context.Background(), 1, []label.KeyValue{label.String(osTypeKey, runtimeOS)}...)
+	nodeUnPublishErrorTotal.Add(context.Background(), 1, []attribute.KeyValue{attribute.String(osTypeKey, runtimeOS)}...)
 }
 
 func (r *reporter) ReportSyncK8SecretCtMetric(provider string, count int) {
-	labels := []label.KeyValue{label.String(providerKey, provider), label.String(osTypeKey, runtimeOS)}
+	labels := []attribute.KeyValue{attribute.String(providerKey, provider), attribute.String(osTypeKey, runtimeOS)}
 	syncK8sSecretTotal.Add(context.Background(), int64(count), labels...)
 }
 
 func (r *reporter) ReportSyncK8SecretDuration(duration float64) {
-	r.meter.RecordBatch(context.Background(), []label.KeyValue{label.String(osTypeKey, runtimeOS)}, syncK8sSecretDuration.Measurement(duration))
+	r.meter.RecordBatch(context.Background(), []attribute.KeyValue{attribute.String(osTypeKey, runtimeOS)}, syncK8sSecretDuration.Measurement(duration))
 }
