@@ -42,8 +42,8 @@ type Server struct {
 
 // NewE2EProviderServer returns a mock csi-provider grpc server
 func NewE2EProviderServer(endpoint string) (*Server, error) {
-	network := ""
-	address := ""
+	var network, address string
+
 	if strings.HasPrefix(strings.ToLower(endpoint), "unix://") || strings.HasPrefix(strings.ToLower(endpoint), "tcp://") {
 		s := strings.SplitN(endpoint, "://", 2)
 		if s[1] != "" {
@@ -79,7 +79,7 @@ func (m *Server) Start() error {
 		return err
 	}
 
-	klog.InfoS("Listening for connections on address:", m.listener.Addr())
+	klog.InfoS("Listening for connections", "address:", m.listener.Addr())
 	go m.grpcServer.Serve(m.listener)
 	return nil
 }
