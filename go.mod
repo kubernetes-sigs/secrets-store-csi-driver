@@ -23,10 +23,4 @@ require (
 	k8s.io/klog/v2 v2.10.0
 	k8s.io/mount-utils v0.21.0
 	sigs.k8s.io/controller-runtime v0.9.0
-	sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider v0.0.0-00010101000000-000000000000
-)
-
-replace (
-	sigs.k8s.io/secrets-store-csi-driver => ./
-	sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider => ./test/e2eprovider
 )
