@@ -28,22 +28,6 @@ This is mock key
 
 	// podCache is a map of pod UID to check if secret has been rotated.
 	podCache = map[string]bool{}
-)
-
-func getSecret(objectName, podUID string) (*v1alpha1.SecretFile, *v1alpha1.ObjectVersion, error) {
-	var secretFile v1alpha1.SecretFile
-	var version v1alpha1.ObjectVersion
-
-	secretFile.Name = objectName
-	secretFile.Data = secrets[objectName]
-	secretFile.Permission = os.FileMode(0644)
-
-	version.Name = objectName
-	version.Data = podUID
-
-	return &secretFile, &version, nil
-}
-	podCache = make(map[string]bool)
 
 	podUIDAttribute = "csi.storage.k8s.io/pod.uid"
 )
@@ -52,7 +36,7 @@ func getSecret(objectName, podUID string) (*v1alpha1.SecretFile, *v1alpha1.Objec
 type Server struct {
 	grpcServer *grpc.Server
 	listener   net.Listener
-	SocketPath string
+	socketPath string
 	network    string
 }
 
@@ -73,7 +57,7 @@ func NewE2EProviderServer(endpoint string) (*Server, error) {
 	server := grpc.NewServer()
 	s := &Server{
 		grpcServer: server,
-		SocketPath: address,
+		socketPath: address,
 		network:    network,
 	}
 
@@ -82,11 +66,15 @@ func NewE2EProviderServer(endpoint string) (*Server, error) {
 	return s, nil
 }
 
+func (s *Server) GetSocketPath() string {
+	return s.socketPath
+}
+
 // Start starts the mock csi-provider server
 func (m *Server) Start() error {
 	var err error
 
-	m.listener, err = net.Listen(m.network, m.SocketPath)
+	m.listener, err = net.Listen(m.network, m.GetSocketPath())
 	if err != nil {
 		return err
 	}
