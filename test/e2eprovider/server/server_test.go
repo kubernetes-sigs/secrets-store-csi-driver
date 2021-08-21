@@ -15,23 +15,28 @@ import (
 
 var (
 	testMockServer *Server
+	tempDir        = os.TempDir()
 )
 
 func TestMain(m *testing.M) {
 	setup()
 	exitCode := m.Run()
+	teardown()
 	os.Exit(exitCode)
 }
 
 func setup() {
-	os.TempDir()
-	tempDir := os.TempDir()
-
 	var err error
+
 	testMockServer, err = NewE2EProviderServer(fmt.Sprintf("unix://%s/%s", tempDir, "e2e-provider.sock"))
 	if err != nil {
 		panic(err)
 	}
+}
+
+func teardown() {
+	testMockServer.Stop()
+	os.RemoveAll(tempDir)
 }
 
 func TestMockServer(t *testing.T) {

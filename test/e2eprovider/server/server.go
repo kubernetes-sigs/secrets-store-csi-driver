@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 	"sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/types"
@@ -30,6 +31,9 @@ This is mock key
 	podCache = map[string]bool{}
 
 	podUIDAttribute = "csi.storage.k8s.io/pod.uid"
+
+	// RWMutex is to safely access podCache
+	m sync.RWMutex
 )
 
 // Server is a mock csi-provider server
@@ -143,7 +147,10 @@ func (s *Server) Mount(ctx context.Context, req *v1alpha1.MountRequest) (*v1alph
 		resp.Files = append(resp.Files, secretFile)
 		resp.ObjectVersion = append(resp.ObjectVersion, version)
 	}
+
+	m.Lock()
 	podCache[attrib[podUIDAttribute]] = true
+	m.Unlock()
 
 	return resp, nil
 }
@@ -154,10 +161,12 @@ func getSecret(secretName, podUID string) (*v1alpha1.File, *v1alpha1.ObjectVersi
 
 	// If pod found in cache, then it means that pod is being called for the second time for rotation
 	// In this case, we should return the 'rotated' secret.
+	m.RLock()
 	if ok := podCache[podUID]; ok {
 		secretVersion = "v2"
 		secretContent = "rotated"
 	}
+	m.RUnlock()
 
 	secretFile := &v1alpha1.File{
 		Path:     secretName,
