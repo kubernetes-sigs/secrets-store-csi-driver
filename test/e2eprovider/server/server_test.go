@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"testing"
@@ -25,11 +24,10 @@ func TestMain(m *testing.M) {
 }
 
 func setup() {
-	tempDir, err := ioutil.TempDir("", "")
-	if err != nil {
-		panic(err)
-	}
+	os.TempDir()
+	tempDir := os.TempDir()
 
+	var err error
 	testMockServer, err = NewE2EProviderServer(fmt.Sprintf("unix://%s/%s", tempDir, "e2e-provider.sock"))
 	if err != nil {
 		panic(err)
