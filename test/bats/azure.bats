@@ -103,7 +103,10 @@ setup() {
 @test "CSI inline volume test with pod portability" {
   envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -f -
   
-  kubectl wait --for=condition=Ready --timeout=180s pod/secrets-store-inline-crd
+  # The wait timeout is set to 300s only for this first pod in test to accomadate for the node-driver-registrar
+  # registration retries on windows nodes. Based on previous tests on windows nodes, the node-driver-registrar was
+  # restarted 5 times before succeeding which resulted in a wait timeout of 300s.
+  kubectl wait --for=condition=Ready --timeout=300s pod/secrets-store-inline-crd
 
   run kubectl get pod/secrets-store-inline-crd
   assert_success
