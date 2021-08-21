@@ -28,7 +28,7 @@ func main() {
 
 	mockProviderServer, err := server.NewE2EProviderServer(*endpoint)
 	if err != nil {
-		klog.Fatalf("failed to get new fake e2e provider server, err: %+v", err)
+		klog.Fatalf("failed to get new mock e2e provider server, err: %+v", err)
 	}
 
 	if err := os.Remove(mockProviderServer.SocketPath); err != nil && !os.IsNotExist(err) {
@@ -37,7 +37,7 @@ func main() {
 
 	err = mockProviderServer.Start()
 	if err != nil {
-		klog.Fatalf("failed to start fake e2e provider server, err: %+v", err)
+		klog.Fatalf("failed to start mock e2e provider server, err: %+v", err)
 	}
 
 	<-signalChan

@@ -26,6 +26,23 @@ This is mock key
 -----END PUBLIC KEY-----`,
 	}
 
+	// podCache is a map of pod UID to check if secret has been rotated.
+	podCache = map[string]bool{}
+)
+
+func getSecret(objectName, podUID string) (*v1alpha1.SecretFile, *v1alpha1.ObjectVersion, error) {
+	var secretFile v1alpha1.SecretFile
+	var version v1alpha1.ObjectVersion
+
+	secretFile.Name = objectName
+	secretFile.Data = secrets[objectName]
+	secretFile.Permission = os.FileMode(0644)
+
+	version.Name = objectName
+	version.Data = podUID
+
+	return &secretFile, &version, nil
+}
 	podCache = make(map[string]bool)
 
 	podUIDAttribute = "csi.storage.k8s.io/pod.uid"
