@@ -71,26 +71,26 @@ func (s *Server) GetSocketPath() string {
 }
 
 // Start starts the mock csi-provider server
-func (m *Server) Start() error {
+func (s *Server) Start() error {
 	var err error
 
-	m.listener, err = net.Listen(m.network, m.GetSocketPath())
+	s.listener, err = net.Listen(s.network, s.GetSocketPath())
 	if err != nil {
 		return err
 	}
 
-	klog.InfoS("Listening for connections", "address:", m.listener.Addr())
-	go m.grpcServer.Serve(m.listener)
+	klog.InfoS("Listening for connections", "address:", s.listener.Addr())
+	go s.grpcServer.Serve(s.listener)
 	return nil
 }
 
 // Stop stops the mock csi-provider server
-func (m *Server) Stop() {
-	m.grpcServer.GracefulStop()
+func (s *Server) Stop() {
+	s.grpcServer.GracefulStop()
 }
 
 // Mount implements provider csi-provider method
-func (m *Server) Mount(ctx context.Context, req *v1alpha1.MountRequest) (*v1alpha1.MountResponse, error) {
+func (s *Server) Mount(ctx context.Context, req *v1alpha1.MountRequest) (*v1alpha1.MountResponse, error) {
 	var attrib, secret map[string]string
 	var filePermission os.FileMode
 	var err error
@@ -173,7 +173,7 @@ func getSecret(secretName, podUID string) (*v1alpha1.File, *v1alpha1.ObjectVersi
 }
 
 // Version implements provider csi-provider method
-func (m *Server) Version(ctx context.Context, req *v1alpha1.VersionRequest) (*v1alpha1.VersionResponse, error) {
+func (s *Server) Version(ctx context.Context, req *v1alpha1.VersionRequest) (*v1alpha1.VersionResponse, error) {
 	return &v1alpha1.VersionResponse{
 		Version:        "v1alpha1",
 		RuntimeName:    "SimpleProvider",

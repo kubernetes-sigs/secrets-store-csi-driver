@@ -31,8 +31,8 @@ func main() {
 		klog.Fatalf("failed to get new mock e2e provider server, err: %+v", err)
 	}
 
-	if err := os.Remove(mockProviderServer.SocketPath); err != nil && !os.IsNotExist(err) {
-		klog.Fatalf("failed to remove %s, error: %s", mockProviderServer.SocketPath, err.Error())
+	if err := os.Remove(mockProviderServer.GetSocketPath()); err != nil && !os.IsNotExist(err) {
+		klog.Fatalf("failed to remove %s, error: %s", mockProviderServer.GetSocketPath(), err.Error())
 	}
 
 	err = mockProviderServer.Start()

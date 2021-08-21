@@ -233,7 +233,8 @@ test-style: lint lint-charts shellcheck
 .PHONY: lint
 lint: $(GOLANGCI_LINT)
 	# Setting timeout to 5m as default is 1m
-	$(GOLANGCI_LINT) run --build-tags e2e --timeout=5m -v
+	$(GOLANGCI_LINT) run --timeout=5m -v
+	cd test/e2eprovider && $(GOLANGCI_LINT) run --build-tags e2e --timeout=5m -v
 
 lint-full: $(GOLANGCI_LINT)
 	$(GOLANGCI_LINT) run -v --fast=false
