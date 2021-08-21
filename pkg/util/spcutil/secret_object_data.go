@@ -102,7 +102,7 @@ func createDockerConfigJsonSecretDataObject(key string) *v1alpha1.SecretObject {
 		Type:       string(corev1.SecretTypeDockerConfigJson),
 		Data: []*v1alpha1.SecretObjectData{
 			{
-				ObjectName: setKey(key),
+				ObjectName: key,
 				Key:        dockerConfigJsonKey,
 			},
 		},
@@ -135,7 +135,8 @@ func createSSHSecretDataObject(key string) *v1alpha1.SecretObject {
 	}
 }
 
-func setKey(key string) string {
+// setSecretName sets the name of a secret to the value of "objectName" separated by "-"
+func setSecretName(key string) string {
 	nested := strings.Split(key, "/")
 
 	if len(nested) > 0 {
@@ -145,7 +146,8 @@ func setKey(key string) string {
 	return key
 }
 
-func setSecretName(key string) string {
+// setKey sets the key of a secret to the name of the mounted file
+func setKey(key string) string {
 	nested := strings.Split(key, "/")
 
 	if len(nested) > 0 {

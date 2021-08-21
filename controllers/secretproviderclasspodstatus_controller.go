@@ -174,7 +174,11 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 			if err != nil {
 				klog.ErrorS(err, "failed to get mounted files", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "spcps", klog.KObj(&spcPodStatus))
 			} else {
-				spc.Spec.SecretObjects = spcutil.BuildSecretObjects(files, secretutil.GetSecretType(strings.TrimSpace(spc.Spec.SyncOptions.Type)))
+				if len(spc.Spec.SecretObjects) == 0 {
+					spc.Spec.SecretObjects = spcutil.BuildSecretObjects(files, secretutil.GetSecretType(strings.TrimSpace(spc.Spec.SyncOptions.Type)))
+				} else {
+					spc.Spec.SecretObjects = append(spc.Spec.SecretObjects, spcutil.BuildSecretObjects(files, secretutil.GetSecretType(strings.TrimSpace(spc.Spec.SyncOptions.Type)))...)
+				}
 			}
 		}
 
@@ -297,7 +301,11 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 	files, err := fileutil.GetMountedFiles(spcPodStatus.Status.TargetPath)
 
 	if spc.Spec.SyncOptions.SyncAll {
-		spc.Spec.SecretObjects = spcutil.BuildSecretObjects(files, secretutil.GetSecretType(strings.TrimSpace(spc.Spec.SyncOptions.Type)))
+		if len(spc.Spec.SecretObjects) == 0 {
+			spc.Spec.SecretObjects = spcutil.BuildSecretObjects(files, secretutil.GetSecretType(strings.TrimSpace(spc.Spec.SyncOptions.Type)))
+		} else {
+			spc.Spec.SecretObjects = append(spc.Spec.SecretObjects, spcutil.BuildSecretObjects(files, secretutil.GetSecretType(strings.TrimSpace(spc.Spec.SyncOptions.Type)))...)
+		}
 	}
 
 	for _, secretObj := range spc.Spec.SecretObjects {

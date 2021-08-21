@@ -131,7 +131,7 @@ type basicAuthCreds struct {
 // getCredentials parses the mounted content and returns the required
 // key-value pairs for a kubernetes.io/basic-auth K8s secret
 func getCredentials(data []byte) basicAuthCreds {
-	credentials := strings.Split(string(data), ";")
+	credentials := strings.Split(string(data), ",")
 	return basicAuthCreds{
 		Username: credentials[0],
 		Password: credentials[1],

@@ -437,7 +437,11 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 	files, err := fileutil.GetMountedFiles(spcps.Status.TargetPath)
 
 	if spc.Spec.SyncOptions.SyncAll {
-		spc.Spec.SecretObjects = spcutil.BuildSecretObjects(files, secretutil.GetSecretType(strings.TrimSpace(spc.Spec.SyncOptions.Type)))
+		if len(spc.Spec.SecretObjects) == 0 {
+			spc.Spec.SecretObjects = spcutil.BuildSecretObjects(files, secretutil.GetSecretType(strings.TrimSpace(spc.Spec.SyncOptions.Type)))
+		} else {
+			spc.Spec.SecretObjects = append(spc.Spec.SecretObjects, spcutil.BuildSecretObjects(files, secretutil.GetSecretType(strings.TrimSpace(spc.Spec.SyncOptions.Type)))...)
+		}
 	}
 
 	for _, secretObj := range spc.Spec.SecretObjects {
