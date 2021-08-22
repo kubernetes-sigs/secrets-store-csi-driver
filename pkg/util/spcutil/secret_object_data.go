@@ -41,7 +41,8 @@ func BuildSecretObjectData(files map[string]string, secretObj *v1alpha1.SecretOb
 	}
 }
 
-// BuildSecretObjects build the .Spec.SecretObjects list of a SecretProviderClass with .SyncOptions.SyncAll is true
+// BuildSecretObjects builds the .Spec.SecretObjects list of a SecretProviderClass when .SyncOptions.SyncAll is true
+// How a SecretObject is built is dependent on the type of secret
 func BuildSecretObjects(files map[string]string, secretType corev1.SecretType) []*v1alpha1.SecretObject {
 	secretObjects := []*v1alpha1.SecretObject{}
 
@@ -67,6 +68,7 @@ func BuildSecretObjects(files map[string]string, secretType corev1.SecretType) [
 	return secretObjects
 }
 
+// createOpaqueSecretDataObject creates a SecretObject for an Opaque secret
 func createOpaqueSecretDataObject(key string) *v1alpha1.SecretObject {
 	return &v1alpha1.SecretObject{
 		SecretName: setSecretName(key),
@@ -80,6 +82,7 @@ func createOpaqueSecretDataObject(key string) *v1alpha1.SecretObject {
 	}
 }
 
+// createTLSSecretDataObject creates a SecretObject for an TLS secret
 func createTLSSecretDataObject(key string) *v1alpha1.SecretObject {
 	return &v1alpha1.SecretObject{
 		SecretName: setSecretName(key),
@@ -97,6 +100,7 @@ func createTLSSecretDataObject(key string) *v1alpha1.SecretObject {
 	}
 }
 
+// createDockerConfigJsonSecretDataObject creates a SecretObject for an DockerConfigJSON secret
 func createDockerConfigJsonSecretDataObject(key string) *v1alpha1.SecretObject {
 	return &v1alpha1.SecretObject{
 		SecretName: setSecretName(key),
@@ -110,6 +114,7 @@ func createDockerConfigJsonSecretDataObject(key string) *v1alpha1.SecretObject {
 	}
 }
 
+// createBasicAuthSecretDataObject creates a SecretObject for an Basic-Auth secret
 func createBasicAuthSecretDataObject(key string) *v1alpha1.SecretObject {
 	return &v1alpha1.SecretObject{
 		SecretName: setSecretName(key),
@@ -123,6 +128,7 @@ func createBasicAuthSecretDataObject(key string) *v1alpha1.SecretObject {
 	}
 }
 
+// createSSHSecretDataObject creates a SecretObject for an SSH-Auth secret
 func createSSHSecretDataObject(key string) *v1alpha1.SecretObject {
 	return &v1alpha1.SecretObject{
 		SecretName: setSecretName(key),
