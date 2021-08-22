@@ -24,16 +24,10 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
-	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-
-	v1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -42,19 +36,22 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	"sigs.k8s.io/secrets-store-csi-driver/controllers"
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned"
-	secretsStoreClient "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned"
-	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
-	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/k8sutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/secretutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/spcutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
+
+	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	secretsStoreClient "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned"
+	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
+	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
 )
 
 const (
@@ -82,7 +79,7 @@ type Reconciler struct {
 	reporter             StatsReporter
 	eventRecorder        record.EventRecorder
 	kubeClient           kubernetes.Interface
-	crdClient            versioned.Interface
+	crdClient            secretsStoreClient.Interface
 	// cache contains v1.Pod, v1alpha1.SecretProviderClassPodStatus (both filtered on *nodeID),
 	// v1.Secret (filtered on secrets-store.csi.k8s.io/managed=true)
 	cache client.Reader
@@ -435,6 +432,10 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 	}
 
 	files, err := fileutil.GetMountedFiles(spcps.Status.TargetPath)
+	if err != nil {
+		r.generateEvent(pod, v1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed to get mounted files, err: %+v", err))
+		return fmt.Errorf("failed to get mounted files, err: %+v", err)
+	}
 
 	if spc.Spec.SyncOptions.SyncAll {
 		if len(spc.Spec.SecretObjects) == 0 {
@@ -454,10 +455,6 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 		}
 	}
 
-	if err != nil {
-		r.generateEvent(pod, v1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed to get mounted files, err: %+v", err))
-		return fmt.Errorf("failed to get mounted files, err: %+v", err)
-	}
 	for _, secretObj := range spc.Spec.SecretObjects {
 		secretName := strings.TrimSpace(secretObj.SecretName)
 

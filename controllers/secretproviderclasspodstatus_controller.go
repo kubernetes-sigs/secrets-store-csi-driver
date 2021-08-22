@@ -23,34 +23,29 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/spcutil"
-
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
-
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned/scheme"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/k8sutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/secretutil"
-
-	ctrl "sigs.k8s.io/controller-runtime"
-	client "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/spcutil"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
+	client "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -172,7 +167,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 		if spc.Spec.SyncOptions.SyncAll {
 			files, err := fileutil.GetMountedFiles(spcPodStatus.Status.TargetPath)
 			if err != nil {
-				klog.ErrorS(err, "failed to get mounted files", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "spcps", klog.KObj(&spcPodStatus))
+				return fmt.Errorf("failed to get mounted files for pod %s/%s: %v", namespace, pod.Name, err)
 			} else {
 				if len(spc.Spec.SecretObjects) == 0 {
 					spc.Spec.SecretObjects = spcutil.BuildSecretObjects(files, secretutil.GetSecretType(strings.TrimSpace(spc.Spec.SyncOptions.Type)))
@@ -299,6 +294,11 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 	}
 
 	files, err := fileutil.GetMountedFiles(spcPodStatus.Status.TargetPath)
+	if err != nil {
+		r.generateEvent(pod, corev1.EventTypeWarning, secretCreationFailedReason, fmt.Sprintf("failed to get mounted files, err: %+v", err))
+		klog.ErrorS(err, "failed to get mounted files", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "spcps", klog.KObj(spcPodStatus))
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, err
+	}
 
 	if spc.Spec.SyncOptions.SyncAll {
 		if len(spc.Spec.SecretObjects) == 0 {
@@ -318,11 +318,6 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 		}
 	}
 
-	if err != nil {
-		r.generateEvent(pod, corev1.EventTypeWarning, secretCreationFailedReason, fmt.Sprintf("failed to get mounted files, err: %+v", err))
-		klog.ErrorS(err, "failed to get mounted files", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "spcps", klog.KObj(spcPodStatus))
-		return ctrl.Result{RequeueAfter: 10 * time.Second}, err
-	}
 	errs := make([]error, 0)
 	for _, secretObj := range spc.Spec.SecretObjects {
 		secretName := strings.TrimSpace(secretObj.SecretName)
