@@ -39,7 +39,6 @@ This is mock key
 // Server is a mock csi-provider server
 type Server struct {
 	grpcServer *grpc.Server
-	listener   net.Listener
 	socketPath string
 	network    string
 }
@@ -76,15 +75,13 @@ func (s *Server) GetSocketPath() string {
 
 // Start starts the mock csi-provider server
 func (s *Server) Start() error {
-	var err error
-
-	s.listener, err = net.Listen(s.network, s.GetSocketPath())
+	listener, err := net.Listen(s.network, s.GetSocketPath())
 	if err != nil {
 		return err
 	}
 
-	klog.InfoS("Listening for connections", "address:", s.listener.Addr())
-	go s.grpcServer.Serve(s.listener)
+	klog.InfoS("Listening for connections", "address", listener.Addr())
+	go s.grpcServer.Serve(listener)
 	return nil
 }
 
