@@ -54,7 +54,7 @@ func NewE2EProviderServer(endpoint string) (*Server, error) {
 			network = s[0]
 			address = s[1]
 		} else {
-			return nil, fmt.Errorf("Invalid endpoint: %s", endpoint)
+			return nil, fmt.Errorf("invalid endpoint: %s", endpoint)
 		}
 	}
 

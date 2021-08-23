@@ -342,3 +342,12 @@ export NODE_SELECTOR_OS=$NODE_SELECTOR_OS
   result=$(kubectl exec -n non-filtered-watch secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 }
+
+teardown_file() {
+  #cleanup
+  run kubectl delete namespace non-filtered-watch
+  run kubectl delete namespace rotation
+  run kubectl delete namespace test-ns
+
+  run kubectl delete pods secrets-store-inline-crd secrets-store-inline-multiple-crd --force --grace-period 0
+}
