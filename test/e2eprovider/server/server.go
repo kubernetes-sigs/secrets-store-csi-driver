@@ -182,7 +182,7 @@ func getSecret(secretName, podUID string) (*v1alpha1.File, *v1alpha1.ObjectVersi
 func (s *Server) Version(ctx context.Context, req *v1alpha1.VersionRequest) (*v1alpha1.VersionResponse, error) {
 	return &v1alpha1.VersionResponse{
 		Version:        "v1alpha1",
-		RuntimeName:    "SimpleProvider",
+		RuntimeName:    "E2EMockProvider",
 		RuntimeVersion: "v0.0.10",
 	}, nil
 }
