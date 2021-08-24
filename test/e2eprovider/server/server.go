@@ -183,6 +183,6 @@ func (s *Server) Version(ctx context.Context, req *v1alpha1.VersionRequest) (*v1
 	return &v1alpha1.VersionResponse{
 		Version:        "v1alpha1",
 		RuntimeName:    "SimpleProvider",
-		RuntimeVersion: "0.0.10",
+		RuntimeVersion: "v0.0.10",
 	}, nil
 }
