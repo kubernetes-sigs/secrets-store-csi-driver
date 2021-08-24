@@ -36,7 +36,7 @@ func setup() {
 
 func teardown() {
 	testMockServer.Stop()
-	os.RemoveAll(tempDir)
+	os.Remove(fmt.Sprintf("%s/%s", tempDir, "e2e-provider.sock"))
 }
 
 func TestMockServer(t *testing.T) {
