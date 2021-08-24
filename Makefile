@@ -142,7 +142,7 @@ test: lint go-test
 
 .PHONY: go-test # Run unit tests
 go-test:
-	go test -tags e2e -cover $(GO_FILES) -v
+	go test -count=1 -cover $(GO_FILES) -v
 
 # skipping Controller tests as this driver only implements Node and Identity service.
 .PHONY: sanity-test # Run CSI sanity tests for the driver
