@@ -148,7 +148,7 @@ func TestRotation(t *testing.T) {
 		wantErr error
 	}{
 		{
-			"Parse static secrets",
+			"Parse rotated secrets",
 			&v1alpha1.MountRequest{
 				Attributes: func() string {
 					attributes := map[string]string{

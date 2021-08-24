@@ -143,6 +143,7 @@ test: lint go-test
 .PHONY: go-test # Run unit tests
 go-test:
 	go test -count=1 -cover $(GO_FILES) -v
+	cd test/e2eprovider && go test ./... -tags e2e -count=1 -cover -v
 
 # skipping Controller tests as this driver only implements Node and Identity service.
 .PHONY: sanity-test # Run CSI sanity tests for the driver
