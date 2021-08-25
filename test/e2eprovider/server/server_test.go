@@ -7,9 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"reflect"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 )
 
@@ -47,182 +47,149 @@ func TestMockServer(t *testing.T) {
 }
 
 func TestMount(t *testing.T) {
-	cases := []struct {
-		name    string
-		input   *v1alpha1.MountRequest
-		want    *v1alpha1.MountResponse
-		wantErr error
-	}{
-		{
-			"Parse static secrets",
-			&v1alpha1.MountRequest{
-				Attributes: func() string {
-					attributes := map[string]string{
-						"objects": `array:
+	mountRequest := &v1alpha1.MountRequest{
+		Attributes: func() string {
+			attributes := map[string]string{
+				"objects": `array:
   - |
     objectName: foo
     objectType: secret
   - |
     objectName: fookey
     objectType: key`,
-					}
-					data, _ := json.Marshal(attributes)
-					return string(data)
-				}(),
-				Secrets:    "{}",
-				Permission: "640",
-				TargetPath: "/",
+			}
+			data, _ := json.Marshal(attributes)
+			return string(data)
+		}(),
+		Secrets:    "{}",
+		Permission: "640",
+		TargetPath: "/",
+	}
+
+	expectedMountResponse := &v1alpha1.MountResponse{
+		ObjectVersion: []*v1alpha1.ObjectVersion{
+			{
+				Id:      "secret/foo",
+				Version: "v1",
 			},
-			&v1alpha1.MountResponse{
-				ObjectVersion: []*v1alpha1.ObjectVersion{
-					{
-						Id:      "secret/foo",
-						Version: "v1",
-					},
-					{
-						Id:      "secret/fookey",
-						Version: "v1",
-					},
-				},
-				Files: []*v1alpha1.File{
-					{
-						Path:     "foo",
-						Contents: []byte("secret"),
-					},
-					{
-						Path: "fookey",
-						Contents: []byte(`-----BEGIN PUBLIC KEY-----
+			{
+				Id:      "secret/fookey",
+				Version: "v1",
+			},
+		},
+		Files: []*v1alpha1.File{
+			{
+				Path:     "foo",
+				Contents: []byte("secret"),
+			},
+			{
+				Path: "fookey",
+				Contents: []byte(`-----BEGIN PUBLIC KEY-----
 This is mock key
 -----END PUBLIC KEY-----`),
-					},
-				},
 			},
-			nil,
 		},
 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			got, err := testMockServer.Mount(context.Background(), tc.input)
-			if tc.wantErr != nil {
-				if err == nil {
-					t.Errorf("Did not receive expected error: %v", tc.wantErr)
-					return
-				}
-				if tc.wantErr.Error() != err.Error() {
-					t.Errorf("Received unexpected error: wanted %v, got %v", tc.wantErr, err)
-					return
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Received unexpected error: got %v", err)
-					return
-				}
+	mountResponse, _ := testMockServer.Mount(context.Background(), mountRequest)
+	gotJSON, _ := json.Marshal(mountResponse)
+	wantJSON, _ := json.Marshal(expectedMountResponse)
+
+	if diff := cmp.Diff(gotJSON, wantJSON); diff != "" {
+		t.Errorf("didn't get expected results: (-want +got):\n%s", diff)
+	}
+}
+
+func TestMountError(t *testing.T) {
+	var wantError error
+	mountRequest := &v1alpha1.MountRequest{
+		Attributes: func() string {
+			attributes := map[string]string{
+				"objects": `array:
+  - |
+    objectName: foo
+    objectType: secret
+  - |
+    objectName: fookey
+    objectType: key`,
 			}
-			gotJSON, _ := json.Marshal(got)
-			wantJSON, _ := json.Marshal(tc.want)
-			if !reflect.DeepEqual(gotJSON, wantJSON) {
-				t.Errorf("Didn't get expected results: wanted \n%s\n    got \n%s", string(wantJSON), string(gotJSON))
-			}
-		})
+			data, _ := json.Marshal(attributes)
+			return string(data)
+		}(),
+		Secrets:    "{}",
+		Permission: "640",
+		TargetPath: "/",
+	}
+
+	_, err := testMockServer.Mount(context.Background(), mountRequest)
+	if wantError != nil {
+		if err == nil {
+			t.Errorf("did not receive expected error: got - %v\nwanted - %v", err, wantError)
+			return
+		}
+		if wantError.Error() != err.Error() {
+			t.Errorf("received unexpected error: got - %v\nwanted - %v", err, wantError)
+			return
+		}
+	} else {
+		if err != nil {
+			t.Errorf("received unexpected error: got %v", err)
+			return
+		}
 	}
 }
 
 func TestRotation(t *testing.T) {
-	cases := []struct {
-		name    string
-		input   *v1alpha1.MountRequest
-		want    *v1alpha1.MountResponse
-		wantErr error
-	}{
-		{
-			"Parse rotated secrets",
-			&v1alpha1.MountRequest{
-				Attributes: func() string {
-					attributes := map[string]string{
-						"objects": `array:
+	mountRequest := &v1alpha1.MountRequest{
+		Attributes: func() string {
+			attributes := map[string]string{
+				"objects": `array:
   - |
     objectName: foo
     objectType: secret
   - |
     objectName: fookey
     objectType: key`,
-					}
-					data, _ := json.Marshal(attributes)
-					return string(data)
-				}(),
-				Secrets:    "{}",
-				Permission: "640",
-				TargetPath: "/",
+			}
+			data, _ := json.Marshal(attributes)
+			return string(data)
+		}(),
+		Secrets:    "{}",
+		Permission: "640",
+		TargetPath: "/",
+	}
+
+	expectedMountResponse := &v1alpha1.MountResponse{
+		ObjectVersion: []*v1alpha1.ObjectVersion{
+			{
+				Id:      "secret/foo",
+				Version: "v2",
 			},
-			&v1alpha1.MountResponse{
-				ObjectVersion: []*v1alpha1.ObjectVersion{
-					{
-						Id:      "secret/foo",
-						Version: "v2",
-					},
-					{
-						Id:      "secret/fookey",
-						Version: "v2",
-					},
-				},
-				Files: []*v1alpha1.File{
-					{
-						Path:     "foo",
-						Contents: []byte("rotated"),
-					},
-					{
-						Path:     "fookey",
-						Contents: []byte("rotated"),
-					},
-				},
+			{
+				Id:      "secret/fookey",
+				Version: "v2",
 			},
-			nil,
+		},
+		Files: []*v1alpha1.File{
+			{
+				Path:     "foo",
+				Contents: []byte("rotated"),
+			},
+			{
+				Path:     "fookey",
+				Contents: []byte("rotated"),
+			},
 		},
 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := testMockServer.Mount(context.Background(), tc.input)
-			if tc.wantErr != nil {
-				if err == nil {
-					t.Errorf("Did not receive expected error: %v", tc.wantErr)
-					return
-				}
-				if tc.wantErr.Error() != err.Error() {
-					t.Errorf("Received unexpected error: wanted %v, got %v", tc.wantErr, err)
-					return
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Received unexpected error: got %v", err)
-					return
-				}
-			}
+	testMockServer.Mount(context.Background(), mountRequest)
+	// Rotate the secret
+	mountResponse, _ := testMockServer.Mount(context.Background(), mountRequest)
 
-			// Rotate the secret
-			got, err := testMockServer.Mount(context.Background(), tc.input)
-			if tc.wantErr != nil {
-				if err == nil {
-					t.Errorf("Did not receive expected error: %v", tc.wantErr)
-					return
-				}
-				if tc.wantErr.Error() != err.Error() {
-					t.Errorf("Received unexpected error: wanted %v, got %v", tc.wantErr, err)
-					return
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Received unexpected error: got %v", err)
-					return
-				}
-			}
+	gotJSON, _ := json.Marshal(mountResponse)
+	wantJSON, _ := json.Marshal(expectedMountResponse)
 
-			gotJSON, _ := json.Marshal(got)
-			wantJSON, _ := json.Marshal(tc.want)
-			if !reflect.DeepEqual(gotJSON, wantJSON) {
-				t.Errorf("Didn't get expected results: wanted \n%s\n    got \n%s", string(wantJSON), string(gotJSON))
-			}
-		})
+	if diff := cmp.Diff(gotJSON, wantJSON); diff != "" {
+		t.Errorf("didn't get expected results: (-want +got):\n%s", diff)
 	}
 }
