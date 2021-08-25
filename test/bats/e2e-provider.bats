@@ -9,12 +9,17 @@ NODE_SELECTOR_OS=linux
 
 # export secret vars
 export SECRET_NAME=${SECRET_NAME:-foo}
+# defualt version value returned by mock provider
 export SECRET_VERSION=${SECRET_VERSION:-"v1"}
+# default secret value returned by the mock provider
 export SECRET_VALUE=${SECRET_VALUE:-"secret"}
 
 # export key vars
 export KEY_NAME=${KEY_NAME:-fookey}
+# defualt version value returned by mock provider
 export KEY_VERSION=${KEY_VERSION:-"v1"}
+# default key value returned by mock provider. 
+# base64 encoded content comparision is easier in case of very long multiline string.
 export KEY_VALUE_CONTAINS=${KEY_VALUE:-"LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KVGhpcyBpcyBtb2NrIGtleQotLS0tLUVORCBQVUJMSUMgS0VZLS0tLS0K"}
 
 # export node selector var
