@@ -69,7 +69,7 @@ metadata:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ template "sscd.fullname" . }}-keep-crds
+  name: secrets-store-csi-driver-keep-crds
   namespace: {{ .Release.Namespace }}
 {{ include "sscd.labels" . | indent 2 }}
   annotations:

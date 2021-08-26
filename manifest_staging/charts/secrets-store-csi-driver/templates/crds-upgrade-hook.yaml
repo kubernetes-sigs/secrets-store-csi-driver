@@ -71,7 +71,7 @@ metadata:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ template "sscd.fullname" . }}-upgrade-crds
+  name: secrets-store-csi-driver-upgrade-crds
   namespace: {{ .Release.Namespace }}
 {{ include "sscd.labels" . | indent 2 }}
   annotations:
