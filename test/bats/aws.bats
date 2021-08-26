@@ -148,23 +148,17 @@ teardown_file() {
 }
 
 @test "CSI inline volume test with pod portability - unmount succeeds" {
-  # https://github.com/kubernetes/kubernetes/pull/96702
-  # kubectl wait --for=delete does not work on already deleted pods.
-  # Instead we will start the wait before initiating the delete.
-  kubectl wait --for=delete --timeout=${WAIT_TIME}s --namespace $NAMESPACE pod/$POD_NAME &
-  WAIT_PID=$!
-
-  sleep 1
+  # On Linux a failure to unmount the tmpfs will block the pod from being
+  # deleted.
   run kubectl --namespace $NAMESPACE delete -f $BATS_TEST_DIR/BasicTestMount.yaml
   assert_success
 
-  # On Linux a failure to unmount the tmpfs will block the pod from being
-  # deleted.
-  run wait $WAIT_PID
+  run kubectl wait --for=delete --timeout=${WAIT_TIME}s --namespace $NAMESPACE pod/$POD_NAME
   assert_success
 
   # Sleep to allow time for logs to propagate.
   sleep 10
+
   # save debug information to archive in case of failure
   archive_info
 
