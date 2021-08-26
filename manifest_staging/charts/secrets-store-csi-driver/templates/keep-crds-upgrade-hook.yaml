@@ -53,7 +53,7 @@ spec:
   supplementalGroups:
     rule: RunAsAny
   volumes:
-  - '*'
+  - secret
 ---
 apiVersion: v1
 kind: ServiceAccount

@@ -54,7 +54,7 @@ spec:
   supplementalGroups:
     rule: RunAsAny
   volumes:
-  - '*'
+  - secret
 {{- end }}
 ---
 apiVersion: v1
