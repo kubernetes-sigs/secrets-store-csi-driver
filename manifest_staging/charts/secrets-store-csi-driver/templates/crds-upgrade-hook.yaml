@@ -11,6 +11,11 @@ rules:
   - apiGroups: ["apiextensions.k8s.io"]
     resources: ["customresourcedefinitions"]
     verbs: ["get", "create", "update", "patch"]
+  - apiGroups: ['policy']
+    resources: ['podsecuritypolicies']
+    verbs:     ['use']
+    resourceNames:
+    - allow-upgrade-crds
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -30,6 +35,7 @@ roleRef:
   name: {{ template "sscd.fullname" . }}-upgrade-crds
   apiGroup: rbac.authorization.k8s.io
 ---
+{{- if .Values.rbac.pspEnabled }}
 apiVersion: policy/v1beta1
 kind: PodSecurityPolicy
 metadata:
@@ -49,40 +55,7 @@ spec:
     rule: RunAsAny
   volumes:
   - '*'
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: allow-upgrade-crds-role
-{{ include "sscd.labels" . | indent 2 }}
-  annotations:
-    helm.sh/hook: pre-install,pre-upgrade
-    helm.sh/hook-delete-policy: "hook-succeeded,before-hook-creation"
-    helm.sh/hook-weight: "1"
-rules:
-- apiGroups: ['policy']
-  resources: ['podsecuritypolicies']
-  verbs:     ['use']
-  resourceNames:
-  - allow-upgrade-crds
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: allow-upgrade-crds-role-binding
-{{ include "sscd.labels" . | indent 2 }}
-  annotations:
-    helm.sh/hook: pre-install,pre-upgrade
-    helm.sh/hook-delete-policy: "hook-succeeded,before-hook-creation"
-    helm.sh/hook-weight: "1"
-roleRef:
-  kind: ClusterRole
-  name: allow-upgrade-crds-role
-  apiGroup: rbac.authorization.k8s.io
-subjects:
-- kind: ServiceAccount
-  name: {{ template "sscd.fullname" . }}-upgrade-crds
-  namespace: kube-system
+{{- end }}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -103,7 +76,7 @@ metadata:
 {{ include "sscd.labels" . | indent 2 }}
   annotations:
     helm.sh/hook: pre-install,pre-upgrade
-    helm.sh/hook-weight: "2"
+    helm.sh/hook-weight: "1"
     helm.sh/hook-delete-policy: "hook-succeeded,before-hook-creation"
 spec:
   backoffLimit: 0
