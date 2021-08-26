@@ -11,6 +11,13 @@ rules:
   - apiGroups: ["apiextensions.k8s.io"]
     resources: ["customresourcedefinitions"]
     verbs: ["get", "patch"]
+{{- if .Values.rbac.pspEnabled }}
+  - apiGroups: ['policy']
+    resources: ['podsecuritypolicies']
+    verbs:     ['use']
+    resourceNames:
+    - allow-keep-crds
+{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -30,6 +37,26 @@ roleRef:
   name: {{ template "sscd.fullname" . }}-keep-crds
   apiGroup: rbac.authorization.k8s.io
 ---
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: allow-keep-crds
+  annotations:
+    helm.sh/hook: pre-upgrade
+    helm.sh/hook-delete-policy: "hook-succeeded,before-hook-creation"
+    helm.sh/hook-weight: "2"
+spec:
+  fsGroup:
+    rule: RunAsAny
+  runAsUser:
+    rule: RunAsAny
+  seLinux:
+    rule: RunAsAny
+  supplementalGroups:
+    rule: RunAsAny
+  volumes:
+  - secret
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -44,7 +71,7 @@ metadata:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ template "sscd.fullname" . }}-keep-crds
+  name: secrets-store-csi-driver-keep-crds
   namespace: {{ .Release.Namespace }}
 {{ include "sscd.labels" . | indent 2 }}
   annotations:
