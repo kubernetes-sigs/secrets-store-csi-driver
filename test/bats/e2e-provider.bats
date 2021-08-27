@@ -80,6 +80,8 @@ export NODE_SELECTOR_OS=$NODE_SELECTOR_OS
 @test "CSI inline volume test with pod portability - read kv key from pod" {
   result=$(kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$KEY_NAME)
   result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
+  echo "# '${result_base64_encoded}'" >&3
+  echo "# '${KEY_VALUE_CONTAINS}'" >&3
   [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 }
 
