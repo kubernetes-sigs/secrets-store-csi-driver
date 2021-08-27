@@ -98,6 +98,10 @@ YQ := yq
 # Test variables
 KIND_VERSION ?= 0.11.0
 KUBERNETES_VERSION ?= 1.21.1
+# Use a different kubectl version to pickup https://github.com/kubernetes/kubernetes/pull/96702 which resolves an issue
+# with kubectl wait needed for integration testing. When KUBERNETES_VERSION is updated to >= 1.22.1 this can likely be
+# removed.
+KUBECTL_VERSION ?= 1.22.1
 BATS_VERSION ?= 1.2.1
 TRIVY_VERSION ?= 0.14.0
 PROTOC_VERSION ?= 3.15.2
@@ -196,7 +200,7 @@ $(EKSCTL): ## Download and install eksctl
 	curl -sSLO  https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_Linux_amd64.tar.gz && tar -zxvf eksctl_Linux_amd64.tar.gz && chmod +x eksctl && mv eksctl /usr/local/bin/
 
 $(KUBECTL): ## Install kubectl
-	curl -LO https://storage.googleapis.com/kubernetes-release/release/v$(KUBERNETES_VERSION)/bin/linux/amd64/kubectl && chmod +x ./kubectl && mv kubectl /usr/local/bin/
+	curl -LO https://storage.googleapis.com/kubernetes-release/release/v$(KUBECTL_VERSION)/bin/linux/amd64/kubectl && chmod +x ./kubectl && mv kubectl /usr/local/bin/
 
 $(TRIVY): ## Install trivy for image vulnerability scan
 	trivy -v | grep -q $(TRIVY_VERSION) || (curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v$(TRIVY_VERSION))
