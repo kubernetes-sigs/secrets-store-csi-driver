@@ -6,6 +6,10 @@ BATS_TESTS_DIR=test/bats/tests/e2e_provider
 WAIT_TIME=60
 SLEEP_TIME=1
 NODE_SELECTOR_OS=linux
+BASE64_FLAGS="-w 0"
+if [[ "$OSTYPE" == *"darwin"* ]]; then
+  BASE64_FLAGS="-b 0"
+fi
 
 # export secret vars
 export SECRET_NAME=${SECRET_NAME:-foo}
@@ -79,10 +83,7 @@ export NODE_SELECTOR_OS=$NODE_SELECTOR_OS
 
 @test "CSI inline volume test with pod portability - read kv key from pod" {
   result=$(kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$KEY_NAME)
-  echo "# result - '${result}'" >&3
   result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
-  echo "# '${result_base64_encoded}'" >&3
-  echo "# '${KEY_VALUE_CONTAINS}'" >&3
   [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 }
 
