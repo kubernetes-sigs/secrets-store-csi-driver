@@ -28,6 +28,8 @@ export KEY_VALUE_CONTAINS=${KEY_VALUE:-"LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KVGhp
 
 # export node selector var
 export NODE_SELECTOR_OS=$NODE_SELECTOR_OS
+# default label value of secret synched to k8s
+export LABEL_VALUE=${LABEL_VALUE:-"test"}
 
 @test "secretproviderclasses crd is established" {
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
@@ -266,6 +268,7 @@ export NODE_SELECTOR_OS=$NODE_SELECTOR_OS
   [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 
   result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/$SECRET_NAME)
+  echo "result - ${result}" >&3
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/$KEY_NAME)
