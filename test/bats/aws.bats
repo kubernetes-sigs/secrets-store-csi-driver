@@ -118,7 +118,7 @@ teardown_file() {
    [[ "${result//$'\r'}" == "BeforeRotation" ]]
   
    aws secretsmanager put-secret-value --secret-id $SM_ROT_TEST_NAME --secret-string AfterRotation --region $REGION
-   sleep 60
+   sleep 90
    result=$(kubectl --namespace $NAMESPACE exec $POD_NAME -- cat /mnt/secrets-store/$SM_ROT_TEST_NAME)
    [[ "${result//$'\r'}" == "AfterRotation" ]]
 }
