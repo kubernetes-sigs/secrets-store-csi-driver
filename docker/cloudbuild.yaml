@@ -8,8 +8,12 @@ timeout: 5400s
 # or any new substitutions added in the future.
 options:
   substitution_option: ALLOW_LOOSE
+  # this is the machine type used for kubernetes releases.
+  # See https://cloud.google.com/build/docs/speeding-up-builds#using_custom_virtual_machine_sizes
+  # job builds a multi-arch docker image for amd64,arm64 and windows 1809, 1903, 1909, 2004.
+  machineType: 'N1_HIGHCPU_8'
 steps:
-  - name: 'gcr.io/k8s-testimages/gcb-docker-gcloud:v20200422-b25d964'
+  - name: 'gcr.io/k8s-testimages/gcb-docker-gcloud:v20210722-085d930'
     entrypoint: bash
     dir: ./docker
     env:
