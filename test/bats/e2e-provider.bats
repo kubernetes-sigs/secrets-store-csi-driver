@@ -76,20 +76,21 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
   assert_success
 }
 
-@test "CSI inline volume test with pod portability - read kv secret from pod" {
+@test "CSI inline volume test with pod portability - read secret from pod" {
   wait_for_process $WAIT_TIME $SLEEP_TIME "kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME | grep '${SECRET_VALUE}'"
 
   result=$(kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 }
 
-@test "CSI inline volume test with pod portability - read kv key from pod" {
+@test "CSI inline volume test with pod portability - read key from pod" {
   result=$(kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$KEY_NAME)
   result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
   [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 }
 
 @test "CSI inline volume test with pod portability - unmount succeeds" {
+  skip
   # https://github.com/kubernetes/kubernetes/pull/96702
   # kubectl wait --for=delete does not work on already deleted pods.
   # Instead we will start the wait before initiating the delete.
@@ -117,6 +118,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 }
 
 @test "Sync with K8s secrets - create deployment" {
+  skip
   envsubst < $BATS_TESTS_DIR/e2e_provider_synck8s_v1alpha1_secretproviderclass.yaml | kubectl apply -f - 
 
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
@@ -131,6 +133,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 }
 
 @test "Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences with multiple owners" {
+  skip
   POD=$(kubectl get pod -l app=busybox -o jsonpath="{.items[0].metadata.name}")
 
   result=$(kubectl exec $POD -- cat /mnt/secrets-store/$SECRET_NAME)
@@ -157,6 +160,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 }
 
 @test "Sync with K8s secrets - delete deployment, check owner ref updated, check secret deleted" {
+  skip
   run kubectl delete -f $BATS_TESTS_DIR/deployment-synck8s-e2e-provider.yaml
   assert_success
 
@@ -174,6 +178,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 }
 
 @test "Test Namespaced scope SecretProviderClass - create deployment" {
+  skip
   run kubectl create ns test-ns
   assert_success
 
@@ -193,6 +198,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 }
 
 @test "Test Namespaced scope SecretProviderClass - Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences" {
+  skip
   POD=$(kubectl get pod -l app=busybox -n test-ns -o jsonpath="{.items[0].metadata.name}")
 
   result=$(kubectl exec -n test-ns $POD -- cat /mnt/secrets-store/$SECRET_NAME)
@@ -213,6 +219,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 }
 
 @test "Test Namespaced scope SecretProviderClass - Sync with K8s secrets - delete deployment, check secret deleted" {
+  skip
   run kubectl delete -f $BATS_TESTS_DIR/deployment-synck8s-e2e-provider.yaml -n test-ns
   assert_success
 
@@ -221,6 +228,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 }
 
 @test "Test Namespaced scope SecretProviderClass - Should fail when no secret provider class in same namespace" {
+  skip
   run kubectl create ns negative-test-ns
   assert_success
 
@@ -239,6 +247,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 }
 
 @test "deploy multiple e2e provier secretproviderclass crd" {
+  skip
   envsubst < $BATS_TESTS_DIR/e2e_provider_v1alpha1_multiple_secretproviderclass.yaml | kubectl apply -f -
 
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
@@ -251,6 +260,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 }
 
 @test "deploy pod with multiple secret provider class" {
+  skip
   envsubst < $BATS_TESTS_DIR/pod-e2e-provider-inline-volume-multiple-spc.yaml | kubectl apply -f -
   
   kubectl wait --for=condition=Ready --timeout=60s pod/secrets-store-inline-multiple-crd
@@ -260,6 +270,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 }
 
 @test "CSI inline volume test with multiple secret provider class" {
+  skip
   result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/$SECRET_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
@@ -295,6 +306,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 }
 
 @test "Test auto rotation of mount contents and K8s secrets - Create deployment" {
+  skip
   run kubectl create ns rotation
   assert_success
 
@@ -308,6 +320,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 }
 
 @test "Test auto rotation of mount contents and K8s secrets" {
+  skip
   result=$(kubectl exec -n rotation secrets-store-inline-rotation -- cat /mnt/secrets-store/$SECRET_NAME)
   [[ "${result//$'\r'}" == "secret" ]]
 
