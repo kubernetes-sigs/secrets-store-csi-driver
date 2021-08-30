@@ -108,7 +108,7 @@ teardown_file() {
    [[ "${result//$'\r'}" == "BeforeRotation" ]]
 
    aws ssm put-parameter --name $PM_ROTATION_TEST_NAME --value AfterRotation --type SecureString --overwrite --region $REGION
-   sleep 60
+   sleep 90
    result=$(kubectl --namespace $NAMESPACE exec $POD_NAME -- cat /mnt/secrets-store/$PM_ROTATION_TEST_NAME)
    [[ "${result//$'\r'}" == "AfterRotation" ]]
 }
