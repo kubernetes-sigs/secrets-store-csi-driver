@@ -428,6 +428,7 @@ e2e-helm-deploy:
 		--set linux.enabled=true \
 		--set syncSecret.enabled=true \
 		--set enableSecretRotation=true \
+		# Updated for mock provider testing. Mock provider returns default secret value as "rotated" once reconciler kicks in after 30s, but some e2e-provider tests takes more than 30s to complete before testing for rotation.
 		--set rotationPollInterval=60s
 
 .PHONY: e2e-helm-upgrade
