@@ -374,7 +374,7 @@ setup() {
   run az keyvault secret set --vault-name ${KEYVAULT_NAME} --name ${AUTO_ROTATE_SECRET_NAME} --value rotated
   assert_success
 
-  sleep 150
+  sleep 60
 
   result=$(kubectl exec -n rotation secrets-store-inline-rotation -- cat /mnt/secrets-store/secretalias)
   [[ "${result//$'\r'}" == "rotated" ]]
