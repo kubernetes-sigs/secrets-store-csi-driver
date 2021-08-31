@@ -17,21 +17,32 @@ Building involves obtaining a copy of the repository and triggering an automatic
 
 Publishing involves creating a release tag and creating a new Release on GitHub.
 
+NOTE: These steps require your `git remote` to be configured so that `origin` is your fork and `upstream` is `github.com/kubernetes-sigs/secrets-store-csi-driver`.
+
+NOTE: On OSX you must have the gnu version of `sed` in your path: `brew install gnu-sed`.
+
 ## Versioning
 
 1. Make sure that the `docs` include all necessary information included in the release (example [tag compare](https://github.com/kubernetes-sigs/secrets-store-csi-driver/compare/v0.0.21...master)).
 1. Create a new release branch `release-X.X` using the UI (to avoid `git push`'ing directly to the repo).
+1. Wait for the [new branch](https://github.com/kubernetes-sigs/secrets-store-csi-driver/branches) to recieve [branch protection](https://docs.github.com/en/github/administering-a-repository/defining-the-mergeability-of-pull-requests/about-protected-branches).
 1. Update the version to the semantic version of the new release similar to [this](https://github.com/kubernetes-sigs/secrets-store-csi-driver/pull/251)
 1. Commit the changes and push to remote repository to create a pull request to the `release-X.X` branch
 
     ```bash
-    git checkout -b bump-version-<NEW VERSION>
-    git commit -m "chore: bump version to <NEW VERSION> in <RELEASE BRANCH>"
+    git checkout -b bump-version-<NEW_VERSION>
+    git commit -m "chore: bump version to <NEW_VERSION> in <RELEASE_BRANCH>"
     git push <YOUR FORK>
     ```
 
 1. Once the PR is merged to `release-X.X`, the [prow job](https://testgrid.k8s.io/sig-auth-secrets-store-csi-driver#secrets-store-csi-driver-push-image) is triggered to build and push the new version to staging repo (`gcr.io/k8s-staging-csi-secrets-store/driver`)
 1. Once the prow job completes, follow the [instructions](https://github.com/kubernetes/k8s.io/tree/main/k8s.gcr.io#image-promoter) to promote the image to production repo
+    - Within the Prow job "Artifacts" tab there is a file `artifacts/build.log` which will include the Cloud Build URL:
+
+    ```text
+    Created [https://cloudbuild.googleapis.com/v1/projects/k8s-staging-csi-secrets-store/locations/global/builds/<number>].
+    ```
+
     - Run generate script to append the new image to promoter manifest
 
     ```bash
@@ -49,6 +60,8 @@ Publishing involves creating a release tag and creating a new Release on GitHub.
   
 ## Building and releasing
 
+1. Modify the `Makefile`s to include the changes from the `Version` section above.
+
 1. Execute the promote-staging-manifest target to generate patch and promote staging manifest to release
 
     ```bash
@@ -64,8 +77,8 @@ Publishing involves creating a release tag and creating a new Release on GitHub.
 1. Commit the changes and push to remote repository to create a pull request
 
     ```bash
-    git checkout -b release-<NEW VERSION>
-    git commit -a -s -m "release: update manifests and helm chart for <NEW VERSION>"
+    git checkout -b release-<NEWVERSION> # i.e. release-0.3.0
+    git commit -a -s -m "release: update manifests and helm chart for <NEWVERSION>"
     git push <YOUR FORK>
     ```
 
@@ -76,18 +89,8 @@ Publishing involves creating a release tag and creating a new Release on GitHub.
     hack/cherry_pick_pull.sh upstream/<release branch> <pr number>
     ```
 
-1. Once the PR is merged to `release-X.X`, tag `release-X.X` with release
-   version and push tags to remote repository.  Then merge the same PR to
-   `master`.
-
-    - An [OWNER](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/master/OWNERS) runs git tag and pushes the tag with git push
-
-   ```bash
-   git checkout master
-   git pull origin master
-   git tag -a <NEW VERSION> -m '<NEW VERSION>'
-   git push origin <NEW VERSION>
-   ```
+1. Once the PR is merged to `release-X.X` we are ready to tag `release-X.X` with release
+   version. This should be done by creating the release in the GitHub UI.
 
 ## Publishing
 
