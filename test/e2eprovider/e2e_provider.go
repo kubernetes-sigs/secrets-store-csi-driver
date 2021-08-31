@@ -5,6 +5,7 @@ package main
 
 import (
 	"flag"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -40,6 +41,17 @@ func main() {
 	if err != nil {
 		klog.Fatalf("failed to start mock e2e provider server, err: %+v", err)
 	}
+
+	// endpoint to enable rotation response.
+	// rotation response ("rotated") might be triggered by rotaion reconciler before other tests. This results in failure of those tests.
+	// To avoid this, we enable rotation response only when we are ready to run rotation tests.
+	go func() {
+		// set ROTATION_ENABLED=false to disable rotation response logic.
+		os.Setenv("ROTATION_ENABLED", "false")
+
+		http.HandleFunc("/rotation", server.RotationHandler)
+		klog.Fatal(http.ListenAndServe(":8080", nil))
+	}()
 
 	<-signalChan
 	// gracefully stop the grpc server

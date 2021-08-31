@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -161,8 +162,10 @@ func getSecret(secretName, podUID string) (*v1alpha1.File, *v1alpha1.ObjectVersi
 	// In this case, we should return the 'rotated' secret.
 	m.RLock()
 	if ok := podCache[podUID]; ok {
-		secretVersion = "v2"
-		secretContent = "rotated"
+		if os.Getenv("ROTATION_ENABLED") == "true" {
+			secretVersion = "v2"
+			secretContent = "rotated"
+		}
 	}
 	m.RUnlock()
 
@@ -186,4 +189,10 @@ func (s *Server) Version(ctx context.Context, req *v1alpha1.VersionRequest) (*v1
 		RuntimeName:    "E2EMockProvider",
 		RuntimeVersion: "v0.0.10",
 	}, nil
+}
+
+func RotationHandler(w http.ResponseWriter, r *http.Request) {
+	// enable rotation response
+	os.Setenv("ROTATION_ENABLED", "true")
+	klog.InfoS("Rotation response enabled")
 }

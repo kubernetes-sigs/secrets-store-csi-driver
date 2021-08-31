@@ -308,6 +308,13 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
   result=$(kubectl get secret -n rotation rotationsecret -o jsonpath="{.data.username}" | base64 -d)
   [[ "${result//$'\r'}" == "secret" ]]
   
+  # enable rotation response in mock server
+  local curl_pod_name=curl-$(openssl rand -hex 5)
+  kubectl run ${curl_pod_name} -n rotation --image=curlimages/curl:7.75.0 --labels="test=rotation" -- tail -f /dev/null
+  kubectl wait -n rotation --for=condition=Ready --timeout=60s pod ${curl_pod_name}
+  local pod_ip=$(kubectl get pod -n kube-system -l app=csi-secrets-store-e2e-provider -o jsonpath="{.items[0].status.podIP}")
+  run kubectl exec ${curl_pod_name} -n rotation -- curl http://${pod_ip}:8080/rotation
+
   sleep 60
 
   result=$(kubectl exec -n rotation secrets-store-inline-rotation -- cat /mnt/secrets-store/$SECRET_NAME)

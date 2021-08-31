@@ -124,9 +124,6 @@ MINIMUM_SUPPORTED_GO_MAJOR_VERSION = 1
 MINIMUM_SUPPORTED_GO_MINOR_VERSION = 16
 GO_VERSION_VALIDATION_ERR_MSG = Golang version is not supported, please update to at least $(MINIMUM_SUPPORTED_GO_MAJOR_VERSION).$(MINIMUM_SUPPORTED_GO_MINOR_VERSION)
 
-# Rotation poll interval in seconds
-ROTATION_POLL_INTERVAL ?= 30s
-
 .PHONY: validate-go
 validate-go: ## Validates the installed version of go.
 	@if [ $(GO_MAJOR_VERSION) -gt $(MINIMUM_SUPPORTED_GO_MAJOR_VERSION) ]; then \
@@ -430,7 +427,7 @@ e2e-helm-deploy:
 		--set linux.enabled=true \
 		--set syncSecret.enabled=true \
 		--set enableSecretRotation=true \
-		--set rotationPollInterval=$(ROTATION_POLL_INTERVAL)
+		--set rotationPollInterval=30s
 
 .PHONY: e2e-helm-upgrade
 e2e-helm-upgrade:
