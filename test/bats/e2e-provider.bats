@@ -309,7 +309,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
   result=$(kubectl get secret -n rotation rotationsecret -o jsonpath="{.data.username}" | base64 -d)
   [[ "${result//$'\r'}" == "secret" ]]
   
-  sleep 60
+  sleep 90
 
   result=$(kubectl exec -n rotation secrets-store-inline-rotation -- cat /mnt/secrets-store/$SECRET_NAME)
   [[ "${result//$'\r'}" == "rotated" ]]
