@@ -465,7 +465,7 @@ e2e-eks-cleanup:
 
 .PHONY: e2e-provider
 e2e-provider:
-	bats -t test/bats/e2e-provider.bats
+	bats -t -T test/bats/e2e-provider.bats
 
 .PHONY: e2e-azure
 e2e-azure: $(AZURE_CLI)
