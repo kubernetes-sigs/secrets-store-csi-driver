@@ -184,6 +184,8 @@ func TestRotation(t *testing.T) {
 	}
 
 	testMockServer.Mount(context.Background(), mountRequest)
+	// enable rotation response
+	os.Setenv("ROTATION_ENABLED", "true")
 	// Rotate the secret
 	mountResponse, _ := testMockServer.Mount(context.Background(), mountRequest)
 
