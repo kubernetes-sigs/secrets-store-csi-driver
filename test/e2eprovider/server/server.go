@@ -163,7 +163,8 @@ func getSecret(secretName, podUID string) (*v1alpha1.File, *v1alpha1.ObjectVersi
 	// In this case, we should return the 'rotated' secret.
 	m.RLock()
 	if ok := podCache[podUID]; ok {
-		if os.Getenv("ROTATION_ENABLED") == "true" { // ROTAION_ENABLED is set to true only when rotation tests are running
+		if os.Getenv("ROTATION_ENABLED") == "true" {
+			// ROTAION_ENABLED is set to true only when rotation tests are running
 			secretVersion = "v2"
 			secretContent = "rotated"
 		}

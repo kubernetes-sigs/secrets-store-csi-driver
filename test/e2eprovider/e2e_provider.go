@@ -43,7 +43,7 @@ func main() {
 	}
 
 	// endpoint to enable rotation response.
-	// rotation response ("rotated") might be triggered by rotaion reconciler before other tests. This results in failure of those tests.
+	// rotation response ("rotated") might be triggered by rotation reconciler before other tests. This results in failure of those tests.
 	// To avoid this, we enable rotation response only when we are ready to run rotation tests.
 	go func() {
 		// set ROTATION_ENABLED=false to disable rotation response logic.
