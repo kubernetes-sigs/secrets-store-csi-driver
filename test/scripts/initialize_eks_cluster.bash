@@ -20,10 +20,12 @@ CRD_IMAGE_TAG=$ECR_CRD_REGISTRY_URL_WITH_NAME:$IMAGE_VERSION
 NAMESPACE="kube-system"
 AWS_SERVICE_ACCOUNT_NAME="basic-test-mount-sa"
 
-aws --region $AWS_REGION ecr get-login-password | docker login --username AWS --password-stdin $ECR_REGISTRY_URL
-REGISTRY=$ECR_REGISTRY_URL make container
-docker push $IMAGE_TAG
-docker push $CRD_IMAGE_TAG
+if [ -z "$RELEASE" ]; then
+    aws --region $AWS_REGION ecr get-login-password | docker login --username AWS --password-stdin $ECR_REGISTRY_URL
+    REGISTRY=$ECR_REGISTRY_URL make container
+    docker push $IMAGE_TAG
+    docker push $CRD_IMAGE_TAG
+fi
 
 eksctl create cluster --name $EKS_CLUSTER_NAME --node-type m5.large --region $AWS_REGION 
 eksctl utils associate-iam-oidc-provider --name $EKS_CLUSTER_NAME --approve --region $AWS_REGION
@@ -37,4 +39,7 @@ eksctl create iamserviceaccount \
      --approve \
      --region $AWS_REGION
 
-REGISTRY=$ECR_REGISTRY_URL make e2e-helm-deploy
+# on a release test the caller will perform the driver installation
+if [ -z "$RELEASE" ]; then
+    REGISTRY=$ECR_REGISTRY_URL make e2e-helm-deploy
+fi

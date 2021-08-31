@@ -445,8 +445,7 @@ e2e-helm-upgrade:
 .PHONY: e2e-helm-deploy-release # test helm package for the release
 e2e-helm-deploy-release:
 	set -x; \
-	current_release=$(shell (echo ${RELEASE_VERSION} | sed s/"v"//)); \
-	helm install csi-secrets-store charts/secrets-store-csi-driver-$${current_release}.tgz --namespace kube-system --wait --timeout=5m -v=5 --debug \
+	helm install csi-secrets-store charts/secrets-store-csi-driver --namespace kube-system --wait --timeout=5m -v=5 --debug \
 		--set linux.image.pullPolicy="IfNotPresent" \
 		--set windows.image.pullPolicy="IfNotPresent" \
 		--set windows.enabled=true \
