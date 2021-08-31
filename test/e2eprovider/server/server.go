@@ -71,6 +71,7 @@ func NewE2EProviderServer(endpoint string) (*Server, error) {
 	return s, nil
 }
 
+// GetSocketPath returns the socket path
 func (s *Server) GetSocketPath() string {
 	return s.socketPath
 }
@@ -162,7 +163,7 @@ func getSecret(secretName, podUID string) (*v1alpha1.File, *v1alpha1.ObjectVersi
 	// In this case, we should return the 'rotated' secret.
 	m.RLock()
 	if ok := podCache[podUID]; ok {
-		if os.Getenv("ROTATION_ENABLED") == "true" {
+		if os.Getenv("ROTATION_ENABLED") == "true" { // ROTAION_ENABLED is set to true only when rotation tests are running
 			secretVersion = "v2"
 			secretContent = "rotated"
 		}
@@ -191,6 +192,7 @@ func (s *Server) Version(ctx context.Context, req *v1alpha1.VersionRequest) (*v1
 	}, nil
 }
 
+// RotationHandler enables rotation response for the mock provider
 func RotationHandler(w http.ResponseWriter, r *http.Request) {
 	// enable rotation response
 	os.Setenv("ROTATION_ENABLED", "true")
