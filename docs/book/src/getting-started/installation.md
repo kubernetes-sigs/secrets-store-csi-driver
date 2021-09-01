@@ -3,7 +3,7 @@
 <aside class="note">
 <h1>Note</h1>
 
-The helm chart repository URL has changed to `https://kuberentes-sigs.github.io/secrets-store-csi-driver/charts`
+The helm chart repository URL has changed to `https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts`
 
 </aside>
 

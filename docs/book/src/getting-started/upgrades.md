@@ -3,13 +3,13 @@
 <aside class="note warning">
 <h1>Warning</h1>
 
-The helm chart repository URL has changed to `https://kuberentes-sigs.github.io/secrets-store-csi-driver/charts`.
+The helm chart repository URL has changed to `https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts`.
 
 Run the following commands to update your Helm chart repositories:
 
 ```bash
 helm repo rm secrets-store-csi-driver
-helm repo add secrets-store-csi-driver https://kuberentes-sigs.github.io/secrets-store-csi-driver/charts
+helm repo add secrets-store-csi-driver https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts
 helm repo update
 ```
 
