@@ -25,6 +25,8 @@ REPO_PATH="$(ORG_PATH)/$(PROJECT_NAME)"
 REGISTRY ?= gcr.io/k8s-staging-csi-secrets-store
 IMAGE_NAME ?= driver
 CRD_IMAGE_NAME ?= driver-crds
+E2E_PROVIDER_IMAGE_NAME ?= e2e-provider
+
 # Release version is the current supported release for the driver
 # Update this version when the helm chart is being updated for release
 RELEASE_VERSION := v0.3.0
@@ -33,8 +35,10 @@ IMAGE_VERSION ?= v0.3.0
 ifdef CI
 override IMAGE_VERSION := v0.3.0-e2e-$(BUILD_COMMIT)
 endif
+
 IMAGE_TAG=$(REGISTRY)/$(IMAGE_NAME):$(IMAGE_VERSION)
 CRD_IMAGE_TAG=$(REGISTRY)/$(CRD_IMAGE_NAME):$(IMAGE_VERSION)
+E2E_PROVIDER_IMAGE_TAG=$(REGISTRY)/$(E2E_PROVIDER_IMAGE_NAME):$(IMAGE_VERSION)
 
 # build variables
 BUILD_TIMESTAMP := $$(date +%Y-%m-%d-%H:%M)
@@ -141,7 +145,8 @@ test: lint go-test
 
 .PHONY: go-test # Run unit tests
 go-test:
-	go test -cover $(GO_FILES) -v
+	go test -count=1 -cover $(GO_FILES) -v
+	cd test/e2eprovider && go test ./... -tags e2e -count=1 -cover -v
 
 # skipping Controller tests as this driver only implements Node and Identity service.
 .PHONY: sanity-test # Run CSI sanity tests for the driver
@@ -233,6 +238,7 @@ test-style: lint lint-charts shellcheck
 lint: $(GOLANGCI_LINT)
 	# Setting timeout to 5m as default is 1m
 	$(GOLANGCI_LINT) run --timeout=5m -v
+	cd test/e2eprovider && $(GOLANGCI_LINT) run --build-tags e2e --timeout=5m -v
 
 lint-full: $(GOLANGCI_LINT)
 	$(GOLANGCI_LINT) run -v --fast=false
@@ -251,6 +257,10 @@ shellcheck: $(SHELLCHECK)
 .PHONY: build
 build:
 	GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=linux go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
+
+.PHONY: build-e2e-provider
+build-e2e-provider:
+	cd test/e2eprovider && GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=linux go build -a -tags "e2e" -o e2e-provider
 
 .PHONY: build-windows
 build-windows:
@@ -272,6 +282,10 @@ ifdef CI
 else
 	cp -R charts/secrets-store-csi-driver/crds/ _output/crds/
 endif
+
+.PHONY: e2e-provider-container
+e2e-provider-container:
+	docker build --no-cache -t $(E2E_PROVIDER_IMAGE_TAG) -f test/e2eprovider/Dockerfile .
 
 .PHONY: container
 container: crd-container
@@ -367,6 +381,11 @@ else
 	kind load docker-image --name kind $(CRD_IMAGE_TAG)
 endif
 
+.PHONY: e2e-mock-provider-container
+e2e-mock-provider-container:
+	$(MAKE) e2e-provider-container
+	kind load docker-image --name kind $(E2E_PROVIDER_IMAGE_TAG)
+
 .PHONY: e2e-test
 e2e-test: e2e-bootstrap e2e-helm-deploy # run test for windows
 	$(MAKE) e2e-azure
@@ -374,6 +393,10 @@ e2e-test: e2e-bootstrap e2e-helm-deploy # run test for windows
 .PHONY: e2e-teardown
 e2e-teardown: $(HELM)
 	helm delete csi-secrets-store --namespace kube-system
+
+.PHONY: e2e-provider-deploy
+e2e-provider-deploy:
+	yq e 'select(.kind == "DaemonSet").spec.template.spec.containers[0].image = "$(E2E_PROVIDER_IMAGE_TAG)"' 'test/e2eprovider/e2e-provider-installer.yaml' | kubectl apply -n kube-system -f -
 
 .PHONY: e2e-deploy-manifest
 e2e-deploy-manifest:
@@ -436,6 +459,10 @@ e2e-kind-cleanup:
 .PHONY: e2e-eks-cleanup
 e2e-eks-cleanup: 
 	eksctl delete cluster --name $(EKS_CLUSTER_NAME) --region $(AWS_REGION)
+
+.PHONY: e2e-provider
+e2e-provider:
+	bats -t -T test/bats/e2e-provider.bats
 
 .PHONY: e2e-azure
 e2e-azure: $(AZURE_CLI)

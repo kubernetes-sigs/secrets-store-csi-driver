@@ -25,7 +25,6 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store/mocks"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/test_utils/tmpdir"
-	"sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
@@ -274,16 +273,6 @@ func TestNodePublishVolume(t *testing.T) {
 			r := mocks.NewFakeReporter()
 
 			tmpDir := tmpdir.New(t, "", "ut")
-			server, err := e2eprovider.NewSimpleCSIProviderServer(
-				filepath.Join(tmpDir, "simple_provider.sock"),
-			)
-			if err != nil {
-				t.Fatalf("Error creating e2e test server: %v", err)
-			}
-			err = server.Start()
-			if err != nil {
-				t.Fatalf("Error starting e2e test server: %v", err)
-			}
 			ns, err := testNodeServer(t, tmpDir, test.mountPoints, fake.NewFakeClientWithScheme(s, test.initObjects...), r)
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
@@ -327,7 +316,6 @@ func TestNodePublishVolume(t *testing.T) {
 				}
 				numberOfAttempts--
 			}
-			server.Stop()
 		})
 	}
 }
