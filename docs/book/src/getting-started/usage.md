@@ -16,7 +16,7 @@ spec:
   parameters:                                 # provider-specific parameters
 ```
 
-Here is a sample [`SecretProviderClass` custom resource](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/master/test/bats/tests/vault/vault_v1alpha1_secretproviderclass.yaml)
+Here is a sample [`SecretProviderClass` custom resource](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/main/test/bats/tests/vault/vault_v1alpha1_secretproviderclass.yaml)
 
 ### Update your Deployment Yaml
 
@@ -32,7 +32,7 @@ volumes:
         secretProviderClass: "my-provider"
 ```
 
-Here is a sample [deployment yaml](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/master/test/bats/tests/vault/pod-vault-inline-volume-secretproviderclass.yaml) using the Secrets Store CSI driver.
+Here is a sample [deployment yaml](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/main/test/bats/tests/vault/pod-vault-inline-volume-secretproviderclass.yaml) using the Secrets Store CSI driver.
 
 ## Secret Content is Mounted on Pod Start
 

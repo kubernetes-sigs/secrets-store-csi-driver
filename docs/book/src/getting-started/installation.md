@@ -41,7 +41,7 @@ Notably the following feature must be explicitly enabled:
 | [Sync as Kubernetes secret](../topics/sync-as-kubernetes-secret.md) | `syncSecret.enabled=true`   |
 | [Secret Auto rotation](../topics/secret-auto-rotation.md)           | `enableSecretRotation=true` |
 
-For a list of customizable values that can be injected when invoking helm install, please see the [Helm chart configurations](https://github.com/kubernetes-sigs/secrets-store-csi-driver/tree/master/charts/secrets-store-csi-driver#configuration).
+For a list of customizable values that can be injected when invoking helm install, please see the [Helm chart configurations](https://github.com/kubernetes-sigs/secrets-store-csi-driver/tree/main/charts/secrets-store-csi-driver#configuration).
 
 ### [Alternatively] Deployment using yamls
 
