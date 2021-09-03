@@ -9,3 +9,5 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
+      - name: Run e2e tests
+        run: make test
