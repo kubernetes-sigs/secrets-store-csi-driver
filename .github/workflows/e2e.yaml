@@ -1,14 +1,20 @@
 name: e2e-test
-on: [push]
+on: 
+  workflow_dispatch:
+    inputs:
+      registry:
+        description: 'registry for image'     
+        required: true
+        default: 'gcr.io/k8s-staging-csi-secrets-store'
+      driverImageName:
+        description: 'image name'
+        required: true
+        default: 'driver'
+      driverImageVersion:
+        description: 'Image version'
+        required: true
+        default: 'v0.3.0'
 jobs:
-  e2e-mock-provider-test:
-    runs-on: ubuntu-20.04
-    steps:
-      - run: echo "hello"
-      - uses: actions/checkout@v2
-        with:
-          submodules: true
-          fetch-depth: 0
   kind:
     runs-on: ubuntu-20.04
     steps:
@@ -20,4 +26,7 @@ jobs:
           kubectl get pods -n kube-system
           echo "current-context:" $(kubectl config current-context)
           echo "environment-kubeconfig:" ${KUBECONFIG}
-          CI=false make e2e-mock-provider-container e2e-helm-deploy e2e-provider-deploy e2e-provider
+          echo "Registry: ${{ github.event.inputs.registry }}"
+          echo "Driver image name: ${{ github.event.inputs.driverImageName }}"
+          echo "Driver image version: ${{ github.event.inputs.driverImageVersion }}"
+          make e2e-mock-provider-container e2e-helm-deploy e2e-provider-deploy e2e-provider
