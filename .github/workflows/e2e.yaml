@@ -21,6 +21,8 @@ jobs:
       - uses: actions/checkout@v2
       - name: test make
         run: |
+          make --version
+          echo ""
           make e2e-mock-provider-container
 
   # kind:
