@@ -20,4 +20,4 @@ jobs:
           kubectl get pods -n kube-system
           echo "current-context:" $(kubectl config current-context)
           echo "environment-kubeconfig:" ${KUBECONFIG}
-          make e2e-mock-provider-container e2e-helm-deploy e2e-provider-deploy e2e-provider
+          CI=false make e2e-mock-provider-container e2e-helm-deploy e2e-provider-deploy e2e-provider
