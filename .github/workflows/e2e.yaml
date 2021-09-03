@@ -38,4 +38,5 @@ jobs:
           echo "Driver image name: ${{ github.event.inputs.driverImageName }}"
           echo "Driver image version: ${{ github.event.inputs.driverImageVersion }}"
           # CI=false make e2e-mock-provider-container e2e-helm-deploy e2e-provider-deploy e2e-provider
+          helm version
           CI=false make e2e-mock-provider-container e2e-provider-deploy
