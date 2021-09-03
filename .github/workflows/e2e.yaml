@@ -1,0 +1,7 @@
+name: e2e-test
+on: [push]
+jobs:
+  e2e-mock-provider-test:
+    runs-on: ubuntu-20.04
+    steps:
+      - run: echo "hello"
