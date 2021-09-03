@@ -15,28 +15,26 @@ on:
         required: true
         default: 'v0.3.0'
 jobs:
-  test:
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v2
-      - name: test make
-        run: |
-          make --version
-          echo ""
-          CI=false make e2e-mock-provider-container
-
-  # kind:
+  # test:
   #   runs-on: ubuntu-20.04
   #   steps:
-  #     - uses: actions/checkout@master
-  #     - uses: engineerd/setup-kind@v0.5.0
-  #     - name: Testing
+  #     - uses: actions/checkout@v2
+  #     - name: test make
   #       run: |
-  #         kubectl cluster-info
-  #         kubectl get pods -n kube-system
-  #         echo "current-context:" $(kubectl config current-context)
-  #         echo "environment-kubeconfig:" ${KUBECONFIG}
-  #         echo "Registry: ${{ github.event.inputs.registry }}"
-  #         echo "Driver image name: ${{ github.event.inputs.driverImageName }}"
-  #         echo "Driver image version: ${{ github.event.inputs.driverImageVersion }}"
-  #         make e2e-mock-provider-container e2e-helm-deploy e2e-provider-deploy e2e-provider
+  #         CI=false make e2e-mock-provider-container
+
+  kind:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@master
+      - uses: engineerd/setup-kind@v0.5.0
+      - name: Testing
+        run: |
+          kubectl cluster-info
+          kubectl get pods -n kube-system
+          echo "current-context:" $(kubectl config current-context)
+          echo "environment-kubeconfig:" ${KUBECONFIG}
+          echo "Registry: ${{ github.event.inputs.registry }}"
+          echo "Driver image name: ${{ github.event.inputs.driverImageName }}"
+          echo "Driver image version: ${{ github.event.inputs.driverImageVersion }}"
+          CI=false make e2e-mock-provider-container e2e-helm-deploy e2e-provider-deploy e2e-provider
