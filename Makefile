@@ -32,7 +32,10 @@ E2E_PROVIDER_IMAGE_NAME ?= e2e-provider
 RELEASE_VERSION := v0.3.0
 IMAGE_VERSION ?= v0.3.0
 # Use a custom version for E2E tests if we are testing in CI
-ifdef CI
+# ifdef CI
+# override IMAGE_VERSION := v0.3.0-e2e-$(BUILD_COMMIT)
+# endif
+ifeq ($(CI),true)
 override IMAGE_VERSION := v0.3.0-e2e-$(BUILD_COMMIT)
 endif
 
