@@ -36,4 +36,4 @@ jobs:
       - name: Test
         run: |
           unset CI # Actions sets this var by default. We need to explicitly unset it so that build commit hash is not appended to driver image tag.
-          REGISTRY=${{ github.event.inputs.registry }} IMAGE_NAME=${{ github.event.inputs.driverImageName }} IMAGE_VERSION=${{ github.event.inputs.driverImageVersion }} make e2e-helm-deploy e2e-mock-provider-container e2e-provider-deploy e2e-provider
+          REGISTRY=${{ github.event.inputs.registry }} IMAGE_NAME=${{ github.event.inputs.driverImage }} IMAGE_VERSION=${{ github.event.inputs.driverImageVersion }} make e2e-helm-deploy e2e-mock-provider-container e2e-provider-deploy e2e-provider
