@@ -36,9 +36,6 @@ IMAGE_VERSION ?= v0.3.0
 ifdef CI
 override IMAGE_VERSION := v0.3.0-e2e-$(BUILD_COMMIT)
 endif
-# ifeq ($(CI),true)
-# override IMAGE_VERSION := v0.3.0-e2e-$(BUILD_COMMIT)
-# endif
 
 IMAGE_TAG=$(REGISTRY)/$(IMAGE_NAME):$(IMAGE_VERSION)
 CRD_IMAGE_TAG=$(REGISTRY)/$(CRD_IMAGE_NAME):$(IMAGE_VERSION)
@@ -105,7 +102,7 @@ KUBERNETES_VERSION ?= 1.21.1
 # with kubectl wait needed for integration testing. When KUBERNETES_VERSION is updated to >= 1.22.1 this can likely be
 # removed.
 KUBECTL_VERSION ?= 1.22.1
-BATS_VERSION ?= 1.2.1
+BATS_VERSION ?= 1.4.1
 TRIVY_VERSION ?= 0.14.0
 PROTOC_VERSION ?= 3.15.2
 SHELLCHECK_VER ?= v0.7.2
