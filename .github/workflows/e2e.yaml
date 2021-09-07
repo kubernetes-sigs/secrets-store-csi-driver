@@ -1,53 +1,39 @@
-name: e2e-mock-provider
-on: push
-# on: 
-#   workflow_dispatch:
-#     inputs:
-#       registry:
-#         description: 'registry for image'     
-#         required: true
-#         default: 'gcr.io/k8s-staging-csi-secrets-store'
-#       driverImageName:
-#         description: 'image name'
-#         required: true
-#         default: 'driver'
-#       driverImageVersion:
-#         description: 'Image version'
-#         required: true
-#         default: 'v0.3.0'
+name: e2e-mock-provider-tests
+on: 
+  workflow_dispatch:
+    inputs:
+      registry:
+        description: 'Registry for image'     
+        required: true
+        default: 'gcr.io/k8s-staging-csi-secrets-store'
+      driverImageName:
+        description: 'Image name for secret store CSI driver'
+        required: true
+        default: 'driver'
+      driverImageVersion:
+        description: 'Image version for'
+        required: true
+        default: 'v0.3.0'
 jobs:
-  # test:
-  #   runs-on: ubuntu-20.04
-  #   steps:
-  #     - uses: actions/checkout@v2
-  #     - name: test make
-  #       run: |
-  #         unset CI
-  #         make e2e-mock-provider-container
-
-  kind:
+  e2e-test:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@master
-      - uses: engineerd/setup-kind@v0.5.0
+      - name: Checkout
+        uses: actions/checkout@v2
         with:
-          version: "v0.11.1"
+          submodules: true
+          fetch-depth: 0  
       - name: Setup BATS
+        # pinning to the sha af9a00deb21b5d795cabfeaa8d9060410377686d from https://github.com/mig4/setup-bats/releases/tag/v1.2.0
         uses: mig4/setup-bats@af9a00deb21b5d795cabfeaa8d9060410377686d
         with:
-          bats-version: 1.4.1
-      - name: Testing
+          bats-version: 1.4.1      
+      - name: Setup kind
+        # pinning to the sha aa272fe2a7309878ffc2a81c56cfe3ef108ae7d0 from https://github.com/engineerd/setup-kind/releases/tag/v0.5.0
+        uses: engineerd/setup-kind@aa272fe2a7309878ffc2a81c56cfe3ef108ae7d0
+        with:
+          version: "v0.11.1"
+      - name: Test
         run: |
           unset CI
-          kind version
-          kubectl cluster-info
-          kubectl get pods -n kube-system
-          echo "current-context:" $(kubectl config current-context)
-          echo "environment-kubeconfig:" ${KUBECONFIG}
-          echo "Registry: ${{ github.event.inputs.registry }}"
-          echo "Driver image name: ${{ github.event.inputs.driverImageName }}"
-          echo "Driver image version: ${{ github.event.inputs.driverImageVersion }}"
-          echo "Helm version -"
-          helm version
           make e2e-helm-deploy e2e-mock-provider-container e2e-provider-deploy e2e-provider
-          # CI=false make e2e-mock-provider-container e2e-provider-deploy
