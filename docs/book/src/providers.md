@@ -43,6 +43,6 @@ See [design doc](https://docs.google.com/document/d/10-RHUJGM0oMN88AZNxjOmGz0NsW
 | Features \ Providers               | Azure | GCP   | AWS   | Vault |
 | ---------------------------------- | ----- | ----- | ----- | ----- |
 | Sync as Kubernetes secret          | Yes   | Yes   | Yes   | Yes   |
-| Rotation                           | Yes   | No    | Yes   | No    |
+| Rotation                           | Yes   | Yes   | Yes   | No    |
 | Windows                            | Yes   | No    | No    | No    |
 | Service account volume projection  | No    | Yes   | Yes   | Yes   |
