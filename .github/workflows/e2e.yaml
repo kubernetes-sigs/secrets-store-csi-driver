@@ -28,12 +28,12 @@ jobs:
         uses: mig4/setup-bats@af9a00deb21b5d795cabfeaa8d9060410377686d
         with:
           bats-version: 1.4.1      
-      - name: Setup kind
+      - name: Setup Kind
         # pinning to the sha aa272fe2a7309878ffc2a81c56cfe3ef108ae7d0 from https://github.com/engineerd/setup-kind/releases/tag/v0.5.0
         uses: engineerd/setup-kind@aa272fe2a7309878ffc2a81c56cfe3ef108ae7d0
         with:
           version: "v0.11.1"
       - name: Test
         run: |
-          unset CI
+          unset CI # Actions sets this var by default. We need to explicitly unset it so that build commit hash is not appended to driver image tag.
           REGISTRY=${{ github.event.inputs.registry }} IMAGE_NAME=${{ github.event.inputs.driverImageName }} IMAGE_VERSION=${{ github.event.inputs.driverImageVersion }} make e2e-helm-deploy e2e-mock-provider-container e2e-provider-deploy e2e-provider
