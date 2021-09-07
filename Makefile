@@ -417,7 +417,7 @@ e2e-deploy-manifest:
 
 .PHONY: e2e-helm-deploy
 e2e-helm-deploy:
-	helm install csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace kube-system --wait --timeout=5m -v=5 --debug \
+	helm install csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace kube-system --wait --timeout=5m -v=4 --debug \
 		--set linux.image.pullPolicy="IfNotPresent" \
 		--set windows.image.pullPolicy="IfNotPresent" \
 		--set linux.image.repository=$(REGISTRY)/$(IMAGE_NAME) \

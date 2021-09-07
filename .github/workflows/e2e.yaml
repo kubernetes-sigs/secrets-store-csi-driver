@@ -32,6 +32,7 @@ jobs:
       - uses: engineerd/setup-kind@v0.5.0
       - name: Testing
         run: |
+          unset CI
           kubectl cluster-info
           kubectl get pods -n kube-system
           echo "current-context:" $(kubectl config current-context)
@@ -39,6 +40,7 @@ jobs:
           echo "Registry: ${{ github.event.inputs.registry }}"
           echo "Driver image name: ${{ github.event.inputs.driverImageName }}"
           echo "Driver image version: ${{ github.event.inputs.driverImageVersion }}"
+          echo "Helm version -"
           helm version
           make e2e-helm-deploy e2e-mock-provider-container e2e-provider-deploy e2e-provider
           # CI=false make e2e-mock-provider-container e2e-provider-deploy
