@@ -23,7 +23,7 @@ NOTE: On OSX you must have the gnu version of `sed` in your path: `brew install 
 
 ## Versioning
 
-1. Make sure that the `docs` include all necessary information included in the release (example [tag compare](https://github.com/kubernetes-sigs/secrets-store-csi-driver/compare/v0.0.21...master)).
+1. Make sure that the `docs` include all necessary information included in the release (example [tag compare](https://github.com/kubernetes-sigs/secrets-store-csi-driver/compare/v0.3.0...main)).
 1. Create a new release branch `release-X.X` using the UI (to avoid `git push`'ing directly to the repo).
 1. Wait for the [new branch](https://github.com/kubernetes-sigs/secrets-store-csi-driver/branches) to recieve [branch protection](https://docs.github.com/en/github/administering-a-repository/defining-the-mergeability-of-pull-requests/about-protected-branches).
 1. Update the version to the semantic version of the new release similar to [this](https://github.com/kubernetes-sigs/secrets-store-csi-driver/pull/251)
@@ -95,6 +95,6 @@ NOTE: On OSX you must have the gnu version of `sed` in your path: `brew install 
 ## Publishing
 
 1. Create a draft release in GitHub and associate it with the tag that was just created
-1. Collect release notes (example [tag compare](https://github.com/kubernetes-sigs/secrets-store-csi-driver/compare/v0.0.21...master))
+1. Collect release notes (example [tag compare](https://github.com/kubernetes-sigs/secrets-store-csi-driver/compare/v0.3.0...main))
 1. Write the release notes similar to [this](https://github.com/kubernetes-sigs/secrets-store-csi-driver/releases/tag/v0.0.12) and upload all the artifacts from the `deploy/` dir
 1. Publish release
