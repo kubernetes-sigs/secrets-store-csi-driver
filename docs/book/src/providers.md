@@ -46,3 +46,4 @@ See [design doc](https://docs.google.com/document/d/10-RHUJGM0oMN88AZNxjOmGz0NsW
 | Rotation                           | Yes   | Yes   | Yes   | No    |
 | Windows                            | Yes   | No    | No    | No    |
 | Service account volume projection  | No    | Yes   | Yes   | Yes   |
+| Helm Chart                         | Yes   | No    | No    | Yes   |
