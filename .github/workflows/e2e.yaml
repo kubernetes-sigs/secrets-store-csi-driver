@@ -3,15 +3,15 @@ on:
   workflow_dispatch:
     inputs:
       registry:
-        description: 'Registry for image'     
+        description: 'Registry'
         required: true
         default: 'gcr.io/k8s-staging-csi-secrets-store'
-      driverImageName:
-        description: 'Image name for secret store CSI driver'
+      driverImage:
+        description: 'Secret Store CSI driver image'
         required: true
         default: 'driver'
       driverImageVersion:
-        description: 'Image version for'
+        description: 'Secret Store CSI driver image version'
         required: true
         default: 'v0.3.0'
 jobs:
@@ -36,4 +36,4 @@ jobs:
       - name: Test
         run: |
           unset CI
-          make e2e-helm-deploy e2e-mock-provider-container e2e-provider-deploy e2e-provider
+          REGISTRY=${{ github.event.inputs.registry }} IMAGE_NAME=${{ github.event.inputs.driverImageName }} IMAGE_VERSION=${{ github.event.inputs.driverImageVersion }} make e2e-helm-deploy e2e-mock-provider-container e2e-provider-deploy e2e-provider
