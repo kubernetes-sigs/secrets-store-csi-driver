@@ -21,6 +21,15 @@ kubectl describe pod <application pod>
 
 > It is always a good idea to include relevant logs from csi driver pod when opening a new [issue](https://github.com/kubernetes-sigs/secrets-store-csi-driver/issues).
 
+## pprof
+
+Starting the `secrets-store` container in driver with `--enable-pprof=true` will enable a debug http endpoint at `--pprof-port` (default: 6065). Accessing this will also require `port-forward`:
+
+```bash
+kubectl port-forward csi-secrets-store-secrets-store-csi-driver-7x44t secrets-store 6065:6065 &
+curl localhost:6065/debug/pprof
+```
+
 ## Common Errors
 
 ### `SecretProviderClass` not found
