@@ -42,4 +42,9 @@ jobs:
           # GH action sets this var by default. We need to explicitly unset it so that build commit hash is not appended to image tag.
           unset CI
 
-          REGISTRY=${{ github.event.inputs.registry }} IMAGE_NAME=${{ github.event.inputs.driverImageName }} CRD_IMAGE_NAME=${{ github.event.inputs.crdImageName }} IMAGE_VERSION=${{ github.event.inputs.imageVersion }} make e2e-helm-deploy e2e-mock-provider-container e2e-provider-deploy e2e-provider
+          make e2e-helm-deploy e2e-mock-provider-container e2e-provider-deploy e2e-provider
+        env: 
+          REGISTRY: ${{ github.event.inputs.registry }}
+          IMAGE_NAME: ${{ github.event.inputs.driverImageName }} 
+          CRD_IMAGE_NAME: ${{ github.event.inputs.crdImageName }} 
+          IMAGE_VERSION: ${{ github.event.inputs.imageVersion }}
