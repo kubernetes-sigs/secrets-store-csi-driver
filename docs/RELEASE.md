@@ -26,7 +26,7 @@ NOTE: On OSX you must have the gnu version of `sed` in your path: `brew install 
 
 1. Make sure that the `docs` include all necessary information included in the release (example [tag compare](https://github.com/kubernetes-sigs/secrets-store-csi-driver/compare/v0.3.0...main)).
 1. Create a new release branch `release-X.X` using the UI (to avoid `git push`'ing directly to the repo).
-1. Wait for the [new branch](https://github.com/kubernetes-sigs/secrets-store-csi-driver/branches) to recieve [branch protection](https://docs.github.com/en/github/administering-a-repository/defining-the-mergeability-of-pull-requests/about-protected-branches).
+1. Wait for the [new branch](https://github.com/kubernetes-sigs/secrets-store-csi-driver/branches) to receive [branch protection](https://docs.github.com/en/github/administering-a-repository/defining-the-mergeability-of-pull-requests/about-protected-branches).
 1. Update the version to the semantic version of the new release similar to [this](https://github.com/kubernetes-sigs/secrets-store-csi-driver/pull/251)
 1. Commit the changes and push to remote repository to create a pull request to the `release-X.X` branch
 
@@ -37,7 +37,8 @@ NOTE: On OSX you must have the gnu version of `sed` in your path: `brew install 
     ```
 
 1. Once the PR is merged to `release-X.X`, the [prow job](https://testgrid.k8s.io/sig-auth-secrets-store-csi-driver#secrets-store-csi-driver-push-image) is triggered to build and push the new version to staging repo (`gcr.io/k8s-staging-csi-secrets-store/driver`)
-1. Once the prow job completes, follow the [instructions](https://github.com/kubernetes/k8s.io/tree/main/k8s.gcr.io#image-promoter) to promote the image to production repo
+1. After images are available in staging registry, head over to github [actions](https://github.com/kubernetes-sigs/secrets-store-csi-driver/actions) and select `e2e_mock_provider_tests` workflow. Click `Run workflow` and provide required inputs. This will run e2e tests against the staging images. Make sure this job is successful before proceeding to the next step.
+1. Once the e2e tests on staging images completes, follow the [instructions](https://github.com/kubernetes/k8s.io/tree/main/k8s.gcr.io#image-promoter) to promote the image to production repo
     - Within the Prow job "Artifacts" tab there is a file `artifacts/build.log` which will include the Cloud Build URL:
 
     ```text
