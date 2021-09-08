@@ -10,6 +10,7 @@ Versioning involves maintaining the following files:
 - secrets-store-csi-driver.yaml - the Linux driver deployment yaml that contains the latest release tag image of the project.
 - secrets-store-csi-driver-windows.yaml - the Windows driver deployment yaml that contains the latest release tag image of the project.
 - `deploy/` dir that contains all the secrets-store-csi-driver resources to be deployed to the cluster including the latest release tag image of the project.
+- `.github/workflows/e2e.yaml` file contains the default image tag released in staging and is used for e2e testing before releasing production images.
 
 The steps below explain how to update these files. In addition, the repository should be tagged with the semantic version identifying the release.
 
