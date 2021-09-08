@@ -10,16 +10,12 @@ on:
         description: 'Secret Store CSI driver image name'
         required: true
         default: 'driver'
-      driverImageVersion:
-        description: 'Secret Store CSI driver image version'
-        required: true
-        default: 'v0.3.0'
       crdImageName:
         description: 'Secret Store CSI driver CRD image name'
         required: true
         default: 'driver-crds'
-      crdImageVersion:
-        description: 'Secret Store CSI driver CRD image version'
+      imageVersion:
+        description: 'image version for Secret Store CSI driver and CRDs'
         required: true
         default: 'v0.3.0'
 jobs:
@@ -43,5 +39,7 @@ jobs:
           version: "v0.11.1"
       - name: Test
         run: |
-          unset CI # Actions sets this var by default. We need to explicitly unset it so that build commit hash is not appended to driver image tag.
-          REGISTRY=${{ github.event.inputs.registry }} IMAGE_NAME=${{ github.event.inputs.driverImageName }} IMAGE_VERSION=${{ github.event.inputs.driverImageVersion }} make e2e-helm-deploy e2e-mock-provider-container e2e-provider-deploy e2e-provider
+          # GH action sets this var by default. We need to explicitly unset it so that build commit hash is not appended to image tag.
+          unset CI
+          
+          REGISTRY=${{ github.event.inputs.registry }} IMAGE_NAME=${{ github.event.inputs.driverImageName }} CRD_IMAGE_NAME=${{ github.event.inputs.driverImageName }} IMAGE_VERSION=${{ github.event.inputs.imageVersion }} make e2e-helm-deploy e2e-mock-provider-container e2e-provider-deploy e2e-provider
