@@ -38,12 +38,11 @@ To implement a secrets-store-csi-driver provider, you can develop a new provider
 
 See [design doc](https://docs.google.com/document/d/10-RHUJGM0oMN88AZNxjOmGz0NsWAvOYrWUEV-FbLWyw/edit?usp=sharing) for more details.
 
-## Features supported by current providers
+## Features supported by current providers:
 
 | Features \ Providers               | Azure | GCP   | AWS   | Vault |
 | ---------------------------------- | ----- | ----- | ----- | ----- |
 | Sync as Kubernetes secret          | Yes   | Yes   | Yes   | Yes   |
 | Rotation                           | Yes   | Yes   | Yes   | No    |
 | Windows                            | Yes   | No    | No    | No    |
-| Service account volume projection  | No    | Yes   | Yes   | Yes   |
 | Helm Chart                         | Yes   | No    | No    | Yes   |
