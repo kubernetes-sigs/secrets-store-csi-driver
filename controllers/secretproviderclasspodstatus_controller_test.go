@@ -129,11 +129,11 @@ func TestSecretExists(t *testing.T) {
 	labels := map[string]string{"environment": "test"}
 	annotations := map[string]string{"kubed.appscode.com/sync": "app=test"}
 
-	initObjects := []runtime.Object{
+	initObjects := []client.Object{
 		newSecret("my-secret", "default", labels, annotations),
 	}
 
-	client := fake.NewFakeClientWithScheme(scheme, initObjects...)
+	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
 	reconciler := newReconciler(client, scheme, "node1")
 
 	exists, err := reconciler.secretExists(context.TODO(), "my-secret", "default")
@@ -165,11 +165,11 @@ func TestPatchSecretWithOwnerRef(t *testing.T) {
 	labels := map[string]string{"environment": "test"}
 	annotations := map[string]string{"kubed.appscode.com/sync": "app=test"}
 
-	initObjects := []runtime.Object{
+	initObjects := []client.Object{
 		newSecret("my-secret", "default", labels, annotations),
 		spcPodStatus,
 	}
-	client := fake.NewFakeClientWithScheme(scheme, initObjects...)
+	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
 	reconciler := newReconciler(client, scheme, "node1")
 
 	// adding ref twice to test de-duplication of owner references when being set in the secret
@@ -191,10 +191,10 @@ func TestCreateK8sSecret(t *testing.T) {
 	labels := map[string]string{"environment": "test"}
 	annotations := map[string]string{"kubed.appscode.com/sync": "app=test"}
 
-	initObjects := []runtime.Object{
+	initObjects := []client.Object{
 		newSecret("my-secret", "default", labels, annotations),
 	}
-	client := fake.NewFakeClientWithScheme(scheme, initObjects...)
+	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
 	reconciler := newReconciler(client, scheme, "node1")
 
 	// secret already exists
@@ -218,7 +218,7 @@ func TestGenerateEvent(t *testing.T) {
 	scheme, err := setupScheme()
 	g.Expect(err).NotTo(HaveOccurred())
 
-	client := fake.NewFakeClientWithScheme(scheme)
+	client := fake.NewClientBuilder().WithScheme(scheme).Build()
 	reconciler := newReconciler(client, scheme, "node1")
 
 	obj := &v1.ObjectReference{
@@ -242,13 +242,13 @@ func TestPatcherForStaticPod(t *testing.T) {
 	scheme, err := setupScheme()
 	g.Expect(err).NotTo(HaveOccurred())
 
-	initObjects := []runtime.Object{
+	initObjects := []client.Object{
 		newSecretProviderClassPodStatus("pod1-default-spc1", "default", "node1"),
 		newSecretProviderClass("spc1", "default"),
 		newPod("pod1", "default", nil),
 		newSecret("secret1", "default", nil, nil),
 	}
-	client := fake.NewFakeClientWithScheme(scheme, initObjects...)
+	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
 	reconciler := newReconciler(client, scheme, "node1")
 
 	err = reconciler.Patcher(context.TODO())
@@ -272,7 +272,7 @@ func TestPatcherForPodWithOwner(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 	tr := true
 
-	initObjects := []runtime.Object{
+	initObjects := []client.Object{
 		newSecretProviderClassPodStatus("pod1-default-spc1", "default", "node1"),
 		newSecretProviderClass("spc1", "default"),
 		newPod("pod1", "default", []metav1.OwnerReference{
@@ -287,7 +287,7 @@ func TestPatcherForPodWithOwner(t *testing.T) {
 		}),
 		newSecret("secret1", "default", nil, nil),
 	}
-	client := fake.NewFakeClientWithScheme(scheme, initObjects...)
+	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
 	reconciler := newReconciler(client, scheme, "node1")
 
 	err = reconciler.Patcher(context.TODO())

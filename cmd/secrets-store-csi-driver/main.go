@@ -196,7 +196,7 @@ func main() {
 		go rec.Run(ctx.Done())
 	}
 
-	driver := secretsstore.NewSecretsStoreDriver(*driverName, *nodeID, *endpoint, *providerVolumePath, providerClients, mgr.GetClient())
+	driver := secretsstore.NewSecretsStoreDriver(*driverName, *nodeID, *endpoint, *providerVolumePath, providerClients, mgr.GetClient(), mgr.GetAPIReader())
 	driver.Run(ctx)
 }
 

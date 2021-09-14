@@ -30,7 +30,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
 	mount "k8s.io/mount-utils"
@@ -41,7 +40,7 @@ import (
 func testNodeServer(t *testing.T, tmpDir string, mountPoints []mount.MountPoint, client client.Client, reporter StatsReporter) (*nodeServer, error) {
 	t.Helper()
 	providerClients := NewPluginClientBuilder(tmpDir)
-	return newNodeServer(tmpDir, "testnode", mount.NewFakeMounter(mountPoints), providerClients, client, reporter)
+	return newNodeServer(tmpDir, "testnode", mount.NewFakeMounter(mountPoints), providerClients, client, client, reporter)
 }
 
 func TestNodePublishVolume(t *testing.T) {
@@ -49,7 +48,7 @@ func TestNodePublishVolume(t *testing.T) {
 		name               string
 		nodePublishVolReq  csi.NodePublishVolumeRequest
 		mountPoints        []mount.MountPoint
-		initObjects        []runtime.Object
+		initObjects        []client.Object
 		RPCCode            codes.Code
 		wantsRPCCode       bool
 		expectedErr        bool
@@ -115,7 +114,7 @@ func TestNodePublishVolume(t *testing.T) {
 				TargetPath:       tmpdir.New(t, "", "ut"),
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1", csipodname: "pod1", csipodnamespace: "default"},
 			},
-			initObjects: []runtime.Object{
+			initObjects: []client.Object{
 				&v1alpha1.SecretProviderClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "provider1",
@@ -134,7 +133,7 @@ func TestNodePublishVolume(t *testing.T) {
 				TargetPath:       tmpdir.New(t, "", "ut"),
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1", csipodname: "pod1", csipodnamespace: "default"},
 			},
-			initObjects: []runtime.Object{
+			initObjects: []client.Object{
 				&v1alpha1.SecretProviderClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "provider1",
@@ -153,7 +152,7 @@ func TestNodePublishVolume(t *testing.T) {
 				TargetPath:       tmpdir.New(t, "", "ut"),
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1", csipodname: "pod1", csipodnamespace: "default"},
 			},
-			initObjects: []runtime.Object{
+			initObjects: []client.Object{
 				&v1alpha1.SecretProviderClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "provider1",
@@ -175,7 +174,7 @@ func TestNodePublishVolume(t *testing.T) {
 				TargetPath:       tmpdir.New(t, "", "ut"),
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1", csipodname: "pod1", csipodnamespace: "default"},
 			},
-			initObjects: []runtime.Object{
+			initObjects: []client.Object{
 				&v1alpha1.SecretProviderClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "provider1",
@@ -199,7 +198,7 @@ func TestNodePublishVolume(t *testing.T) {
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1", csipodname: "pod1", csipodnamespace: "default", csipoduid: "poduid1", "providerName": "mock_provider"},
 				Readonly:         true,
 			},
-			initObjects: []runtime.Object{
+			initObjects: []client.Object{
 				&v1alpha1.SecretProviderClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "provider1",
@@ -232,7 +231,7 @@ func TestNodePublishVolume(t *testing.T) {
 				},
 				Readonly: true,
 			},
-			initObjects: []runtime.Object{
+			initObjects: []client.Object{
 				&v1alpha1.SecretProviderClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "simple_provider",
@@ -273,7 +272,7 @@ func TestNodePublishVolume(t *testing.T) {
 			r := mocks.NewFakeReporter()
 
 			tmpDir := tmpdir.New(t, "", "ut")
-			ns, err := testNodeServer(t, tmpDir, test.mountPoints, fake.NewFakeClientWithScheme(s, test.initObjects...), r)
+			ns, err := testNodeServer(t, tmpDir, test.mountPoints, fake.NewClientBuilder().WithScheme(s).WithObjects(test.initObjects...).Build(), r)
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
@@ -349,7 +348,7 @@ func TestMountSecretsStoreObjectContent(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ns, err := testNodeServer(t, tmpdir.New(t, "", "ut"), nil, fake.NewFakeClientWithScheme(nil), mocks.NewFakeReporter())
+			ns, err := testNodeServer(t, tmpdir.New(t, "", "ut"), nil, fake.NewClientBuilder().Build(), mocks.NewFakeReporter())
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
@@ -424,7 +423,7 @@ func TestNodeUnpublishVolume(t *testing.T) {
 			}
 
 			r := mocks.NewFakeReporter()
-			ns, err := testNodeServer(t, tmpdir.New(t, "", "ut"), test.mountPoints, fake.NewFakeClientWithScheme(s), r)
+			ns, err := testNodeServer(t, tmpdir.New(t, "", "ut"), test.mountPoints, fake.NewClientBuilder().WithScheme(s).Build(), r)
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}

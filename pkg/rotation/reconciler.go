@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/k8sutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/secretutil"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/spcpsutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
 	v1 "k8s.io/api/core/v1"
@@ -405,7 +406,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 		for k, v := range newObjectVersions {
 			ov = append(ov, v1alpha1.SecretProviderClassObject{ID: strings.TrimSpace(k), Version: strings.TrimSpace(v)})
 		}
-		spcps.Status.Objects = ov
+		spcps.Status.Objects = spcpsutil.OrderSecretProviderClassObjectByID(ov)
 
 		updateFn := func() (bool, error) {
 			err = r.updateSecretProviderClassPodStatus(ctx, spcps)
