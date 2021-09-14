@@ -18,6 +18,13 @@ Prometheus is the only exporter that's currently supported with the driver.
 | total_rotation_reconcile_error  | Total number of rotation reconciles with error                            | `os_type=<runtime os>`<br>`rotated=<true or false>`<br>`error_type=<error code>`  |
 | rotation_reconcile_duration_sec | Distribution of how long it took to rotate secrets-store content for pods | `os_type=<runtime os>`                                                            |
 
+Metrics are served from port 8095, but this port is not exposed outside the pod by default. Use kubectl port-forward to access the metrics over localhost:
+
+```bash
+kubectl port-forward ds/csi-secrets-store -n kube-system 8095:8095 &
+curl localhost:8095/metrics
+```
+
 ### Sample Metrics output
 
 ```shell

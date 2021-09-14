@@ -31,6 +31,7 @@ E2E_PROVIDER_IMAGE_NAME ?= e2e-provider
 # Update this version when the helm chart is being updated for release
 RELEASE_VERSION := v0.3.0
 IMAGE_VERSION ?= v0.3.0
+
 # Use a custom version for E2E tests if we are testing in CI
 ifdef CI
 override IMAGE_VERSION := v0.3.0-e2e-$(BUILD_COMMIT)
@@ -101,7 +102,7 @@ KUBERNETES_VERSION ?= 1.21.1
 # with kubectl wait needed for integration testing. When KUBERNETES_VERSION is updated to >= 1.22.1 this can likely be
 # removed.
 KUBECTL_VERSION ?= 1.22.1
-BATS_VERSION ?= 1.2.1
+BATS_VERSION ?= 1.4.1
 TRIVY_VERSION ?= 0.14.0
 PROTOC_VERSION ?= 3.15.2
 SHELLCHECK_VER ?= v0.7.2

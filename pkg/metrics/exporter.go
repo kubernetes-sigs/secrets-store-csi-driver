@@ -26,7 +26,6 @@ import (
 
 var (
 	metricsBackend = flag.String("metrics-backend", "Prometheus", "Backend used for metrics")
-	_              = flag.Int("prometheus-port", 8888, "Prometheus port for metrics backend [DEPRECATED]. Use --metrics-addr instead.")
 )
 
 const prometheusExporter = "prometheus"
