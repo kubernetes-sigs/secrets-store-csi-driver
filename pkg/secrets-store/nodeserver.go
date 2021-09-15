@@ -41,7 +41,10 @@ type nodeServer struct {
 	reporter           StatsReporter
 	nodeID             string
 	client             client.Client
-	providerClients    *PluginClientBuilder
+	// reader is an instance of mgr.GetAPIReader that is configured to use the API server.
+	// This should be used sparingly and only when the client does not fit the use case.
+	reader          client.Reader
+	providerClients *PluginClientBuilder
 }
 
 const (
@@ -163,7 +166,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	parameters[csipodnamespace] = attrib[csipodnamespace]
 	parameters[csipoduid] = attrib[csipoduid]
 	parameters[csipodsa] = attrib[csipodsa]
-	parameters[csipodsatokens], _ = attrib[csipodsatokens] //nolint
+	parameters[csipodsatokens] = attrib[csipodsatokens] //nolint
 
 	// ensure it's read-only
 	if !req.GetReadonly() {
@@ -206,8 +209,11 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		return nil, fmt.Errorf("failed to mount secrets store objects for pod %s/%s, err: %v", podNamespace, podName, err)
 	}
 
-	// create the secret provider class pod status object
-	if err = createSecretProviderClassPodStatus(ctx, ns.client, podName, podNamespace, podUID, secretProviderClass, targetPath, ns.nodeID, true, objectVersions); err != nil {
+	// create or update the secret provider class pod status object
+	// SPCPS is created the first time after the pod mount is complete. Update is required in scenarios where
+	// the pod with same name (pods created by statefulsets) is moved to a different node and the old SPCPS
+	// has not yet been garbage collected.
+	if err = createOrUpdateSecretProviderClassPodStatus(ctx, ns.client, ns.reader, podName, podNamespace, podUID, secretProviderClass, targetPath, ns.nodeID, true, objectVersions); err != nil {
 		return nil, fmt.Errorf("failed to create secret provider class pod status for pod %s/%s, err: %v", podNamespace, podName, err)
 	}
 

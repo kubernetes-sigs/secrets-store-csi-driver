@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/spcpsutil"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -87,16 +88,21 @@ func getSecretProviderItem(ctx context.Context, c client.Client, name, namespace
 	return spc, nil
 }
 
-// createSecretProviderClassPodStatus creates secret provider class pod status
-func createSecretProviderClassPodStatus(ctx context.Context, c client.Client, podname, namespace, podUID, spcName, targetPath, nodeID string, mounted bool, objects map[string]string) error {
+// createOrUpdateSecretProviderClassPodStatus creates secret provider class pod status if not exists.
+// if the secret provider class pod status already exists, it'll update the status and owner references.
+func createOrUpdateSecretProviderClassPodStatus(ctx context.Context, c client.Client, reader client.Reader, podname, namespace, podUID, spcName, targetPath, nodeID string, mounted bool, objects map[string]string) error {
 	var o []v1alpha1.SecretProviderClassObject
+	var err error
+	spcpsName := podname + "-" + namespace + "-" + spcName
+
 	for k, v := range objects {
 		o = append(o, v1alpha1.SecretProviderClassObject{ID: k, Version: v})
 	}
+	o = spcpsutil.OrderSecretProviderClassObjectByID(o)
 
 	spcPodStatus := &v1alpha1.SecretProviderClassPodStatus{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      podname + "-" + namespace + "-" + spcName,
+			Name:      spcpsName,
 			Namespace: namespace,
 			Labels:    map[string]string{v1alpha1.InternalNodeLabel: nodeID},
 		},
@@ -108,6 +114,7 @@ func createSecretProviderClassPodStatus(ctx context.Context, c client.Client, po
 			Objects:                 o,
 		},
 	}
+
 	// Set owner reference to the pod as the mapping between secret provider class pod status and
 	// pod is 1 to 1. When pod is deleted, the spc pod status will automatically be garbage collected
 	spcPodStatus.SetOwnerReferences([]metav1.OwnerReference{
@@ -119,12 +126,30 @@ func createSecretProviderClassPodStatus(ctx context.Context, c client.Client, po
 		},
 	})
 
-	// create the secret provider class pod status
-	err := c.Create(ctx, spcPodStatus, &client.CreateOptions{})
-	if err != nil && !apierrors.IsAlreadyExists(err) {
+	if err = c.Create(ctx, spcPodStatus); err == nil || !apierrors.IsAlreadyExists(err) {
 		return err
 	}
-	return nil
+	klog.InfoS("secret provider class pod status already exists, updating it", "spcps", klog.ObjectRef{Name: spcPodStatus.Name, Namespace: spcPodStatus.Namespace})
+
+	spcps := &v1alpha1.SecretProviderClassPodStatus{}
+	// the secret provider class pod status with the name already exists, update it
+	if err = c.Get(ctx, client.ObjectKey{Name: spcpsName, Namespace: namespace}, spcps); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return err
+		}
+		// the secret provider class pod status could be missing in the cache because it was labelled with a different node
+		// label, so we need to get it from the API server
+		if err = reader.Get(ctx, client.ObjectKey{Name: spcpsName, Namespace: namespace}, spcps); err != nil {
+			return err
+		}
+	}
+
+	// update the labels of the secret provider class pod status to match the node label
+	spcps.Labels[v1alpha1.InternalNodeLabel] = nodeID
+	spcps.Status = spcPodStatus.Status
+	spcps.OwnerReferences = spcPodStatus.OwnerReferences
+
+	return c.Update(ctx, spcps)
 }
 
 // getProviderFromSPC returns the provider as defined in SecretProviderClass
