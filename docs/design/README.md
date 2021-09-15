@@ -4,6 +4,7 @@ The Secrets Store CSI Driver uses Google Docs for design documents and proposals
 
 ## In Progress
 
+- [Secrets Store CSI Driver Stable Proposal](https://docs.google.com/document/d/1ySjR_Zk93Kk7rel8ZIa4Spum-xArx3jRKPsFWTUKNr0/edit?usp=sharing)
 
 ## Implemented
 
@@ -15,4 +16,5 @@ The Secrets Store CSI Driver uses Google Docs for design documents and proposals
 
 ## Roadmap
 
-- [Secrets Store CSI Driver Stable Proposal](https://docs.google.com/document/d/1ySjR_Zk93Kk7rel8ZIa4Spum-xArx3jRKPsFWTUKNr0/edit?usp=sharing)
+- [Secrets Store CSI Driver Auto Rotation Using CSI RequiresRepublish](https://docs.google.com/document/d/1wWi2Et94arTvy8kP-XQOe9PDnqeuG5tTxLPvFBwMQZw/edit?usp=sharing)
+- [Secrets Store CSI Driver Sync Secrets](https://docs.google.com/document/d/1Ylwpg-YXNw6kC9-kdHNYD3ZKskj9TTIopwIxz5VUOW4/edit?usp=sharing)
