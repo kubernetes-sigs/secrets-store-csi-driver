@@ -24,10 +24,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kubernetes-csi/csi-test/v4/pkg/sanity"
-
 	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
+
+	"github.com/kubernetes-csi/csi-test/v4/pkg/sanity"
 )
 
 const (

@@ -137,7 +137,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 				return nil, err
 			}
 		}
-		klog.Infof("skipping calling provider as it's mock")
+		klog.Info("skipping calling provider as it's mock")
 		return &csi.NodePublishVolumeResponse{}, nil
 	}
 

@@ -23,24 +23,11 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/client-go/kubernetes"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
-
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-
-	"k8s.io/client-go/tools/record"
-	"k8s.io/klog/v2"
-
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned/scheme"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/k8sutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/secretutil"
-
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -50,7 +37,16 @@ import (
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/record"
+	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 const (
@@ -107,7 +103,7 @@ func (r *SecretProviderClassPodStatusReconciler) RunPatcher(ctx context.Context)
 }
 
 func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) error {
-	klog.V(10).Infof("patcher started")
+	klog.V(10).Info("patcher started")
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -203,7 +199,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 		}
 	}
 
-	klog.V(10).Infof("patcher completed")
+	klog.V(10).Info("patcher completed")
 	return nil
 }
 
@@ -469,7 +465,7 @@ func (r *SecretProviderClassPodStatusReconciler) patchSecretWithOwnerRef(ctx con
 		// add to map for tracking
 		secretOwnerMap[ownerRefs[i].Name] = ownerRefs[i].UID
 		needsPatch = true
-		klog.V(5).Infof("Adding %s/%s as owner ref for %s/%s", ownerRefs[i].APIVersion, ownerRefs[i].Name, namespace, name)
+		klog.V(5).InfoS("Adding owner ref for secret", "ownerRefAPIVersion", ownerRefs[i].APIVersion, "ownerRefName", ownerRefs[i].Name, "secret", klog.ObjectRef{Namespace: namespace, Name: name})
 		secretOwnerRefs = append(secretOwnerRefs, ownerRefs[i])
 	}
 

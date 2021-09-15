@@ -27,15 +27,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/test_utils/tmpdir"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/fake"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
+
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func fakeServer(t *testing.T, path, provider string) (*fake.MockCSIProviderServer, func()) {
