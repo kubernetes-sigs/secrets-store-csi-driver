@@ -18,6 +18,7 @@ package secretsstore
 
 import (
 	"context"
+	"os"
 
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
@@ -41,7 +42,8 @@ func NewSecretsStoreDriver(driverName, nodeID, endpoint, providerVolumePath stri
 
 	ns, err := newNodeServer(providerVolumePath, nodeID, mount.New(""), providerClients, client, NewStatsReporter())
 	if err != nil {
-		klog.Fatalf("failed to initialize node server, error: %+v", err)
+		klog.ErrorS(err, "failed to initialize node server")
+		os.Exit(1)
 	}
 
 	return &SecretsStore{

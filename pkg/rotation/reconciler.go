@@ -24,25 +24,6 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
-	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-
-	v1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/record"
-	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 	"sigs.k8s.io/secrets-store-csi-driver/controllers"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned"
@@ -54,6 +35,23 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/k8sutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/secretutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
+
+	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -128,13 +126,14 @@ func NewReconciler(client client.Reader, s *runtime.Scheme, providerVolumePath, 
 // Run starts the rotation reconciler
 func (r *Reconciler) Run(stopCh <-chan struct{}) {
 	defer r.queue.ShutDown()
-	klog.Infof("starting rotation reconciler with poll interval: %s", r.rotationPollInterval)
+	klog.InfoS("starting rotation reconciler", "rotationPollInterval", r.rotationPollInterval)
 
 	ticker := time.NewTicker(r.rotationPollInterval)
 	defer ticker.Stop()
 
 	if err := r.secretStore.Run(stopCh); err != nil {
-		klog.Fatalf("failed to run informers for rotation reconciler, err: %+v", err)
+		klog.ErrorS(err, "failed to run informers for rotation reconciler")
+		os.Exit(1)
 	}
 
 	// TODO (aramase) consider adding more workers to process reconcile concurrently

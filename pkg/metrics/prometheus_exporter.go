@@ -17,9 +17,8 @@ limitations under the License.
 package metrics
 
 import (
-	otProm "go.opentelemetry.io/otel/exporters/metric/prometheus"
-
 	"github.com/prometheus/client_golang/prometheus"
+	otProm "go.opentelemetry.io/otel/exporters/metric/prometheus"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 

@@ -46,16 +46,19 @@ func main() {
 
 	mockProviderServer, err := server.NewE2EProviderServer(*endpoint)
 	if err != nil {
-		klog.Fatalf("failed to get new mock e2e provider server, err: %+v", err)
+		klog.ErrorS(err, "failed to get new mock e2e provider server")
+		os.Exit(1)
 	}
 
 	if err := os.Remove(mockProviderServer.GetSocketPath()); err != nil && !os.IsNotExist(err) {
-		klog.Fatalf("failed to remove %s, error: %s", mockProviderServer.GetSocketPath(), err.Error())
+		klog.ErrorS(err, "failed to remove unix domain socket", "socketPath", mockProviderServer.GetSocketPath())
+		os.Exit(1)
 	}
 
 	err = mockProviderServer.Start()
 	if err != nil {
-		klog.Fatalf("failed to start mock e2e provider server, err: %+v", err)
+		klog.ErrorS(err, "failed to start mock e2e provider server")
+		os.Exit(1)
 	}
 
 	// endpoint to enable rotation response.

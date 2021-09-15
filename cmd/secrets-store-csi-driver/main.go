@@ -22,10 +22,14 @@ import (
 	"fmt"
 	"net/http"
 	_ "net/http/pprof" // #nosec
+	"os"
 	"time"
 
+	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
+	"sigs.k8s.io/secrets-store-csi-driver/controllers"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/metrics"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/rotation"
+	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
 	"google.golang.org/grpc"
@@ -41,10 +45,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-
-	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
-	"sigs.k8s.io/secrets-store-csi-driver/controllers"
-	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -90,7 +90,7 @@ func main() {
 		klog.SetLogger(json.JSONLogger)
 	}
 	if *enableProfile {
-		klog.Infof("Starting profiling on port %d", *profilePort)
+		klog.InfoS("Starting profiling", "port", *profilePort)
 		go func() {
 			addr := fmt.Sprintf("%s:%d", "localhost", *profilePort)
 			klog.ErrorS(http.ListenAndServe(addr, nil), "unable to start profiling server")
@@ -104,7 +104,8 @@ func main() {
 	// initialize metrics exporter before creating measurements
 	err := metrics.InitMetricsExporter()
 	if err != nil {
-		klog.Fatalf("failed to initialize metrics exporter, error: %+v", err)
+		klog.ErrorS(err, "failed to initialize metrics exporter")
+		os.Exit(1)
 	}
 
 	cfg := ctrl.GetConfigOrDie()
@@ -146,15 +147,18 @@ func main() {
 		}),
 	})
 	if err != nil {
-		klog.Fatalf("failed to start manager, error: %+v", err)
+		klog.ErrorS(err, "failed to start manager")
+		os.Exit(1)
 	}
 
 	reconciler, err := controllers.New(mgr, *nodeID)
 	if err != nil {
-		klog.Fatalf("failed to create secret provider class pod status reconciler, error: %+v", err)
+		klog.ErrorS(err, "failed to create secret provider class pod status reconciler")
+		os.Exit(1)
 	}
 	if err = reconciler.SetupWithManager(mgr); err != nil {
-		klog.Fatalf("failed to create controller, error: %+v", err)
+		klog.ErrorS(err, "failed to create controller")
+		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
 
@@ -171,9 +175,10 @@ func main() {
 	}
 
 	go func() {
-		klog.Infof("starting manager")
+		klog.Info("starting manager")
 		if err := mgr.Start(ctx); err != nil {
-			klog.Fatalf("failed to run manager, error: %+v", err)
+			klog.ErrorS(err, "failed to run manager")
+			os.Exit(1)
 		}
 	}()
 
@@ -185,7 +190,8 @@ func main() {
 	if *enableSecretRotation {
 		rec, err := rotation.NewReconciler(mgr.GetCache(), scheme, *providerVolumePath, *nodeID, *rotationPollInterval, providerClients)
 		if err != nil {
-			klog.Fatalf("failed to initialize rotation reconciler, error: %+v", err)
+			klog.ErrorS(err, "failed to initialize rotation reconciler")
+			os.Exit(1)
 		}
 		go rec.Run(ctx.Done())
 	}

@@ -22,11 +22,10 @@ import (
 	"reflect"
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
-
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (

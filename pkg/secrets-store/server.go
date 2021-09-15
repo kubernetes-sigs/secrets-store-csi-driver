@@ -24,10 +24,12 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	pbSanitizer "github.com/kubernetes-csi/csi-lib-utils/protosanitizer"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
 )
 
@@ -88,20 +90,21 @@ func (s *nonBlockingGRPCServer) serve(ctx context.Context, endpoint string, ids 
 			addr = "/" + addr
 		}
 		if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
-			klog.Fatalf("failed to remove %s, error: %s", addr, err.Error())
+			klog.ErrorS(err, "failed to remove unix domain socket", "address", addr)
+			os.Exit(1)
 		}
 	}
 
 	listener, err := net.Listen(proto, addr)
 	if err != nil {
-		klog.Fatalf("failed to listen: %v", err)
+		klog.ErrorS(err, "failed to listen", "proto", proto, "address", addr)
+		os.Exit(1)
 	}
 	defer listener.Close()
 
-	opts := []grpc.ServerOption{
-		grpc.UnaryInterceptor(logGRPC),
-	}
-	server := grpc.NewServer(opts...)
+	server := grpc.NewServer(
+		grpc.UnaryInterceptor(logInterceptor()),
+	)
 	s.server = server
 
 	if ids != nil {
@@ -134,17 +137,21 @@ func parseEndpoint(ep string) (string, string, error) {
 			return s[0], s[1], nil
 		}
 	}
-	return "", "", fmt.Errorf("Invalid endpoint: %v", ep)
+	return "", "", fmt.Errorf("invalid endpoint: %v", ep)
 }
 
-func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	klog.V(3).Infof("GRPC call: %s", info.FullMethod)
-	klog.V(3).Infof("GRPC request: %s", pbSanitizer.StripSecrets(req).String())
-	resp, err := handler(ctx, req)
-	if err != nil {
-		klog.Errorf("GRPC error: %v", err)
-	} else {
-		klog.V(3).Infof("GRPC response: %s", pbSanitizer.StripSecrets(resp).String())
+// logInterceptor returns a new unary server interceptors that performs request
+// and response logging.
+func logInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		start := time.Now()
+		deadline, _ := ctx.Deadline()
+		dd := time.Until(deadline).String()
+		klog.V(5).InfoS("request", "method", info.FullMethod, "req", pbSanitizer.StripSecrets(req).String(), "deadline", dd)
+
+		resp, err := handler(ctx, req)
+		s, _ := status.FromError(err)
+		klog.V(5).InfoS("response", "method", info.FullMethod, "deadline", dd, "duration", time.Since(start).String(), "status.code", s.Code(), "status.message", s.Message())
+		return resp, err
 	}
-	return resp, err
 }

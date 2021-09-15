@@ -23,9 +23,9 @@ import (
 	"net"
 	"os"
 
-	"google.golang.org/grpc"
-
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
+
+	"google.golang.org/grpc"
 )
 
 type MockCSIProviderServer struct {

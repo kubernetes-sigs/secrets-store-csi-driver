@@ -22,9 +22,10 @@ import (
 	"sort"
 	"testing"
 
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/test_utils/tmpdir"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/test_utils/tmpdir"
 )
 
 func TestGetMountedFiles(t *testing.T) {

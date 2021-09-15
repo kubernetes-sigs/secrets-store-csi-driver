@@ -20,15 +20,14 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/client-go/informers/internalinterfaces"
-	"k8s.io/client-go/kubernetes"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	coreInformers "k8s.io/client-go/informers/core/v1"
+	"sigs.k8s.io/secrets-store-csi-driver/controllers"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	coreInformers "k8s.io/client-go/informers/core/v1"
+	"k8s.io/client-go/informers/internalinterfaces"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"sigs.k8s.io/secrets-store-csi-driver/controllers"
 )
 
 // Informer holds the shared index informers

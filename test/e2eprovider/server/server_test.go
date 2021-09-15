@@ -26,8 +26,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 var (
