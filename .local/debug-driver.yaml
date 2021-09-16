@@ -12,7 +12,7 @@ spec:
       labels:
         app: csi-secrets-store
       annotations:
-        kubectl.kubernetes.io/default-logs-container: secrets-store
+        kubectl.kubernetes.io/default-container: secrets-store
     spec:
       serviceAccountName: secrets-store-csi-driver
       containers:
