@@ -151,7 +151,11 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
   assert_success
 }
 
-@test "Sync with K8s secrets - delete deployment, check owner ref updated, check secret deleted" {
+@test "Sync with K8s secrets - delete deployment, check owner ref updated, check secret deleted" {  
+  if [[ "${INPLACE_UPGRADE_TEST}" == "true" ]]; then
+    skip
+  fi
+
   run kubectl delete -f $BATS_TESTS_DIR/deployment-synck8s-e2e-provider.yaml
   assert_success
 
@@ -169,8 +173,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 }
 
 @test "Test Namespaced scope SecretProviderClass - create deployment" {
-  run kubectl create ns test-ns
-  assert_success
+  kubectl create namespace test-ns --dry-run=client -o yaml | kubectl apply -f -
 
   envsubst < $BATS_TESTS_DIR/e2e_provider_v1alpha1_secretproviderclass_ns.yaml | kubectl apply -f -
 
@@ -208,6 +211,9 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 }
 
 @test "Test Namespaced scope SecretProviderClass - Sync with K8s secrets - delete deployment, check secret deleted" {
+  if [[ "${INPLACE_UPGRADE_TEST}" == "true" ]]; then
+    skip
+  fi
   run kubectl delete -f $BATS_TESTS_DIR/deployment-synck8s-e2e-provider.yaml -n test-ns
   assert_success
 
@@ -216,8 +222,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 }
 
 @test "Test Namespaced scope SecretProviderClass - Should fail when no secret provider class in same namespace" {
-  run kubectl create ns negative-test-ns
-  assert_success
+  kubectl create namespace negative-test-ns --dry-run=client -o yaml | kubectl apply -f -
 
   envsubst < $BATS_TESTS_DIR/deployment-synck8s-e2e-provider.yaml | kubectl apply -n negative-test-ns -f -
   sleep 5
@@ -229,8 +234,10 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
   run kubectl delete -f $BATS_TESTS_DIR/deployment-synck8s-e2e-provider.yaml -n negative-test-ns
   assert_success
 
-  run kubectl delete ns negative-test-ns
-  assert_success
+  if [[ "${INPLACE_UPGRADE_TEST}" != "true" ]]; then
+    run kubectl delete ns negative-test-ns
+    assert_success
+  fi  
 }
 
 @test "deploy multiple e2e provier secretproviderclass crd" {
@@ -289,8 +296,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 }
 
 @test "Test auto rotation of mount contents and K8s secrets - Create deployment" {
-  run kubectl create ns rotation
-  assert_success
+  kubectl create namespace rotation --dry-run=client -o yaml | kubectl apply -f -
 
   envsubst < $BATS_TESTS_DIR/rotation/e2e_provider_synck8s_v1alpha1_secretproviderclass.yaml | kubectl apply -n rotation -f -
   envsubst < $BATS_TESTS_DIR/rotation/pod-synck8s-e2e-provider.yaml | kubectl apply -n rotation -f -
@@ -325,10 +331,11 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 }
 
 teardown_file() {
-  #cleanup
-  run kubectl delete namespace non-filtered-watch
-  run kubectl delete namespace rotation
-  run kubectl delete namespace test-ns
+  if [[ "${INPLACE_UPGRADE_TEST}" != "true" ]]; then
+    #cleanup
+    run kubectl delete namespace rotation
+    run kubectl delete namespace test-ns
 
-  run kubectl delete pods secrets-store-inline-crd secrets-store-inline-multiple-crd --force --grace-period 0
+    run kubectl delete pods secrets-store-inline-crd secrets-store-inline-multiple-crd --force --grace-period 0
+  fi    
 }
