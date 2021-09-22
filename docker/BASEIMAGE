@@ -1,5 +1,5 @@
-linux/amd64=us.gcr.io/k8s-artifacts-prod/build-image/debian-base:buster-v1.9.0
-linux/arm64=us.gcr.io/k8s-artifacts-prod/build-image/debian-base:buster-v1.9.0
+linux/amd64=us.gcr.io/k8s-artifacts-prod/build-image/debian-base:bullseye-v1.0.0
+linux/arm64=us.gcr.io/k8s-artifacts-prod/build-image/debian-base:bullseye-v1.0.0
 windows/amd64/1809=mcr.microsoft.com/windows/nanoserver:1809
 windows/amd64/1903=mcr.microsoft.com/windows/nanoserver:1903
 windows/amd64/1909=mcr.microsoft.com/windows/nanoserver:1909
