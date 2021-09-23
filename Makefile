@@ -290,15 +290,17 @@ e2e-provider-container:
 
 .PHONY: container
 container: crd-container
-	docker build --no-cache --build-arg IMAGE_VERSION=$(IMAGE_VERSION) -t $(IMAGE_TAG) -f docker/Dockerfile .
+	DOCKER_CLI_EXPERIMENTAL=enabled docker buildx build --output=type=docker --platform="linux/$(ARCH)" --progress=plain \
+		--build-arg ARCH=$(ARCH) --build-arg IMAGE_VERSION=$(IMAGE_VERSION) -t $(IMAGE_TAG) -f docker/Dockerfile .
 
 .PHONY: crd-container
-crd-container: build-crds
-	docker build --no-cache --build-arg ARCH=$(ARCH) -t $(CRD_IMAGE_TAG) -f docker/crd.Dockerfile _output/crds/
+crd-container: docker-buildx-builder build-crds
+	DOCKER_CLI_EXPERIMENTAL=enabled docker buildx build --output=type=docker --platform="linux/$(ARCH)" --progress=plain \
+		--build-arg ARCH=$(ARCH) -t $(CRD_IMAGE_TAG) -f docker/crd.Dockerfile _output/crds/
 
 .PHONY: crd-container-linux
 crd-container-linux: build-crds docker-buildx-builder
-	docker buildx build --no-cache --output=type=$(OUTPUT_TYPE) --platform="linux/$(ARCH)" \
+	DOCKER_CLI_EXPERIMENTAL=enabled docker buildx build --no-cache --output=type=$(OUTPUT_TYPE) --platform="linux/$(ARCH)" --progress=plain \
 		--build-arg ARCH=$(ARCH) -t $(CRD_IMAGE_TAG)-linux-$(ARCH) -f docker/crd.Dockerfile _output/crds/
 
 .PHONY: container-linux

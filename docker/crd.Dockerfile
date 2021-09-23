@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM alpine as builder
+FROM k8s.gcr.io/build-image/debian-base:buster-v1.9.0 as builder
 ARG KUBE_VERSION=v1.21.2
 ARG ARCH
 
-RUN apk add --no-cache curl && \
+RUN clean-install ca-certificates curl && \
     curl -LO https://storage.googleapis.com/kubernetes-release/release/${KUBE_VERSION}/bin/linux/${ARCH}/kubectl && \
     chmod +x kubectl
 
