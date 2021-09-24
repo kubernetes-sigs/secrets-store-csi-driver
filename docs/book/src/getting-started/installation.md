@@ -13,10 +13,7 @@ The helm chart repository URL has changed to `https://kubernetes-sigs.github.io/
 
 #### Supported kubernetes versions
 
-Recommended Kubernetes version:
-
-- **v1.16.0+** (For Linux)
-- **v1.18.0+** (For Windows)
+Secrets Store CSI Driver will maintain support for all actively supported Kubernetes minor releases per [Kubernetes Supported Versions policy](https://kubernetes.io/releases/version-skew-policy/). Check out the [Kubernetes releases](https://kubernetes.io/releases/) page for the latest supported Kubernetes releases.
 
 ### Deployment using Helm
 
