@@ -194,6 +194,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
   POD=$(kubectl get pod -l app=busybox -n test-ns -o jsonpath="{.items[0].metadata.name}")
 
   result=$(kubectl exec -n test-ns $POD -- cat /mnt/secrets-store/$SECRET_NAME)
+  echo "result - ${result//$'\r'} ========= secret - ${SECRET_VALUE}" >&3
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   result=$(kubectl exec -n test-ns $POD -- cat /mnt/secrets-store/$KEY_NAME)
