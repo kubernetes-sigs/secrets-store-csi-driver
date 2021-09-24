@@ -359,6 +359,7 @@ e2e-bootstrap: $(HELM) $(BATS) $(KIND) $(KUBECTL) $(ENVSUBST) $(YQ) #setup all r
 ifndef TEST_WINDOWS
 	$(MAKE) setup-kind
 endif
+	iptables -t mangle -A POSTROUTING -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
 	docker pull $(IMAGE_TAG) || $(MAKE) e2e-container
 
 .PHONY: setup-kind
