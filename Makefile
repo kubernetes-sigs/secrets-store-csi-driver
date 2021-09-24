@@ -359,6 +359,8 @@ e2e-bootstrap: $(HELM) $(BATS) $(KIND) $(KUBECTL) $(ENVSUBST) $(YQ) #setup all r
 ifndef TEST_WINDOWS
 	$(MAKE) setup-kind
 endif
+	ip link
+	iptables-save
 	docker pull $(IMAGE_TAG) || $(MAKE) e2e-container
 
 .PHONY: setup-kind
