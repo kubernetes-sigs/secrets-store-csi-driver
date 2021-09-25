@@ -194,7 +194,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
   POD=$(kubectl get pod -l app=busybox -n test-ns -o jsonpath="{.items[0].metadata.name}")
 
   result=$(kubectl exec -n test-ns $POD -- cat /mnt/secrets-store/$SECRET_NAME)
-  echo "result - ${result//$'\r'} ========= secret - ${SECRET_VALUE}" >&3
+  echo "result - '${result//$'\r'}' ========= secret - '${SECRET_VALUE}'" >&3
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   result=$(kubectl exec -n test-ns $POD -- cat /mnt/secrets-store/$KEY_NAME)
@@ -264,6 +264,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 
 @test "CSI inline volume test with multiple secret provider class" {
   result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/$SECRET_NAME)
+  echo "result - '${result//$'\r'}' ========= secret - '${SECRET_VALUE}'" >&3
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/$KEY_NAME)
@@ -310,6 +311,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 
 @test "Test auto rotation of mount contents and K8s secrets" {
   result=$(kubectl exec -n rotation secrets-store-inline-rotation -- cat /mnt/secrets-store/$SECRET_NAME)
+  echo "result - '${result//$'\r'}'" >&3
   [[ "${result//$'\r'}" == "secret" ]]
 
   result=$(kubectl get secret -n rotation rotationsecret -o jsonpath="{.data.username}" | base64 -d)
