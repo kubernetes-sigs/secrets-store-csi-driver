@@ -91,10 +91,6 @@ spec:
       {{- end }}
     spec:
       serviceAccountName: {{ template "sscd.fullname" . }}-upgrade-crds
-      {{- if .Values.imagePullSecrets }}
-      imagePullSecrets:
-{{ toYaml .Values.imagePullSecrets | indent 8 }}
-      {{- end }}
       restartPolicy: Never
       containers:
       - name: crds-upgrade
