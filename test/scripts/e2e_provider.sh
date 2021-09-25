@@ -14,8 +14,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# echo "running e2e provider test"
-# make e2e-bootstrap e2e-mock-provider-container e2e-helm-deploy e2e-provider-deploy e2e-provider
-
-iptables -t mangle -A POSTROUTING -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu &&
-INPLACE_UPGRADE_TEST=true make e2e-bootstrap e2e-mock-provider-container e2e-helm-deploy-release e2e-provider-deploy e2e-provider && INPLACE_UPGRADE_TEST=true make e2e-helm-upgrade e2e-provider
+echo "running e2e provider test"
+make e2e-bootstrap e2e-mock-provider-container e2e-helm-deploy e2e-provider-deploy e2e-provider
