@@ -2,13 +2,13 @@ linux:
   enabled: true
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v0.3.0
+    tag: v1.0.0-rc.0
     pullPolicy: IfNotPresent
   
   crds:
     image:
       repository: k8s.gcr.io/csi-secrets-store/driver-crds
-      tag: v0.3.0
+      tag: v1.0.0-rc.0
       pullPolicy: IfNotPresent
     annotations: {}
 
@@ -93,7 +93,7 @@ windows:
   enabled: false
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v0.3.0
+    tag: v1.0.0-rc.0
     pullPolicy: IfNotPresent
 
   ## Prevent the CSI driver from being scheduled on virtual-kubelet nodes
@@ -113,7 +113,7 @@ windows:
         cpu: 400m
         memory: 400Mi
       requests:
-        cpu: 50m
+        cpu: 100m
         memory: 100Mi
 
   registrarImage:
@@ -127,8 +127,8 @@ windows:
         cpu: 200m
         memory: 200Mi
       requests:
-        cpu: 10m
-        memory: 20Mi
+        cpu: 100m
+        memory: 100Mi
     logVerbosity: 5
 
   livenessProbeImage:
@@ -142,8 +142,8 @@ windows:
         cpu: 200m
         memory: 200Mi
       requests:
-        cpu: 10m
-        memory: 20Mi
+        cpu: 100m
+        memory: 100Mi
 
   updateStrategy:
     type: RollingUpdate
