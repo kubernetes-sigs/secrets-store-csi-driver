@@ -212,6 +212,6 @@ func (s *Server) Version(ctx context.Context, req *v1alpha1.VersionRequest) (*v1
 // RotationHandler enables rotation response for the mock provider
 func RotationHandler(w http.ResponseWriter, r *http.Request) {
 	// enable rotation response
-	os.Setenv("ROTATION_ENABLED", "true")
+	os.Setenv("ROTATION_ENABLED", r.FormValue("rotated"))
 	klog.InfoS("Rotation response enabled")
 }
