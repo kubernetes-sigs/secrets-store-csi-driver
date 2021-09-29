@@ -1,0 +1,37 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: secrets-store-rotation
+spec:
+  containers:
+    - image: k8s.gcr.io/e2e-test-images/busybox:1.29
+      name: busybox
+      imagePullPolicy: IfNotPresent
+      command:
+        - "/bin/sleep"
+        - "10000"
+      volumeMounts:
+        - name: secrets-store-rotation
+          mountPath: "/mnt/secrets-store"
+          readOnly: true
+  volumes:
+    - name: secrets-store-rotation
+      csi:
+        driver: secrets-store.csi.k8s.io
+        readOnly: true
+        volumeAttributes:
+          secretProviderClass: "vault-rotation"
+---
+apiVersion: secrets-store.csi.x-k8s.io/v1alpha1
+kind: SecretProviderClass
+metadata:
+  name: vault-rotation
+spec:
+  provider: vault
+  parameters:
+    roleName: "csi"
+    vaultAddress: "http://vault.vault:8200"
+    objects: |
+      - secretPath: "secret/data/rotation"
+        objectName: "foo"
+        secretKey: "foo"

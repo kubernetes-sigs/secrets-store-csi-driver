@@ -44,12 +44,8 @@ export ANNOTATION_VALUE=${ANNOTATION_VALUE:-"app=test"}
 
   # create vault policy to allow access to created secrets
   kubectl exec -i vault-0 --namespace=vault -- vault policy write csi -<<EOF
-path "secret/data/foo" {
+path "secret/data/*" {
  capabilities = ["read"]
-}
-
-path "secret/data/foo1" {
-  capabilities = ["read"]
 }
 EOF
 
@@ -111,6 +107,31 @@ EOF
 
   result=$(kubectl exec secrets-store-inline -- cat /mnt/secrets-store/bar1)
   [[ "$result" == "hello1" ]]
+}
+
+@test "CSI inline volume test with pod portability - rotation succeeds" {
+  # seed first value
+  kubectl exec vault-0 --namespace=vault -- vault kv put secret/rotation foo=start
+
+  # deploy pod
+  kubectl apply -f $BATS_TESTS_DIR/pod-vault-rotation.yaml
+  kubectl wait --for=condition=Ready --timeout=60s pod/secrets-store-rotation
+
+  run kubectl get pod/secrets-store-rotation
+  assert_success
+
+  # verify starting value
+  result=$(kubectl exec secrets-store-rotation -- cat /mnt/secrets-store/foo)
+  [[ "$result" == "start" ]]
+
+  # update the secret value
+  kubectl exec vault-0 --namespace=vault -- vault kv put secret/rotation foo=rotated
+
+  sleep 60
+
+  # verify rotated value
+  result=$(kubectl exec secrets-store-rotation -- cat /mnt/secrets-store/foo)
+  [[ "$result" == "rotated" ]]
 }
 
 @test "CSI inline volume test with pod portability - unmount succeeds" {
