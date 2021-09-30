@@ -22,7 +22,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
+	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store/mocks"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/test_utils/tmpdir"
 
@@ -115,7 +115,7 @@ func TestNodePublishVolume(t *testing.T) {
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1", csipodname: "pod1", csipodnamespace: "default"},
 			},
 			initObjects: []client.Object{
-				&v1alpha1.SecretProviderClass{
+				&secretsstorev1.SecretProviderClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "provider1",
 						Namespace: "testns",
@@ -134,7 +134,7 @@ func TestNodePublishVolume(t *testing.T) {
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1", csipodname: "pod1", csipodnamespace: "default"},
 			},
 			initObjects: []client.Object{
-				&v1alpha1.SecretProviderClass{
+				&secretsstorev1.SecretProviderClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "provider1",
 						Namespace: "default",
@@ -153,12 +153,12 @@ func TestNodePublishVolume(t *testing.T) {
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1", csipodname: "pod1", csipodnamespace: "default"},
 			},
 			initObjects: []client.Object{
-				&v1alpha1.SecretProviderClass{
+				&secretsstorev1.SecretProviderClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "provider1",
 						Namespace: "default",
 					},
-					Spec: v1alpha1.SecretProviderClassSpec{
+					Spec: secretsstorev1.SecretProviderClassSpec{
 						Provider: "provider1",
 					},
 				},
@@ -175,12 +175,12 @@ func TestNodePublishVolume(t *testing.T) {
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1", csipodname: "pod1", csipodnamespace: "default"},
 			},
 			initObjects: []client.Object{
-				&v1alpha1.SecretProviderClass{
+				&secretsstorev1.SecretProviderClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "provider1",
 						Namespace: "default",
 					},
-					Spec: v1alpha1.SecretProviderClassSpec{
+					Spec: secretsstorev1.SecretProviderClassSpec{
 						Provider:   "provider1",
 						Parameters: map[string]string{"parameter1": "value1"},
 					},
@@ -199,12 +199,12 @@ func TestNodePublishVolume(t *testing.T) {
 				Readonly:         true,
 			},
 			initObjects: []client.Object{
-				&v1alpha1.SecretProviderClass{
+				&secretsstorev1.SecretProviderClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "provider1",
 						Namespace: "default",
 					},
-					Spec: v1alpha1.SecretProviderClassSpec{
+					Spec: secretsstorev1.SecretProviderClassSpec{
 						Provider:   "provider1",
 						Parameters: map[string]string{"parameter1": "value1"},
 					},
@@ -232,12 +232,12 @@ func TestNodePublishVolume(t *testing.T) {
 				Readonly: true,
 			},
 			initObjects: []client.Object{
-				&v1alpha1.SecretProviderClass{
+				&secretsstorev1.SecretProviderClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "simple_provider",
 						Namespace: "default",
 					},
-					Spec: v1alpha1.SecretProviderClassSpec{
+					Spec: secretsstorev1.SecretProviderClassSpec{
 						Provider:   "simple_provider",
 						Parameters: map[string]string{"parameter1": "value1"},
 					},
@@ -250,10 +250,10 @@ func TestNodePublishVolume(t *testing.T) {
 	}
 
 	s := scheme.Scheme
-	s.AddKnownTypes(schema.GroupVersion{Group: v1alpha1.GroupVersion.Group, Version: v1alpha1.GroupVersion.Version},
-		&v1alpha1.SecretProviderClass{},
-		&v1alpha1.SecretProviderClassList{},
-		&v1alpha1.SecretProviderClassPodStatus{},
+	s.AddKnownTypes(schema.GroupVersion{Group: secretsstorev1.GroupVersion.Group, Version: secretsstorev1.GroupVersion.Version},
+		&secretsstorev1.SecretProviderClass{},
+		&secretsstorev1.SecretProviderClassList{},
+		&secretsstorev1.SecretProviderClassPodStatus{},
 	)
 
 	for _, test := range tests {
@@ -404,9 +404,9 @@ func TestNodeUnpublishVolume(t *testing.T) {
 		},
 	}
 	s := scheme.Scheme
-	s.AddKnownTypes(schema.GroupVersion{Group: v1alpha1.GroupVersion.Group, Version: v1alpha1.GroupVersion.Version},
-		&v1alpha1.SecretProviderClass{},
-		&v1alpha1.SecretProviderClassList{},
+	s.AddKnownTypes(schema.GroupVersion{Group: secretsstorev1.GroupVersion.Group, Version: secretsstorev1.GroupVersion.Version},
+		&secretsstorev1.SecretProviderClass{},
+		&secretsstorev1.SecretProviderClassList{},
 	)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

@@ -21,7 +21,7 @@ import (
 	"sync"
 	"testing"
 
-	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
+	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -41,7 +41,7 @@ var (
 
 func setupScheme() (*runtime.Scheme, error) {
 	scheme := runtime.NewScheme()
-	if err := v1alpha1.AddToScheme(scheme); err != nil {
+	if err := secretsstorev1.AddToScheme(scheme); err != nil {
 		return nil, err
 	}
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
@@ -62,16 +62,16 @@ func newSecret(name, namespace string, labels map[string]string, annotations map
 	}
 }
 
-func newSecretProviderClassPodStatus(name, namespace, node string) *v1alpha1.SecretProviderClassPodStatus {
-	return &v1alpha1.SecretProviderClassPodStatus{
+func newSecretProviderClassPodStatus(name, namespace, node string) *secretsstorev1.SecretProviderClassPodStatus {
+	return &secretsstorev1.SecretProviderClassPodStatus{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            name,
 			Namespace:       namespace,
-			Labels:          map[string]string{v1alpha1.InternalNodeLabel: node},
+			Labels:          map[string]string{secretsstorev1.InternalNodeLabel: node},
 			UID:             "72a0ecb8-c6e5-41e1-8da1-25e37ec61b26",
 			ResourceVersion: "73659",
 		},
-		Status: v1alpha1.SecretProviderClassPodStatusStatus{
+		Status: secretsstorev1.SecretProviderClassPodStatusStatus{
 			PodName:                 "pod1",
 			TargetPath:              "/var/lib/kubelet/pods/d8771ddf-935a-4199-a20b-f35f71c1d9e7/volumes/kubernetes.io~csi/secrets-store-inline/mount",
 			SecretProviderClassName: "spc1",
@@ -80,15 +80,15 @@ func newSecretProviderClassPodStatus(name, namespace, node string) *v1alpha1.Sec
 	}
 }
 
-func newSecretProviderClass(name, namespace string) *v1alpha1.SecretProviderClass {
-	return &v1alpha1.SecretProviderClass{
+func newSecretProviderClass(name, namespace string) *secretsstorev1.SecretProviderClass {
+	return &secretsstorev1.SecretProviderClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: v1alpha1.SecretProviderClassSpec{
+		Spec: secretsstorev1.SecretProviderClassSpec{
 			Provider: "provider1",
-			SecretObjects: []*v1alpha1.SecretObject{
+			SecretObjects: []*secretsstorev1.SecretObject{
 				{
 					SecretName: "secret1",
 					Type:       "Opaque",
@@ -260,7 +260,7 @@ func TestPatcherForStaticPod(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	g.Expect(len(secret.OwnerReferences)).To(Equal(1))
-	g.Expect(secret.OwnerReferences[0].APIVersion).To(Equal(v1alpha1.GroupVersion.String()))
+	g.Expect(secret.OwnerReferences[0].APIVersion).To(Equal(secretsstorev1.GroupVersion.String()))
 	g.Expect(secret.OwnerReferences[0].Kind).To(Equal("SecretProviderClassPodStatus"))
 	g.Expect(secret.OwnerReferences[0].Name).To(Equal("pod1-default-spc1"))
 }

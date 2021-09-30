@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
+	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	"sigs.k8s.io/secrets-store-csi-driver/controllers"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned"
 	secretsStoreClient "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned"
@@ -81,7 +81,7 @@ type Reconciler struct {
 	eventRecorder        record.EventRecorder
 	kubeClient           kubernetes.Interface
 	crdClient            versioned.Interface
-	// cache contains v1.Pod, v1alpha1.SecretProviderClassPodStatus (both filtered on *nodeID),
+	// cache contains v1.Pod, secretsstorev1.SecretProviderClassPodStatus (both filtered on *nodeID),
 	// v1.Secret (filtered on secrets-store.csi.k8s.io/managed=true)
 	cache client.Reader
 	// secretStore stores Secret (filtered on secrets-store.csi.k8s.io/used=true)
@@ -149,7 +149,7 @@ func (r *Reconciler) Run(stopCh <-chan struct{}) {
 		case <-ticker.C:
 			// The spc pod status informer is configured to do a filtered list watch of spc pod statuses
 			// labeled for the same node as the driver. LIST will only return the filtered results.
-			spcPodStatusList := &v1alpha1.SecretProviderClassPodStatusList{}
+			spcPodStatusList := &secretsstorev1.SecretProviderClassPodStatusList{}
 			err := r.cache.List(context.Background(), spcPodStatusList)
 			if err != nil {
 				klog.ErrorS(err, "failed to list secret provider class pod status for node", "controller", "rotation")
@@ -183,7 +183,7 @@ func (r *Reconciler) processNextItem() bool {
 	}
 	defer r.queue.Done(key)
 
-	spcps := &v1alpha1.SecretProviderClassPodStatus{}
+	spcps := &secretsstorev1.SecretProviderClassPodStatus{}
 	keyParts := strings.Split(key.(string), "/")
 	if len(keyParts) < 2 {
 		err = fmt.Errorf("key is not in correct format. expected key format is namespace/name")
@@ -229,7 +229,7 @@ func (r *Reconciler) processNextItem() bool {
 	return true
 }
 
-func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProviderClassPodStatus) (err error) {
+func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.SecretProviderClassPodStatus) (err error) {
 	begin := time.Now()
 	errorReason := internalerrors.FailedToRotate
 	// requiresUpdate is set to true when the new object versions differ from the current object versions
@@ -270,7 +270,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 	}
 
 	// get the secret provider class which pod status is referencing from manager's cache
-	spc := &v1alpha1.SecretProviderClass{}
+	spc := &secretsstorev1.SecretProviderClass{}
 	err = r.cache.Get(
 		ctx,
 		client.ObjectKey{
@@ -402,9 +402,9 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 		r.generateEvent(pod, v1.EventTypeNormal, mountRotationCompleteReason, fmt.Sprintf("successfully rotated mounted contents for spc %s/%s", spc.Namespace, spc.Name))
 		klog.InfoS("updating versions in spc pod status", "spcps", klog.KObj(spcps), "controller", "rotation")
 
-		var ov []v1alpha1.SecretProviderClassObject
+		var ov []secretsstorev1.SecretProviderClassObject
 		for k, v := range newObjectVersions {
-			ov = append(ov, v1alpha1.SecretProviderClassObject{ID: strings.TrimSpace(k), Version: strings.TrimSpace(v)})
+			ov = append(ov, secretsstorev1.SecretProviderClassObject{ID: strings.TrimSpace(k), Version: strings.TrimSpace(v)})
 		}
 		spcps.Status.Objects = spcpsutil.OrderSecretProviderClassObjectByID(ov)
 
@@ -496,9 +496,9 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *v1alpha1.SecretProvid
 }
 
 // updateSecretProviderClassPodStatus updates secret provider class pod status
-func (r *Reconciler) updateSecretProviderClassPodStatus(ctx context.Context, spcPodStatus *v1alpha1.SecretProviderClassPodStatus) error {
+func (r *Reconciler) updateSecretProviderClassPodStatus(ctx context.Context, spcPodStatus *secretsstorev1.SecretProviderClassPodStatus) error {
 	// update the secret provider class pod status
-	_, err := r.crdClient.SecretsstoreV1alpha1().SecretProviderClassPodStatuses(spcPodStatus.Namespace).Update(ctx, spcPodStatus, metav1.UpdateOptions{})
+	_, err := r.crdClient.SecretsstoreV1().SecretProviderClassPodStatuses(spcPodStatus.Namespace).Update(ctx, spcPodStatus, metav1.UpdateOptions{})
 	return err
 }
 

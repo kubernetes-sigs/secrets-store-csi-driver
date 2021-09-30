@@ -20,29 +20,29 @@ import (
 	"reflect"
 	"testing"
 
-	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
+	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 )
 
 func TestOrderSecretProviderClassObjectByID(t *testing.T) {
 	tests := []struct {
 		name string
-		objs []v1alpha1.SecretProviderClassObject
-		want []v1alpha1.SecretProviderClassObject
+		objs []secretsstorev1.SecretProviderClassObject
+		want []secretsstorev1.SecretProviderClassObject
 	}{
 		{
 			name: "empty",
-			objs: []v1alpha1.SecretProviderClassObject{},
-			want: []v1alpha1.SecretProviderClassObject{},
+			objs: []secretsstorev1.SecretProviderClassObject{},
+			want: []secretsstorev1.SecretProviderClassObject{},
 		},
 		{
 			name: "one object",
-			objs: []v1alpha1.SecretProviderClassObject{
+			objs: []secretsstorev1.SecretProviderClassObject{
 				{
 					ID:      "a",
 					Version: "v1",
 				},
 			},
-			want: []v1alpha1.SecretProviderClassObject{
+			want: []secretsstorev1.SecretProviderClassObject{
 				{
 					ID:      "a",
 					Version: "v1",
@@ -51,7 +51,7 @@ func TestOrderSecretProviderClassObjectByID(t *testing.T) {
 		},
 		{
 			name: "two objects",
-			objs: []v1alpha1.SecretProviderClassObject{
+			objs: []secretsstorev1.SecretProviderClassObject{
 				{
 					ID:      "a",
 					Version: "v1",
@@ -61,7 +61,7 @@ func TestOrderSecretProviderClassObjectByID(t *testing.T) {
 					Version: "v2",
 				},
 			},
-			want: []v1alpha1.SecretProviderClassObject{
+			want: []secretsstorev1.SecretProviderClassObject{
 				{
 					ID:      "a",
 					Version: "v1",
@@ -74,7 +74,7 @@ func TestOrderSecretProviderClassObjectByID(t *testing.T) {
 		},
 		{
 			name: "unsorted",
-			objs: []v1alpha1.SecretProviderClassObject{
+			objs: []secretsstorev1.SecretProviderClassObject{
 				{
 					ID:      "c",
 					Version: "v1",
@@ -88,7 +88,7 @@ func TestOrderSecretProviderClassObjectByID(t *testing.T) {
 					Version: "v3",
 				},
 			},
-			want: []v1alpha1.SecretProviderClassObject{
+			want: []secretsstorev1.SecretProviderClassObject{
 				{
 					ID:      "a",
 					Version: "v2",
@@ -105,7 +105,7 @@ func TestOrderSecretProviderClassObjectByID(t *testing.T) {
 		},
 		{
 			name: "nested ids",
-			objs: []v1alpha1.SecretProviderClassObject{
+			objs: []secretsstorev1.SecretProviderClassObject{
 				{
 					ID:      "secret/secret1",
 					Version: "v1",
@@ -119,7 +119,7 @@ func TestOrderSecretProviderClassObjectByID(t *testing.T) {
 					Version: "v3",
 				},
 			},
-			want: []v1alpha1.SecretProviderClassObject{
+			want: []secretsstorev1.SecretProviderClassObject{
 				{
 					ID:      "secret/secret1",
 					Version: "v1",

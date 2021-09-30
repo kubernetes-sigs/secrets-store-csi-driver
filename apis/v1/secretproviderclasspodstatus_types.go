@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1
 
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -41,6 +41,7 @@ type SecretProviderClassObject struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

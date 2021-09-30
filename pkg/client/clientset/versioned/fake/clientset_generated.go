@@ -25,6 +25,8 @@ import (
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/testing"
 	clientset "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned"
+	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned/typed/apis/v1"
+	fakesecretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned/typed/apis/v1/fake"
 	secretsstorev1alpha1 "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned/typed/apis/v1alpha1"
 	fakesecretsstorev1alpha1 "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned/typed/apis/v1alpha1/fake"
 )
@@ -74,9 +76,17 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 	return c.tracker
 }
 
-var _ clientset.Interface = &Clientset{}
+var (
+	_ clientset.Interface = &Clientset{}
+	_ testing.FakeClient  = &Clientset{}
+)
 
 // SecretsstoreV1alpha1 retrieves the SecretsstoreV1alpha1Client
 func (c *Clientset) SecretsstoreV1alpha1() secretsstorev1alpha1.SecretsstoreV1alpha1Interface {
 	return &fakesecretsstorev1alpha1.FakeSecretsstoreV1alpha1{Fake: &c.Fake}
+}
+
+// SecretsstoreV1 retrieves the SecretsstoreV1Client
+func (c *Clientset) SecretsstoreV1() secretsstorev1.SecretsstoreV1Interface {
+	return &fakesecretsstorev1.FakeSecretsstoreV1{Fake: &c.Fake}
 }

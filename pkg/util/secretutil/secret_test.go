@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"testing"
 
-	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
+	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -171,30 +171,30 @@ func TestGetCert(t *testing.T) {
 func TestValidateSecretObject(t *testing.T) {
 	tests := []struct {
 		name          string
-		secretObj     v1alpha1.SecretObject
+		secretObj     secretsstorev1.SecretObject
 		expectedError bool
 	}{
 		{
 			name:          "secret name is empty",
-			secretObj:     v1alpha1.SecretObject{},
+			secretObj:     secretsstorev1.SecretObject{},
 			expectedError: true,
 		},
 		{
 			name:          "secret type is empty",
-			secretObj:     v1alpha1.SecretObject{SecretName: "secret1"},
+			secretObj:     secretsstorev1.SecretObject{SecretName: "secret1"},
 			expectedError: true,
 		},
 		{
 			name:          "data is empty",
-			secretObj:     v1alpha1.SecretObject{SecretName: "secret1", Type: "Opaque"},
+			secretObj:     secretsstorev1.SecretObject{SecretName: "secret1", Type: "Opaque"},
 			expectedError: true,
 		},
 		{
 			name: "valid secret object",
-			secretObj: v1alpha1.SecretObject{
+			secretObj: secretsstorev1.SecretObject{
 				SecretName: "secret1",
 				Type:       "Opaque",
-				Data:       []*v1alpha1.SecretObjectData{{ObjectName: "obj1", Key: "file1"}}},
+				Data:       []*secretsstorev1.SecretObjectData{{ObjectName: "obj1", Key: "file1"}}},
 			expectedError: false,
 		},
 	}
@@ -212,7 +212,7 @@ func TestValidateSecretObject(t *testing.T) {
 func TestGetSecretData(t *testing.T) {
 	tests := []struct {
 		name            string
-		secretObjData   []*v1alpha1.SecretObjectData
+		secretObjData   []*secretsstorev1.SecretObjectData
 		secretType      corev1.SecretType
 		currentFiles    map[string]string
 		expectedDataMap map[string][]byte
@@ -220,7 +220,7 @@ func TestGetSecretData(t *testing.T) {
 	}{
 		{
 			name: "object name not set",
-			secretObjData: []*v1alpha1.SecretObjectData{
+			secretObjData: []*secretsstorev1.SecretObjectData{
 				{
 					ObjectName: "",
 				},
@@ -231,7 +231,7 @@ func TestGetSecretData(t *testing.T) {
 		},
 		{
 			name: "key not set",
-			secretObjData: []*v1alpha1.SecretObjectData{
+			secretObjData: []*secretsstorev1.SecretObjectData{
 				{
 					ObjectName: "obj1",
 				},
@@ -242,7 +242,7 @@ func TestGetSecretData(t *testing.T) {
 		},
 		{
 			name: "file matching object doesn't exist in map",
-			secretObjData: []*v1alpha1.SecretObjectData{
+			secretObjData: []*secretsstorev1.SecretObjectData{
 				{
 					ObjectName: "obj1",
 					Key:        "file1",
@@ -255,7 +255,7 @@ func TestGetSecretData(t *testing.T) {
 		},
 		{
 			name: "file matching object doesn't exist in the fs",
-			secretObjData: []*v1alpha1.SecretObjectData{
+			secretObjData: []*secretsstorev1.SecretObjectData{
 				{
 					ObjectName: "obj1",
 					Key:        "file1",
@@ -268,7 +268,7 @@ func TestGetSecretData(t *testing.T) {
 		},
 		{
 			name: "file matching object found in fs",
-			secretObjData: []*v1alpha1.SecretObjectData{
+			secretObjData: []*secretsstorev1.SecretObjectData{
 				{
 					ObjectName: "obj1",
 					Key:        "file1",
@@ -281,7 +281,7 @@ func TestGetSecretData(t *testing.T) {
 		},
 		{
 			name: "file matching object found in fs after trimming spaces in object name",
-			secretObjData: []*v1alpha1.SecretObjectData{
+			secretObjData: []*secretsstorev1.SecretObjectData{
 				{
 					ObjectName: "obj1     ",
 					Key:        "file1",
@@ -294,7 +294,7 @@ func TestGetSecretData(t *testing.T) {
 		},
 		{
 			name: "file matching object found in fs after trimming spaces in key",
-			secretObjData: []*v1alpha1.SecretObjectData{
+			secretObjData: []*secretsstorev1.SecretObjectData{
 				{
 					ObjectName: "obj1     ",
 					Key:        "   file1",
