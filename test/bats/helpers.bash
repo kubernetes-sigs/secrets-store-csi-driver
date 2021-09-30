@@ -126,3 +126,9 @@ archive_info() {
   # print generic cluster information
   kubectl cluster-info dump > ${LOGS_DIR}/cluster-info.txt
 }
+
+# get_secrets_store_api_version returns the API version of the secrets-store API
+get_secrets_store_api_version() {
+  local api_version=$(kubectl api-resources --api-group='secrets-store.csi.x-k8s.io' --no-headers=true | awk '{ print $2 }' | uniq)
+  echo "${api_version}"
+}

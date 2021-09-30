@@ -23,13 +23,6 @@ import (
 // Provider enum for all the provider names
 type Provider string
 
-const (
-	// Azure provider for Azure Key Vault
-	Azure Provider = "Azure"
-	// Vault provider for Hashicorp Vault
-	Vault Provider = "Vault"
-)
-
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // SecretObjectData defines the desired state of synced K8s secret object data
