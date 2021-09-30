@@ -25,6 +25,7 @@ import (
 	// google.golang.org/protobuf/cmd/protoc-gen-go
 	_ "github.com/golang/protobuf/protoc-gen-go"
 	_ "github.com/golangci/golangci-lint/cmd/golangci-lint" //nolint
+	_ "k8s.io/code-generator"                               //nolint
 	_ "sigs.k8s.io/controller-tools/cmd/controller-gen"     //nolint
 	_ "sigs.k8s.io/kustomize/kustomize/v3"                  //nolint
 )

@@ -14,19 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package spcpsutil
-
-import (
-	"sort"
-
-	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
-)
-
-// OrderSecretProviderClassObjectByID sorts SecretProviderClassObjects by ID
-func OrderSecretProviderClassObjectByID(objects []secretsstorev1.SecretProviderClassObject) []secretsstorev1.SecretProviderClassObject {
-	// sort the objects on ID to keep the order in status consistent across updates
-	sort.Slice(objects, func(i, j int) bool {
-		return objects[i].ID < objects[j].ID
-	})
-	return objects
-}
+// Package v1 contains API Schema definitions for the secrets-store v1 API group
+// +kubebuilder:object:generate=true
+// +k8s:deepcopy-gen=package,register
+// +groupName=secrets-store.csi.x-k8s.io
+package v1

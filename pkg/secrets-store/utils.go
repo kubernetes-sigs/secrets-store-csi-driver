@@ -23,7 +23,7 @@ import (
 	"runtime"
 	"strings"
 
-	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
+	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/spcpsutil"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -76,8 +76,8 @@ func (ns *nodeServer) ensureMountPoint(target string) (bool, error) {
 }
 
 // getSecretProviderItem returns the secretproviderclass object by name and namespace
-func getSecretProviderItem(ctx context.Context, c client.Client, name, namespace string) (*v1alpha1.SecretProviderClass, error) {
-	spc := &v1alpha1.SecretProviderClass{}
+func getSecretProviderItem(ctx context.Context, c client.Client, name, namespace string) (*secretsstorev1.SecretProviderClass, error) {
+	spc := &secretsstorev1.SecretProviderClass{}
 	spcKey := types.NamespacedName{
 		Namespace: namespace,
 		Name:      name,
@@ -91,22 +91,22 @@ func getSecretProviderItem(ctx context.Context, c client.Client, name, namespace
 // createOrUpdateSecretProviderClassPodStatus creates secret provider class pod status if not exists.
 // if the secret provider class pod status already exists, it'll update the status and owner references.
 func createOrUpdateSecretProviderClassPodStatus(ctx context.Context, c client.Client, reader client.Reader, podname, namespace, podUID, spcName, targetPath, nodeID string, mounted bool, objects map[string]string) error {
-	var o []v1alpha1.SecretProviderClassObject
+	var o []secretsstorev1.SecretProviderClassObject
 	var err error
 	spcpsName := podname + "-" + namespace + "-" + spcName
 
 	for k, v := range objects {
-		o = append(o, v1alpha1.SecretProviderClassObject{ID: k, Version: v})
+		o = append(o, secretsstorev1.SecretProviderClassObject{ID: k, Version: v})
 	}
 	o = spcpsutil.OrderSecretProviderClassObjectByID(o)
 
-	spcPodStatus := &v1alpha1.SecretProviderClassPodStatus{
+	spcPodStatus := &secretsstorev1.SecretProviderClassPodStatus{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      spcpsName,
 			Namespace: namespace,
-			Labels:    map[string]string{v1alpha1.InternalNodeLabel: nodeID},
+			Labels:    map[string]string{secretsstorev1.InternalNodeLabel: nodeID},
 		},
-		Status: v1alpha1.SecretProviderClassPodStatusStatus{
+		Status: secretsstorev1.SecretProviderClassPodStatusStatus{
 			PodName:                 podname,
 			TargetPath:              targetPath,
 			Mounted:                 mounted,
@@ -131,7 +131,7 @@ func createOrUpdateSecretProviderClassPodStatus(ctx context.Context, c client.Cl
 	}
 	klog.InfoS("secret provider class pod status already exists, updating it", "spcps", klog.ObjectRef{Name: spcPodStatus.Name, Namespace: spcPodStatus.Namespace})
 
-	spcps := &v1alpha1.SecretProviderClassPodStatus{}
+	spcps := &secretsstorev1.SecretProviderClassPodStatus{}
 	// the secret provider class pod status with the name already exists, update it
 	if err = c.Get(ctx, client.ObjectKey{Name: spcpsName, Namespace: namespace}, spcps); err != nil {
 		if !apierrors.IsNotFound(err) {
@@ -145,7 +145,7 @@ func createOrUpdateSecretProviderClassPodStatus(ctx context.Context, c client.Cl
 	}
 
 	// update the labels of the secret provider class pod status to match the node label
-	spcps.Labels[v1alpha1.InternalNodeLabel] = nodeID
+	spcps.Labels[secretsstorev1.InternalNodeLabel] = nodeID
 	spcps.Status = spcPodStatus.Status
 	spcps.OwnerReferences = spcPodStatus.OwnerReferences
 
@@ -153,7 +153,7 @@ func createOrUpdateSecretProviderClassPodStatus(ctx context.Context, c client.Cl
 }
 
 // getProviderFromSPC returns the provider as defined in SecretProviderClass
-func getProviderFromSPC(spc *v1alpha1.SecretProviderClass) (string, error) {
+func getProviderFromSPC(spc *secretsstorev1.SecretProviderClass) (string, error) {
 	if len(spc.Spec.Provider) == 0 {
 		return "", fmt.Errorf("provider not set in %s/%s", spc.Namespace, spc.Name)
 	}
@@ -161,7 +161,7 @@ func getProviderFromSPC(spc *v1alpha1.SecretProviderClass) (string, error) {
 }
 
 // getParametersFromSPC returns the parameters map as defined in SecretProviderClass
-func getParametersFromSPC(spc *v1alpha1.SecretProviderClass) (map[string]string, error) {
+func getParametersFromSPC(spc *secretsstorev1.SecretProviderClass) (map[string]string, error) {
 	if len(spc.Spec.Parameters) == 0 {
 		return nil, fmt.Errorf("parameters not set in %s/%s", spc.Namespace, spc.Name)
 	}
