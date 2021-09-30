@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
+	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned/scheme"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/k8sutil"
@@ -107,8 +107,8 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	spcPodStatusList := &v1alpha1.SecretProviderClassPodStatusList{}
-	spcMap := make(map[string]v1alpha1.SecretProviderClass)
+	spcPodStatusList := &secretsstorev1.SecretProviderClassPodStatusList{}
+	spcMap := make(map[string]secretsstorev1.SecretProviderClass)
 	secretOwnerMap := make(map[types.NamespacedName][]metav1.OwnerReference)
 	// get a list of all spc pod status that belong to the node
 	err := r.reader.List(ctx, spcPodStatusList, r.ListOptionsLabelSelector())
@@ -119,7 +119,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 	spcPodStatuses := spcPodStatusList.Items
 	for i := range spcPodStatuses {
 		spcName := spcPodStatuses[i].Status.SecretProviderClassName
-		spc := &v1alpha1.SecretProviderClass{}
+		spc := &secretsstorev1.SecretProviderClass{}
 		namespace := spcPodStatuses[i].Namespace
 
 		if val, exists := spcMap[namespace+"/"+spcName]; exists {
@@ -206,7 +206,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 // ListOptionsLabelSelector returns a ListOptions with a label selector for node name.
 func (r *SecretProviderClassPodStatusReconciler) ListOptionsLabelSelector() client.ListOption {
 	return client.MatchingLabels(map[string]string{
-		v1alpha1.InternalNodeLabel: r.nodeID,
+		secretsstorev1.InternalNodeLabel: r.nodeID,
 	})
 }
 
@@ -222,7 +222,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 
 	klog.InfoS("reconcile started", "spcps", req.NamespacedName.String())
 
-	spcPodStatus := &v1alpha1.SecretProviderClassPodStatus{}
+	spcPodStatus := &secretsstorev1.SecretProviderClassPodStatus{}
 	if err := r.reader.Get(ctx, req.NamespacedName, spcPodStatus); err != nil {
 		if apierrors.IsNotFound(err) {
 			klog.InfoS("reconcile complete", "spcps", req.NamespacedName.String())
@@ -251,7 +251,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 	}
 
 	spcName := spcPodStatus.Status.SecretProviderClassName
-	spc := &v1alpha1.SecretProviderClass{}
+	spc := &secretsstorev1.SecretProviderClass{}
 	if err := r.reader.Get(ctx, client.ObjectKey{Namespace: req.Namespace, Name: spcName}, spc); err != nil {
 		klog.ErrorS(err, "failed to get spc", "spc", spcName)
 		if apierrors.IsNotFound(err) {
@@ -373,7 +373,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 
 func (r *SecretProviderClassPodStatusReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.SecretProviderClassPodStatus{}).
+		For(&secretsstorev1.SecretProviderClassPodStatus{}).
 		WithEventFilter(r.belongsToNodePredicate()).
 		Complete(r)
 }
@@ -399,7 +399,7 @@ func (r *SecretProviderClassPodStatusReconciler) belongsToNodePredicate() predic
 // processIfBelongsToNode determines if the secretproviderclasspodstatus belongs to the node based on the
 // internal.secrets-store.csi.k8s.io/node-name: <node name> label. If belongs to node, then the spcps is processed.
 func (r *SecretProviderClassPodStatusReconciler) processIfBelongsToNode(objMeta metav1.Object) bool {
-	node, ok := objMeta.GetLabels()[v1alpha1.InternalNodeLabel]
+	node, ok := objMeta.GetLabels()[secretsstorev1.InternalNodeLabel]
 	if !ok {
 		return false
 	}

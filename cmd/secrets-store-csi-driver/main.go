@@ -25,7 +25,7 @@ import (
 	"os"
 	"time"
 
-	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
+	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	"sigs.k8s.io/secrets-store-csi-driver/controllers"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/metrics"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/rotation"
@@ -76,7 +76,7 @@ var (
 
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
-	_ = v1alpha1.AddToScheme(scheme)
+	_ = secretsstorev1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -127,10 +127,10 @@ func main() {
 				},
 				// this enables filtered watch of secretproviderclasspodstatuses based on the internal node label
 				// internal.secrets-store.csi.k8s.io/node-name=<node name> added by csi driver
-				&v1alpha1.SecretProviderClassPodStatus{}: {
+				&secretsstorev1.SecretProviderClassPodStatus{}: {
 					Label: labels.SelectorFromSet(
 						labels.Set{
-							v1alpha1.InternalNodeLabel: *nodeID,
+							secretsstorev1.InternalNodeLabel: *nodeID,
 						},
 					),
 				},
