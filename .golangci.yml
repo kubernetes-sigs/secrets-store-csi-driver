@@ -8,15 +8,20 @@ linters:
   disable-all: true
   enable:
     - deadcode
+    - durationcheck
+    - exportloopref
+    - exhaustive
     - gofmt
     - goimports
     - gosimple
     - govet
     - gosec
     - ineffassign
+    - makezero
     - misspell
     - revive
     - structcheck
+    - typecheck
     - unused
     - varcheck
   # Run with --fast=false for more extensive checks (enables all linters)
