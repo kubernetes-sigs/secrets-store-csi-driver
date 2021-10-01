@@ -37,3 +37,12 @@ To implement a secrets-store-csi-driver provider, you can develop a new provider
 - Provider mounts `<kubelet root dir>/pods` (default: [`/var/lib/kubelet/pods`](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/v0.0.14/deploy/secrets-store-csi-driver.yaml#L86-L87)) with [`HostToContainer` mount propagation](https://kubernetes-csi.github.io/docs/deploying.html#driver-volume-mounts) to be able to write the external secrets store content to the volume target path
 
 See [design doc](https://docs.google.com/document/d/10-RHUJGM0oMN88AZNxjOmGz0NsWAvOYrWUEV-FbLWyw/edit?usp=sharing) for more details.
+
+## Features supported by current providers:
+
+| Features \ Providers               | Azure | GCP   | AWS   | Vault |
+| ---------------------------------- | ----- | ----- | ----- | ----- |
+| Sync as Kubernetes secret          | Yes   | Yes   | Yes   | Yes   |
+| Rotation                           | Yes   | Yes   | Yes   | No    |
+| Windows                            | Yes   | No    | No    | No    |
+| Helm Chart                         | Yes   | No    | No    | Yes   |
