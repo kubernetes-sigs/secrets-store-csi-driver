@@ -44,6 +44,18 @@ This project strictly follows [semantic versioning](https://semver.org/spec/v2.0
 
 - Any `fixes` or `patches` should be merged to main and then `cherry pick` to the release branch.
 
+## Supported Releases
+
+Applicable fixes, including security fixes, may be cherry-picked into the release branch, depending on severity and feasibility. Patch releases are cut from that branch as needed.
+
+We expect users to stay reasonably up-to-date with the versions of Secrets Store CSI Driver they use in production, but understand that it may take time to upgrade. We expect users to be running approximately the latest patch release of a given minor release and encourage users to upgrade as soon as possible.
+
+We expect to "support" n (current) and n-1 major.minor releases. "Support" means we expect users to be running that version in production. For example, when v1.3.0 comes out, v1.1.x will no longer be supported for patches and we encourage users to upgrade to a supported version as soon as possible.
+
+## Supported Kubernetes Versions
+
+Secrets Store CSI Driver will maintain support for all actively supported Kubernetes minor releases per [Kubernetes Supported Versions policy](https://kubernetes.io/releases/version-skew-policy/). If you choose to use Secrets Store CSI Driver with a version of Kubernetes that it does not support, you are using it at your own risk.
+
 ## Acknowledgement
 
 This document builds on the ideas and implementations of release processes from projects like [Gatekeeper](https://github.com/open-policy-agent/gatekeeper/blob/master/docs/Release_Management.md), [Helm](https://helm.sh/docs/topics/release_policy/#helm) and Kubernetes.
