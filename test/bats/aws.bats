@@ -17,12 +17,12 @@ if [ -z "$UUID" ]; then
 fi 
 
 export SM_TEST_1_NAME=SecretsManagerTest1-$UUID 
-export SM_TEST_2_NAME=SecretsManagerTest2-$UUID 
+export SM_TEST_2_NAME=SecretsManagerTest2-$UUID
 export SM_SYNC_NAME=SecretsManagerSync-$UUID
 export SM_ROT_TEST_NAME=SecretsManagerRotationTest-$UUID
 
 export PM_TEST_1_NAME=ParameterStoreTest1-$UUID
-export PM_TEST_LONG_NAME=ParameterStoreTestWithLongName-$UUID 
+export PM_TEST_LONG_NAME=ParameterStoreTestWithLongName-$UUID
 export PM_ROTATION_TEST_NAME=ParameterStoreRotationTest-$UUID
 
 setup_file() {

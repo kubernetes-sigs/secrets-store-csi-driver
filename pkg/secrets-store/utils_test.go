@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"testing"
 
-	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
+	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -42,7 +42,7 @@ var (
 
 func setupScheme() (*runtime.Scheme, error) {
 	scheme := runtime.NewScheme()
-	if err := v1alpha1.AddToScheme(scheme); err != nil {
+	if err := secretsstorev1.AddToScheme(scheme); err != nil {
 		return nil, err
 	}
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
@@ -51,16 +51,16 @@ func setupScheme() (*runtime.Scheme, error) {
 	return scheme, nil
 }
 
-func newSecretProviderClassPodStatus(name, namespace, node string) *v1alpha1.SecretProviderClassPodStatus {
-	return &v1alpha1.SecretProviderClassPodStatus{
+func newSecretProviderClassPodStatus(name, namespace, node string) *secretsstorev1.SecretProviderClassPodStatus {
+	return &secretsstorev1.SecretProviderClassPodStatus{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            name,
 			Namespace:       namespace,
-			Labels:          map[string]string{v1alpha1.InternalNodeLabel: node},
+			Labels:          map[string]string{secretsstorev1.InternalNodeLabel: node},
 			UID:             "72a0ecb8-c6e5-41e1-8da1-25e37ec61b26",
 			ResourceVersion: "73659",
 		},
-		Status: v1alpha1.SecretProviderClassPodStatusStatus{
+		Status: secretsstorev1.SecretProviderClassPodStatusStatus{
 			PodName:                 "pod1",
 			TargetPath:              "/var/lib/kubelet/pods/d8771ddf-935a-4199-a20b-f35f71c1d9e7/volumes/kubernetes.io~csi/secrets-store-inline/mount",
 			SecretProviderClassName: "spc1",
@@ -99,11 +99,11 @@ func TestCreateOrUpdateSecretProviderClassPodStatus(t *testing.T) {
 		},
 	}
 
-	want := &v1alpha1.SecretProviderClassPodStatus{
+	want := &secretsstorev1.SecretProviderClassPodStatus{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s-%s", testPodName, testNamespace, testSPCName),
 			Namespace: testNamespace,
-			Labels:    map[string]string{v1alpha1.InternalNodeLabel: "test-node"},
+			Labels:    map[string]string{secretsstorev1.InternalNodeLabel: "test-node"},
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: "v1",
@@ -113,12 +113,12 @@ func TestCreateOrUpdateSecretProviderClassPodStatus(t *testing.T) {
 				},
 			},
 		},
-		Status: v1alpha1.SecretProviderClassPodStatusStatus{
+		Status: secretsstorev1.SecretProviderClassPodStatusStatus{
 			PodName:                 testPodName,
 			TargetPath:              testTargetPath,
 			SecretProviderClassName: testSPCName,
 			Mounted:                 true,
-			Objects: []v1alpha1.SecretProviderClassObject{
+			Objects: []secretsstorev1.SecretProviderClassObject{
 				{
 					ID:      "a",
 					Version: "v2",
@@ -141,7 +141,7 @@ func TestCreateOrUpdateSecretProviderClassPodStatus(t *testing.T) {
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
-			got := &v1alpha1.SecretProviderClassPodStatus{}
+			got := &secretsstorev1.SecretProviderClassPodStatus{}
 			if err := client.Get(context.TODO(), types.NamespacedName{
 				Name:      want.Name,
 				Namespace: want.Namespace,

@@ -31,10 +31,20 @@ export NODE_SELECTOR_OS=$NODE_SELECTOR_OS
 # default label value of secret synched to k8s
 export LABEL_VALUE=${LABEL_VALUE:-"test"}
 
+# export the secrets-store API version to be used
+export API_VERSION=$(get_secrets_store_api_version)
+
 @test "secretproviderclasses crd is established" {
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
   run kubectl get crd/secretproviderclasses.secrets-store.csi.x-k8s.io
+  assert_success
+}
+
+@test "secretproviderclasspodstatuses crd is established" {
+  kubectl wait --for condition=established --timeout=60s crd/secretproviderclasspodstatuses.secrets-store.csi.x-k8s.io
+
+  run kubectl get crd/secretproviderclasspodstatuses.secrets-store.csi.x-k8s.io
   assert_success
 }
 
@@ -58,8 +68,41 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
   assert_success
 }
 
-@test "deploy e2e-provider secretproviderclass crd" {
-  envsubst < $BATS_TESTS_DIR/e2e_provider_v1alpha1_secretproviderclass.yaml | kubectl apply -f -
+@test "[v1alpha1] deploy e2e-provider secretproviderclass crd" {
+  kubectl create namespace test-v1alpha1 --dry-run=client -o yaml | kubectl apply -f -
+
+  envsubst <  $BATS_TESTS_DIR/e2e_provider_v1alpha1_secretproviderclass.yaml | kubectl apply -n test-v1alpha1 -f -
+
+  kubectl wait --for condition=established -n test-v1alpha1 --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
+
+  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/e2e-provider -n test-v1alpha1 -o yaml | grep e2e-provider"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+}
+
+@test "[v1alpha1] CSI inline volume test with pod portability" {
+  envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -n test-v1alpha1 -f -
+  
+  kubectl wait --for=condition=Ready -n test-v1alpha1 --timeout=180s pod/secrets-store-inline-crd
+
+  run kubectl get pod/secrets-store-inline-crd -n test-v1alpha1
+  assert_success
+}
+
+@test "[v1alpha1] CSI inline volume test with pod portability - read secret from pod" {
+  wait_for_process $WAIT_TIME $SLEEP_TIME "kubectl exec secrets-store-inline-crd -n test-v1alpha1 -- cat /mnt/secrets-store/$SECRET_NAME | grep '${SECRET_VALUE}'"
+
+  result=$(kubectl exec secrets-store-inline-crd -n test-v1alpha1 -- cat /mnt/secrets-store/$SECRET_NAME)
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+}
+
+@test "[v1alpha1] CSI inline volume test with pod portability - read key from pod" {
+  result=$(kubectl exec secrets-store-inline-crd -n test-v1alpha1 -- cat /mnt/secrets-store/$KEY_NAME)
+  result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
+  [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
+}
+
+@test "deploy e2e-provider v1 secretproviderclass crd" {
+  envsubst < $BATS_TESTS_DIR/e2e_provider_v1_secretproviderclass.yaml | kubectl apply -f -
 
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
@@ -112,7 +155,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 }
 
 @test "Sync with K8s secrets - create deployment" {
-  envsubst < $BATS_TESTS_DIR/e2e_provider_synck8s_v1alpha1_secretproviderclass.yaml | kubectl apply -f - 
+  envsubst < $BATS_TESTS_DIR/e2e_provider_synck8s_v1_secretproviderclass.yaml | kubectl apply -f - 
 
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
@@ -168,14 +211,13 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
   run wait_for_process $WAIT_TIME $SLEEP_TIME "check_secret_deleted foosecret default"
   assert_success
 
-  run kubectl delete -f $BATS_TESTS_DIR/e2e_provider_synck8s_v1alpha1_secretproviderclass.yaml
-  assert_success
+  envsubst < $BATS_TESTS_DIR/e2e_provider_synck8s_v1_secretproviderclass.yaml | kubectl delete -f -
 }
 
 @test "Test Namespaced scope SecretProviderClass - create deployment" {
   kubectl create namespace test-ns --dry-run=client -o yaml | kubectl apply -f -
 
-  envsubst < $BATS_TESTS_DIR/e2e_provider_v1alpha1_secretproviderclass_ns.yaml | kubectl apply -f -
+  envsubst < $BATS_TESTS_DIR/e2e_provider_v1_secretproviderclass_ns.yaml | kubectl apply -f -
 
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
@@ -241,7 +283,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 }
 
 @test "deploy multiple e2e provier secretproviderclass crd" {
-  envsubst < $BATS_TESTS_DIR/e2e_provider_v1alpha1_multiple_secretproviderclass.yaml | kubectl apply -f -
+  envsubst < $BATS_TESTS_DIR/e2e_provider_v1_multiple_secretproviderclass.yaml | kubectl apply -f -
 
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
@@ -298,7 +340,7 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 @test "Test auto rotation of mount contents and K8s secrets - Create deployment" {
   kubectl create namespace rotation --dry-run=client -o yaml | kubectl apply -f -
 
-  envsubst < $BATS_TESTS_DIR/rotation/e2e_provider_synck8s_v1alpha1_secretproviderclass.yaml | kubectl apply -n rotation -f -
+  envsubst < $BATS_TESTS_DIR/rotation/e2e_provider_synck8s_v1_secretproviderclass.yaml | kubectl apply -n rotation -f -
   envsubst < $BATS_TESTS_DIR/rotation/pod-synck8s-e2e-provider.yaml | kubectl apply -n rotation -f -
 
   kubectl wait -n rotation --for=condition=Ready --timeout=60s pod/secrets-store-inline-rotation
@@ -340,6 +382,7 @@ teardown_file() {
     #cleanup
     run kubectl delete namespace rotation
     run kubectl delete namespace test-ns
+    run kubectl delete namespace test-v1alpha1
 
     run kubectl delete pods secrets-store-inline-crd secrets-store-inline-multiple-crd --force --grace-period 0
   fi    

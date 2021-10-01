@@ -23,6 +23,7 @@ import (
 
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
+	v1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	v1alpha1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
 )
 
@@ -52,7 +53,13 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=secrets-store.csi.x-k8s.io, Version=v1alpha1
+	// Group=secrets-store.csi.x-k8s.io, Version=v1
+	case v1.SchemeGroupVersion.WithResource("secretproviderclasses"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Secretsstore().V1().SecretProviderClasses().Informer()}, nil
+	case v1.SchemeGroupVersion.WithResource("secretproviderclasspodstatuses"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Secretsstore().V1().SecretProviderClassPodStatuses().Informer()}, nil
+
+		// Group=secrets-store.csi.x-k8s.io, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("secretproviderclasses"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Secretsstore().V1alpha1().SecretProviderClasses().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("secretproviderclasspodstatuses"):

@@ -19,11 +19,11 @@ package spcpsutil
 import (
 	"sort"
 
-	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
+	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 )
 
 // OrderSecretProviderClassObjectByID sorts SecretProviderClassObjects by ID
-func OrderSecretProviderClassObjectByID(objects []v1alpha1.SecretProviderClassObject) []v1alpha1.SecretProviderClassObject {
+func OrderSecretProviderClassObjectByID(objects []secretsstorev1.SecretProviderClassObject) []secretsstorev1.SecretProviderClassObject {
 	// sort the objects on ID to keep the order in status consistent across updates
 	sort.Slice(objects, func(i, j int) bool {
 		return objects[i].ID < objects[j].ID

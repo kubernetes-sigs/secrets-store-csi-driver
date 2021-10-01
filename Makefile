@@ -114,7 +114,7 @@ EKS_CLUSTER_NAME := integ-cluster-$(BUILD_TIMESTAMP_W_SEC)
 AWS_REGION := us-west-2
 
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
-CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
+CRD_OPTIONS ?= "crd:crdVersions=v1"
 
 ## --------------------------------------
 ## Validate golang version
@@ -488,7 +488,8 @@ e2e-aws:
 .PHONY: manifests
 manifests: $(CONTROLLER_GEN) $(KUSTOMIZE)
 	# Generate the base CRD/RBAC
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=secretproviderclasses-role paths="./apis/..." paths="./controllers" output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=secretproviderclasses-role object:headerFile=./hack/boilerplate.go.txt paths="./apis/..." \
+		 paths="./apis/..." paths="./controllers" output:crd:artifacts:config=config/crd/bases
 	cp config/crd/bases/* manifest_staging/charts/secrets-store-csi-driver/crds
 	cp config/crd/bases/* manifest_staging/deploy/
 

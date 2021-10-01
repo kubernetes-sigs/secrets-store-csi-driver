@@ -54,7 +54,7 @@ export SECRET_VALUE=${SECRET_VALUE:-"aHVudGVyMg=="}
 }
 
 @test "deploy gcp secretproviderclass crd" {
-  envsubst < $BATS_TESTS_DIR/gcp_v1alpha1_secretproviderclass.yaml | kubectl apply --namespace=$NAMESPACE -f -
+  envsubst < $BATS_TESTS_DIR/gcp_v1_secretproviderclass.yaml | kubectl apply --namespace=$NAMESPACE -f -
 
   cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/gcp --namespace=$NAMESPACE -o yaml | grep gcp"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"

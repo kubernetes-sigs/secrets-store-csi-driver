@@ -26,8 +26,10 @@ import (
 )
 
 // SecretProviderClassPodStatusLister helps list SecretProviderClassPodStatuses.
+// All objects returned here must be treated as read-only.
 type SecretProviderClassPodStatusLister interface {
 	// List lists all SecretProviderClassPodStatuses in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.SecretProviderClassPodStatus, err error)
 	// SecretProviderClassPodStatuses returns an object that can list and get SecretProviderClassPodStatuses.
 	SecretProviderClassPodStatuses(namespace string) SecretProviderClassPodStatusNamespaceLister
@@ -58,10 +60,13 @@ func (s *secretProviderClassPodStatusLister) SecretProviderClassPodStatuses(name
 }
 
 // SecretProviderClassPodStatusNamespaceLister helps list and get SecretProviderClassPodStatuses.
+// All objects returned here must be treated as read-only.
 type SecretProviderClassPodStatusNamespaceLister interface {
 	// List lists all SecretProviderClassPodStatuses in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.SecretProviderClassPodStatus, err error)
 	// Get retrieves the SecretProviderClassPodStatus from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.SecretProviderClassPodStatus, error)
 	SecretProviderClassPodStatusNamespaceListerExpansion
 }

@@ -23,13 +23,6 @@ import (
 // Provider enum for all the provider names
 type Provider string
 
-const (
-	// Azure provider for Azure Key Vault
-	Azure Provider = "Azure"
-	// Vault provider for Hashicorp Vault
-	Vault Provider = "Vault"
-)
-
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // SecretObjectData defines the desired state of synced K8s secret object data
@@ -78,6 +71,7 @@ type SecretProviderClassStatus struct {
 
 // +kubebuilder:object:root=true
 // +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // SecretProviderClass is the Schema for the secretproviderclasses API
 type SecretProviderClass struct {
@@ -89,6 +83,7 @@ type SecretProviderClass struct {
 }
 
 // +kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // SecretProviderClassList contains a list of SecretProviderClass
 type SecretProviderClassList struct {
