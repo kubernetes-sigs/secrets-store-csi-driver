@@ -132,3 +132,8 @@ get_secrets_store_api_version() {
   local api_version=$(kubectl api-resources --api-group='secrets-store.csi.x-k8s.io' --no-headers=true | awk '{ print $2 }' | uniq)
   echo "${api_version}"
 }
+
+# log the secrets-store API version
+log_secrets_store_api_version() {
+  echo "Testing secrets-store API version $API_VERSION" >&3
+}

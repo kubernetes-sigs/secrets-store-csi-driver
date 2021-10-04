@@ -39,6 +39,8 @@ export API_VERSION=$(get_secrets_store_api_version)
 
   run kubectl get crd/secretproviderclasses.secrets-store.csi.x-k8s.io
   assert_success
+
+  log_secrets_store_api_version
 }
 
 @test "secretproviderclasspodstatuses crd is established" {
