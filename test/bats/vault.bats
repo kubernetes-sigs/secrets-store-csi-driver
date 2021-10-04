@@ -89,7 +89,7 @@ EOF
 }
 
 @test "deploy vault secretproviderclass crd" {
-  kubectl apply -f $BATS_TESTS_DIR/vault_v1alpha1_secretproviderclass.yaml
+  kubectl apply -f $BATS_TESTS_DIR/vault_v1_secretproviderclass.yaml
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
   cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/vault-foo -o yaml | grep vault"
@@ -136,7 +136,7 @@ EOF
 }
 
 @test "Sync with K8s secrets - create deployment" {
-  kubectl apply -f $BATS_TESTS_DIR/vault_synck8s_v1alpha1_secretproviderclass.yaml
+  kubectl apply -f $BATS_TESTS_DIR/vault_synck8s_v1_secretproviderclass.yaml
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
   cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/vault-foo-sync -o yaml | grep vault"
@@ -197,14 +197,14 @@ EOF
   run wait_for_process $WAIT_TIME $SLEEP_TIME "check_secret_deleted foosecret default"
   assert_success
 
-  run kubectl delete -f $BATS_TESTS_DIR/vault_synck8s_v1alpha1_secretproviderclass.yaml
+  run kubectl delete -f $BATS_TESTS_DIR/vault_synck8s_v1_secretproviderclass.yaml
   assert_success
 }
 
 @test "Test Namespaced scope SecretProviderClass - create deployment" {
   kubectl create ns test-ns
 
-  kubectl apply -f $BATS_TESTS_DIR/vault_v1alpha1_secretproviderclass_ns.yaml
+  kubectl apply -f $BATS_TESTS_DIR/vault_v1_secretproviderclass_ns.yaml
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
   cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/vault-foo-sync -o yaml | grep vault"
@@ -261,7 +261,7 @@ EOF
 }
 
 @test "deploy multiple vault secretproviderclass crd" {
-  kubectl apply -f $BATS_TESTS_DIR/vault_v1alpha1_multiple_secretproviderclass.yaml
+  kubectl apply -f $BATS_TESTS_DIR/vault_v1_multiple_secretproviderclass.yaml
 
   cmd="kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"

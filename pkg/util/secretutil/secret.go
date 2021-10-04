@@ -28,10 +28,9 @@ import (
 	"sort"
 	"strings"
 
-	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
+	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -134,7 +133,7 @@ func GetSecretType(sType string) corev1.SecretType {
 
 // ValidateSecretObject performs basic validation of the secret provider class
 // secret object to check if the mandatory fields - name, type and data are defined
-func ValidateSecretObject(secretObj v1alpha1.SecretObject) error {
+func ValidateSecretObject(secretObj secretsstorev1.SecretObject) error {
 	if len(secretObj.SecretName) == 0 {
 		return fmt.Errorf("secret name is empty")
 	}
@@ -149,7 +148,7 @@ func ValidateSecretObject(secretObj v1alpha1.SecretObject) error {
 
 // GetSecretData gets the object contents from the pods target path and returns a
 // map that will be populated in the Kubernetes secret data field
-func GetSecretData(secretObjData []*v1alpha1.SecretObjectData, secretType corev1.SecretType, files map[string]string) (map[string][]byte, error) {
+func GetSecretData(secretObjData []*secretsstorev1.SecretObjectData, secretType corev1.SecretType, files map[string]string) (map[string][]byte, error) {
 	datamap := make(map[string][]byte)
 	for _, data := range secretObjData {
 		objectName := strings.TrimSpace(data.ObjectName)
@@ -170,7 +169,7 @@ func GetSecretData(secretObjData []*v1alpha1.SecretObjectData, secretType corev1
 			return datamap, fmt.Errorf("failed to read file %s, err: %v", objectName, err)
 		}
 		datamap[dataKey] = content
-		if secretType == v1.SecretTypeTLS {
+		if secretType == corev1.SecretTypeTLS {
 			c, err := GetCertPart(content, dataKey)
 			if err != nil {
 				return datamap, fmt.Errorf("failed to get cert data from file %s, err: %+v", file, err)

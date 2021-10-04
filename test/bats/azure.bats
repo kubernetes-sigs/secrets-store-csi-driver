@@ -36,6 +36,10 @@ export KEY_VALUE_CONTAINS=${KEYVAULT_KEY_VALUE:-"LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0
 export LABEL_VALUE=${LABEL_VALUE:-"test"}
 export NODE_SELECTOR_OS=$NODE_SELECTOR_OS
 
+# export the secrets-store API version to be used
+# TODO (aramase) remove this once the upgrade tests are moved to use e2e-provider
+export API_VERSION=$(get_secrets_store_api_version)
+
 setup() {
   if [[ -z "${AZURE_CLIENT_ID}" ]] || [[ -z "${AZURE_CLIENT_SECRET}" ]]; then
     echo "Error: Azure service principal is not provided" >&2
@@ -92,7 +96,7 @@ setup() {
 }
 
 @test "deploy azure secretproviderclass crd" {
-  envsubst < $BATS_TESTS_DIR/azure_v1alpha1_secretproviderclass.yaml | kubectl apply -f -
+  envsubst < $BATS_TESTS_DIR/azure_v1_secretproviderclass.yaml | kubectl apply -f -
 
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
@@ -148,7 +152,7 @@ setup() {
 }
 
 @test "Sync with K8s secrets - create deployment" {
-  envsubst < $BATS_TESTS_DIR/azure_synck8s_v1alpha1_secretproviderclass.yaml | kubectl apply -f - 
+  envsubst < $BATS_TESTS_DIR/azure_synck8s_v1_secretproviderclass.yaml | kubectl apply -f - 
 
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
@@ -200,8 +204,7 @@ setup() {
   run wait_for_process $WAIT_TIME $SLEEP_TIME "check_secret_deleted foosecret default"
   assert_success
 
-  run kubectl delete -f $BATS_TESTS_DIR/azure_synck8s_v1alpha1_secretproviderclass.yaml
-  assert_success
+  envsubst < $BATS_TESTS_DIR/azure_synck8s_v1_secretproviderclass.yaml | kubectl delete -f -
 }
 
 @test "Test Namespaced scope SecretProviderClass - create deployment" {
@@ -215,7 +218,7 @@ setup() {
   run kubectl label secret secrets-store-creds secrets-store.csi.k8s.io/used=true -n test-ns
   assert_success
 
-  envsubst < $BATS_TESTS_DIR/azure_v1alpha1_secretproviderclass_ns.yaml | kubectl apply -f -
+  envsubst < $BATS_TESTS_DIR/azure_v1_secretproviderclass_ns.yaml | kubectl apply -f -
 
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
@@ -284,7 +287,7 @@ setup() {
 }
 
 @test "deploy multiple azure secretproviderclass crd" {
-  envsubst < $BATS_TESTS_DIR/azure_v1alpha1_multiple_secretproviderclass.yaml | kubectl apply -f -
+  envsubst < $BATS_TESTS_DIR/azure_v1_multiple_secretproviderclass.yaml | kubectl apply -f -
 
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
@@ -355,7 +358,7 @@ setup() {
   run az keyvault secret set --vault-name ${KEYVAULT_NAME} --name ${AUTO_ROTATE_SECRET_NAME} --value secret
   assert_success
 
-  envsubst < $BATS_TESTS_DIR/rotation/azure_synck8s_v1alpha1_secretproviderclass.yaml | kubectl apply -n rotation -f -
+  envsubst < $BATS_TESTS_DIR/rotation/azure_synck8s_v1_secretproviderclass.yaml | kubectl apply -n rotation -f -
   envsubst < $BATS_TESTS_DIR/rotation/pod-synck8s-azure.yaml | kubectl apply -n rotation -f -
 
   kubectl wait -n rotation --for=condition=Ready --timeout=60s pod/secrets-store-inline-rotation

@@ -24,12 +24,14 @@ import (
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
+	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned/typed/apis/v1"
 	secretsstorev1alpha1 "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned/typed/apis/v1alpha1"
 )
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	SecretsstoreV1alpha1() secretsstorev1alpha1.SecretsstoreV1alpha1Interface
+	SecretsstoreV1() secretsstorev1.SecretsstoreV1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -37,11 +39,17 @@ type Interface interface {
 type Clientset struct {
 	*discovery.DiscoveryClient
 	secretsstoreV1alpha1 *secretsstorev1alpha1.SecretsstoreV1alpha1Client
+	secretsstoreV1       *secretsstorev1.SecretsstoreV1Client
 }
 
 // SecretsstoreV1alpha1 retrieves the SecretsstoreV1alpha1Client
 func (c *Clientset) SecretsstoreV1alpha1() secretsstorev1alpha1.SecretsstoreV1alpha1Interface {
 	return c.secretsstoreV1alpha1
+}
+
+// SecretsstoreV1 retrieves the SecretsstoreV1Client
+func (c *Clientset) SecretsstoreV1() secretsstorev1.SecretsstoreV1Interface {
+	return c.secretsstoreV1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -69,6 +77,10 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
+	cs.secretsstoreV1, err = secretsstorev1.NewForConfig(&configShallowCopy)
+	if err != nil {
+		return nil, err
+	}
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfig(&configShallowCopy)
 	if err != nil {
@@ -82,6 +94,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
 	cs.secretsstoreV1alpha1 = secretsstorev1alpha1.NewForConfigOrDie(c)
+	cs.secretsstoreV1 = secretsstorev1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -91,6 +104,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.secretsstoreV1alpha1 = secretsstorev1alpha1.New(c)
+	cs.secretsstoreV1 = secretsstorev1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

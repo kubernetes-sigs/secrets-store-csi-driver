@@ -26,8 +26,10 @@ import (
 )
 
 // SecretProviderClassLister helps list SecretProviderClasses.
+// All objects returned here must be treated as read-only.
 type SecretProviderClassLister interface {
 	// List lists all SecretProviderClasses in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.SecretProviderClass, err error)
 	// SecretProviderClasses returns an object that can list and get SecretProviderClasses.
 	SecretProviderClasses(namespace string) SecretProviderClassNamespaceLister
@@ -58,10 +60,13 @@ func (s *secretProviderClassLister) SecretProviderClasses(namespace string) Secr
 }
 
 // SecretProviderClassNamespaceLister helps list and get SecretProviderClasses.
+// All objects returned here must be treated as read-only.
 type SecretProviderClassNamespaceLister interface {
 	// List lists all SecretProviderClasses in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.SecretProviderClass, err error)
 	// Get retrieves the SecretProviderClass from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.SecretProviderClass, error)
 	SecretProviderClassNamespaceListerExpansion
 }

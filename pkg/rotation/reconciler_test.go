@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1"
+	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	"sigs.k8s.io/secrets-store-csi-driver/controllers"
 	secretsStoreFakeClient "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned/fake"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
@@ -53,7 +53,7 @@ var (
 
 func setupScheme() (*runtime.Scheme, error) {
 	scheme := runtime.NewScheme()
-	if err := v1alpha1.AddToScheme(scheme); err != nil {
+	if err := secretsstorev1.AddToScheme(scheme); err != nil {
 		return nil, err
 	}
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
@@ -88,8 +88,8 @@ func TestReconcileError(t *testing.T) {
 	tests := []struct {
 		name                                  string
 		rotationPollInterval                  time.Duration
-		secretProviderClassPodStatusToProcess *v1alpha1.SecretProviderClassPodStatus
-		secretProviderClassToAdd              *v1alpha1.SecretProviderClass
+		secretProviderClassPodStatusToProcess *secretsstorev1.SecretProviderClassPodStatus
+		secretProviderClassToAdd              *secretsstorev1.SecretProviderClass
 		podToAdd                              *v1.Pod
 		socketPath                            string
 		secretToAdd                           *v1.Secret
@@ -100,18 +100,18 @@ func TestReconcileError(t *testing.T) {
 		{
 			name:                 "secret provider class not found",
 			rotationPollInterval: 60 * time.Second,
-			secretProviderClassPodStatusToProcess: &v1alpha1.SecretProviderClassPodStatus{
+			secretProviderClassPodStatusToProcess: &secretsstorev1.SecretProviderClassPodStatus{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "pod1-default-spc1",
 					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.InternalNodeLabel: "nodeName"},
+					Labels:    map[string]string{secretsstorev1.InternalNodeLabel: "nodeName"},
 				},
-				Status: v1alpha1.SecretProviderClassPodStatusStatus{
+				Status: secretsstorev1.SecretProviderClassPodStatusStatus{
 					SecretProviderClassName: "spc1",
 					PodName:                 "pod1",
 				},
 			},
-			secretProviderClassToAdd: &v1alpha1.SecretProviderClass{},
+			secretProviderClassToAdd: &secretsstorev1.SecretProviderClass{},
 			podToAdd:                 &v1.Pod{},
 			socketPath:               getTempTestDir(t),
 			secretToAdd:              &v1.Secret{},
@@ -120,26 +120,26 @@ func TestReconcileError(t *testing.T) {
 		{
 			name:                 "failed to get pod",
 			rotationPollInterval: 60 * time.Second,
-			secretProviderClassPodStatusToProcess: &v1alpha1.SecretProviderClassPodStatus{
+			secretProviderClassPodStatusToProcess: &secretsstorev1.SecretProviderClassPodStatus{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "pod1-default-spc1",
 					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.InternalNodeLabel: "nodeName"},
+					Labels:    map[string]string{secretsstorev1.InternalNodeLabel: "nodeName"},
 				},
-				Status: v1alpha1.SecretProviderClassPodStatusStatus{
+				Status: secretsstorev1.SecretProviderClassPodStatusStatus{
 					SecretProviderClassName: "spc1",
 					PodName:                 "pod1",
 				},
 			},
-			secretProviderClassToAdd: &v1alpha1.SecretProviderClass{
+			secretProviderClassToAdd: &secretsstorev1.SecretProviderClass{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "spc1",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.SecretProviderClassSpec{
-					SecretObjects: []*v1alpha1.SecretObject{
+				Spec: secretsstorev1.SecretProviderClassSpec{
+					SecretObjects: []*secretsstorev1.SecretObject{
 						{
-							Data: []*v1alpha1.SecretObjectData{
+							Data: []*secretsstorev1.SecretObjectData{
 								{
 									ObjectName: "object1",
 									Key:        "foo",
@@ -157,27 +157,27 @@ func TestReconcileError(t *testing.T) {
 		{
 			name:                 "failed to get NodePublishSecretRef secret",
 			rotationPollInterval: 60 * time.Second,
-			secretProviderClassPodStatusToProcess: &v1alpha1.SecretProviderClassPodStatus{
+			secretProviderClassPodStatusToProcess: &secretsstorev1.SecretProviderClassPodStatus{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "pod1-default-spc1",
 					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.InternalNodeLabel: "nodeName"},
+					Labels:    map[string]string{secretsstorev1.InternalNodeLabel: "nodeName"},
 				},
-				Status: v1alpha1.SecretProviderClassPodStatusStatus{
+				Status: secretsstorev1.SecretProviderClassPodStatusStatus{
 					SecretProviderClassName: "spc1",
 					PodName:                 "pod1",
 					TargetPath:              getTestTargetPath(t, "foo", "csi-volume"),
 				},
 			},
-			secretProviderClassToAdd: &v1alpha1.SecretProviderClass{
+			secretProviderClassToAdd: &secretsstorev1.SecretProviderClass{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "spc1",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.SecretProviderClassSpec{
-					SecretObjects: []*v1alpha1.SecretObject{
+				Spec: secretsstorev1.SecretProviderClassSpec{
+					SecretObjects: []*secretsstorev1.SecretObject{
 						{
-							Data: []*v1alpha1.SecretObjectData{
+							Data: []*secretsstorev1.SecretObjectData{
 								{
 									ObjectName: "object1",
 									Key:        "foo",
@@ -219,17 +219,17 @@ func TestReconcileError(t *testing.T) {
 		{
 			name:                 "failed to validate targetpath UID",
 			rotationPollInterval: 60 * time.Second,
-			secretProviderClassPodStatusToProcess: &v1alpha1.SecretProviderClassPodStatus{
+			secretProviderClassPodStatusToProcess: &secretsstorev1.SecretProviderClassPodStatus{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "pod1-default-spc1",
 					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.InternalNodeLabel: "nodeName"},
+					Labels:    map[string]string{secretsstorev1.InternalNodeLabel: "nodeName"},
 				},
-				Status: v1alpha1.SecretProviderClassPodStatusStatus{
+				Status: secretsstorev1.SecretProviderClassPodStatusStatus{
 					SecretProviderClassName: "spc1",
 					PodName:                 "pod1",
 					TargetPath:              getTestTargetPath(t, "bad-uid", "csi-volume"),
-					Objects: []v1alpha1.SecretProviderClassObject{
+					Objects: []secretsstorev1.SecretProviderClassObject{
 						{
 							ID:      "secret/object1",
 							Version: "v1",
@@ -237,15 +237,15 @@ func TestReconcileError(t *testing.T) {
 					},
 				},
 			},
-			secretProviderClassToAdd: &v1alpha1.SecretProviderClass{
+			secretProviderClassToAdd: &secretsstorev1.SecretProviderClass{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "spc1",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.SecretProviderClassSpec{
-					SecretObjects: []*v1alpha1.SecretObject{
+				Spec: secretsstorev1.SecretProviderClassSpec{
+					SecretObjects: []*secretsstorev1.SecretObject{
 						{
-							Data: []*v1alpha1.SecretObjectData{
+							Data: []*secretsstorev1.SecretObjectData{
 								{
 									ObjectName: "object1",
 									Key:        "foo",
@@ -292,17 +292,17 @@ func TestReconcileError(t *testing.T) {
 		{
 			name:                 "failed to validate targetpath volume name",
 			rotationPollInterval: 60 * time.Second,
-			secretProviderClassPodStatusToProcess: &v1alpha1.SecretProviderClassPodStatus{
+			secretProviderClassPodStatusToProcess: &secretsstorev1.SecretProviderClassPodStatus{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "pod1-default-spc1",
 					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.InternalNodeLabel: "nodeName"},
+					Labels:    map[string]string{secretsstorev1.InternalNodeLabel: "nodeName"},
 				},
-				Status: v1alpha1.SecretProviderClassPodStatusStatus{
+				Status: secretsstorev1.SecretProviderClassPodStatusStatus{
 					SecretProviderClassName: "spc1",
 					PodName:                 "pod1",
 					TargetPath:              getTestTargetPath(t, "foo", "bad-volume-name"),
-					Objects: []v1alpha1.SecretProviderClassObject{
+					Objects: []secretsstorev1.SecretProviderClassObject{
 						{
 							ID:      "secret/object1",
 							Version: "v1",
@@ -310,15 +310,15 @@ func TestReconcileError(t *testing.T) {
 					},
 				},
 			},
-			secretProviderClassToAdd: &v1alpha1.SecretProviderClass{
+			secretProviderClassToAdd: &secretsstorev1.SecretProviderClass{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "spc1",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.SecretProviderClassSpec{
-					SecretObjects: []*v1alpha1.SecretObject{
+				Spec: secretsstorev1.SecretProviderClassSpec{
+					SecretObjects: []*secretsstorev1.SecretObject{
 						{
-							Data: []*v1alpha1.SecretObjectData{
+							Data: []*secretsstorev1.SecretObjectData{
 								{
 									ObjectName: "object1",
 									Key:        "foo",
@@ -365,27 +365,27 @@ func TestReconcileError(t *testing.T) {
 		{
 			name:                 "failed to lookup provider client",
 			rotationPollInterval: 60 * time.Second,
-			secretProviderClassPodStatusToProcess: &v1alpha1.SecretProviderClassPodStatus{
+			secretProviderClassPodStatusToProcess: &secretsstorev1.SecretProviderClassPodStatus{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "pod1-default-spc1",
 					Namespace: "default",
-					Labels:    map[string]string{v1alpha1.InternalNodeLabel: "nodeName"},
+					Labels:    map[string]string{secretsstorev1.InternalNodeLabel: "nodeName"},
 				},
-				Status: v1alpha1.SecretProviderClassPodStatusStatus{
+				Status: secretsstorev1.SecretProviderClassPodStatusStatus{
 					SecretProviderClassName: "spc1",
 					PodName:                 "pod1",
 					TargetPath:              getTestTargetPath(t, "foo", "csi-volume"),
 				},
 			},
-			secretProviderClassToAdd: &v1alpha1.SecretProviderClass{
+			secretProviderClassToAdd: &secretsstorev1.SecretProviderClass{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "spc1",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.SecretProviderClassSpec{
-					SecretObjects: []*v1alpha1.SecretObject{
+				Spec: secretsstorev1.SecretProviderClassSpec{
+					SecretObjects: []*secretsstorev1.SecretObject{
 						{
-							Data: []*v1alpha1.SecretObjectData{
+							Data: []*secretsstorev1.SecretObjectData{
 								{
 									ObjectName: "object1",
 									Key:        "foo",
@@ -499,17 +499,17 @@ func TestReconcileNoError(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		secretProviderClassPodStatusToProcess := &v1alpha1.SecretProviderClassPodStatus{
+		secretProviderClassPodStatusToProcess := &secretsstorev1.SecretProviderClassPodStatus{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "pod1-default-spc1",
 				Namespace: "default",
-				Labels:    map[string]string{v1alpha1.InternalNodeLabel: "nodeName"},
+				Labels:    map[string]string{secretsstorev1.InternalNodeLabel: "nodeName"},
 			},
-			Status: v1alpha1.SecretProviderClassPodStatusStatus{
+			Status: secretsstorev1.SecretProviderClassPodStatusStatus{
 				SecretProviderClassName: "spc1",
 				PodName:                 "pod1",
 				TargetPath:              getTestTargetPath(t, "foo", "csi-volume"),
-				Objects: []v1alpha1.SecretProviderClassObject{
+				Objects: []secretsstorev1.SecretProviderClassObject{
 					{
 						ID:      "secret/object1",
 						Version: "v1",
@@ -517,15 +517,15 @@ func TestReconcileNoError(t *testing.T) {
 				},
 			},
 		}
-		secretProviderClassToAdd := &v1alpha1.SecretProviderClass{
+		secretProviderClassToAdd := &secretsstorev1.SecretProviderClass{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "spc1",
 				Namespace: "default",
 			},
-			Spec: v1alpha1.SecretProviderClassSpec{
-				SecretObjects: []*v1alpha1.SecretObject{
+			Spec: secretsstorev1.SecretProviderClassSpec{
+				SecretObjects: []*secretsstorev1.SecretObject{
 					{
-						Data: []*v1alpha1.SecretObjectData{
+						Data: []*secretsstorev1.SecretObjectData{
 							{
 								ObjectName: "object1",
 								Key:        "foo",
@@ -610,9 +610,9 @@ func TestReconcileNoError(t *testing.T) {
 		g.Expect(err).NotTo(HaveOccurred())
 
 		// validate the secret provider class pod status versions have been updated
-		updatedSPCPodStatus, err := crdClient.SecretsstoreV1alpha1().SecretProviderClassPodStatuses(v1.NamespaceDefault).Get(context.TODO(), "pod1-default-spc1", metav1.GetOptions{})
+		updatedSPCPodStatus, err := crdClient.SecretsstoreV1().SecretProviderClassPodStatuses(v1.NamespaceDefault).Get(context.TODO(), "pod1-default-spc1", metav1.GetOptions{})
 		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(updatedSPCPodStatus.Status.Objects).To(Equal([]v1alpha1.SecretProviderClassObject{{ID: "secret/object1", Version: "v2"}}))
+		g.Expect(updatedSPCPodStatus.Status.Objects).To(Equal([]secretsstorev1.SecretProviderClassObject{{ID: "secret/object1", Version: "v2"}}))
 
 		// validate the secret data has been updated to the latest value
 		updatedSecret, err := kubeClient.CoreV1().Secrets(v1.NamespaceDefault).Get(context.TODO(), "foosecret", metav1.GetOptions{})

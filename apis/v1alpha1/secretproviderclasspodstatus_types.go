@@ -42,6 +42,7 @@ type SecretProviderClassObject struct {
 
 // +kubebuilder:object:root=true
 // +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // SecretProviderClassPodStatus is the Schema for the secretproviderclassespodstatus API
 type SecretProviderClassPodStatus struct {
@@ -52,6 +53,7 @@ type SecretProviderClassPodStatus struct {
 }
 
 // +kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // SecretProviderClassPodStatusList contains a list of SecretProviderClassPodStatus
 type SecretProviderClassPodStatusList struct {
