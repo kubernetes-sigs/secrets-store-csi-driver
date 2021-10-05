@@ -21,6 +21,10 @@ on:
 jobs:
   e2e-test:
     runs-on: ubuntu-20.04
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        KUBERNETES_VERSION: ["v1.19.11", "v1.20.7", "v1.21.2", "v1.22.1"]
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -37,6 +41,7 @@ jobs:
         uses: engineerd/setup-kind@aa272fe2a7309878ffc2a81c56cfe3ef108ae7d0
         with:
           version: "v0.11.1"
+          image: "kindest/node:${{ matrix.KUBERNETES_VERSION }}"
       - name: Test
         run: |
           # GH action sets this var by default. We need to explicitly unset it so that build commit hash is not appended to image tag.
