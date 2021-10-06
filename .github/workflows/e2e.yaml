@@ -17,7 +17,7 @@ on:
       imageVersion:
         description: 'image version for Secret Store CSI driver and CRDs'
         required: true
-        default: 'v0.3.0'
+        default: 'v1.CHANGE_ME'
 jobs:
   e2e-test:
     runs-on: ubuntu-20.04
