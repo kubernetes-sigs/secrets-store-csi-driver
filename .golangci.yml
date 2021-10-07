@@ -21,8 +21,10 @@ linters:
     - ineffassign
     - makezero
     - misspell
+    - nilerr
     - revive
     - structcheck
+    - stylecheck
     - typecheck
     - unused
     - varcheck

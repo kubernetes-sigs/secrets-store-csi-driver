@@ -29,11 +29,9 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/k8sutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/secretutil"
 
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -73,7 +71,7 @@ func New(mgr manager.Manager, nodeID string) (*SecretProviderClassPodStatusRecon
 	eventBroadcaster := record.NewBroadcaster()
 	kubeClient := kubernetes.NewForConfigOrDie(mgr.GetConfig())
 	eventBroadcaster.StartRecordingToSink(&clientcorev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "csi-secrets-store-controller"})
+	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "csi-secrets-store-controller"})
 
 	return &SecretProviderClassPodStatusReconciler{
 		Client:        mgr.GetClient(),
@@ -281,7 +279,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 
 	files, err := fileutil.GetMountedFiles(spcPodStatus.Status.TargetPath)
 	if err != nil {
-		r.generateEvent(pod, corev1.EventTypeWarning, secretCreationFailedReason, fmt.Sprintf("failed to get mounted files, err: %+v", err))
+		r.generateEvent(pod, v1.EventTypeWarning, secretCreationFailedReason, fmt.Sprintf("failed to get mounted files, err: %+v", err))
 		klog.ErrorS(err, "failed to get mounted files", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "spcps", klog.KObj(spcPodStatus))
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, err
 	}
@@ -313,7 +311,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 
 			var datamap map[string][]byte
 			if datamap, err = secretutil.GetSecretData(secretObj.Data, secretType, files); err != nil {
-				r.generateEvent(pod, corev1.EventTypeWarning, secretCreationFailedReason, fmt.Sprintf("failed to get data in spc %s/%s for secret %s, err: %+v", req.Namespace, spcName, secretName, err))
+				r.generateEvent(pod, v1.EventTypeWarning, secretCreationFailedReason, fmt.Sprintf("failed to get data in spc %s/%s for secret %s, err: %+v", req.Namespace, spcName, secretName, err))
 				klog.ErrorS(err, "failed to get data in spc for secret", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "secret", klog.ObjectRef{Namespace: req.Namespace, Name: secretName}, "spcps", klog.KObj(spcPodStatus))
 				errs = append(errs, fmt.Errorf("failed to get data in spc %s/%s for secret %s, err: %+v", req.Namespace, spcName, secretName, err))
 				continue
@@ -354,7 +352,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 				Factor:   1.0,
 				Jitter:   0.1,
 			}, f); err != nil {
-				r.generateEvent(pod, corev1.EventTypeWarning, secretCreationFailedReason, err.Error())
+				r.generateEvent(pod, v1.EventTypeWarning, secretCreationFailedReason, err.Error())
 				return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 			}
 		}
@@ -411,8 +409,8 @@ func (r *SecretProviderClassPodStatusReconciler) processIfBelongsToNode(objMeta 
 
 // createK8sSecret creates K8s secret with data from mounted files
 // If a secret with the same name already exists in the namespace of the pod, the error is nil.
-func (r *SecretProviderClassPodStatusReconciler) createK8sSecret(ctx context.Context, name, namespace string, datamap map[string][]byte, labelsmap map[string]string, annotationsmap map[string]string, secretType corev1.SecretType) error {
-	secret := &corev1.Secret{
+func (r *SecretProviderClassPodStatusReconciler) createK8sSecret(ctx context.Context, name, namespace string, datamap map[string][]byte, labelsmap map[string]string, annotationsmap map[string]string, secretType v1.SecretType) error {
+	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:   namespace,
 			Name:        name,
@@ -436,7 +434,7 @@ func (r *SecretProviderClassPodStatusReconciler) createK8sSecret(ctx context.Con
 
 // patchSecretWithOwnerRef patches the secret owner reference with the spc pod status
 func (r *SecretProviderClassPodStatusReconciler) patchSecretWithOwnerRef(ctx context.Context, name, namespace string, ownerRefs ...metav1.OwnerReference) error {
-	secret := &corev1.Secret{}
+	secret := &v1.Secret{}
 	secretKey := types.NamespacedName{
 		Namespace: namespace,
 		Name:      name,
@@ -494,7 +492,7 @@ func (r *SecretProviderClassPodStatusReconciler) secretExists(ctx context.Contex
 }
 
 // generateEvent generates an event
-func (r *SecretProviderClassPodStatusReconciler) generateEvent(obj runtime.Object, eventType, reason, message string) {
+func (r *SecretProviderClassPodStatusReconciler) generateEvent(obj apiruntime.Object, eventType, reason, message string) {
 	if obj != nil {
 		r.eventRecorder.Eventf(obj, eventType, reason, message)
 	}

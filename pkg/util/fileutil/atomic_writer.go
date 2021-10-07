@@ -131,30 +131,30 @@ func (w *AtomicWriter) Write(payload map[string]FileProjection) error {
 
 	// (2)
 	dataDirPath := filepath.Join(w.targetDir, dataDirName)
-	oldTsDir, err := os.Readlink(dataDirPath)
+	oldTSDir, err := os.Readlink(dataDirPath)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			klog.ErrorS(err, "error reading link for data directory", "logContext", w.logContext)
 			return err
 		}
 		// although Readlink() returns "" on err, don't be fragile by relying on it (since it's not specified in docs)
-		// empty oldTsDir indicates that it didn't exist
-		oldTsDir = ""
+		// empty oldTSDir indicates that it didn't exist
+		oldTSDir = ""
 	}
-	oldTsPath := filepath.Join(w.targetDir, oldTsDir)
+	oldTSPath := filepath.Join(w.targetDir, oldTSDir)
 
 	var pathsToRemove sets.String
 	// if there was no old version, there's nothing to remove
-	if len(oldTsDir) != 0 {
+	if len(oldTSDir) != 0 {
 		// (3)
-		pathsToRemove, err = w.pathsToRemove(cleanPayload, oldTsPath)
+		pathsToRemove, err = w.pathsToRemove(cleanPayload, oldTSPath)
 		if err != nil {
 			klog.ErrorS(err, "error determining user-visible files to remove", "logContext", w.logContext)
 			return err
 		}
 
 		// (4)
-		if should, err := shouldWritePayload(cleanPayload, oldTsPath); err != nil {
+		if should, err := shouldWritePayload(cleanPayload, oldTSPath); err != nil {
 			klog.ErrorS(err, "error determining whether payload should be written to disk", "logContext", w.logContext)
 			return err
 		} else if !should && len(pathsToRemove) == 0 {
@@ -216,9 +216,9 @@ func (w *AtomicWriter) Write(payload map[string]FileProjection) error {
 	}
 
 	// (11)
-	if len(oldTsDir) > 0 {
-		if err = os.RemoveAll(oldTsPath); err != nil {
-			klog.ErrorS(err, "error removing old data directory", "logContext", w.logContext, "oldTsDir", oldTsDir)
+	if len(oldTSDir) > 0 {
+		if err = os.RemoveAll(oldTSPath); err != nil {
+			klog.ErrorS(err, "error removing old data directory", "logContext", w.logContext, "oldTSDir", oldTSDir)
 			return err
 		}
 	}
@@ -281,9 +281,9 @@ func validatePath(targetPath string) error {
 }
 
 // shouldWritePayload returns whether the payload should be written to disk.
-func shouldWritePayload(payload map[string]FileProjection, oldTsDir string) (bool, error) {
+func shouldWritePayload(payload map[string]FileProjection, oldTSDir string) (bool, error) {
 	for userVisiblePath, fileProjection := range payload {
-		shouldWrite, err := shouldWriteFile(filepath.Join(oldTsDir, userVisiblePath), fileProjection.Data)
+		shouldWrite, err := shouldWriteFile(filepath.Join(oldTSDir, userVisiblePath), fileProjection.Data)
 		if err != nil {
 			return false, err
 		}
@@ -314,10 +314,10 @@ func shouldWriteFile(path string, content []byte) (bool, error) {
 // pathsToRemove walks the current version of the data directory and
 // determines which paths should be removed (if any) after the payload is
 // written to the target directory.
-func (w *AtomicWriter) pathsToRemove(payload map[string]FileProjection, oldTsDir string) (sets.String, error) {
+func (w *AtomicWriter) pathsToRemove(payload map[string]FileProjection, oldTSDir string) (sets.String, error) {
 	paths := sets.NewString()
 	visitor := func(path string, info os.FileInfo, err error) error {
-		relativePath := strings.TrimPrefix(path, oldTsDir)
+		relativePath := strings.TrimPrefix(path, oldTSDir)
 		relativePath = strings.TrimPrefix(relativePath, string(os.PathSeparator))
 		if relativePath == "" {
 			return nil
@@ -327,7 +327,7 @@ func (w *AtomicWriter) pathsToRemove(payload map[string]FileProjection, oldTsDir
 		return nil
 	}
 
-	err := filepath.Walk(oldTsDir, visitor)
+	err := filepath.Walk(oldTSDir, visitor)
 	if os.IsNotExist(err) {
 		return nil, nil
 	} else if err != nil {
