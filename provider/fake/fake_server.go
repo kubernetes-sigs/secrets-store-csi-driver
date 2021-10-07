@@ -87,7 +87,11 @@ func (m *MockCSIProviderServer) Start() error {
 	if err != nil {
 		return err
 	}
-	go m.grpcServer.Serve(m.listener)
+	go func() {
+		if err = m.grpcServer.Serve(m.listener); err != nil {
+			return
+		}
+	}()
 	return nil
 }
 

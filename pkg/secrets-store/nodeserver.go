@@ -56,6 +56,7 @@ const (
 	csipodsa                 = "csi.storage.k8s.io/serviceAccount.name"
 	csipodsatokens           = "csi.storage.k8s.io/serviceAccount.tokens" //nolint
 	secretProviderClassField = "secretProviderClass"
+	osWindows                = "windows"
 )
 
 func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (npvr *csi.NodePublishVolumeResponse, err error) {
@@ -73,7 +74,9 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			// again for mount, entire node publish volume is retried
 			if targetPath != "" && mounted {
 				klog.InfoS("unmounting target path as node publish volume failed", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
-				ns.mounter.Unmount(targetPath)
+				if err = ns.mounter.Unmount(targetPath); err != nil {
+					return
+				}
 			}
 			ns.reporter.ReportNodePublishErrorCtMetric(providerName, errorReason)
 			return
@@ -245,7 +248,7 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 
 	// for windows as the target path is not a mount point, we need to explicitly remove the contents from the
 	// dir to be able to cleanup the target path.
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		files, err := filepath.Glob(filepath.Join(targetPath, "*"))
 		if err != nil {
 			klog.ErrorS(err, "failed to get files from target path", "targetPath", targetPath)

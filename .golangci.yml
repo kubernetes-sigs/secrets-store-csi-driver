@@ -10,7 +10,9 @@ linters:
     - deadcode
     - durationcheck
     - exportloopref
+    - errcheck
     - exhaustive
+    - goconst
     - gofmt
     - goimports
     - gosimple
