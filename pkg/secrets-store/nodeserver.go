@@ -76,7 +76,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 				klog.InfoS("unmounting target path as node publish volume failed", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 				if err = ns.mounter.Unmount(targetPath); err != nil {
 					klog.ErrorS(err, "failed to unmounting target path")
-					return
 				}
 			}
 			ns.reporter.ReportNodePublishErrorCtMetric(providerName, errorReason)
