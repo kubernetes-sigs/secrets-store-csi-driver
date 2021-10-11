@@ -29,7 +29,8 @@ RUN export GOOS=$TARGETOS && \
 FROM $BASEIMAGE
 COPY --from=builder /go/src/sigs.k8s.io/secrets-store-csi-driver/_output/secrets-store-csi /secrets-store-csi
 # upgrading libssl1.1 due to CVE-2021-3711
-RUN clean-install ca-certificates mount libssl1.1
+# upgrading libgssapi-krb5-2 and libk5crypto3 due to CVE-2021-37750
+RUN clean-install ca-certificates mount libssl1.1 libgssapi-krb5-2 libk5crypto3
 
 LABEL maintainers="ritazh"
 LABEL description="Secrets Store CSI Driver"
