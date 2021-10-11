@@ -460,7 +460,8 @@ func TestReconcileError(t *testing.T) {
 			server, err := providerfake.NewMocKCSIProviderServer(serverEndpoint)
 			g.Expect(err).NotTo(HaveOccurred())
 			server.SetObjects(test.expectedObjectVersions)
-			server.Start()
+			err = server.Start()
+			g.Expect(err).NotTo(HaveOccurred())
 
 			err = testReconciler.reconcile(context.TODO(), test.secretProviderClassPodStatusToProcess)
 			g.Expect(err).To(HaveOccurred())
@@ -601,7 +602,8 @@ func TestReconcileNoError(t *testing.T) {
 		server, err := providerfake.NewMocKCSIProviderServer(serverEndpoint)
 		g.Expect(err).NotTo(HaveOccurred())
 		server.SetObjects(expectedObjectVersions)
-		server.Start()
+		err = server.Start()
+		g.Expect(err).NotTo(HaveOccurred())
 
 		err = os.WriteFile(secretProviderClassPodStatusToProcess.Status.TargetPath+"/object1", []byte("newdata"), permission)
 		g.Expect(err).NotTo(HaveOccurred())

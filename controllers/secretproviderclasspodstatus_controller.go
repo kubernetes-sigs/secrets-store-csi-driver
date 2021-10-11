@@ -30,10 +30,8 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/secretutil"
 
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -131,7 +129,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 			spcMap[namespace+"/"+spcName] = *spc
 		}
 		// get the pod and check if the pod has a owner reference
-		pod := &v1.Pod{}
+		pod := &corev1.Pod{}
 		err = r.reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: spcPodStatuses[i].Status.PodName}, pod)
 		if err != nil {
 			return fmt.Errorf("failed to fetch pod during patching, err: %+v", err)
@@ -234,7 +232,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 
 	// Obtain the full pod metadata. An object reference is needed for sending
 	// events and the UID is helpful for validating the SPCPS TargetPath.
-	pod := &v1.Pod{}
+	pod := &corev1.Pod{}
 	if err := r.reader.Get(ctx, client.ObjectKey{Namespace: req.Namespace, Name: spcPodStatus.Status.PodName}, pod); err != nil {
 		klog.ErrorS(err, "failed to get pod", "pod", klog.ObjectRef{Namespace: req.Namespace, Name: spcPodStatus.Status.PodName})
 		if apierrors.IsNotFound(err) {
@@ -245,7 +243,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 	// skip reconcile if the pod is being terminated
 	// or the pod is in succeeded state (for jobs that complete aren't gc yet)
 	// or the pod is in a failed state (all containers get terminated)
-	if !pod.GetDeletionTimestamp().IsZero() || pod.Status.Phase == v1.PodSucceeded || pod.Status.Phase == v1.PodFailed {
+	if !pod.GetDeletionTimestamp().IsZero() || pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
 		klog.V(5).InfoS("pod is being terminated, skipping reconcile", "pod", klog.KObj(pod))
 		return ctrl.Result{}, nil
 	}
@@ -478,7 +476,7 @@ func (r *SecretProviderClassPodStatusReconciler) patchSecretWithOwnerRef(ctx con
 
 // secretExists checks if the secret with name and namespace already exists
 func (r *SecretProviderClassPodStatusReconciler) secretExists(ctx context.Context, name, namespace string) (bool, error) {
-	o := &v1.Secret{}
+	o := &corev1.Secret{}
 	secretKey := types.NamespacedName{
 		Namespace: namespace,
 		Name:      name,
@@ -494,7 +492,7 @@ func (r *SecretProviderClassPodStatusReconciler) secretExists(ctx context.Contex
 }
 
 // generateEvent generates an event
-func (r *SecretProviderClassPodStatusReconciler) generateEvent(obj runtime.Object, eventType, reason, message string) {
+func (r *SecretProviderClassPodStatusReconciler) generateEvent(obj apiruntime.Object, eventType, reason, message string) {
 	if obj != nil {
 		r.eventRecorder.Eventf(obj, eventType, reason, message)
 	}

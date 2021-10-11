@@ -100,7 +100,11 @@ func (s *Server) Start() error {
 	}
 
 	klog.InfoS("Listening for connections", "address", listener.Addr())
-	go s.grpcServer.Serve(listener)
+	go func() {
+		if err := s.grpcServer.Serve(listener); err != nil {
+			return
+		}
+	}()
 	return nil
 }
 

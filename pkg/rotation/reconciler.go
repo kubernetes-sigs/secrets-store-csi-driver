@@ -26,7 +26,6 @@ import (
 
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	"sigs.k8s.io/secrets-store-csi-driver/controllers"
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned"
 	secretsStoreClient "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned"
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
@@ -80,7 +79,7 @@ type Reconciler struct {
 	reporter             StatsReporter
 	eventRecorder        record.EventRecorder
 	kubeClient           kubernetes.Interface
-	crdClient            versioned.Interface
+	crdClient            secretsStoreClient.Interface
 	// cache contains v1.Pod, secretsstorev1.SecretProviderClassPodStatus (both filtered on *nodeID),
 	// v1.Secret (filtered on secrets-store.csi.k8s.io/managed=true)
 	cache client.Reader
@@ -410,11 +409,12 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 
 		updateFn := func() (bool, error) {
 			err = r.updateSecretProviderClassPodStatus(ctx, spcps)
+			updated := true
 			if err != nil {
 				klog.ErrorS(err, "failed to update latest versions in spc pod status", "spcps", klog.KObj(spcps), "controller", "rotation")
-				return false, nil
+				updated = false
 			}
-			return true, nil
+			return updated, nil
 		}
 
 		if err := wait.ExponentialBackoff(wait.Backoff{

@@ -337,9 +337,15 @@ func createTestFile(tmpDir, fileName string) (string, error) {
 	if fileName != "" {
 		filePath := fmt.Sprintf("%s/%s", tmpDir, fileName)
 		f, err := os.Create(filePath)
-		f.Write([]byte("test"))
 		defer f.Close()
-		return filePath, err
+		if err != nil {
+			return filePath, err
+		}
+		_, err = f.Write([]byte("test"))
+		if err != nil {
+			return filePath, err
+		}
+		return filePath, nil
 	}
 	return "", nil
 }

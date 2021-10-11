@@ -187,7 +187,9 @@ func TestMountContent(t *testing.T) {
 			server.SetReturnError(test.providerError)
 			server.SetObjects(test.objectVersions)
 			server.SetFiles(test.files)
-			server.Start()
+			if err := server.Start(); err != nil {
+				t.Fatalf("unable to start server :%s", err)
+			}
 
 			client, err := pool.Get(context.Background(), "provider1")
 			if err != nil {
@@ -242,7 +244,9 @@ func TestMountContent_TooLarge(t *testing.T) {
 			Contents: []byte("foo"),
 		},
 	})
-	server.Start()
+	if err := server.Start(); err != nil {
+		t.Fatalf("expected err to be nil, got: %+v", err)
+	}
 
 	client, err := pool.Get(context.Background(), "provider1")
 	if err != nil {
@@ -335,7 +339,9 @@ func TestMountContentError(t *testing.T) {
 			server.SetReturnError(test.providerError)
 			server.SetObjects(test.expectedObjectVersion)
 			server.SetProviderErrorCode(test.expectedErrorCode)
-			server.Start()
+			if err := server.Start(); err != nil {
+				t.Fatalf("expected err to be nil, got: %+v", err)
+			}
 
 			client, err := pool.Get(context.Background(), providerName)
 			if err != nil {
@@ -365,7 +371,9 @@ func TestPluginClientBuilder(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		server, cleanup := fakeServer(t, path, fmt.Sprintf("server-%d", i))
 		defer cleanup()
-		server.Start()
+		if err := server.Start(); err != nil {
+			t.Fatalf("expected err to be nil, got: %+v", err)
+		}
 	}
 
 	var wg sync.WaitGroup
@@ -393,7 +401,9 @@ func TestPluginClientBuilder_ConcurrentGet(t *testing.T) {
 	provider := "server"
 	server, cleanup := fakeServer(t, path, provider)
 	defer cleanup()
-	server.Start()
+	if err := server.Start(); err != nil {
+		t.Fatalf("expected err to be nil, got: %+v", err)
+	}
 
 	var wg sync.WaitGroup
 
@@ -423,7 +433,9 @@ func TestPluginClientBuilderErrorNotFound(t *testing.T) {
 	// check that the provider is found once server is started
 	server, cleanup := fakeServer(t, path, "notfoundprovider")
 	defer cleanup()
-	server.Start()
+	if err := server.Start(); err != nil {
+		t.Fatalf("expected err to be nil, got: %+v", err)
+	}
 
 	if _, err := cb.Get(ctx, "notfoundprovider"); err != nil {
 		t.Errorf("Get(%s) = %v, want nil", "notfoundprovider", err)
@@ -462,7 +474,9 @@ func TestVersion(t *testing.T) {
 			server, cleanup := fakeServer(t, socketPath, "provider1")
 			defer cleanup()
 
-			server.Start()
+			if err := server.Start(); err != nil {
+				t.Fatalf("expected err to be nil, got: %+v", err)
+			}
 
 			client, err := pool.Get(context.Background(), "provider1")
 			if err != nil {
@@ -492,7 +506,9 @@ func TestPluginClientBuilder_HealthCheck(t *testing.T) {
 	provider := "server"
 	server, cleanup := fakeServer(t, path, provider)
 	defer cleanup()
-	server.Start()
+	if err := server.Start(); err != nil {
+		t.Fatalf("expected err to be nil, got: %+v", err)
+	}
 
 	// run the provider healthcheck
 	go cb.HealthCheck(ctx, healthCheckInterval)

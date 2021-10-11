@@ -240,7 +240,7 @@ func TestPathsToRemove(t *testing.T) {
 		}
 
 		dataDirPath := filepath.Join(targetDir, dataDirName)
-		oldTsDir, err := os.Readlink(dataDirPath)
+		oldTSDir, err := os.Readlink(dataDirPath)
 		if err != nil && os.IsNotExist(err) {
 			t.Errorf("Data symlink does not exist: %v", dataDirPath)
 			continue
@@ -249,7 +249,7 @@ func TestPathsToRemove(t *testing.T) {
 			continue
 		}
 
-		actual, err := writer.pathsToRemove(tc.payload2, filepath.Join(targetDir, oldTsDir))
+		actual, err := writer.pathsToRemove(tc.payload2, filepath.Join(targetDir, oldTSDir))
 		if err != nil {
 			t.Errorf("%v: unexpected error determining paths to remove: %v", tc.name, err)
 			continue
@@ -747,7 +747,10 @@ func TestMultipleUpdates(t *testing.T) {
 		writer := &AtomicWriter{targetDir: targetDir, logContext: "-test-"}
 
 		for _, payload := range tc.payloads {
-			writer.Write(payload)
+			if err := writer.Write(payload); err != nil {
+				t.Errorf("unexpected error writing payload: %v, err:%v", payload, err)
+				continue
+			}
 
 			checkVolumeContents(targetDir, tc.name, payload, t)
 		}
