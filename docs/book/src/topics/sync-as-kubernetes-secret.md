@@ -74,7 +74,7 @@ In some cases, you may want to create a Kubernetes Secret to mirror the mounted 
 A `SecretProviderClass` custom resource should have the following components:
 
 ```yaml
-apiVersion: secrets-store.csi.x-k8s.io/v1alpha1
+apiVersion: secrets-store.csi.x-k8s.io/v1
 kind: SecretProviderClass
 metadata:
   name: my-provider

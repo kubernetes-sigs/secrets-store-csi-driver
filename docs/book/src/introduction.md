@@ -13,15 +13,35 @@ Join us to help define the direction and implementation of this project!
 - Use [GitHub Issues](https://github.com/kubernetes-sigs/secrets-store-csi-driver/issues) to file bugs, request features, or ask questions asynchronously.
 - Join [biweekly community meetings](https://docs.google.com/document/d/1q74nboAg0GSPcom3kLWCIoWg43Qg3mr306KNL58f2hg/edit?usp=sharing) to discuss development, issues, use cases, etc.
 
+## Project Status
+
+| Driver                                                                                    | Compatible Kubernetes | `secrets-store.csi.k8s.io` Versions |
+|-------------------------------------------------------------------------------------------|-----------------------|-------------------------------------|
+| [v1.0.0](https://github.com/kubernetes-sigs/secrets-store-csi-driver/releases/tag/v1.0.0) | 1.19+                 | `v1`, `v1alpha1`                    |
+| [v0.3.0](https://github.com/kubernetes-sigs/secrets-store-csi-driver/releases/tag/v0.3.0) | 1.19+                 | `v1alpha1`                          |
+
+See
+[Release Management](./release-management.md)
+for additional details on versioning. We aim to release a new minor version every month and intend to support the latest
+2 minor versions of the driver.
+
 ## Features
 
+### Driver Core Functionality (Stable)
+
+- Multiple external [secrets store providers](./providers.md)
+- Pod portability with the `SecretProviderClass` `CustomResourceDefinition`
 - Mounts secrets/keys/certs to pod using a CSI volume
-- Supports mounting multiple secrets store objects as a single volume
-- Supports multiple secrets stores as providers. Multiple providers can run in the same cluster simultaneously
-- Supports pod portability with the SecretProviderClass CRD
-- Supports windows containers (Kubernetes version v1.18+)
-- Supports sync with Kubernetes Secrets (Secrets Store CSI Driver v0.0.10+)
-- Support auto rotation of mounted contents and synced Kubernetes secret (Secrets Store CSI Driver v0.0.15+)
+- Mount multiple secrets store objects as a single volume
+- Windows containers
+
+### Alpha Functionality
+
+These features are not stable. If you use these be sure to consult the
+[upgrade instructions](./getting-started/upgrades.md) with each upgrade.
+
+- [Auto rotation](./topics/secret-auto-rotation.md) of mounted contents and synced Kubernetes secret
+- [Sync with Kubernetes Secrets](./topics/sync-as-kubernetes-secret.md)
 
 ## Supported Providers
 
