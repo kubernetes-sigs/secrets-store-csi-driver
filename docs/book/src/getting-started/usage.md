@@ -7,7 +7,7 @@ To use the Secrets Store CSI driver, create a `SecretProviderClass` custom resou
 A `SecretProviderClass` custom resource should have the following components:
 
 ```yaml
-apiVersion: secrets-store.csi.x-k8s.io/v1alpha1
+apiVersion: secrets-store.csi.x-k8s.io/v1
 kind: SecretProviderClass
 metadata:
   name: my-provider

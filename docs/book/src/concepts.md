@@ -38,7 +38,7 @@ The `SecretProviderClass` is a namespaced resource in Secrets Store CSI Driver t
 `SecretProviderClass` custom resource should have the following components:
 
 ```yaml
-apiVersion: secrets-store.csi.x-k8s.io/v1alpha1
+apiVersion: secrets-store.csi.x-k8s.io/v1
 kind: SecretProviderClass
 metadata:
   name: my-provider
@@ -99,7 +99,7 @@ The `SecretProviderClassPodStatus` is created by the CSI driver in the same name
 Here is an example of a `SecretProviderClassPodStatus` resource:
 
 ```yaml
-apiVersion: secrets-store.csi.x-k8s.io/v1alpha1
+apiVersion: secrets-store.csi.x-k8s.io/v1
 kind: SecretProviderClassPodStatus
 metadata:
   creationTimestamp: "2021-01-21T19:20:11Z"

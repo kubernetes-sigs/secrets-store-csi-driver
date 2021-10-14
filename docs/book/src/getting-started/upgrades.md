@@ -1,7 +1,24 @@
 # Upgrades
 
-<aside class="note warning">
-<h1>Warning</h1>
+This page includes instructions for upgrading the driver to the latest version.
+
+```bash
+helm upgrade csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver --namespace=NAMESPACE
+```
+
+Set `NAMESPACE` to the same namespace where the driver was originally installed,
+(i.e. `kube-system`)
+
+If you are upgrading from one of the following versions there may be additional
+steps that you should take.
+
+## pre `v1.0.0`
+
+Versions `v1.0.0-rc.1` and later use the `v1` version of the `SecretProviderClass` and `SecretProviderClassPodStatus`
+`CustomResourceDefinition`s. `secrets-store.csi.x-k8s.io/v1alpha1` versioned `CRD`s will continue to work, but consider
+updating your YAMLs to `secrets-store.csi.x-k8s.io/v1`.
+
+## pre `v0.3.0`
 
 The helm chart repository URL has changed to `https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts`.
 
@@ -14,18 +31,6 @@ helm repo update
 ```
 
 </aside>
-
-This page includes instructions for upgrading the driver to the latest version.
-
-```bash
-helm upgrade csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver --namespace=NAMESPACE
-```
-
-Set `NAMESPACE` to the same namespace where the driver was originally installed,
-(i.e. `kube-system`)
-
-If you are upgrading from one of the following versions there may be additional
-steps that you should take.
 
 ## pre `v0.1.0`
 
