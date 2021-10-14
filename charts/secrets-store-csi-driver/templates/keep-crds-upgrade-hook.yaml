@@ -89,6 +89,10 @@ spec:
       {{- end }}
     spec:
       serviceAccountName: {{ template "sscd.fullname" . }}-keep-crds
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | indent 6 }}
+      {{- end }}
       restartPolicy: Never
       containers:
       - name: crds-keep
