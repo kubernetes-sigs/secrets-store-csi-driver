@@ -17,3 +17,4 @@
 - [Load tests](./load-tests.md)
 - [Testing](./testing.md)
 - [Known Limitations](./known-limitations.md)
+- [Release Managment](./release-management.md)
