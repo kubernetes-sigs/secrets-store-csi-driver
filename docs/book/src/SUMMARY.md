@@ -18,3 +18,4 @@
 - [Testing](./testing.md)
 - [Known Limitations](./known-limitations.md)
 - [Release Managment](./release-management.md)
+- [Design docs](./design-docs.md)
