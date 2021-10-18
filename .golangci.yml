@@ -11,8 +11,10 @@ linters:
     - durationcheck
     - exportloopref
     - errcheck
+    - errorlint
     - exhaustive
     - goconst
+    - gocyclo
     - gofmt
     - goimports
     - gosimple
@@ -23,6 +25,7 @@ linters:
     - misspell
     - nilerr
     - revive
+    - staticcheck
     - structcheck
     - stylecheck
     - typecheck

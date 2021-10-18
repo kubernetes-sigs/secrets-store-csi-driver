@@ -209,7 +209,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	mounted = true
 	var objectVersions map[string]string
 	if objectVersions, errorReason, err = ns.mountSecretsStoreObjectContent(ctx, providerName, string(parametersStr), string(secretStr), targetPath, string(permissionStr), podName); err != nil {
-		return nil, fmt.Errorf("failed to mount secrets store objects for pod %s/%s, err: %v", podNamespace, podName, err)
+		return nil, fmt.Errorf("failed to mount secrets store objects for pod %s/%s, err: %w", podNamespace, podName, err)
 	}
 
 	// create or update the secret provider class pod status object
@@ -217,7 +217,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	// the pod with same name (pods created by statefulsets) is moved to a different node and the old SPCPS
 	// has not yet been garbage collected.
 	if err = createOrUpdateSecretProviderClassPodStatus(ctx, ns.client, ns.reader, podName, podNamespace, podUID, secretProviderClass, targetPath, ns.nodeID, true, objectVersions); err != nil {
-		return nil, fmt.Errorf("failed to create secret provider class pod status for pod %s/%s, err: %v", podNamespace, podName, err)
+		return nil, fmt.Errorf("failed to create secret provider class pod status for pod %s/%s, err: %w", podNamespace, podName, err)
 	}
 
 	klog.InfoS("node publish volume complete", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})

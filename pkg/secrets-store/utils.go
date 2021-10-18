@@ -83,7 +83,7 @@ func getSecretProviderItem(ctx context.Context, c client.Client, name, namespace
 		Name:      name,
 	}
 	if err := c.Get(ctx, spcKey, spc); err != nil {
-		return nil, fmt.Errorf("failed to get secretproviderclass %s/%s, error: %+v", namespace, name, err)
+		return nil, fmt.Errorf("failed to get secretproviderclass %s/%s, error: %w", namespace, name, err)
 	}
 	return spc, nil
 }

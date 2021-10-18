@@ -124,13 +124,13 @@ func (s *Server) Mount(ctx context.Context, req *v1alpha1.MountRequest) (*v1alph
 	}
 
 	if err = json.Unmarshal([]byte(req.GetAttributes()), &attrib); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal attributes, error: %+v", err)
+		return nil, fmt.Errorf("failed to unmarshal attributes, error: %w", err)
 	}
 	if err = json.Unmarshal([]byte(req.GetSecrets()), &secret); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal secrets, error: %+v", err)
+		return nil, fmt.Errorf("failed to unmarshal secrets, error: %w", err)
 	}
 	if err = json.Unmarshal([]byte(req.GetPermission()), &filePermission); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal file permission, error: %+v", err)
+		return nil, fmt.Errorf("failed to unmarshal file permission, error: %w", err)
 	}
 	if len(req.GetTargetPath()) == 0 {
 		return nil, fmt.Errorf("missing target path")
