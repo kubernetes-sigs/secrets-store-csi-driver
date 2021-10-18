@@ -19,7 +19,7 @@ package k8s
 import (
 	"fmt"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
@@ -31,15 +31,15 @@ type SecretLister struct {
 }
 
 // GetWithKey returns secret with key from the informer cache
-func (sl *SecretLister) GetWithKey(key string) (*v1.Secret, error) {
+func (sl *SecretLister) GetWithKey(key string) (*corev1.Secret, error) {
 	sec, exists, err := sl.GetByKey(key)
 	if err != nil {
 		return nil, err
 	}
 	if !exists {
-		return nil, apierrors.NewNotFound(schema.GroupResource{Group: v1.GroupName, Resource: "secrets"}, key)
+		return nil, apierrors.NewNotFound(schema.GroupResource{Group: corev1.GroupName, Resource: "secrets"}, key)
 	}
-	secret, ok := sec.(*v1.Secret)
+	secret, ok := sec.(*corev1.Secret)
 	if !ok {
 		return nil, fmt.Errorf("failed to cast %T to %s", sec, "secret")
 	}

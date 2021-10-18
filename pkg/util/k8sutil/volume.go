@@ -19,12 +19,12 @@ limitations under the License.
 package k8sutil
 
 import (
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // SPCVolume finds the Secret Provider Class volume from a Pod, or returns nil
 // if a volume could not be found.
-func SPCVolume(pod *v1.Pod, spcName string) *v1.Volume {
+func SPCVolume(pod *corev1.Pod, spcName string) *corev1.Volume {
 	for i, vol := range pod.Spec.Volumes {
 		if vol.CSI == nil {
 			continue
