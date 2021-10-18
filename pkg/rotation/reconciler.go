@@ -36,7 +36,7 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/spcpsutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -102,7 +102,7 @@ func NewReconciler(client client.Reader, s *runtime.Scheme, providerVolumePath, 
 	crdClient := secretsStoreClient.NewForConfigOrDie(config)
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&clientcorev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(s, v1.EventSource{Component: "csi-secrets-store-rotation"})
+	recorder := eventBroadcaster.NewRecorder(s, corev1.EventSource{Component: "csi-secrets-store-rotation"})
 	secretStore, err := k8s.New(kubeClient, 5*time.Second)
 	if err != nil {
 		return nil, err
@@ -246,7 +246,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	}()
 
 	// get pod from manager's cache
-	pod := &v1.Pod{}
+	pod := &corev1.Pod{}
 	err = r.cache.Get(
 		ctx,
 		client.ObjectKey{
@@ -263,7 +263,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	// or the pod is in succeeded state (for jobs that complete aren't gc yet)
 	// or the pod is in a failed state (all containers get terminated).
 	// the spcps will be gc when the pod is deleted and will not show up in the next rotation cycle
-	if !pod.GetDeletionTimestamp().IsZero() || pod.Status.Phase == v1.PodSucceeded || pod.Status.Phase == v1.PodFailed {
+	if !pod.GetDeletionTimestamp().IsZero() || pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
 		klog.V(5).InfoS("pod is being terminated, skipping rotation", "pod", klog.KObj(pod))
 		return nil
 	}
@@ -337,7 +337,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 					"name", nodePublishSecretRef.Name, "namespace", spcps.Namespace)
 			}
 			errorReason = internalerrors.NodePublishSecretRefNotFound
-			r.generateEvent(pod, v1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to get node publish secret %s/%s, err: %+v", spcps.Namespace, nodePublishSecretRef.Name, err))
+			r.generateEvent(pod, corev1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to get node publish secret %s/%s, err: %+v", spcps.Namespace, nodePublishSecretRef.Name, err))
 			return fmt.Errorf("failed to get node publish secret %s/%s, err: %+v", spcps.Namespace, nodePublishSecretRef.Name, err)
 		}
 
@@ -348,7 +348,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 
 	secretsJSON, err = json.Marshal(nodePublishSecretData)
 	if err != nil {
-		r.generateEvent(pod, v1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to marshal node publish secret data, err: %+v", err))
+		r.generateEvent(pod, corev1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to marshal node publish secret data, err: %+v", err))
 		return fmt.Errorf("failed to marshal node publish secret data, err: %+v", err)
 	}
 
@@ -365,12 +365,12 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	providerClient, err := r.providerClients.Get(ctx, providerName)
 	if err != nil {
 		errorReason = internalerrors.FailedToLookupProviderGRPCClient
-		r.generateEvent(pod, v1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to lookup provider client: %q", providerName))
+		r.generateEvent(pod, corev1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to lookup provider client: %q", providerName))
 		return fmt.Errorf("failed to lookup provider client: %q", providerName)
 	}
 	newObjectVersions, errorReason, err := secretsstore.MountContent(ctx, providerClient, string(paramsJSON), string(secretsJSON), spcps.Status.TargetPath, string(permissionJSON), oldObjectVersions)
 	if err != nil {
-		r.generateEvent(pod, v1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("provider mount err: %+v", err))
+		r.generateEvent(pod, corev1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("provider mount err: %+v", err))
 		return fmt.Errorf("failed to rotate objects for pod %s/%s, err: %+v", spcps.Namespace, spcps.Status.PodName, err)
 	}
 
@@ -398,7 +398,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	// data is updated with the latest versions
 	if requiresUpdate {
 		// generate an event for successful mount update
-		r.generateEvent(pod, v1.EventTypeNormal, mountRotationCompleteReason, fmt.Sprintf("successfully rotated mounted contents for spc %s/%s", spc.Namespace, spc.Name))
+		r.generateEvent(pod, corev1.EventTypeNormal, mountRotationCompleteReason, fmt.Sprintf("successfully rotated mounted contents for spc %s/%s", spc.Namespace, spc.Name))
 		klog.InfoS("updating versions in spc pod status", "spcps", klog.KObj(spcps), "controller", "rotation")
 
 		var ov []secretsstorev1.SecretProviderClassObject
@@ -423,7 +423,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 			Factor:   1.0,
 			Jitter:   0.1,
 		}, updateFn); err != nil {
-			r.generateEvent(pod, v1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to update versions in spc pod status %s, err: %+v", spc.Name, err))
+			r.generateEvent(pod, corev1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to update versions in spc pod status %s, err: %+v", spc.Name, err))
 			return fmt.Errorf("failed to update spc pod status, err: %+v", err)
 		}
 	}
@@ -434,14 +434,14 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	}
 	files, err := fileutil.GetMountedFiles(spcps.Status.TargetPath)
 	if err != nil {
-		r.generateEvent(pod, v1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed to get mounted files, err: %+v", err))
+		r.generateEvent(pod, corev1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed to get mounted files, err: %+v", err))
 		return fmt.Errorf("failed to get mounted files, err: %+v", err)
 	}
 	for _, secretObj := range spc.Spec.SecretObjects {
 		secretName := strings.TrimSpace(secretObj.SecretName)
 
 		if err = secretutil.ValidateSecretObject(*secretObj); err != nil {
-			r.generateEvent(pod, v1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed validation for secret object in spc %s/%s, err: %+v", spc.Namespace, spc.Name, err))
+			r.generateEvent(pod, corev1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed validation for secret object in spc %s/%s, err: %+v", spc.Namespace, spc.Name, err))
 			klog.ErrorS(err, "failed validation for secret object in spc", "spc", klog.KObj(spc), "controller", "rotation")
 			errs = append(errs, err)
 			continue
@@ -450,7 +450,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 		secretType := secretutil.GetSecretType(strings.TrimSpace(secretObj.Type))
 		var datamap map[string][]byte
 		if datamap, err = secretutil.GetSecretData(secretObj.Data, secretType, files); err != nil {
-			r.generateEvent(pod, v1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed to get data in spc %s/%s for secret %s, err: %+v", spc.Namespace, spc.Name, secretName, err))
+			r.generateEvent(pod, corev1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed to get data in spc %s/%s for secret %s, err: %+v", spc.Namespace, spc.Name, secretName, err))
 			klog.ErrorS(err, "failed to get data in spc for secret", "spc", klog.KObj(spc), "secret", klog.ObjectRef{Namespace: spc.Namespace, Name: secretName}, "controller", "rotation")
 			errs = append(errs, err)
 			continue
@@ -476,12 +476,12 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 			Factor:   1.0,
 			Jitter:   0.1,
 		}, patchFn); err != nil {
-			r.generateEvent(pod, v1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed to patch secret %s with new data, err: %+v", secretName, err))
+			r.generateEvent(pod, corev1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed to patch secret %s with new data, err: %+v", secretName, err))
 			// continue to ensure error in a single secret doesn't block the updates
 			// for all other secret objects defined in SPC
 			continue
 		}
-		r.generateEvent(pod, v1.EventTypeNormal, k8sSecretRotationCompleteReason, fmt.Sprintf("successfully rotated K8s secret %s", secretName))
+		r.generateEvent(pod, corev1.EventTypeNormal, k8sSecretRotationCompleteReason, fmt.Sprintf("successfully rotated K8s secret %s", secretName))
 	}
 
 	// for errors with individual secret objects in spc, we continue to the next secret object
@@ -504,7 +504,7 @@ func (r *Reconciler) updateSecretProviderClassPodStatus(ctx context.Context, spc
 
 // patchSecret patches secret with the new data and returns error if any
 func (r *Reconciler) patchSecret(ctx context.Context, name, namespace string, data map[string][]byte) error {
-	secret := &v1.Secret{}
+	secret := &corev1.Secret{}
 	err := r.cache.Get(
 		ctx,
 		client.ObjectKey{

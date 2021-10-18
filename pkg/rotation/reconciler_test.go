@@ -33,7 +33,7 @@ import (
 	providerfake "sigs.k8s.io/secrets-store-csi-driver/provider/fake"
 
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -90,9 +90,9 @@ func TestReconcileError(t *testing.T) {
 		rotationPollInterval                  time.Duration
 		secretProviderClassPodStatusToProcess *secretsstorev1.SecretProviderClassPodStatus
 		secretProviderClassToAdd              *secretsstorev1.SecretProviderClass
-		podToAdd                              *v1.Pod
+		podToAdd                              *corev1.Pod
 		socketPath                            string
-		secretToAdd                           *v1.Secret
+		secretToAdd                           *corev1.Secret
 		expectedObjectVersions                map[string]string
 		expectedErr                           bool
 		expectedErrorEvents                   bool
@@ -112,9 +112,9 @@ func TestReconcileError(t *testing.T) {
 				},
 			},
 			secretProviderClassToAdd: &secretsstorev1.SecretProviderClass{},
-			podToAdd:                 &v1.Pod{},
+			podToAdd:                 &corev1.Pod{},
 			socketPath:               getTempTestDir(t),
-			secretToAdd:              &v1.Secret{},
+			secretToAdd:              &corev1.Secret{},
 			expectedErr:              true,
 		},
 		{
@@ -149,9 +149,9 @@ func TestReconcileError(t *testing.T) {
 					},
 				},
 			},
-			podToAdd:    &v1.Pod{},
+			podToAdd:    &corev1.Pod{},
 			socketPath:  getTempTestDir(t),
-			secretToAdd: &v1.Secret{},
+			secretToAdd: &corev1.Secret{},
 			expectedErr: true,
 		},
 		{
@@ -188,21 +188,21 @@ func TestReconcileError(t *testing.T) {
 					Provider: "provider1",
 				},
 			},
-			podToAdd: &v1.Pod{
+			podToAdd: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "pod1",
 					Namespace: "default",
 					UID:       types.UID("foo"),
 				},
-				Spec: v1.PodSpec{
-					Volumes: []v1.Volume{
+				Spec: corev1.PodSpec{
+					Volumes: []corev1.Volume{
 						{
 							Name: "csi-volume",
-							VolumeSource: v1.VolumeSource{
-								CSI: &v1.CSIVolumeSource{
+							VolumeSource: corev1.VolumeSource{
+								CSI: &corev1.CSIVolumeSource{
 									Driver:           "secrets-store.csi.k8s.io",
 									VolumeAttributes: map[string]string{"secretProviderClass": "spc1"},
-									NodePublishSecretRef: &v1.LocalObjectReference{
+									NodePublishSecretRef: &corev1.LocalObjectReference{
 										Name: "secret1",
 									},
 								},
@@ -212,7 +212,7 @@ func TestReconcileError(t *testing.T) {
 				},
 			},
 			socketPath:          getTempTestDir(t),
-			secretToAdd:         &v1.Secret{},
+			secretToAdd:         &corev1.Secret{},
 			expectedErr:         true,
 			expectedErrorEvents: true,
 		},
@@ -256,18 +256,18 @@ func TestReconcileError(t *testing.T) {
 					Provider: "provider1",
 				},
 			},
-			podToAdd: &v1.Pod{
+			podToAdd: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "pod1",
 					Namespace: "default",
 					UID:       types.UID("foo"),
 				},
-				Spec: v1.PodSpec{
-					Volumes: []v1.Volume{
+				Spec: corev1.PodSpec{
+					Volumes: []corev1.Volume{
 						{
 							Name: "csi-volume",
-							VolumeSource: v1.VolumeSource{
-								CSI: &v1.CSIVolumeSource{
+							VolumeSource: corev1.VolumeSource{
+								CSI: &corev1.CSIVolumeSource{
 									Driver:           "secrets-store.csi.k8s.io",
 									VolumeAttributes: map[string]string{"secretProviderClass": "spc1"},
 								},
@@ -277,7 +277,7 @@ func TestReconcileError(t *testing.T) {
 				},
 			},
 			socketPath: getTempTestDir(t),
-			secretToAdd: &v1.Secret{
+			secretToAdd: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:            "object1",
 					Namespace:       "default",
@@ -329,18 +329,18 @@ func TestReconcileError(t *testing.T) {
 					Provider: "provider1",
 				},
 			},
-			podToAdd: &v1.Pod{
+			podToAdd: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "pod1",
 					Namespace: "default",
 					UID:       types.UID("foo"),
 				},
-				Spec: v1.PodSpec{
-					Volumes: []v1.Volume{
+				Spec: corev1.PodSpec{
+					Volumes: []corev1.Volume{
 						{
 							Name: "csi-volume",
-							VolumeSource: v1.VolumeSource{
-								CSI: &v1.CSIVolumeSource{
+							VolumeSource: corev1.VolumeSource{
+								CSI: &corev1.CSIVolumeSource{
 									Driver:           "secrets-store.csi.k8s.io",
 									VolumeAttributes: map[string]string{"secretProviderClass": "spc1"},
 								},
@@ -350,7 +350,7 @@ func TestReconcileError(t *testing.T) {
 				},
 			},
 			socketPath: getTempTestDir(t),
-			secretToAdd: &v1.Secret{
+			secretToAdd: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:            "object1",
 					Namespace:       "default",
@@ -396,21 +396,21 @@ func TestReconcileError(t *testing.T) {
 					Provider: "wrongprovider",
 				},
 			},
-			podToAdd: &v1.Pod{
+			podToAdd: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "pod1",
 					Namespace: "default",
 					UID:       types.UID("foo"),
 				},
-				Spec: v1.PodSpec{
-					Volumes: []v1.Volume{
+				Spec: corev1.PodSpec{
+					Volumes: []corev1.Volume{
 						{
 							Name: "csi-volume",
-							VolumeSource: v1.VolumeSource{
-								CSI: &v1.CSIVolumeSource{
+							VolumeSource: corev1.VolumeSource{
+								CSI: &corev1.CSIVolumeSource{
 									Driver:           "secrets-store.csi.k8s.io",
 									VolumeAttributes: map[string]string{"secretProviderClass": "spc1"},
-									NodePublishSecretRef: &v1.LocalObjectReference{
+									NodePublishSecretRef: &corev1.LocalObjectReference{
 										Name: "secret1",
 									},
 								},
@@ -420,7 +420,7 @@ func TestReconcileError(t *testing.T) {
 				},
 			},
 			socketPath: getTempTestDir(t),
-			secretToAdd: &v1.Secret{
+			secretToAdd: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "secret1",
 					Namespace: "default",
@@ -481,12 +481,12 @@ func TestReconcileNoError(t *testing.T) {
 	tests := []struct {
 		name                            string
 		filteredWatchEnabled            bool
-		nodePublishSecretRefSecretToAdd *v1.Secret
+		nodePublishSecretRefSecretToAdd *corev1.Secret
 	}{
 		{
 			name:                 "filtered watch for nodePublishSecretRef",
 			filteredWatchEnabled: true,
-			nodePublishSecretRefSecretToAdd: &v1.Secret{
+			nodePublishSecretRefSecretToAdd: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "secret1",
 					Namespace: "default",
@@ -539,21 +539,21 @@ func TestReconcileNoError(t *testing.T) {
 				Provider: "provider1",
 			},
 		}
-		podToAdd := &v1.Pod{
+		podToAdd := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "pod1",
 				Namespace: "default",
 				UID:       types.UID("foo"),
 			},
-			Spec: v1.PodSpec{
-				Volumes: []v1.Volume{
+			Spec: corev1.PodSpec{
+				Volumes: []corev1.Volume{
 					{
 						Name: "csi-volume",
-						VolumeSource: v1.VolumeSource{
-							CSI: &v1.CSIVolumeSource{
+						VolumeSource: corev1.VolumeSource{
+							CSI: &corev1.CSIVolumeSource{
 								Driver:           "secrets-store.csi.k8s.io",
 								VolumeAttributes: map[string]string{"secretProviderClass": "spc1"},
-								NodePublishSecretRef: &v1.LocalObjectReference{
+								NodePublishSecretRef: &corev1.LocalObjectReference{
 									Name: "secret1",
 								},
 							},
@@ -562,7 +562,7 @@ func TestReconcileNoError(t *testing.T) {
 				},
 			},
 		}
-		secretToBeRotated := &v1.Secret{
+		secretToBeRotated := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:            "foosecret",
 				Namespace:       "default",
@@ -612,12 +612,12 @@ func TestReconcileNoError(t *testing.T) {
 		g.Expect(err).NotTo(HaveOccurred())
 
 		// validate the secret provider class pod status versions have been updated
-		updatedSPCPodStatus, err := crdClient.SecretsstoreV1().SecretProviderClassPodStatuses(v1.NamespaceDefault).Get(context.TODO(), "pod1-default-spc1", metav1.GetOptions{})
+		updatedSPCPodStatus, err := crdClient.SecretsstoreV1().SecretProviderClassPodStatuses(corev1.NamespaceDefault).Get(context.TODO(), "pod1-default-spc1", metav1.GetOptions{})
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(updatedSPCPodStatus.Status.Objects).To(Equal([]secretsstorev1.SecretProviderClassObject{{ID: "secret/object1", Version: "v2"}}))
 
 		// validate the secret data has been updated to the latest value
-		updatedSecret, err := kubeClient.CoreV1().Secrets(v1.NamespaceDefault).Get(context.TODO(), "foosecret", metav1.GetOptions{})
+		updatedSecret, err := kubeClient.CoreV1().Secrets(corev1.NamespaceDefault).Get(context.TODO(), "foosecret", metav1.GetOptions{})
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(updatedSecret.Data["foo"]).To(Equal([]byte("newdata")))
 
@@ -645,7 +645,7 @@ func TestReconcileNoError(t *testing.T) {
 
 		// test with pod being in succeeded phase
 		podToAdd.DeletionTimestamp = nil
-		podToAdd.Status.Phase = v1.PodSucceeded
+		podToAdd.Status.Phase = corev1.PodSucceeded
 		kubeClient = fake.NewSimpleClientset(podToAdd, test.nodePublishSecretRefSecretToAdd)
 		initObjects = []client.Object{
 			podToAdd,
@@ -666,20 +666,20 @@ func TestPatchSecret(t *testing.T) {
 
 	tests := []struct {
 		name               string
-		secretToAdd        *v1.Secret
+		secretToAdd        *corev1.Secret
 		secretName         string
 		expectedSecretData map[string][]byte
 		expectedErr        bool
 	}{
 		{
 			name:        "secret is not found",
-			secretToAdd: &v1.Secret{},
+			secretToAdd: &corev1.Secret{},
 			secretName:  "secret1",
 			expectedErr: true,
 		},
 		{
 			name: "secret is found and data already matches",
-			secretToAdd: &v1.Secret{
+			secretToAdd: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:            "secret1",
 					Namespace:       "default",
@@ -696,7 +696,7 @@ func TestPatchSecret(t *testing.T) {
 		},
 		{
 			name: "secret is found and data is updated to latest",
-			secretToAdd: &v1.Secret{
+			secretToAdd: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:            "secret1",
 					Namespace:       "default",
@@ -713,7 +713,7 @@ func TestPatchSecret(t *testing.T) {
 		},
 		{
 			name: "secret is found and new data is appended to existing",
-			secretToAdd: &v1.Secret{
+			secretToAdd: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:            "secret1",
 					Namespace:       "default",
@@ -748,7 +748,7 @@ func TestPatchSecret(t *testing.T) {
 			err = testReconciler.secretStore.Run(wait.NeverStop)
 			g.Expect(err).NotTo(HaveOccurred())
 
-			err = testReconciler.patchSecret(context.TODO(), test.secretName, v1.NamespaceDefault, test.expectedSecretData)
+			err = testReconciler.patchSecret(context.TODO(), test.secretName, corev1.NamespaceDefault, test.expectedSecretData)
 			if test.expectedErr {
 				g.Expect(err).To(HaveOccurred())
 			} else {
@@ -757,7 +757,7 @@ func TestPatchSecret(t *testing.T) {
 
 			if !test.expectedErr {
 				// check the secret data is what we expect it to
-				secret, err := kubeClient.CoreV1().Secrets(v1.NamespaceDefault).Get(context.TODO(), test.secretName, metav1.GetOptions{})
+				secret, err := kubeClient.CoreV1().Secrets(corev1.NamespaceDefault).Get(context.TODO(), test.secretName, metav1.GetOptions{})
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(secret.Data).To(Equal(test.expectedSecretData))
 			}

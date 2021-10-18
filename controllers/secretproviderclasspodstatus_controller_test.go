@@ -24,7 +24,7 @@ import (
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -50,8 +50,8 @@ func setupScheme() (*runtime.Scheme, error) {
 	return scheme, nil
 }
 
-func newSecret(name, namespace string, labels map[string]string, annotations map[string]string) *v1.Secret {
-	return &v1.Secret{
+func newSecret(name, namespace string, labels map[string]string, annotations map[string]string) *corev1.Secret {
+	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            name,
 			Namespace:       namespace,
@@ -98,8 +98,8 @@ func newSecretProviderClass(name, namespace string) *secretsstorev1.SecretProvid
 	}
 }
 
-func newPod(name, namespace string, owners []metav1.OwnerReference) *v1.Pod {
-	return &v1.Pod{
+func newPod(name, namespace string, owners []metav1.OwnerReference) *corev1.Pod {
+	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            name,
 			Namespace:       namespace,
@@ -176,7 +176,7 @@ func TestPatchSecretWithOwnerRef(t *testing.T) {
 	err = reconciler.patchSecretWithOwnerRef(context.TODO(), "my-secret", "default", ref, ref)
 	g.Expect(err).NotTo(HaveOccurred())
 
-	secret := &v1.Secret{}
+	secret := &corev1.Secret{}
 	err = client.Get(context.TODO(), types.NamespacedName{Name: "my-secret", Namespace: "default"}, secret)
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(secret.GetOwnerReferences()).To(HaveLen(1))
@@ -198,12 +198,12 @@ func TestCreateK8sSecret(t *testing.T) {
 	reconciler := newReconciler(client, scheme, "node1")
 
 	// secret already exists
-	err = reconciler.createK8sSecret(context.TODO(), "my-secret", "default", nil, labels, annotations, v1.SecretTypeOpaque)
+	err = reconciler.createK8sSecret(context.TODO(), "my-secret", "default", nil, labels, annotations, corev1.SecretTypeOpaque)
 	g.Expect(err).NotTo(HaveOccurred())
 
-	err = reconciler.createK8sSecret(context.TODO(), "my-secret2", "default", nil, labels, annotations, v1.SecretTypeOpaque)
+	err = reconciler.createK8sSecret(context.TODO(), "my-secret2", "default", nil, labels, annotations, corev1.SecretTypeOpaque)
 	g.Expect(err).NotTo(HaveOccurred())
-	secret := &v1.Secret{}
+	secret := &corev1.Secret{}
 	err = client.Get(context.TODO(), types.NamespacedName{Name: "my-secret2", Namespace: "default"}, secret)
 	g.Expect(err).NotTo(HaveOccurred())
 
@@ -221,14 +221,14 @@ func TestGenerateEvent(t *testing.T) {
 	client := fake.NewClientBuilder().WithScheme(scheme).Build()
 	reconciler := newReconciler(client, scheme, "node1")
 
-	obj := &v1.ObjectReference{
+	obj := &corev1.ObjectReference{
 		Name:      "pod1",
 		Namespace: "default",
 		UID:       "481ab824-1f07-4611-bc08-c41f5cbb5a8d",
 	}
 
-	reconciler.generateEvent(obj, v1.EventTypeWarning, "reason", "message")
-	reconciler.generateEvent(obj, v1.EventTypeWarning, "reason2", "message2")
+	reconciler.generateEvent(obj, corev1.EventTypeWarning, "reason", "message")
+	reconciler.generateEvent(obj, corev1.EventTypeWarning, "reason2", "message2")
 
 	event := <-fakeRecorder.Events
 	g.Expect(event).To(Equal("Warning reason message"))
@@ -255,7 +255,7 @@ func TestPatcherForStaticPod(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	// check the spcps has been added as owner to the secret
-	secret := &v1.Secret{}
+	secret := &corev1.Secret{}
 	err = client.Get(context.TODO(), types.NamespacedName{Name: "secret1", Namespace: "default"}, secret)
 	g.Expect(err).NotTo(HaveOccurred())
 
@@ -294,7 +294,7 @@ func TestPatcherForPodWithOwner(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	// check the spcps has been added as owner to the secret
-	secret := &v1.Secret{}
+	secret := &corev1.Secret{}
 	err = client.Get(context.TODO(), types.NamespacedName{Name: "secret1", Namespace: "default"}, secret)
 	g.Expect(err).NotTo(HaveOccurred())
 
