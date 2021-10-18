@@ -18,7 +18,6 @@ package secretsstore
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -31,6 +30,7 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 
+	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -121,11 +121,11 @@ func (p *PluginClientBuilder) Get(ctx context.Context, provider string) (v1alpha
 
 	// client does not exist, create a new one
 	if !PluginNameRe.MatchString(provider) {
-		return nil, fmt.Errorf("%w: provider %q", ErrInvalidProvider, provider)
+		return nil, errors.Wrapf(ErrInvalidProvider, "provider %q", provider)
 	}
 
 	if _, err := os.Stat(fmt.Sprintf("%s/%s.sock", p.socketPath, provider)); os.IsNotExist(err) {
-		return nil, fmt.Errorf("%w: provider %q", ErrProviderNotFound, provider)
+		return nil, errors.Wrapf(ErrProviderNotFound, "provider %q", provider)
 	}
 
 	conn, err := grpc.Dial(
@@ -222,7 +222,7 @@ func MountContent(ctx context.Context, client v1alpha1.CSIDriverProviderClient, 
 		return nil, internalerrors.GRPCProviderError, err
 	}
 	if resp != nil && resp.GetError() != nil && len(resp.GetError().Code) > 0 {
-		return nil, resp.GetError().Code, fmt.Errorf("mount request failed with provider error code %s", resp.GetError().Code)
+		return nil, resp.GetError().Code, errors.Errorf("mount request failed with provider error code %s", resp.GetError().Code)
 	}
 
 	ov := resp.GetObjectVersion()

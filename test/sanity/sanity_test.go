@@ -18,7 +18,6 @@ package sanity
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -28,6 +27,7 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
 	"github.com/kubernetes-csi/csi-test/v4/pkg/sanity"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -69,7 +69,7 @@ func createTargetDir(targetPath string) error {
 		return err
 	}
 	if !fileInfo.IsDir() {
-		return fmt.Errorf("target location %s is not a directory", targetPath)
+		return errors.Errorf("target location %s is not a directory", targetPath)
 	}
 
 	return nil

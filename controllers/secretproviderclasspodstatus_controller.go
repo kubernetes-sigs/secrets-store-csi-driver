@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/k8sutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/secretutil"
 
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -111,7 +112,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 	// get a list of all spc pod status that belong to the node
 	err := r.reader.List(ctx, spcPodStatusList, r.ListOptionsLabelSelector())
 	if err != nil {
-		return fmt.Errorf("failed to list secret provider class pod status, err: %w", err)
+		return errors.Wrap(err, "failed to list secret provider class pod status")
 	}
 
 	spcPodStatuses := spcPodStatusList.Items
@@ -124,7 +125,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 			spc = &val
 		} else {
 			if err := r.reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: spcName}, spc); err != nil {
-				return fmt.Errorf("failed to get spc %s, err: %w", spcName, err)
+				return errors.Wrapf(err, "failed to get spc %s", spcName)
 			}
 			spcMap[namespace+"/"+spcName] = *spc
 		}
@@ -132,7 +133,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 		pod := &corev1.Pod{}
 		err = r.reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: spcPodStatuses[i].Status.PodName}, pod)
 		if err != nil {
-			return fmt.Errorf("failed to fetch pod during patching, err: %w", err)
+			return errors.Wrap(err, "failed to fetch pod during patching")
 		}
 		var ownerRefs []metav1.OwnerReference
 		for _, ownerRef := range pod.GetOwnerReferences() {
@@ -266,15 +267,15 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 	// determine which pod volume this is associated with
 	podVol := k8sutil.SPCVolume(pod, spc.Name)
 	if podVol == nil {
-		return ctrl.Result{}, fmt.Errorf("failed to find secret provider class pod status volume for pod %s/%s", req.Namespace, spcPodStatus.Status.PodName)
+		return ctrl.Result{}, errors.Errorf("failed to find secret provider class pod status volume for pod %s/%s", req.Namespace, spcPodStatus.Status.PodName)
 	}
 
 	// validate TargetPath
 	if fileutil.GetPodUIDFromTargetPath(spcPodStatus.Status.TargetPath) != string(pod.UID) {
-		return ctrl.Result{}, fmt.Errorf("secret provider class pod status targetPath did not match pod UID for pod %s/%s", req.Namespace, spcPodStatus.Status.PodName)
+		return ctrl.Result{}, errors.Errorf("secret provider class pod status targetPath did not match pod UID for pod %s/%s", req.Namespace, spcPodStatus.Status.PodName)
 	}
 	if fileutil.GetVolumeNameFromTargetPath(spcPodStatus.Status.TargetPath) != podVol.Name {
-		return ctrl.Result{}, fmt.Errorf("secret provider class pod status volume name did not match pod Volume for pod %s/%s", req.Namespace, spcPodStatus.Status.PodName)
+		return ctrl.Result{}, errors.Errorf("secret provider class pod status volume name did not match pod Volume for pod %s/%s", req.Namespace, spcPodStatus.Status.PodName)
 	}
 
 	files, err := fileutil.GetMountedFiles(spcPodStatus.Status.TargetPath)
@@ -289,7 +290,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 
 		if err = secretutil.ValidateSecretObject(*secretObj); err != nil {
 			klog.ErrorS(err, "failed to validate secret object in spc", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "spcps", klog.KObj(spcPodStatus))
-			errs = append(errs, fmt.Errorf("failed to validate secret object in spc %s/%s, err: %w", spc.Namespace, spc.Name, err))
+			errs = append(errs, errors.Wrapf(err, "failed to validate secret object in spc %s/%s", spc.Namespace, spc.Name))
 			continue
 		}
 		exists, err := r.secretExists(ctx, secretName, req.Namespace)
@@ -300,7 +301,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 			if apierrors.IsForbidden(err) {
 				klog.Warning(SyncSecretForbiddenWarning)
 			}
-			errs = append(errs, fmt.Errorf("failed to check if secret %s exists, err: %w", secretName, err))
+			errs = append(errs, errors.Wrapf(err, "failed to check if secret %s exists", secretName))
 			continue
 		}
 
@@ -313,7 +314,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 			if datamap, err = secretutil.GetSecretData(secretObj.Data, secretType, files); err != nil {
 				r.generateEvent(pod, corev1.EventTypeWarning, secretCreationFailedReason, fmt.Sprintf("failed to get data in spc %s/%s for secret %s, err: %+v", req.Namespace, spcName, secretName, err))
 				klog.ErrorS(err, "failed to get data in spc for secret", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "secret", klog.ObjectRef{Namespace: req.Namespace, Name: secretName}, "spcps", klog.KObj(spcPodStatus))
-				errs = append(errs, fmt.Errorf("failed to get data in spc %s/%s for secret %s, err: %w", req.Namespace, spcName, secretName, err))
+				errs = append(errs, errors.Wrapf(err, "failed to get data in spc %s/%s for secret %s", req.Namespace, spcName, secretName))
 				continue
 			}
 

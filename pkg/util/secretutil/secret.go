@@ -30,6 +30,7 @@ import (
 
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -48,7 +49,7 @@ func GetCertPart(data []byte, key string) ([]byte, error) {
 	if key == corev1.TLSCertKey {
 		return getCert(data)
 	}
-	return nil, fmt.Errorf("tls key is not supported. Only tls.key and tls.crt are supported")
+	return nil, errors.New("tls key is not supported. Only tls.key and tls.crt are supported")
 }
 
 // getCert returns the certificate part of a cert
@@ -102,7 +103,7 @@ func getPrivateKey(data []byte) ([]byte, error) {
 				return nil, err
 			}
 		default:
-			return nil, fmt.Errorf("unknown private key type found while getting key. Only rsa and ecdsa are supported")
+			return nil, errors.New("unknown private key type found while getting key. Only rsa and ecdsa are supported")
 		}
 	}
 	// parses an EC private key in SEC 1, ASN.1 DER form
@@ -135,13 +136,13 @@ func GetSecretType(sType string) corev1.SecretType {
 // secret object to check if the mandatory fields - name, type and data are defined
 func ValidateSecretObject(secretObj secretsstorev1.SecretObject) error {
 	if len(secretObj.SecretName) == 0 {
-		return fmt.Errorf("secret name is empty")
+		return errors.New("secret name is empty")
 	}
 	if len(secretObj.Type) == 0 {
-		return fmt.Errorf("secret type is empty")
+		return errors.New("secret type is empty")
 	}
 	if len(secretObj.Data) == 0 {
-		return fmt.Errorf("data is empty")
+		return errors.New("data is empty")
 	}
 	return nil
 }
@@ -155,24 +156,24 @@ func GetSecretData(secretObjData []*secretsstorev1.SecretObjectData, secretType 
 		dataKey := strings.TrimSpace(data.Key)
 
 		if len(objectName) == 0 {
-			return datamap, fmt.Errorf("object name in secretObjects.data")
+			return datamap, errors.New("object name in secretObjects.data")
 		}
 		if len(dataKey) == 0 {
-			return datamap, fmt.Errorf("key in secretObjects.data is empty")
+			return datamap, errors.New("key in secretObjects.data is empty")
 		}
 		file, ok := files[objectName]
 		if !ok {
-			return datamap, fmt.Errorf("file matching objectName %s not found in the pod", objectName)
+			return datamap, errors.Errorf("file matching objectName %s not found in the pod", objectName)
 		}
 		content, err := os.ReadFile(file)
 		if err != nil {
-			return datamap, fmt.Errorf("failed to read file %s, err: %w", objectName, err)
+			return datamap, errors.Wrapf(err, "failed to read file %s", objectName)
 		}
 		datamap[dataKey] = content
 		if secretType == corev1.SecretTypeTLS {
 			c, err := GetCertPart(content, dataKey)
 			if err != nil {
-				return datamap, fmt.Errorf("failed to get cert data from file %s, err: %w", file, err)
+				return datamap, errors.Wrapf(err, "failed to get cert data from file %s", file)
 			}
 			datamap[dataKey] = c
 		}

@@ -18,7 +18,6 @@ package secretsstore
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"runtime"
 	"strings"
@@ -26,6 +25,7 @@ import (
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/spcpsutil"
 
+	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -83,7 +83,7 @@ func getSecretProviderItem(ctx context.Context, c client.Client, name, namespace
 		Name:      name,
 	}
 	if err := c.Get(ctx, spcKey, spc); err != nil {
-		return nil, fmt.Errorf("failed to get secretproviderclass %s/%s, error: %w", namespace, name, err)
+		return nil, errors.Wrapf(err, "failed to get secretproviderclass %s/%s", namespace, name)
 	}
 	return spc, nil
 }
@@ -155,7 +155,7 @@ func createOrUpdateSecretProviderClassPodStatus(ctx context.Context, c client.Cl
 // getProviderFromSPC returns the provider as defined in SecretProviderClass
 func getProviderFromSPC(spc *secretsstorev1.SecretProviderClass) (string, error) {
 	if len(spc.Spec.Provider) == 0 {
-		return "", fmt.Errorf("provider not set in %s/%s", spc.Namespace, spc.Name)
+		return "", errors.Errorf("provider not set in %s/%s", spc.Namespace, spc.Name)
 	}
 	return string(spc.Spec.Provider), nil
 }
@@ -163,7 +163,7 @@ func getProviderFromSPC(spc *secretsstorev1.SecretProviderClass) (string, error)
 // getParametersFromSPC returns the parameters map as defined in SecretProviderClass
 func getParametersFromSPC(spc *secretsstorev1.SecretProviderClass) (map[string]string, error) {
 	if len(spc.Spec.Parameters) == 0 {
-		return nil, fmt.Errorf("parameters not set in %s/%s", spc.Namespace, spc.Name)
+		return nil, errors.Errorf("parameters not set in %s/%s", spc.Namespace, spc.Name)
 	}
 	return spc.Spec.Parameters, nil
 }

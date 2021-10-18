@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 	"sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/types"
 
+	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
@@ -71,7 +72,7 @@ func NewE2EProviderServer(endpoint string) (*Server, error) {
 			network = s[0]
 			address = s[1]
 		} else {
-			return nil, fmt.Errorf("invalid endpoint: %s", endpoint)
+			return nil, errors.Errorf("invalid endpoint: %s", endpoint)
 		}
 	}
 
@@ -124,27 +125,27 @@ func (s *Server) Mount(ctx context.Context, req *v1alpha1.MountRequest) (*v1alph
 	}
 
 	if err = json.Unmarshal([]byte(req.GetAttributes()), &attrib); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal attributes, error: %w", err)
+		return nil, errors.Wrap(err, "failed to unmarshal attributes")
 	}
 	if err = json.Unmarshal([]byte(req.GetSecrets()), &secret); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal secrets, error: %w", err)
+		return nil, errors.Wrap(err, "failed to unmarshal secrets")
 	}
 	if err = json.Unmarshal([]byte(req.GetPermission()), &filePermission); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal file permission, error: %w", err)
+		return nil, errors.Wrap(err, "failed to unmarshal file permission")
 	}
 	if len(req.GetTargetPath()) == 0 {
-		return nil, fmt.Errorf("missing target path")
+		return nil, errors.New("missing target path")
 	}
 
 	objectsStrings := attrib["objects"]
 	if objectsStrings == "" {
-		return nil, fmt.Errorf("objects is not set")
+		return nil, errors.New("objects is not set")
 	}
 
 	var objects types.StringArray
 	err = yaml.Unmarshal([]byte(objectsStrings), &objects)
 	if err != nil {
-		return nil, fmt.Errorf("failed to yaml unmarshal objects, error: %w", err)
+		return nil, errors.Wrap(err, "failed to yaml unmarshal objects")
 	}
 
 	mockSecretsStoreObjects := []types.MockSecretsStoreObject{}
@@ -152,7 +153,7 @@ func (s *Server) Mount(ctx context.Context, req *v1alpha1.MountRequest) (*v1alph
 		var mockSecretsStoreObject types.MockSecretsStoreObject
 		err = yaml.Unmarshal([]byte(object), &mockSecretsStoreObject)
 		if err != nil {
-			return nil, fmt.Errorf("unmarshal failed for keyVaultObjects at index %d, error: %w", i, err)
+			return nil, errors.Wrapf(err, "unmarshal failed for keyVaultObjects at index %d", i)
 		}
 
 		mockSecretsStoreObjects = append(mockSecretsStoreObjects, mockSecretsStoreObject)
@@ -161,7 +162,7 @@ func (s *Server) Mount(ctx context.Context, req *v1alpha1.MountRequest) (*v1alph
 	for _, mockSecretsStoreObject := range mockSecretsStoreObjects {
 		secretFile, version, err := getSecret(mockSecretsStoreObject.ObjectName, attrib[podUIDAttribute])
 		if err != nil {
-			return nil, fmt.Errorf("failed to get secret, error: %w", err)
+			return nil, errors.Wrap(err, "failed to get secret")
 		}
 
 		resp.Files = append(resp.Files, secretFile)

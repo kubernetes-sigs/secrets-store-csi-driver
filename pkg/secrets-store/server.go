@@ -18,7 +18,6 @@ package secretsstore
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"os"
 	"runtime"
@@ -28,6 +27,7 @@ import (
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	pbSanitizer "github.com/kubernetes-csi/csi-lib-utils/protosanitizer"
+	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
@@ -137,7 +137,7 @@ func parseEndpoint(ep string) (string, string, error) {
 			return s[0], s[1], nil
 		}
 	}
-	return "", "", fmt.Errorf("invalid endpoint: %v", ep)
+	return "", "", errors.Errorf("invalid endpoint: %v", ep)
 }
 
 // logInterceptor returns a new unary server interceptors that performs request

@@ -19,8 +19,6 @@ package secretsstore
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -28,6 +26,7 @@ import (
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
@@ -148,7 +147,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	}
 
 	if secretProviderClass == "" {
-		return nil, fmt.Errorf("secretProviderClass is not set")
+		return nil, errors.New("secretProviderClass is not set")
 	}
 
 	spc, err := getSecretProviderItem(ctx, ns.client, secretProviderClass, podNamespace)
@@ -209,7 +208,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	mounted = true
 	var objectVersions map[string]string
 	if objectVersions, errorReason, err = ns.mountSecretsStoreObjectContent(ctx, providerName, string(parametersStr), string(secretStr), targetPath, string(permissionStr), podName); err != nil {
-		return nil, fmt.Errorf("failed to mount secrets store objects for pod %s/%s, err: %w", podNamespace, podName, err)
+		return nil, errors.Wrapf(err, "failed to mount secrets store objects for pod %s/%s", podNamespace, podName)
 	}
 
 	// create or update the secret provider class pod status object
@@ -217,7 +216,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	// the pod with same name (pods created by statefulsets) is moved to a different node and the old SPCPS
 	// has not yet been garbage collected.
 	if err = createOrUpdateSecretProviderClassPodStatus(ctx, ns.client, ns.reader, podName, podNamespace, podUID, secretProviderClass, targetPath, ns.nodeID, true, objectVersions); err != nil {
-		return nil, fmt.Errorf("failed to create secret provider class pod status for pod %s/%s, err: %w", podNamespace, podName, err)
+		return nil, errors.Wrapf(err, "failed to create secret provider class pod status for pod %s/%s", podNamespace, podName)
 	}
 
 	klog.InfoS("node publish volume complete", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
@@ -311,12 +310,12 @@ func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, provid
 	// get provider volume path
 	providerVolumePath := ns.providerVolumePath
 	if providerVolumePath == "" {
-		return nil, "", fmt.Errorf("providers volume path not found. Set PROVIDERS_VOLUME_PATH")
+		return nil, "", errors.New("providers volume path not found. Set PROVIDERS_VOLUME_PATH")
 	}
 
 	client, err := ns.providerClients.Get(ctx, providerName)
 	if err != nil {
-		return nil, "", fmt.Errorf("error connecting to provider %q: %w", providerName, err)
+		return nil, "", errors.Wrapf(err, "error connecting to provider %q", providerName)
 	}
 
 	klog.InfoS("Using gRPC client", "provider", providerName, "pod", podName)

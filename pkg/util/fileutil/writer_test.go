@@ -18,8 +18,6 @@ package fileutil
 
 import (
 	"bytes"
-	"errors"
-	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -29,6 +27,8 @@ import (
 
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/test_utils/tmpdir"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
+
+	"github.com/pkg/errors"
 )
 
 func TestValidate_Success(t *testing.T) {
@@ -446,11 +446,11 @@ func readPayloads(path string, payloads []*v1alpha1.File) error {
 			// on windows only the 0200 bitmask is used by chmod
 			// https://golang.org/src/os/file.go?s=15847:15891#L522
 			if (info.Mode() & 0200) != (fs.FileMode(p.Mode) & 0200) {
-				return fmt.Errorf("unexpected file mode. got: %v, want: %v", info.Mode(), fs.FileMode(p.Mode))
+				return errors.Errorf("unexpected file mode. got: %v, want: %v", info.Mode(), fs.FileMode(p.Mode))
 			}
 		} else {
 			if info.Mode() != fs.FileMode(p.Mode) {
-				return fmt.Errorf("unexpected file mode. got: %v, want: %v", info.Mode(), fs.FileMode(p.Mode))
+				return errors.Errorf("unexpected file mode. got: %v, want: %v", info.Mode(), fs.FileMode(p.Mode))
 			}
 		}
 

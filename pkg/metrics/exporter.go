@@ -18,9 +18,9 @@ package metrics
 
 import (
 	"flag"
-	"fmt"
 	"strings"
 
+	"github.com/pkg/errors"
 	"k8s.io/klog/v2"
 )
 
@@ -38,6 +38,6 @@ func InitMetricsExporter() error {
 	case prometheusExporter:
 		return initPrometheusExporter()
 	default:
-		return fmt.Errorf("unsupported metrics backend %v", *metricsBackend)
+		return errors.Errorf("unsupported metrics backend %v", *metricsBackend)
 	}
 }

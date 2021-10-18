@@ -18,7 +18,6 @@ package secretsstore
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -33,6 +32,7 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

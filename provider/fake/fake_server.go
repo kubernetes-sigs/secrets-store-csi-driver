@@ -19,12 +19,12 @@ package fake
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 	"os"
 
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 
+	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 )
 
@@ -109,16 +109,16 @@ func (m *MockCSIProviderServer) Mount(ctx context.Context, req *v1alpha1.MountRe
 		return &v1alpha1.MountResponse{}, m.returnErr
 	}
 	if err = json.Unmarshal([]byte(req.GetAttributes()), &attrib); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal attributes, error: %w", err)
+		return nil, errors.Wrap(err, "failed to unmarshal attributes")
 	}
 	if err = json.Unmarshal([]byte(req.GetSecrets()), &secret); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal secrets, error: %w", err)
+		return nil, errors.Wrap(err, "failed to unmarshal secrets")
 	}
 	if err = json.Unmarshal([]byte(req.GetPermission()), &filePermission); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal file permission, error: %w", err)
+		return nil, errors.Wrap(err, "failed to unmarshal file permission")
 	}
 	if len(req.GetTargetPath()) == 0 {
-		return nil, fmt.Errorf("missing target path")
+		return nil, errors.New("missing target path")
 	}
 	return &v1alpha1.MountResponse{
 		ObjectVersion: m.objects,

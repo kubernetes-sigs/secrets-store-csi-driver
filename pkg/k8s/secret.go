@@ -17,8 +17,7 @@ limitations under the License.
 package k8s
 
 import (
-	"fmt"
-
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -41,7 +40,7 @@ func (sl *SecretLister) GetWithKey(key string) (*corev1.Secret, error) {
 	}
 	secret, ok := sec.(*corev1.Secret)
 	if !ok {
-		return nil, fmt.Errorf("failed to cast %T to %s", sec, "secret")
+		return nil, errors.Errorf("failed to cast %T to secret", sec)
 	}
 	return secret, nil
 }

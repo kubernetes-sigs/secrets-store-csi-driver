@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/spcpsutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -185,7 +186,7 @@ func (r *Reconciler) processNextItem() bool {
 	spcps := &secretsstorev1.SecretProviderClassPodStatus{}
 	keyParts := strings.Split(key.(string), "/")
 	if len(keyParts) < 2 {
-		err = fmt.Errorf("key is not in correct format. expected key format is namespace/name")
+		err = errors.New("key is not in correct format. expected key format is namespace/name")
 	} else {
 		err = r.cache.Get(
 			ctx,
@@ -258,7 +259,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	)
 	if err != nil {
 		errorReason = internalerrors.PodNotFound
-		return fmt.Errorf("failed to get pod %s/%s, err: %w", spcps.Namespace, spcps.Status.PodName, err)
+		return errors.Wrapf(err, "failed to get pod %s/%s", spcps.Namespace, spcps.Status.PodName)
 	}
 	// skip rotation if the pod is being terminated
 	// or the pod is in succeeded state (for jobs that complete aren't gc yet)
@@ -281,24 +282,24 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	)
 	if err != nil {
 		errorReason = internalerrors.SecretProviderClassNotFound
-		return fmt.Errorf("failed to get secret provider class %s/%s, err: %w", spcps.Namespace, spcps.Status.SecretProviderClassName, err)
+		return errors.Wrapf(err, "failed to get secret provider class %s/%s", spcps.Namespace, spcps.Status.SecretProviderClassName)
 	}
 
 	// determine which pod volume this is associated with
 	podVol := k8sutil.SPCVolume(pod, spc.Name)
 	if podVol == nil {
 		errorReason = internalerrors.PodVolumeNotFound
-		return fmt.Errorf("could not find secret provider class pod status volume for pod %s/%s", pod.Namespace, pod.Name)
+		return errors.Errorf("could not find secret provider class pod status volume for pod %s/%s", pod.Namespace, pod.Name)
 	}
 
 	// validate TargetPath
 	if fileutil.GetPodUIDFromTargetPath(spcps.Status.TargetPath) != string(pod.UID) {
 		errorReason = internalerrors.UnexpectedTargetPath
-		return fmt.Errorf("secret provider class pod status(spcps) targetPath did not match pod UID for pod %s/%s", pod.Namespace, pod.Name)
+		return errors.Errorf("secret provider class pod status(spcps) targetPath did not match pod UID for pod %s/%s", pod.Namespace, pod.Name)
 	}
 	if fileutil.GetVolumeNameFromTargetPath(spcps.Status.TargetPath) != podVol.Name {
 		errorReason = internalerrors.UnexpectedTargetPath
-		return fmt.Errorf("could not find secret provider class pod status volume for pod %s/%s", pod.Namespace, pod.Name)
+		return errors.Errorf("could not find secret provider class pod status volume for pod %s/%s", pod.Namespace, pod.Name)
 	}
 
 	parameters := make(map[string]string)
@@ -313,11 +314,11 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 
 	paramsJSON, err := json.Marshal(parameters)
 	if err != nil {
-		return fmt.Errorf("failed to marshal parameters, err: %w", err)
+		return errors.Wrap(err, "failed to marshal parameters")
 	}
 	permissionJSON, err := json.Marshal(permission)
 	if err != nil {
-		return fmt.Errorf("failed to marshal permission, err: %w", err)
+		return errors.Wrap(err, "failed to marshal permission")
 	}
 
 	// check if the volume pertaining to the current spc is using nodePublishSecretRef for
@@ -339,7 +340,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 			}
 			errorReason = internalerrors.NodePublishSecretRefNotFound
 			r.generateEvent(pod, corev1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to get node publish secret %s/%s, err: %+v", spcps.Namespace, nodePublishSecretRef.Name, err))
-			return fmt.Errorf("failed to get node publish secret %s/%s, err: %w", spcps.Namespace, nodePublishSecretRef.Name, err)
+			return errors.Wrapf(err, "failed to get node publish secret %s/%s", spcps.Namespace, nodePublishSecretRef.Name)
 		}
 
 		for k, v := range secret.Data {
@@ -350,7 +351,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	secretsJSON, err = json.Marshal(nodePublishSecretData)
 	if err != nil {
 		r.generateEvent(pod, corev1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to marshal node publish secret data, err: %+v", err))
-		return fmt.Errorf("failed to marshal node publish secret data, err: %w", err)
+		return errors.Wrap(err, "failed to marshal node publish secret data")
 	}
 
 	// generate a map with the current object versions stored in spc pod status
@@ -367,12 +368,12 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	if err != nil {
 		errorReason = internalerrors.FailedToLookupProviderGRPCClient
 		r.generateEvent(pod, corev1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to lookup provider client: %q", providerName))
-		return fmt.Errorf("failed to lookup provider client: %q", providerName)
+		return errors.Wrapf(err, "failed to lookup provider client: %q", providerName)
 	}
 	newObjectVersions, errorReason, err := secretsstore.MountContent(ctx, providerClient, string(paramsJSON), string(secretsJSON), spcps.Status.TargetPath, string(permissionJSON), oldObjectVersions)
 	if err != nil {
 		r.generateEvent(pod, corev1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("provider mount err: %+v", err))
-		return fmt.Errorf("failed to rotate objects for pod %s/%s, err: %w", spcps.Namespace, spcps.Status.PodName, err)
+		return errors.Wrapf(err, "failed to rotate objects for pod %s/%s", spcps.Namespace, spcps.Status.PodName)
 	}
 
 	// compare the old object versions and new object versions to check if any of the objects
@@ -425,7 +426,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 			Jitter:   0.1,
 		}, updateFn); err != nil {
 			r.generateEvent(pod, corev1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to update versions in spc pod status %s, err: %+v", spc.Name, err))
-			return fmt.Errorf("failed to update spc pod status, err: %w", err)
+			return errors.Wrap(err, "failed to update spc pod status")
 		}
 	}
 
@@ -436,7 +437,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	files, err := fileutil.GetMountedFiles(spcps.Status.TargetPath)
 	if err != nil {
 		r.generateEvent(pod, corev1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed to get mounted files, err: %+v", err))
-		return fmt.Errorf("failed to get mounted files, err: %w", err)
+		return errors.Wrap(err, "failed to get mounted files")
 	}
 	for _, secretObj := range spc.Spec.SecretObjects {
 		secretName := strings.TrimSpace(secretObj.SecretName)
@@ -490,7 +491,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	// this consolidation of errors within the loop determines if the spc pod status still needs
 	// to be retried at the end of this rotation reconcile loop
 	if len(errs) > 0 {
-		return fmt.Errorf("failed to rotate one or more k8s secrets, err: %+v", errs)
+		return errors.Errorf("failed to rotate one or more k8s secrets, err: %+v", errs)
 	}
 
 	return nil
@@ -526,11 +527,11 @@ func (r *Reconciler) patchSecret(ctx context.Context, name, namespace string, da
 
 	currentDataSHA, err := secretutil.GetSHAFromSecret(secret.Data)
 	if err != nil {
-		return fmt.Errorf("failed to compute SHA for %s/%s old data, err: %w", namespace, name, err)
+		return errors.Wrapf(err, "failed to compute SHA for %s/%s old data", namespace, name)
 	}
 	newDataSHA, err := secretutil.GetSHAFromSecret(data)
 	if err != nil {
-		return fmt.Errorf("failed to compute SHA for %s/%s new data, err: %w", namespace, name, err)
+		return errors.Wrapf(err, "failed to compute SHA for %s/%s new data", namespace, name)
 	}
 	// if the SHA for the current data and new data match then skip
 	// the redundant API call to patch the same data
@@ -542,18 +543,18 @@ func (r *Reconciler) patchSecret(ctx context.Context, name, namespace string, da
 	newSecret.Data = data
 	oldData, err := json.Marshal(secret)
 	if err != nil {
-		return fmt.Errorf("failed to marshal old secret, err: %w", err)
+		return errors.Wrap(err, "failed to marshal old secret")
 	}
 	secret.Data = data
 	newData, err := json.Marshal(&newSecret)
 	if err != nil {
-		return fmt.Errorf("failed to marshal new secret, err: %w", err)
+		return errors.Wrap(err, "failed to marshal new secret")
 	}
 	// Patching data replaces values for existing data keys
 	// and appends new keys if it doesn't already exist
 	patch, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, secret)
 	if err != nil {
-		return fmt.Errorf("failed to create patch, err: %w", err)
+		return errors.Wrap(err, "failed to create patch")
 	}
 	_, err = r.kubeClient.CoreV1().Secrets(namespace).Patch(ctx, name, types.MergePatchType, patch, metav1.PatchOptions{})
 	return err

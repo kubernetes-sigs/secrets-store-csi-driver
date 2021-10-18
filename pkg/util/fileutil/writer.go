@@ -17,10 +17,10 @@ limitations under the License.
 package fileutil
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
+	"github.com/pkg/errors"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 )
 
@@ -31,7 +31,7 @@ func Validate(payloads []*v1alpha1.File) error {
 			return err
 		}
 		if filepath.Clean(payloads[i].Path) != payloads[i].Path {
-			return fmt.Errorf("invalid filepath: %q", payloads[i].Path)
+			return errors.Errorf("invalid filepath: %q", payloads[i].Path)
 		}
 	}
 
@@ -45,7 +45,7 @@ func WritePayloads(path string, payloads []*v1alpha1.File) error {
 	// cleanup any payload paths that may have been written by a previous
 	// version of the driver/provider.
 	if err := cleanupProviderFiles(path, payloads); err != nil {
-		return fmt.Errorf("cleanup failure: %w", err)
+		return errors.Wrap(err, "cleanup failure")
 	}
 
 	w, err := NewAtomicWriter(path, "secrets-store-csi-driver")

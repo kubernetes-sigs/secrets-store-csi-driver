@@ -22,6 +22,7 @@ import (
 
 	"sigs.k8s.io/secrets-store-csi-driver/controllers"
 
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	coreInformers "k8s.io/client-go/informers/core/v1"
@@ -83,7 +84,7 @@ func (i *Informer) run(stopCh <-chan struct{}) error {
 		i.NodePublishSecretRefSecret.HasSynced,
 	}
 	if !cache.WaitForCacheSync(stopCh, synced...) {
-		return fmt.Errorf("failed to sync informer caches")
+		return errors.New("failed to sync informer caches")
 	}
 	return nil
 }
