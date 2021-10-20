@@ -1,0 +1,12 @@
+types:
+  - chore
+  - ci
+  - docs
+  - feat
+  - fix
+  - perf
+  - refactor
+  - release
+  - revert
+  - security
+  - test
