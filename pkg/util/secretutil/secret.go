@@ -166,13 +166,13 @@ func GetSecretData(secretObjData []*secretsstorev1.SecretObjectData, secretType 
 		}
 		content, err := os.ReadFile(file)
 		if err != nil {
-			return datamap, fmt.Errorf("failed to read file %s, err: %v", objectName, err)
+			return datamap, fmt.Errorf("failed to read file %s, err: %w", objectName, err)
 		}
 		datamap[dataKey] = content
 		if secretType == corev1.SecretTypeTLS {
 			c, err := GetCertPart(content, dataKey)
 			if err != nil {
-				return datamap, fmt.Errorf("failed to get cert data from file %s, err: %+v", file, err)
+				return datamap, fmt.Errorf("failed to get cert data from file %s, err: %w", file, err)
 			}
 			datamap[dataKey] = c
 		}
