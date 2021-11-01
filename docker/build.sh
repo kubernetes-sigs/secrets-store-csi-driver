@@ -111,7 +111,7 @@ build_and_push() {
     # charts to prod dir. So we can use manifest_staging charts for the image build.
     if find ../manifest_staging/charts/secrets-store-csi-driver/crds -mindepth 1 -maxdepth 1 | read -r; then
       if [[ "$os_name" != "windows" ]]; then
-        docker buildx build --no-cache --pull --push --platform "${os_name}/${arch}" --build-arg ARCH="${arch}" -t "${CRD_IMAGE_TAG}-${suffix}" \
+        docker buildx build --no-cache --pull --push --platform "${os_name}/${arch}" -t "${CRD_IMAGE_TAG}-${suffix}" \
         -f crd.Dockerfile ../manifest_staging/charts/secrets-store-csi-driver/crds
       fi
     fi

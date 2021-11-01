@@ -75,7 +75,8 @@ ARCH ?= amd64
 OSVERSION ?= 1809
 # Output type of docker buildx build
 OUTPUT_TYPE ?= registry
-QEMUVERSION ?= 5.2.0-2
+BUILDX_BUILDER_NAME ?= img-builder
+QEMU_VERSION ?= 5.2.0-2
 
 # Binaries
 GOLANGCI_LINT := $(TOOLS_BIN_DIR)/golangci-lint
@@ -286,20 +287,20 @@ endif
 
 .PHONY: e2e-provider-container
 e2e-provider-container:
-	docker build --no-cache -t $(E2E_PROVIDER_IMAGE_TAG) -f test/e2eprovider/Dockerfile .
+	docker buildx build --no-cache -t $(E2E_PROVIDER_IMAGE_TAG) -f test/e2eprovider/Dockerfile --progress=plain .
 
 .PHONY: container
 container: crd-container
-	docker build --no-cache --build-arg IMAGE_VERSION=$(IMAGE_VERSION) -t $(IMAGE_TAG) -f docker/Dockerfile .
+	docker buildx build --no-cache --build-arg IMAGE_VERSION=$(IMAGE_VERSION) -t $(IMAGE_TAG) -f docker/Dockerfile --progress=plain .
 
 .PHONY: crd-container
 crd-container: build-crds
-	docker build --no-cache --build-arg ARCH=$(ARCH) -t $(CRD_IMAGE_TAG) -f docker/crd.Dockerfile _output/crds/
+	docker buildx build --no-cache -t $(CRD_IMAGE_TAG) -f docker/crd.Dockerfile --progress=plain _output/crds/
 
 .PHONY: crd-container-linux
 crd-container-linux: build-crds docker-buildx-builder
 	docker buildx build --no-cache --output=type=$(OUTPUT_TYPE) --platform="linux/$(ARCH)" \
-		--build-arg ARCH=$(ARCH) -t $(CRD_IMAGE_TAG)-linux-$(ARCH) -f docker/crd.Dockerfile _output/crds/
+		-t $(CRD_IMAGE_TAG)-linux-$(ARCH) -f docker/crd.Dockerfile _output/crds/
 
 .PHONY: container-linux
 container-linux: docker-buildx-builder
@@ -315,15 +316,14 @@ container-windows: docker-buildx-builder
 
 .PHONY: docker-buildx-builder
 docker-buildx-builder:
-	@if ! docker buildx ls | grep -q container-builder; then\
-		DOCKER_CLI_EXPERIMENTAL=enabled docker buildx create --name container-builder --use;\
+	@if ! docker buildx ls | grep $(BUILDX_BUILDER_NAME); then \
+		docker run --rm --privileged multiarch/qemu-user-static:$(QEMU_VERSION) --reset -p yes; \
+		docker buildx create --name $(BUILDX_BUILDER_NAME) --use; \
+		docker buildx inspect $(BUILDX_BUILDER_NAME) --bootstrap; \
 	fi
 
 .PHONY: container-all
-container-all:
-	# Enable execution of multi-architecture containers
-	docker run --rm --privileged multiarch/qemu-user-static:$(QEMUVERSION) --reset -p yes
-
+container-all: docker-buildx-builder
 	for arch in $(ALL_ARCH.linux); do \
 		ARCH=$${arch} $(MAKE) container-linux; \
 		ARCH=$${arch} $(MAKE) crd-container-linux; \
@@ -378,8 +378,7 @@ ifdef TEST_WINDOWS
 	$(MAKE) container-all push-manifest
 else
 	$(MAKE) container
-	kind load docker-image --name kind $(IMAGE_TAG)
-	kind load docker-image --name kind $(CRD_IMAGE_TAG)
+	kind load docker-image --name kind $(IMAGE_TAG) $(CRD_IMAGE_TAG)
 endif
 
 .PHONY: e2e-mock-provider-container
