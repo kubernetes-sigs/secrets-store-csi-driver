@@ -1,5 +1,7 @@
 # Concepts
 
+<!-- toc -->
+
 ## How it works
 
 The diagram below illustrates how Secrets Store CSI volume works:

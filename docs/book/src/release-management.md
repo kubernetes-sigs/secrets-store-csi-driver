@@ -1,5 +1,7 @@
 # Release Management
 
+<!-- toc -->
+
 ## Overview
 
 This document describes **Kubernetes Secrets Store CSI Driver** project release management, which talks about versioning, branching and cadence.
