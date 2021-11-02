@@ -22,6 +22,12 @@ rules:
   - list
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - serviceaccounts/token
+  verbs:
+  - create
+- apiGroups:
   - secrets-store.csi.x-k8s.io
   resources:
   - secretproviderclasses
@@ -49,3 +55,13 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - storage.k8s.io
+  resourceNames:
+  - secrets-store.csi.k8s.io
+  resources:
+  - csidrivers
+  verbs:
+  - get
+  - list
+  - watch
