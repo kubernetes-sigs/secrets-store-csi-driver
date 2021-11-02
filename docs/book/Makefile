@@ -12,25 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Directories.
 ROOT_DIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-TOOLS_DIR := ../../hack/tools
-TOOLS_BIN_DIR := $(TOOLS_DIR)/bin
-BIN_DIR := bin
+TOOLS_BIN_DIR ?= $(ROOT_DIR)/bin
+CRATE_INSTALL := $(realpath ../../third_party/japaric/trust/crate_install.sh)
 
-# Binaries.
-TABULATE := $(TOOLS_BIN_DIR)/mdbook-tabulate
-$(TABULATE): $(TOOLS_DIR)/go.mod
-	cd $(TOOLS_DIR); go build -tags=tools -o $(BIN_DIR)/mdbook-tabulate ./mdbook/tabulate
+MDBOOK := $(TOOLS_BIN_DIR)/mdbook
+$(MDBOOK):
+	$(CRATE_INSTALL) --git rust-lang/mdBook --tag v0.4.10 --to $(TOOLS_BIN_DIR) --force
 
-EMBED := $(TOOLS_BIN_DIR)/mdbook-embed
-$(EMBED): $(TOOLS_DIR)/go.mod
-	cd $(TOOLS_DIR); go build -tags=tools -o $(BIN_DIR)/mdbook-embed ./mdbook/embed
+MDBOOK_TOC := $(TOOLS_BIN_DIR)/mdbook-toc
+$(MDBOOK_TOC):
+	$(CRATE_INSTALL) --git badboy/mdbook-toc --tag 0.7.0 --to $(TOOLS_BIN_DIR) --force
 
-RELEASELINK := $(TOOLS_BIN_DIR)/mdbook-releaselink
-$(RELEASELINK): $(TOOLS_DIR)/go.mod
-	cd $(TOOLS_DIR); go build -tags=tools -o $(BIN_DIR)/mdbook-releaselink ./mdbook/releaselink
+DEPS := $(MDBOOK) $(MDBOOK_TOC)
+
+.PHONY: build
+build: $(DEPS)
+	$(MDBOOK) build
 
 .PHONY: serve
-serve:
-	mdbook serve
+serve: $(DEPS)
+	$(MDBOOK) serve
