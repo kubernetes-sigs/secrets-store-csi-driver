@@ -45,6 +45,7 @@ The following table lists the configurable parameters of the csi-secrets-store-p
 | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | `nameOverride`                          | String to partially override secrets-store-csi-driver.fullname template with a string (will prepend the release name) | `""`                                                    |
 | `fullnameOverride`                      | String to fully override secrets-store-csi-driver.fullname template with a string                                     | `""`                                                    |
+| `customLabels` | Custom labels to add into metadata | `{}` |
 | `linux.image.repository`                | Linux image repository                                                                                                | `k8s.gcr.io/csi-secrets-store/driver`                   |
 | `linux.image.pullPolicy`                | Linux image pull policy                                                                                               | `IfNotPresent`                                          |
 | `linux.image.tag`                       | Linux image tag                                                                                                       | `v1.0.0`                                                |

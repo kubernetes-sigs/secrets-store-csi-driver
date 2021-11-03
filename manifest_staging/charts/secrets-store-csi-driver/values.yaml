@@ -1,3 +1,7 @@
+# -- Custom labels to add into metadata
+customLabels: {}
+  # csi-driver: secrets
+
 linux:
   enabled: true
   image:
