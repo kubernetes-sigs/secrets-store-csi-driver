@@ -3,8 +3,7 @@ apiVersion: policy/v1beta1
 kind: PodSecurityPolicy
 metadata:
   name: {{ template "sscd-psp.fullname" . }}
-  labels:
-    {{- include "sscd.labels" . | indent 4 }}
+{{ include "sscd.labels" . | indent 2 }}
 spec:
   seLinux:
     rule: RunAsAny

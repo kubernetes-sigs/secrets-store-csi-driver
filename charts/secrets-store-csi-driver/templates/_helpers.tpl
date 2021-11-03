@@ -27,26 +27,15 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Standard labels for helm resources
 */}}
-{{- define "sscd.labels" }}
-app.kubernetes.io/managed-by: "{{ .Release.Service }}"
-app.kubernetes.io/part-of: "{{ template "sscd.name" . }}"
-app.kubernetes.io/component: csi-driver
-app.kubernetes.io/version: "{{ .Chart.AppVersion }}"
-{{- include "sscd.selectorLabels" . }}
-helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
-{{- if .Values.customLabels }}
-{{ toYaml .Values.customLabels }}
-{{- end }}
+{{- define "sscd.labels" -}}
+labels:
+  app.kubernetes.io/instance: "{{ .Release.Name }}"
+  app.kubernetes.io/managed-by: "{{ .Release.Service }}"
+  app.kubernetes.io/name: "{{ template "sscd.name" . }}"
+  app.kubernetes.io/version: "{{ .Chart.AppVersion }}"
+  app: {{ template "sscd.name" . }}
+  helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
 {{- end -}}
-
-{{/*
-Selector labels
-*/}}
-{{- define "sscd.selectorLabels" }}
-app.kubernetes.io/name: {{ include "sscd.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
-app: {{ template "sscd.name" . }}
-{{- end }}
 
 {{- define "sscd-psp.fullname" -}}
 {{- printf "%s-psp" (include "sscd.name" .) -}}
