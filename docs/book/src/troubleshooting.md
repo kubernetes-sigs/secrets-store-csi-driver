@@ -2,6 +2,8 @@
 
 An overview of a list of components to assist in troubleshooting.
 
+<!-- toc -->
+
 ## Logging
 
 To troubleshoot issues with the csi driver, you can look at logs from the `secrets-store` container of the csi driver pod running on the same node as your application pod:

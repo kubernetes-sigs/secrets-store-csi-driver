@@ -23,6 +23,7 @@ cmd/secrets-store-csi-driver/secrets-store-csi-driver
 /_output*/
 /_output
 hack/tools/bin
+bin/
 
 # Emacs save files
 *~

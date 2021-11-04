@@ -1,5 +1,7 @@
 # Design Docs
 
+<!-- toc -->
+
 The Secrets Store CSI Driver uses Google Docs for design documents and proposals. This doc is a constant work in progress, subject to frequent revision. Features are listed in no particular order.
 
 ## Implemented

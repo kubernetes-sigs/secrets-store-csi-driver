@@ -4,20 +4,20 @@
 [![Go Report Card](https://goreportcard.com/badge/kubernetes-sigs/secrets-store-csi-driver)](https://goreportcard.com/report/kubernetes-sigs/secrets-store-csi-driver)
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/kubernetes-sigs/secrets-store-csi-driver)
 
-Secrets Store CSI driver for Kubernetes secrets - Integrates secrets stores with Kubernetes via a [Container Storage Interface (CSI)](https://kubernetes-csi.github.io/docs/) volume.
+Secrets Store CSI Driver for Kubernetes secrets - Integrates secrets stores with Kubernetes via a [Container Storage Interface (CSI)](https://kubernetes-csi.github.io/docs/) volume.
 
-The Secrets Store CSI driver `secrets-store.csi.k8s.io` allows Kubernetes to mount multiple secrets, keys, and certs stored in enterprise-grade external secrets stores into their pods as a volume. Once the Volume is attached, the data in it is mounted into the container's file system.
+The Secrets Store CSI Driver `secrets-store.csi.k8s.io` allows Kubernetes to mount multiple secrets, keys, and certs stored in enterprise-grade external secrets stores into their pods as a volume. Once the Volume is attached, the data in it is mounted into the container's file system.
 
 ## Test Status
 
-|Test|Status|
-|---|---|
-|periodic/image-scan|[![sig-auth-secrets-store-csi-driver-periodic/secrets-store-csi-driver-image-scan](https://testgrid.k8s.io/q/summary/sig-auth-secrets-store-csi-driver-periodic/secrets-store-csi-driver-image-scan/tests_status?style=svg)](https://testgrid.k8s.io/sig-auth-secrets-store-csi-driver-periodic#secrets-store-csi-driver-image-scan)|
-|periodic/azure-upgrade|[![sig-auth-secrets-store-csi-driver-periodic/secrets-store-csi-driver-upgrade-test-azure](https://testgrid.k8s.io/q/summary/sig-auth-secrets-store-csi-driver-periodic/secrets-store-csi-driver-upgrade-test-azure/tests_status?style=svg)](https://testgrid.k8s.io/sig-auth-secrets-store-csi-driver-periodic#secrets-store-csi-driver-upgrade-test-azure)|
-|postsubmit/aws|[![sig-auth-secrets-store-csi-driver-postsubmit/secrets-store-csi-driver-e2e-aws-postsubmit](https://testgrid.k8s.io/q/summary/sig-auth-secrets-store-csi-driver-postsubmit/secrets-store-csi-driver-e2e-aws-postsubmit/tests_status?style=svg)](https://testgrid.k8s.io/sig-auth-secrets-store-csi-driver-postsubmit#secrets-store-csi-driver-e2e-aws-postsubmit)|
-|postsubmit/azure|[![sig-auth-secrets-store-csi-driver-postsubmit/secrets-store-csi-driver-e2e-azure-postsubmit](https://testgrid.k8s.io/q/summary/sig-auth-secrets-store-csi-driver-postsubmit/secrets-store-csi-driver-e2e-azure-postsubmit/tests_status?style=svg)](https://testgrid.k8s.io/sig-auth-secrets-store-csi-driver-postsubmit#secrets-store-csi-driver-e2e-azure-postsubmit)|
-|postsubmit/gcp|[![sig-auth-secrets-store-csi-driver-postsubmit/secrets-store-csi-driver-e2e-gcp-postsubmit](https://testgrid.k8s.io/q/summary/sig-auth-secrets-store-csi-driver-postsubmit/secrets-store-csi-driver-e2e-gcp-postsubmit/tests_status?style=svg)](https://testgrid.k8s.io/sig-auth-secrets-store-csi-driver-postsubmit#secrets-store-csi-driver-e2e-gcp-postsubmit)|
-|postsubmit/vault|[![sig-auth-secrets-store-csi-driver-postsubmit/secrets-store-csi-driver-e2e-vault-postsubmit](https://testgrid.k8s.io/q/summary/sig-auth-secrets-store-csi-driver-postsubmit/secrets-store-csi-driver-e2e-vault-postsubmit/tests_status?style=svg)](https://testgrid.k8s.io/sig-auth-secrets-store-csi-driver-postsubmit#secrets-store-csi-driver-e2e-vault-postsubmit)|
+| Test                   | Status                                                                                                                                                                                                                                                                                                                                                                   |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| periodic/image-scan    | [![sig-auth-secrets-store-csi-driver-periodic/secrets-store-csi-driver-image-scan](https://testgrid.k8s.io/q/summary/sig-auth-secrets-store-csi-driver-periodic/secrets-store-csi-driver-image-scan/tests_status?style=svg)](https://testgrid.k8s.io/sig-auth-secrets-store-csi-driver-periodic#secrets-store-csi-driver-image-scan)                                     |
+| periodic/azure-upgrade | [![sig-auth-secrets-store-csi-driver-periodic/secrets-store-csi-driver-upgrade-test-azure](https://testgrid.k8s.io/q/summary/sig-auth-secrets-store-csi-driver-periodic/secrets-store-csi-driver-upgrade-test-azure/tests_status?style=svg)](https://testgrid.k8s.io/sig-auth-secrets-store-csi-driver-periodic#secrets-store-csi-driver-upgrade-test-azure)             |
+| postsubmit/aws         | [![sig-auth-secrets-store-csi-driver-postsubmit/secrets-store-csi-driver-e2e-aws-postsubmit](https://testgrid.k8s.io/q/summary/sig-auth-secrets-store-csi-driver-postsubmit/secrets-store-csi-driver-e2e-aws-postsubmit/tests_status?style=svg)](https://testgrid.k8s.io/sig-auth-secrets-store-csi-driver-postsubmit#secrets-store-csi-driver-e2e-aws-postsubmit)       |
+| postsubmit/azure       | [![sig-auth-secrets-store-csi-driver-postsubmit/secrets-store-csi-driver-e2e-azure-postsubmit](https://testgrid.k8s.io/q/summary/sig-auth-secrets-store-csi-driver-postsubmit/secrets-store-csi-driver-e2e-azure-postsubmit/tests_status?style=svg)](https://testgrid.k8s.io/sig-auth-secrets-store-csi-driver-postsubmit#secrets-store-csi-driver-e2e-azure-postsubmit) |
+| postsubmit/gcp         | [![sig-auth-secrets-store-csi-driver-postsubmit/secrets-store-csi-driver-e2e-gcp-postsubmit](https://testgrid.k8s.io/q/summary/sig-auth-secrets-store-csi-driver-postsubmit/secrets-store-csi-driver-e2e-gcp-postsubmit/tests_status?style=svg)](https://testgrid.k8s.io/sig-auth-secrets-store-csi-driver-postsubmit#secrets-store-csi-driver-e2e-gcp-postsubmit)       |
+| postsubmit/vault       | [![sig-auth-secrets-store-csi-driver-postsubmit/secrets-store-csi-driver-e2e-vault-postsubmit](https://testgrid.k8s.io/q/summary/sig-auth-secrets-store-csi-driver-postsubmit/secrets-store-csi-driver-e2e-vault-postsubmit/tests_status?style=svg)](https://testgrid.k8s.io/sig-auth-secrets-store-csi-driver-postsubmit#secrets-store-csi-driver-e2e-vault-postsubmit) |
 
 ## Want to help?
 
@@ -30,14 +30,12 @@ Join us to help define the direction and implementation of this project!
 
 ## Features
 
-- Mounts secrets/keys/certs to pod using a CSI volume
-- Supports CSI Inline volume (Kubernetes version v1.15+)
+- Mounts secrets/keys/certs to pod using a CSI Inline volume
 - Supports mounting multiple secrets store objects as a single volume
 - Supports multiple secrets stores as providers. Multiple providers can run in the same cluster simultaneously.
 - Supports pod portability with the SecretProviderClass CRD
-- Supports windows containers (Kubernetes version v1.18+)
-- Supports sync with Kubernetes Secrets (Secrets Store CSI Driver v0.0.10+)
-- Supports multiple secrets stores providers in the same cluster.
+- Supports Linux and Windows containers
+- Supports sync with Kubernetes Secrets
 
 ## Demo
 
@@ -48,6 +46,7 @@ Join us to help define the direction and implementation of this project!
 Check out the [installation instructions](https://secrets-store-csi-driver.sigs.k8s.io/getting-started/installation.html) to deploy the Secrets Store CSI Driver and providers. Get familiar with our [CRDs and core components](https://secrets-store-csi-driver.sigs.k8s.io/concepts.html)
 
 ## Development Guide
+
 Follow these [steps](./.local/README.md) to setup Secrets Store CSI Driver for local debugging.
 
 ## Documentation
