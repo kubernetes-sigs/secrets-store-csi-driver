@@ -480,12 +480,10 @@ func TestReconcileNoError(t *testing.T) {
 
 	tests := []struct {
 		name                            string
-		filteredWatchEnabled            bool
 		nodePublishSecretRefSecretToAdd *corev1.Secret
 	}{
 		{
-			name:                 "filtered watch for nodePublishSecretRef",
-			filteredWatchEnabled: true,
+			name: "filtered watch for nodePublishSecretRef",
 			nodePublishSecretRefSecretToAdd: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "secret1",

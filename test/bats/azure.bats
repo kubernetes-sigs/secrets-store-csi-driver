@@ -397,7 +397,6 @@ teardown_file() {
   archive_info || true
 
   #cleanup
-  run kubectl delete namespace non-filtered-watch
   run kubectl delete namespace rotation
   run kubectl delete namespace test-ns
   
