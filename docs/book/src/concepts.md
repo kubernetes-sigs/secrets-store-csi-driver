@@ -6,7 +6,7 @@
 
 The diagram below illustrates how Secrets Store CSI volume works:
 
-![diagram](../images/diagram.png)
+![diagram](./images/diagram.png)
 
 Similar to Kubernetes secrets, on pod start and restart, the Secrets Store CSI driver communicates with the provider using gRPC to retrieve the secret content from the external Secrets Store specified in the `SecretProviderClass` custom resource. Then the volume is mounted in the pod as `tmpfs` and the secret contents are written to the volume.
 
