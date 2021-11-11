@@ -39,7 +39,7 @@ Join us to help define the direction and implementation of this project!
 
 ## Demo
 
-![Secrets Store CSI Driver Demo](/img/demo.gif "Secrets Store CSI Driver Azure Key Vault Provider Demo")
+![Secrets Store CSI Driver Demo](img/demo.gif "Secrets Store CSI Driver Azure Key Vault Provider Demo")
 
 ## Getting Started
 
