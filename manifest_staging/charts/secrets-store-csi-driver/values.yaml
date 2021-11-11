@@ -200,9 +200,6 @@ enableSecretRotation: false
 ## Secret rotation poll interval duration
 rotationPollInterval:
 
-## Filtered watch nodePublishSecretRef secrets
-filteredWatchSecret: true
-
 ## Provider HealthCheck
 providerHealthCheck: false
 

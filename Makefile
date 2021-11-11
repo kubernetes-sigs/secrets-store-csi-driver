@@ -431,7 +431,7 @@ e2e-helm-deploy:
 
 .PHONY: e2e-helm-upgrade
 e2e-helm-upgrade:
-	helm upgrade csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace kube-system --reuse-values --timeout=5m -v=5 --debug --set filteredWatchSecret=true \
+	helm upgrade csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace kube-system --reuse-values --timeout=5m -v=5 --debug \
 		--set linux.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
 		--set linux.image.tag=$(IMAGE_VERSION) \
 		--set windows.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
