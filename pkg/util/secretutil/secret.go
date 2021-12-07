@@ -38,7 +38,14 @@ const (
 	privateKeyType    = "PRIVATE KEY"
 	privateKeyTypeRSA = "RSA PRIVATE KEY"
 	privateKeyTypeEC  = "EC PRIVATE KEY"
+	basicAuthUsername = "username"
+	basicAuthPassword = "password"
 )
+
+type basicAuthCreds struct {
+	Username string
+	Password string
+}
 
 // getCertPart returns the certificate or the private key part of the cert
 func GetCertPart(data []byte, key string) ([]byte, error) {
@@ -121,6 +128,16 @@ func getPrivateKey(data []byte) ([]byte, error) {
 	return pem.EncodeToMemory(block), nil
 }
 
+// getCredentials parses the mounted content and returns the required
+// key-value pairs for a kubernetes.io/basic-auth K8s secret
+func getCredentials(data []byte) basicAuthCreds {
+	credentials := strings.Split(string(data), ",")
+	return basicAuthCreds{
+		Username: credentials[0],
+		Password: credentials[1],
+	}
+}
+
 // GetSecretType returns a k8s secret type.
 // Kubernetes doesn't impose any constraints on the type name: https://kubernetes.io/docs/concepts/configuration/secret/#secret-types
 // If the secret type is empty, then default is Opaque.
@@ -155,7 +172,7 @@ func GetSecretData(secretObjData []*secretsstorev1.SecretObjectData, secretType 
 		dataKey := strings.TrimSpace(data.Key)
 
 		if len(objectName) == 0 {
-			return datamap, fmt.Errorf("object name in secretObjects.data")
+			return datamap, fmt.Errorf("object name in secretObjects.data is empty")
 		}
 		if len(dataKey) == 0 {
 			return datamap, fmt.Errorf("key in secretObjects.data is empty")
@@ -175,6 +192,13 @@ func GetSecretData(secretObjData []*secretsstorev1.SecretObjectData, secretType 
 				return datamap, fmt.Errorf("failed to get cert data from file %s, err: %w", file, err)
 			}
 			datamap[dataKey] = c
+		}
+		if secretType == corev1.SecretTypeBasicAuth {
+			credentials := getCredentials(content)
+			delete(datamap, dataKey)
+
+			datamap[basicAuthUsername] = []byte(credentials.Username)
+			datamap[basicAuthPassword] = []byte(credentials.Password)
 		}
 	}
 	return datamap, nil

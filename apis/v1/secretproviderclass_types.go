@@ -44,6 +44,15 @@ type SecretObject struct {
 	// annotations of k8s secret object
 	Annotations map[string]string   `json:"annotations,omitempty"`
 	Data        []*SecretObjectData `json:"data,omitempty"`
+	// SyncAll syncs all secrets defined in the parameters field of SecretProviderClass
+	SyncAll bool `json:"syncAll,omitempty"`
+}
+
+type SyncOptions struct {
+	// syncs all secrets listed in the parameters field of SecretProviderClass
+	SyncAll bool `json:"syncAll,omitempty"`
+	// type of K8s secret object
+	Type string `json:"type,omitempty"`
 }
 
 // SecretProviderClassSpec defines the desired state of SecretProviderClass
@@ -53,6 +62,7 @@ type SecretProviderClassSpec struct {
 	// Configuration for specific provider
 	Parameters    map[string]string `json:"parameters,omitempty"`
 	SecretObjects []*SecretObject   `json:"secretObjects,omitempty"`
+	SyncOptions   SyncOptions       `json:"syncOptions,omitempty"`
 }
 
 // ByPodStatus defines the state of SecretProviderClass as seen by

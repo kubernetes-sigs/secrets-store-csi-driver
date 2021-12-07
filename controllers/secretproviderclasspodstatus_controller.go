@@ -45,6 +45,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/spcutil"
 )
 
 const (
@@ -115,7 +116,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 	}
 
 	spcPodStatuses := spcPodStatusList.Items
-	for i := range spcPodStatuses {
+	for i, spcPodStatus := range spcPodStatuses {
 		spcName := spcPodStatuses[i].Status.SecretProviderClassName
 		spc := &secretsstorev1.SecretProviderClass{}
 		namespace := spcPodStatuses[i].Namespace
@@ -159,6 +160,19 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 				Name:       spcPodStatuses[i].GetName(),
 			}
 			ownerRefs = append(ownerRefs, ref)
+		}
+
+		if spc.Spec.SyncOptions.SyncAll {
+			files, err := fileutil.GetMountedFiles(spcPodStatus.Status.TargetPath)
+			if err != nil {
+				return fmt.Errorf("failed to get mounted files for pod %s/%s: %v", namespace, pod.Name, err)
+			} else {
+				if len(spc.Spec.SecretObjects) == 0 {
+					spc.Spec.SecretObjects = spcutil.BuildSecretObjects(files, secretutil.GetSecretType(strings.TrimSpace(spc.Spec.SyncOptions.Type)))
+				} else {
+					spc.Spec.SecretObjects = append(spc.Spec.SecretObjects, spcutil.BuildSecretObjects(files, secretutil.GetSecretType(strings.TrimSpace(spc.Spec.SyncOptions.Type)))...)
+				}
+			}
 		}
 
 		for _, secret := range spc.Spec.SecretObjects {
@@ -259,7 +273,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 		return ctrl.Result{}, err
 	}
 
-	if len(spc.Spec.SecretObjects) == 0 {
+	if len(spc.Spec.SecretObjects) == 0 && !spc.Spec.SyncOptions.SyncAll {
 		klog.InfoS("no secret objects defined for spc, nothing to reconcile", "spc", klog.KObj(spc), "spcps", klog.KObj(spcPodStatus))
 		return ctrl.Result{}, nil
 	}
@@ -284,6 +298,25 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 		klog.ErrorS(err, "failed to get mounted files", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "spcps", klog.KObj(spcPodStatus))
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, err
 	}
+
+	if spc.Spec.SyncOptions.SyncAll {
+		if len(spc.Spec.SecretObjects) == 0 {
+			spc.Spec.SecretObjects = spcutil.BuildSecretObjects(files, secretutil.GetSecretType(strings.TrimSpace(spc.Spec.SyncOptions.Type)))
+		} else {
+			spc.Spec.SecretObjects = append(spc.Spec.SecretObjects, spcutil.BuildSecretObjects(files, secretutil.GetSecretType(strings.TrimSpace(spc.Spec.SyncOptions.Type)))...)
+		}
+	}
+
+	for _, secretObj := range spc.Spec.SecretObjects {
+		if secretObj.SyncAll {
+			if secretutil.GetSecretType(strings.TrimSpace(secretObj.Type)) != corev1.SecretTypeOpaque {
+				return ctrl.Result{}, fmt.Errorf("secret provider class %s/%s cannot use secretObjects[*].syncAll for non-opaque secrets", spc.Namespace, spc.Name)
+			}
+
+			spcutil.BuildSecretObjectData(files, secretObj)
+		}
+	}
+
 	errs := make([]error, 0)
 	for _, secretObj := range spc.Spec.SecretObjects {
 		secretName := strings.TrimSpace(secretObj.SecretName)

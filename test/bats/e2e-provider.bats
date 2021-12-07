@@ -147,6 +147,15 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 }
 
+@test "deploy e2e-provider-sync-all v1 secretproviderclass crd" {
+  envsubst <  $BATS_TESTS_DIR/e2e_provider_sync_allk8s_v1_secretproviderclass.yaml | kubectl apply -f -
+
+  kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
+
+  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/e2e-provider-sync-all -o yaml | grep e2e-provider-sync-all"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+}
+
 @test "CSI inline volume test with pod portability" {
   envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -f -
   
@@ -205,13 +214,34 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   kubectl wait --for=condition=Ready --timeout=90s pod -l app=busybox
 }
 
+@test "Sync all with K8s secrets - create deployment" {
+  envsubst < $BATS_TESTS_DIR/e2e_provider_sync_allk8s_v1_secretproviderclass.yaml | kubectl apply -f - 
+
+  kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
+
+  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/e2e-provider-sync-all -o yaml | grep e2e-provider-sync-all"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  envsubst < $BATS_TESTS_DIR/deployment-sync_allk8s-e2e-provider-sync-all.yaml | kubectl apply -f -
+
+  kubectl wait --for=condition=Ready --timeout=90s pod -l app=busybox-sync-all
+}
+
 @test "Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences with multiple owners" {
   POD=$(kubectl get pod -l app=busybox -o jsonpath="{.items[0].metadata.name}")
+  SYNC_ALL_POD=$(kubectl get pod -l app=busybox-sync-all -o jsonpath="{.items[0].metadata.name}")
 
   result=$(kubectl exec $POD -- cat /mnt/secrets-store/$SECRET_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
+  result=$(kubectl exec $SYNC_ALL_POD -- cat /mnt/secrets-store/$SECRET_NAME)
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+
   result=$(kubectl exec $POD -- cat /mnt/secrets-store/$KEY_NAME)
+  result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
+  [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
+
+  result=$(kubectl exec $SYNC_ALL_POD -- cat /mnt/secrets-store/$KEY_NAME)
   result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
   [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 
@@ -220,6 +250,8 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
 
   result=$(kubectl exec $POD -- printenv | grep SECRET_USERNAME) | awk -F"=" '{ print $2}'
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+  result=$(kubectl exec $SYNC_ALL_POD -- printenv | grep SECRET_USERNAME) | awk -F"=" '{ print $2}'
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   result=$(kubectl get secret foosecret -o jsonpath="{.metadata.labels.environment}")
   [[ "${result//$'\r'}" == "${LABEL_VALUE}" ]]
@@ -227,7 +259,7 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   result=$(kubectl get secret foosecret -o jsonpath="{.metadata.labels.secrets-store\.csi\.k8s\.io/managed}")
   [[ "${result//$'\r'}" == "true" ]]
 
-  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 2"
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 3"
   assert_success
 }
 
@@ -239,16 +271,23 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   run kubectl delete -f $BATS_TESTS_DIR/deployment-synck8s-e2e-provider.yaml
   assert_success
 
-  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 1"
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 2"
   assert_success
 
   run kubectl delete -f $BATS_TESTS_DIR/deployment-two-synck8s-e2e-provider.yaml
+  assert_success
+
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 1"
+  assert_success
+
+  run kubectl delete -f $BATS_TESTS_DIR/deployment-sync_allk8s-e2e-provider-sync-all.yaml
   assert_success
 
   run wait_for_process $WAIT_TIME $SLEEP_TIME "check_secret_deleted foosecret default"
   assert_success
 
   envsubst < $BATS_TESTS_DIR/e2e_provider_synck8s_v1_secretproviderclass.yaml | kubectl delete -f -
+  envsubst < $BATS_TESTS_DIR/e2e_provider_sync_allk8s_v1_secretproviderclass.yaml | kubectl delete -f -
 }
 
 @test "Test Namespaced scope SecretProviderClass - create deployment" {
