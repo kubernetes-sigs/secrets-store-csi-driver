@@ -37,6 +37,7 @@ roleRef:
   name: {{ template "sscd.fullname" . }}-keep-crds
   apiGroup: rbac.authorization.k8s.io
 ---
+{{- if .Values.rbac.pspEnabled }}
 apiVersion: policy/v1beta1
 kind: PodSecurityPolicy
 metadata:
@@ -56,6 +57,7 @@ spec:
     rule: RunAsAny
   volumes:
   - secret
+{{- end }}
 ---
 apiVersion: v1
 kind: ServiceAccount
