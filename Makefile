@@ -245,8 +245,8 @@ lint-full: $(GOLANGCI_LINT)
 	$(GOLANGCI_LINT) run -v --fast=false
 
 lint-charts: $(HELM) # Run helm lint tests
-	helm lint --strict charts/secrets-store-csi-driver
-	helm lint --strict manifest_staging/charts/secrets-store-csi-driver
+	helm lint charts/secrets-store-csi-driver
+	helm lint manifest_staging/charts/secrets-store-csi-driver
 
 .PHONY: shellcheck
 shellcheck: $(SHELLCHECK)
