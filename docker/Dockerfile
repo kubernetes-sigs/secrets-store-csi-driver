@@ -28,7 +28,8 @@ RUN export GOOS=$TARGETOS && \
 
 FROM $BASEIMAGE
 COPY --from=builder /go/src/sigs.k8s.io/secrets-store-csi-driver/_output/secrets-store-csi /secrets-store-csi
-RUN clean-install ca-certificates mount
+# upgrading libgmp10 due to CVE-2021-43618
+RUN clean-install ca-certificates mount libgmp10
 
 LABEL maintainers="ritazh"
 LABEL description="Secrets Store CSI Driver"
