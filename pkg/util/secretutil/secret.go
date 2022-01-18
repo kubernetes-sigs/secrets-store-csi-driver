@@ -48,7 +48,7 @@ func GetCertPart(data []byte, key string) ([]byte, error) {
 	if key == corev1.TLSCertKey {
 		return getCert(data)
 	}
-	return nil, fmt.Errorf("tls key is not supported. Only tls.key and tls.crt are supported")
+	return nil, fmt.Errorf("key '%s' is not supported. Only 'tls.key' and 'tls.crt' are supported", key)
 }
 
 // getCert returns the certificate part of a cert
