@@ -429,7 +429,9 @@ e2e-helm-deploy:
 		--set linux.enabled=true \
 		--set syncSecret.enabled=true \
 		--set enableSecretRotation=true \
-		--set rotationPollInterval=30s
+		--set rotationPollInterval=30s \
+		--set tokenRequests[0].audience="aud1" \
+		--set tokenRequests[1].audience="aud2"
 
 .PHONY: e2e-helm-upgrade
 e2e-helm-upgrade:

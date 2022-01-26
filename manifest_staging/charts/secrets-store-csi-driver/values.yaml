@@ -207,3 +207,9 @@ providerHealthCheck: false
 providerHealthCheckInterval: 2m
 
 imagePullSecrets: []
+
+## This allows CSI drivers to impersonate the pods that they mount the volumes for.
+# refer to https://kubernetes-csi.github.io/docs/token-requests.html for more details.
+tokenRequests: []
+# - audience: aud1
+# - audience: aud2
