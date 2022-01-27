@@ -19,5 +19,4 @@ limitations under the License.
 // ref: https://kubernetes-csi.github.io/docs/token-requests.html
 package tokenrequest
 
-// +kubebuilder:rbac:groups="storage.k8s.io",resources=csidrivers,verbs=get;list;watch,resourceNames=secrets-store.csi.k8s.io
 // +kubebuilder:rbac:groups="",resources="serviceaccounts/token",verbs=create

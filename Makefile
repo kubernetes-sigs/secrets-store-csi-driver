@@ -404,6 +404,7 @@ e2e-deploy-manifest:
 	kubectl apply -f manifest_staging/deploy/rbac-secretproviderclass.yaml
 	kubectl apply -f manifest_staging/deploy/rbac-secretproviderrotation.yaml
 	kubectl apply -f manifest_staging/deploy/rbac-secretprovidersyncing.yaml
+	kubectl apply -f manifest_staging/deploy/rbac-secretprovidertokenrequest.yaml
 	kubectl apply -f manifest_staging/deploy/secrets-store.csi.x-k8s.io_secretproviderclasses.yaml
 	kubectl apply -f manifest_staging/deploy/secrets-store.csi.x-k8s.io_secretproviderclasspodstatuses.yaml
 	kubectl apply -f manifest_staging/deploy/role-secretproviderclasses-admin.yaml

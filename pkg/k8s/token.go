@@ -127,7 +127,7 @@ func (c *TokenClient) PodServiceAccountTokenAttrs(namespace, podName, serviceAcc
 		outputs[audience] = tr.Status
 	}
 
-	klog.V(4).InfoS("Fetched service account token attrs for CSIDriver", "driver", c.driverName)
+	klog.V(4).InfoS("Fetched service account token attrs for CSIDriver", "driver", c.driverName, "podUID", podUID)
 	tokens, err := json.Marshal(outputs)
 	if err != nil {
 		return nil, err
