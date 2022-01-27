@@ -86,6 +86,9 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   run kubectl get clusterrole/secretprovidersyncing-role
   assert_success
 
+  run kubectl get clusterrole/secretprovidertokenrequest-role
+  assert_success
+
   run kubectl get clusterrolebinding/secretproviderclasses-rolebinding
   assert_success
 
@@ -93,6 +96,9 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   assert_success
 
   run kubectl get clusterrolebinding/secretprovidersyncing-rolebinding
+  assert_success
+
+  run kubectl get clusterrolebinding/secretprovidertokenrequest-rolebinding
   assert_success
 }
 
