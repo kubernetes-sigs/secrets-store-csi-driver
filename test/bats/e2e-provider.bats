@@ -54,6 +54,12 @@ export API_VERSION=$(get_secrets_store_api_version)
   run kubectl get clusterrole/secretproviderclasses-role
   assert_success
 
+  run kubectl get clusterrole/secretproviderclasses-admin-role
+  assert_success
+
+  run kubectl get clusterrole/secretproviderclasses-viewer-role
+  assert_success
+
   run kubectl get clusterrole/secretproviderrotation-role
   assert_success
 
