@@ -158,11 +158,11 @@ sanity-test:
 .PHONY: image-scan
 image-scan: $(TRIVY)
 	# show all vulnerabilities
-	$(TRIVY) --severity MEDIUM,HIGH,CRITICAL $(IMAGE_TAG)
-	$(TRIVY) --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
+	$(TRIVY) image --severity MEDIUM,HIGH,CRITICAL $(IMAGE_TAG)
+	$(TRIVY) image --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
 	# show vulnerabilities that have been fixed
-	$(TRIVY) --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(IMAGE_TAG)
-	$(TRIVY) --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
+	$(TRIVY) image --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(IMAGE_TAG)
+	$(TRIVY) image --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
 
 ## --------------------------------------
 ## Tooling Binaries
