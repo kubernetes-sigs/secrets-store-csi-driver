@@ -91,7 +91,6 @@ AZURE_CLI := az
 KIND := kind
 KUBECTL := kubectl
 ENVSUBST := envsubst
-SHELLCHECK := $(TOOLS_BIN_DIR)/shellcheck-$(SHELLCHECK_VER)
 EKSCTL := eksctl
 AWS_CLI := aws
 YQ := yq
@@ -218,6 +217,7 @@ $(PROTOC): ## Install protoc
 $(YQ): ## Install yq for running the tests
 	curl -LO https://github.com/mikefarah/yq/releases/download/$(YQ_VERSION)/yq_linux_amd64 && chmod +x ./yq_linux_amd64 && mv yq_linux_amd64 /usr/local/bin/yq
 
+SHELLCHECK := $(TOOLS_BIN_DIR)/shellcheck-$(SHELLCHECK_VER)
 $(SHELLCHECK): OS := $(shell uname | tr '[:upper:]' '[:lower:]')
 $(SHELLCHECK): ARCH := $(shell uname -m)
 $(SHELLCHECK):
@@ -251,7 +251,7 @@ lint-charts: $(HELM) # Run helm lint tests
 
 .PHONY: shellcheck
 shellcheck: $(SHELLCHECK)
-	$(SHELLCHECK) */*.sh
+	find . -name '*.sh' -not -path './third_party/*'  | xargs $(SHELLCHECK)
 
 ## --------------------------------------
 ## Builds
