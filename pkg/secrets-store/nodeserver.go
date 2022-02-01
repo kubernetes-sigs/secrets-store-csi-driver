@@ -53,8 +53,6 @@ const (
 	csipodname               = "csi.storage.k8s.io/pod.name"
 	csipodnamespace          = "csi.storage.k8s.io/pod.namespace"
 	csipoduid                = "csi.storage.k8s.io/pod.uid"
-	csipodsa                 = "csi.storage.k8s.io/serviceAccount.name"
-	csipodsatokens           = "csi.storage.k8s.io/serviceAccount.tokens" //nolint
 	secretProviderClassField = "secretProviderClass"
 	osWindows                = "windows"
 )
@@ -165,11 +163,10 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if err != nil {
 		return nil, err
 	}
-	parameters[csipodname] = attrib[csipodname]
-	parameters[csipodnamespace] = attrib[csipodnamespace]
-	parameters[csipoduid] = attrib[csipoduid]
-	parameters[csipodsa] = attrib[csipodsa]
-	parameters[csipodsatokens] = attrib[csipodsatokens] //nolint
+	// send all the volume attributes sent from kubelet to the provider
+	for k, v := range attrib {
+		parameters[k] = v
+	}
 
 	// ensure it's read-only
 	if !req.GetReadonly() {
