@@ -1,12 +1,5 @@
 # Installation
 
-<aside class="note">
-<h1>Note</h1>
-
-The helm chart repository URL has changed to `https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts`
-
-</aside>
-
 ## Install the Secrets Store CSI Driver
 
 ### Prerequisites

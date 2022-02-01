@@ -10,21 +10,6 @@ Quick start instructions for the setup and configuration of secrets-store-csi-dr
 
 ### Installing the chart
 
-> Note: The helm chart repository URL has changed from `https://raw.githubusercontent.com/kubernetes-sigs/secrets-store-csi-driver/master/charts` to `https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts`.
-
-<details>
-<summary>Update helm chart repository if using the old URL</summary>
-
-Run the following commands to update your Helm chart repositories if using the old URL:
-
-```bash
-helm repo rm secrets-store-csi-driver
-helm repo add secrets-store-csi-driver https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts
-helm repo update
-```
-
-</details>
-
 #### Add the chart repo
 
 ```bash
