@@ -79,7 +79,7 @@ func newTestReconciler(client client.Reader, s *runtime.Scheme, kubeClient kuber
 		crdClient:            crdClient,
 		cache:                client,
 		secretStore:          secretStore,
-		tokenClient:          k8s.NewTokenClient(kubeClient, "test-driver"),
+		tokenClient:          k8s.NewTokenClient(kubeClient, "test-driver", 1*time.Second),
 	}, nil
 }
 

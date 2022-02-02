@@ -182,7 +182,7 @@ func main() {
 
 	// token request client
 	kubeClient := kubernetes.NewForConfigOrDie(cfg)
-	tokenClient := k8s.NewTokenClient(kubeClient, *driverName)
+	tokenClient := k8s.NewTokenClient(kubeClient, *driverName, 10*time.Minute)
 	if err != nil {
 		klog.ErrorS(err, "failed to create token client")
 		os.Exit(1)

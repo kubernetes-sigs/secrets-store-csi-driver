@@ -44,11 +44,11 @@ type TokenClient struct {
 }
 
 // NewTokenClient creates a new TokenClient
-// The client will be used to request a token for the preconfigured audiences (--audiences) and expiration time.
-func NewTokenClient(kubeClient kubernetes.Interface, driverName string) *TokenClient {
+// The client will be used to request a token for token requests configured in the CSIDriver.
+func NewTokenClient(kubeClient kubernetes.Interface, driverName string, resyncPeriod time.Duration) *TokenClient {
 	kubeInformerFactory := kubeinformers.NewFilteredSharedInformerFactory(
 		kubeClient,
-		time.Minute*10,
+		resyncPeriod,
 		corev1.NamespaceAll,
 		func(options *metav1.ListOptions) {
 			options.FieldSelector = fmt.Sprintf("metadata.name=%s", driverName)

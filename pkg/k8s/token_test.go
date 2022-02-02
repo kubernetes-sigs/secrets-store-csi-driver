@@ -105,7 +105,7 @@ func TestPodServiceAccountTokenAttrs(t *testing.T) {
 				return true, tr, nil
 			}))
 
-			tokenClient := NewTokenClient(client, testDriver)
+			tokenClient := NewTokenClient(client, testDriver, 1*time.Second)
 			_ = tokenClient.Run(wait.NeverStop)
 			waitForInformerCacheSync()
 
