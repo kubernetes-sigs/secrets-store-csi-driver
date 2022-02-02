@@ -42,7 +42,7 @@ import (
 
 func testNodeServer(t *testing.T, tmpDir string, mountPoints []mount.MountPoint, client client.Client, reporter StatsReporter) (*nodeServer, error) {
 	t.Helper()
-	providerClients := NewPluginClientBuilder(tmpDir)
+	providerClients := NewPluginClientBuilder([]string{tmpDir})
 	return newNodeServer(tmpDir, "testnode", mount.NewFakeMounter(mountPoints), providerClients, client, client, reporter, k8s.NewTokenClient(fakeclient.NewSimpleClientset(), "test-driver", 1*time.Second))
 }
 

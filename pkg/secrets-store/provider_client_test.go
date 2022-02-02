@@ -178,7 +178,7 @@ func TestMountContent(t *testing.T) {
 			socketPath := tmpdir.New(t, "", "ut")
 			targetPath := tmpdir.New(t, "", "ut")
 
-			pool := NewPluginClientBuilder(socketPath)
+			pool := NewPluginClientBuilder([]string{socketPath})
 			defer pool.Cleanup()
 
 			server, cleanup := fakeServer(t, socketPath, "provider1")
@@ -230,7 +230,7 @@ func TestMountContent_TooLarge(t *testing.T) {
 	targetPath := tmpdir.New(t, "", "ut")
 
 	// set a very small max message size
-	pool := NewPluginClientBuilder(socketPath, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(5)))
+	pool := NewPluginClientBuilder([]string{socketPath}, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(5)))
 	defer pool.Cleanup()
 
 	server, cleanup := fakeServer(t, socketPath, "provider1")
@@ -328,7 +328,7 @@ func TestMountContentError(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			socketPath := tmpdir.New(t, "", "ut")
 
-			pool := NewPluginClientBuilder(socketPath)
+			pool := NewPluginClientBuilder([]string{socketPath})
 			defer pool.Cleanup()
 
 			providerName := "provider1"
@@ -365,7 +365,40 @@ func TestMountContentError(t *testing.T) {
 func TestPluginClientBuilder(t *testing.T) {
 	path := tmpdir.New(t, "", "ut")
 
-	cb := NewPluginClientBuilder(path)
+	cb := NewPluginClientBuilder([]string{path})
+	ctx := context.Background()
+
+	for i := 0; i < 10; i++ {
+		server, cleanup := fakeServer(t, path, fmt.Sprintf("server-%d", i))
+		defer cleanup()
+		if err := server.Start(); err != nil {
+			t.Fatalf("expected err to be nil, got: %+v", err)
+		}
+	}
+
+	var wg sync.WaitGroup
+
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		provider := fmt.Sprintf("server-%d", i)
+		go func() {
+			defer wg.Done()
+			if _, err := cb.Get(ctx, provider); err != nil {
+				t.Errorf("Get(%q) = %v, want nil", provider, err)
+			}
+		}()
+	}
+
+	wg.Wait()
+}
+
+func TestPluginClientBuilderMultiPath(t *testing.T) {
+	emptyPath := tmpdir.New(t, "", "ut")
+	path := tmpdir.New(t, "", "ut")
+
+	// Ensure that if the path containing the listening socket is not the first
+	// path checked that the operation still succeeds.
+	cb := NewPluginClientBuilder([]string{emptyPath, path})
 	ctx := context.Background()
 
 	for i := 0; i < 10; i++ {
@@ -395,7 +428,7 @@ func TestPluginClientBuilder(t *testing.T) {
 func TestPluginClientBuilder_ConcurrentGet(t *testing.T) {
 	path := tmpdir.New(t, "", "ut")
 
-	cb := NewPluginClientBuilder(path)
+	cb := NewPluginClientBuilder([]string{path})
 	ctx := context.Background()
 
 	provider := "server"
@@ -423,7 +456,7 @@ func TestPluginClientBuilder_ConcurrentGet(t *testing.T) {
 func TestPluginClientBuilderErrorNotFound(t *testing.T) {
 	path := tmpdir.New(t, "", "ut")
 
-	cb := NewPluginClientBuilder(path)
+	cb := NewPluginClientBuilder([]string{path})
 	ctx := context.Background()
 
 	if _, err := cb.Get(ctx, "notfoundprovider"); !errors.Is(err, ErrProviderNotFound) {
@@ -445,7 +478,7 @@ func TestPluginClientBuilderErrorNotFound(t *testing.T) {
 func TestPluginClientBuilderErrorInvalid(t *testing.T) {
 	path := tmpdir.New(t, "", "ut")
 
-	cb := NewPluginClientBuilder(path)
+	cb := NewPluginClientBuilder([]string{path})
 	ctx := context.Background()
 
 	if _, err := cb.Get(ctx, "bad/provider/name"); !errors.Is(err, ErrInvalidProvider) {
@@ -468,7 +501,7 @@ func TestVersion(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			socketPath := tmpdir.New(t, "", "ut")
 
-			pool := NewPluginClientBuilder(socketPath)
+			pool := NewPluginClientBuilder([]string{socketPath})
 			defer pool.Cleanup()
 
 			server, cleanup := fakeServer(t, socketPath, "provider1")
@@ -499,7 +532,7 @@ func TestPluginClientBuilder_HealthCheck(t *testing.T) {
 	// HealthCheck() method work as expected
 	path := tmpdir.New(t, "", "ut")
 
-	cb := NewPluginClientBuilder(path)
+	cb := NewPluginClientBuilder([]string{path})
 	ctx := context.Background()
 	healthCheckInterval := 1 * time.Millisecond
 

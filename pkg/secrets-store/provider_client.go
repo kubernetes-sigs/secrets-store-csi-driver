@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -72,11 +73,11 @@ var (
 // PluginClientBuilder builds and stores grpc clients for communicating with
 // provider plugins.
 type PluginClientBuilder struct {
-	clients    map[string]v1alpha1.CSIDriverProviderClient
-	conns      map[string]*grpc.ClientConn
-	socketPath string
-	lock       sync.RWMutex
-	opts       []grpc.DialOption
+	clients     map[string]v1alpha1.CSIDriverProviderClient
+	conns       map[string]*grpc.ClientConn
+	socketPaths []string
+	lock        sync.RWMutex
+	opts        []grpc.DialOption
 }
 
 // NewPluginClientBuilder creates a PluginClientBuilder that will connect to
@@ -89,12 +90,12 @@ type PluginClientBuilder struct {
 //
 // Additional grpc dial options can also be set through opts and will be used
 // when creating all clients.
-func NewPluginClientBuilder(path string, opts ...grpc.DialOption) *PluginClientBuilder {
+func NewPluginClientBuilder(paths []string, opts ...grpc.DialOption) *PluginClientBuilder {
 	return &PluginClientBuilder{
-		clients:    make(map[string]v1alpha1.CSIDriverProviderClient),
-		conns:      make(map[string]*grpc.ClientConn),
-		socketPath: path,
-		lock:       sync.RWMutex{},
+		clients:     make(map[string]v1alpha1.CSIDriverProviderClient),
+		conns:       make(map[string]*grpc.ClientConn),
+		socketPaths: paths,
+		lock:        sync.RWMutex{},
 		opts: append(opts, []grpc.DialOption{
 			grpc.WithInsecure(), // the interface is only secured through filesystem ACLs
 			grpc.WithContextDialer(func(ctx context.Context, target string) (net.Conn, error) {
@@ -124,12 +125,22 @@ func (p *PluginClientBuilder) Get(ctx context.Context, provider string) (v1alpha
 		return nil, fmt.Errorf("%w: provider %q", ErrInvalidProvider, provider)
 	}
 
-	if _, err := os.Stat(fmt.Sprintf("%s/%s.sock", p.socketPath, provider)); os.IsNotExist(err) {
+	// check all paths
+	socketPath := ""
+	for k := range p.socketPaths {
+		tryPath := filepath.Join(p.socketPaths[k], provider+".sock")
+		if _, err := os.Stat(tryPath); err == nil {
+			socketPath = tryPath
+			break
+		}
+	}
+
+	if socketPath == "" {
 		return nil, fmt.Errorf("%w: provider %q", ErrProviderNotFound, provider)
 	}
 
 	conn, err := grpc.Dial(
-		fmt.Sprintf("%s/%s.sock", p.socketPath, provider),
+		socketPath,
 		p.opts...,
 	)
 	if err != nil {
