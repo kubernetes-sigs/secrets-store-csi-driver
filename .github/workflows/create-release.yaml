@@ -1,0 +1,26 @@
+name: create_release
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+      # pinning to the sha 5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f from https://github.com/actions/checkout/releases/tag/v2.3.4
+        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
+        with:
+          fetch-depth: 0
+      # pinning to the sha 79d4afbba1b4eff8b9a98e3d2e58c4dbaf094e2b from https://github.com/goreleaser/goreleaser-action/releases/tag/v2.8.1
+      - name: Goreleaser
+        uses: goreleaser/goreleaser-action@79d4afbba1b4eff8b9a98e3d2e58c4dbaf094e2b
+        with:
+          version: latest
+          args: release --rm-dist --timeout 60m --debug
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
