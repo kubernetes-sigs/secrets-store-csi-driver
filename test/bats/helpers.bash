@@ -137,3 +137,12 @@ get_secrets_store_api_version() {
 log_secrets_store_api_version() {
   echo "Testing secrets-store API version $API_VERSION" >&3
 }
+
+get_token_requests_audience() {
+  local token_requests_audience=$(kubectl get csidriver secrets-store.csi.k8s.io -o go-template --template='{{range $i, $v := .spec.tokenRequests}}{{if $i}},{{end}}{{printf "%s" .audience}}{{end}}') 
+  echo "${token_requests_audience}"
+}
+
+log_token_requests_audience() {
+  echo "Testing token requests audience $VALIDATE_TOKENS_AUDIENCE" >&3
+}

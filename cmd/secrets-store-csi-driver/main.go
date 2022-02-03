@@ -27,6 +27,7 @@ import (
 
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	"sigs.k8s.io/secrets-store-csi-driver/controllers"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/metrics"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/rotation"
 	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
@@ -38,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	json "k8s.io/component-base/logs/json"
@@ -82,7 +84,8 @@ func main() {
 	flag.Parse()
 
 	if *logFormatJSON {
-		klog.SetLogger(json.JSONLogger)
+		logger, _ := json.NewJSONLogger(nil, nil)
+		klog.SetLogger(logger)
 	}
 	if *enableProfile {
 		klog.InfoS("Starting profiling", "port", *profilePort)
@@ -177,9 +180,21 @@ func main() {
 		reconciler.RunPatcher(ctx)
 	}()
 
+	// token request client
+	kubeClient := kubernetes.NewForConfigOrDie(cfg)
+	tokenClient := k8s.NewTokenClient(kubeClient, *driverName, 10*time.Minute)
+	if err != nil {
+		klog.ErrorS(err, "failed to create token client")
+		os.Exit(1)
+	}
+	if err = tokenClient.Run(ctx.Done()); err != nil {
+		klog.ErrorS(err, "failed to run token client")
+		os.Exit(1)
+	}
+
 	// Secret rotation
 	if *enableSecretRotation {
-		rec, err := rotation.NewReconciler(mgr.GetCache(), scheme, *providerVolumePath, *nodeID, *rotationPollInterval, providerClients)
+		rec, err := rotation.NewReconciler(mgr.GetCache(), scheme, *providerVolumePath, *nodeID, *rotationPollInterval, providerClients, tokenClient)
 		if err != nil {
 			klog.ErrorS(err, "failed to initialize rotation reconciler")
 			os.Exit(1)
@@ -187,7 +202,7 @@ func main() {
 		go rec.Run(ctx.Done())
 	}
 
-	driver := secretsstore.NewSecretsStoreDriver(*driverName, *nodeID, *endpoint, *providerVolumePath, providerClients, mgr.GetClient(), mgr.GetAPIReader())
+	driver := secretsstore.NewSecretsStoreDriver(*driverName, *nodeID, *endpoint, *providerVolumePath, providerClients, mgr.GetClient(), mgr.GetAPIReader(), tokenClient)
 	driver.Run(ctx)
 }
 

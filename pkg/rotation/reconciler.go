@@ -85,6 +85,7 @@ type Reconciler struct {
 	cache client.Reader
 	// secretStore stores Secret (filtered on secrets-store.csi.k8s.io/used=true)
 	secretStore k8s.Store
+	tokenClient *k8s.TokenClient
 }
 
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
@@ -92,7 +93,12 @@ type Reconciler struct {
 // TODO (aramase) remove this as part of https://github.com/kubernetes-sigs/secrets-store-csi-driver/issues/585
 
 // NewReconciler returns a new reconciler for rotation
-func NewReconciler(client client.Reader, s *runtime.Scheme, providerVolumePath, nodeName string, rotationPollInterval time.Duration, providerClients *secretsstore.PluginClientBuilder) (*Reconciler, error) {
+func NewReconciler(client client.Reader,
+	s *runtime.Scheme,
+	providerVolumePath, nodeName string,
+	rotationPollInterval time.Duration,
+	providerClients *secretsstore.PluginClientBuilder,
+	tokenClient *k8s.TokenClient) (*Reconciler, error) {
 	config, err := buildConfig()
 	if err != nil {
 		return nil, err
@@ -120,6 +126,7 @@ func NewReconciler(client client.Reader, s *runtime.Scheme, providerVolumePath, 
 		// cache store Pod,
 		cache:       client,
 		secretStore: secretStore,
+		tokenClient: tokenClient,
 	}, nil
 }
 
@@ -310,6 +317,20 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	parameters[csipodnamespace] = pod.Namespace
 	parameters[csipoduid] = string(pod.UID)
 	parameters[csipodsa] = pod.Spec.ServiceAccountName
+	// csi.storage.k8s.io/serviceAccount.tokens is empty for Kubernetes version < 1.20.
+	// For 1.20+, if tokenRequests is set in the CSI driver spec, kubelet will generate
+	// a token for the pod and send it to the CSI driver.
+	// This check is done for backward compatibility to support passing token from driver
+	// to provider irrespective of the Kubernetes version. If the token doesn't exist in the
+	// volume request context, the CSI driver will generate the token for the configured audience
+	// and send it to the provider in the parameters.
+	serviceAccountTokenAttrs, err := r.tokenClient.PodServiceAccountTokenAttrs(pod.Namespace, pod.Name, pod.Spec.ServiceAccountName, pod.UID)
+	if err != nil {
+		return fmt.Errorf("failed to get service account token attrs, err: %w", err)
+	}
+	for k, v := range serviceAccountTokenAttrs {
+		parameters[k] = v
+	}
 
 	paramsJSON, err := json.Marshal(parameters)
 	if err != nil {
