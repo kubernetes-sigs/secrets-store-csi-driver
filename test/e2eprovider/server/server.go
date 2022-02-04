@@ -48,7 +48,8 @@ This is mock key
 	// podCache is a map of pod UID to check if secret has been rotated.
 	podCache = map[string]bool{}
 
-	podUIDAttribute = "csi.storage.k8s.io/pod.uid"
+	podUIDAttribute               = "csi.storage.k8s.io/pod.uid"
+	serviceAccountTokensAttribute = "csi.storage.k8s.io/serviceAccount.tokens" //nolint
 
 	// RWMutex is to safely access podCache
 	m sync.RWMutex
@@ -124,13 +125,13 @@ func (s *Server) Mount(ctx context.Context, req *v1alpha1.MountRequest) (*v1alph
 	}
 
 	if err = json.Unmarshal([]byte(req.GetAttributes()), &attrib); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal attributes, error: %+v", err)
+		return nil, fmt.Errorf("failed to unmarshal attributes, error: %w", err)
 	}
 	if err = json.Unmarshal([]byte(req.GetSecrets()), &secret); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal secrets, error: %+v", err)
+		return nil, fmt.Errorf("failed to unmarshal secrets, error: %w", err)
 	}
 	if err = json.Unmarshal([]byte(req.GetPermission()), &filePermission); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal file permission, error: %+v", err)
+		return nil, fmt.Errorf("failed to unmarshal file permission, error: %w", err)
 	}
 	if len(req.GetTargetPath()) == 0 {
 		return nil, fmt.Errorf("missing target path")
@@ -166,6 +167,23 @@ func (s *Server) Mount(ctx context.Context, req *v1alpha1.MountRequest) (*v1alph
 
 		resp.Files = append(resp.Files, secretFile)
 		resp.ObjectVersion = append(resp.ObjectVersion, version)
+	}
+
+	// if validate token flag is set, we want to check the service account tokens as passed
+	// as part of the mount attributes.
+	// In case of 1.21+, kubelet will generate the token and pass it as part of the volume context.
+	// The driver will pass this to the provider as part of the mount request.
+	// For 1.20, the driver will generate the token and pass it to the provider as part of the mount request.
+	// Irrespective of the kubernetes version, the rotation handler in the driver will generate the token
+	// and pass it to the provider as part of the mount request.
+	// VALIDATE_TOKENS_AUDIENCE environment variable will be a comma separated list of audiences configured in the csidriver object
+	// If this env var is not set, this could mean we are running an older version of driver.
+	tokenAudiences := os.Getenv("VALIDATE_TOKENS_AUDIENCE")
+	klog.InfoS("tokenAudiences", "tokenAudiences", tokenAudiences)
+	if tokenAudiences != "" {
+		if err := validateTokens(tokenAudiences, attrib[serviceAccountTokensAttribute]); err != nil {
+			return nil, fmt.Errorf("failed to validate token, error: %w", err)
+		}
 	}
 
 	m.Lock()
@@ -218,4 +236,33 @@ func RotationHandler(w http.ResponseWriter, r *http.Request) {
 	// enable rotation response
 	os.Setenv("ROTATION_ENABLED", r.FormValue("rotated"))
 	klog.InfoS("Rotation response enabled")
+}
+
+// ValidateTokenAudienceHandler enables token validation for the mock provider
+// This is only required because older version of the driver don't generate a token
+// TODO(aramase): remove this after the supported driver releases are v1.1.0+
+func ValidateTokenAudienceHandler(w http.ResponseWriter, r *http.Request) {
+	// enable rotation response
+	os.Setenv("VALIDATE_TOKENS_AUDIENCE", r.FormValue("audience"))
+	klog.InfoS("Validation for token requests audience", "audience", os.Getenv("VALIDATE_TOKENS_AUDIENCE"))
+}
+
+// validateTokens checks there are tokens for distinct audiences in the
+// service account token attribute.
+func validateTokens(tokenAudiences, saTokens string) error {
+	ta := strings.Split(strings.TrimSpace(tokenAudiences), ",")
+	if saTokens == "" {
+		return fmt.Errorf("service account tokens is not set")
+	}
+	tokens := make(map[string]interface{})
+	if err := json.Unmarshal([]byte(saTokens), &tokens); err != nil {
+		return fmt.Errorf("failed to unmarshal service account tokens, error: %w", err)
+	}
+	for _, a := range ta {
+		if _, ok := tokens[a]; !ok {
+			return fmt.Errorf("service account token for audience %s is not set", a)
+		}
+		klog.InfoS("Validated service account token", "audience", a)
+	}
+	return nil
 }

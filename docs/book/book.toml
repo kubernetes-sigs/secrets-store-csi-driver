@@ -3,17 +3,11 @@ authors = ["The Secrets Store CSI Driver Maintainers"]
 language = "en"
 multilingual = false
 src = "src"
-title = "The Secrets Store CSI Driver Book"
+title = "Secrets Store CSI Driver"
 
 [output.html]
 curly-quotes = true
 git-repository-url = "https://sigs.k8s.io/secrets-store-csi-driver"
 
-[preprocessor.tabulate]
-command = "./util-tabulate.sh"
-
-[preprocessor.embed]
-command = "./util-embed.sh"
-
-[preprocessor.releaselink]
-command = "./util-releaselink.sh"
+[preprocessor.toc]
+command = "bin/mdbook-toc"

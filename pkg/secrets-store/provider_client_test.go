@@ -426,7 +426,7 @@ func TestPluginClientBuilderErrorNotFound(t *testing.T) {
 	cb := NewPluginClientBuilder(path)
 	ctx := context.Background()
 
-	if _, err := cb.Get(ctx, "notfoundprovider"); errors.Unwrap(err) != ErrProviderNotFound {
+	if _, err := cb.Get(ctx, "notfoundprovider"); !errors.Is(err, ErrProviderNotFound) {
 		t.Errorf("Get(%s) = %v, want %v", "notfoundprovider", err, ErrProviderNotFound)
 	}
 
@@ -448,7 +448,7 @@ func TestPluginClientBuilderErrorInvalid(t *testing.T) {
 	cb := NewPluginClientBuilder(path)
 	ctx := context.Background()
 
-	if _, err := cb.Get(ctx, "bad/provider/name"); errors.Unwrap(err) != ErrInvalidProvider {
+	if _, err := cb.Get(ctx, "bad/provider/name"); !errors.Is(err, ErrInvalidProvider) {
 		t.Errorf("Get(%s) = %v, want %v", "bad/provider/name", err, ErrInvalidProvider)
 	}
 }

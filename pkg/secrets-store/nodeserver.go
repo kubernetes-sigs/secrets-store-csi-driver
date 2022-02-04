@@ -26,10 +26,13 @@ import (
 	"runtime"
 
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	mount "k8s.io/mount-utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -45,6 +48,7 @@ type nodeServer struct {
 	// This should be used sparingly and only when the client does not fit the use case.
 	reader          client.Reader
 	providerClients *PluginClientBuilder
+	tokenClient     *k8s.TokenClient
 }
 
 const (
@@ -59,10 +63,11 @@ const (
 	osWindows                = "windows"
 )
 
+//gocyclo:ignore
 func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (npvr *csi.NodePublishVolumeResponse, err error) {
 	var parameters map[string]string
 	var providerName string
-	var podName, podNamespace, podUID string
+	var podName, podNamespace, podUID, serviceAccountName string
 	var targetPath string
 	var mounted bool
 	errorReason := internalerrors.FailedToMount
@@ -109,6 +114,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	podName = attrib[csipodname]
 	podNamespace = attrib[csipodnamespace]
 	podUID = attrib[csipoduid]
+	serviceAccountName = attrib[csipodsa]
 
 	mounted, err = ns.ensureMountPoint(targetPath)
 	if err != nil {
@@ -165,11 +171,28 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if err != nil {
 		return nil, err
 	}
-	parameters[csipodname] = attrib[csipodname]
-	parameters[csipodnamespace] = attrib[csipodnamespace]
-	parameters[csipoduid] = attrib[csipoduid]
-	parameters[csipodsa] = attrib[csipodsa]
-	parameters[csipodsatokens] = attrib[csipodsatokens] //nolint
+	// send all the volume attributes sent from kubelet to the provider
+	for k, v := range attrib {
+		parameters[k] = v
+	}
+	// csi.storage.k8s.io/serviceAccount.tokens is empty for Kubernetes version < 1.20.
+	// For 1.20+, if tokenRequests is set in the CSI driver spec, kubelet will generate
+	// a token for the pod and send it to the CSI driver.
+	// This check is done for backward compatibility to support passing token from driver
+	// to provider irrespective of the Kubernetes version. If the token doesn't exist in the
+	// volume request context, the CSI driver will generate the token for the configured audience
+	// and send it to the provider in the parameters.
+	if parameters[csipodsatokens] == "" {
+		// Inject pod service account token into volume attributes
+		serviceAccountTokenAttrs, err := ns.tokenClient.PodServiceAccountTokenAttrs(podNamespace, podName, serviceAccountName, types.UID(podUID))
+		if err != nil {
+			klog.ErrorS(err, "failed to get service account token attrs", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
+			return nil, err
+		}
+		for k, v := range serviceAccountTokenAttrs {
+			parameters[k] = v
+		}
+	}
 
 	// ensure it's read-only
 	if !req.GetReadonly() {
@@ -209,7 +232,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	mounted = true
 	var objectVersions map[string]string
 	if objectVersions, errorReason, err = ns.mountSecretsStoreObjectContent(ctx, providerName, string(parametersStr), string(secretStr), targetPath, string(permissionStr), podName); err != nil {
-		return nil, fmt.Errorf("failed to mount secrets store objects for pod %s/%s, err: %v", podNamespace, podName, err)
+		return nil, fmt.Errorf("failed to mount secrets store objects for pod %s/%s, err: %w", podNamespace, podName, err)
 	}
 
 	// create or update the secret provider class pod status object
@@ -217,7 +240,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	// the pod with same name (pods created by statefulsets) is moved to a different node and the old SPCPS
 	// has not yet been garbage collected.
 	if err = createOrUpdateSecretProviderClassPodStatus(ctx, ns.client, ns.reader, podName, podNamespace, podUID, secretProviderClass, targetPath, ns.nodeID, true, objectVersions); err != nil {
-		return nil, fmt.Errorf("failed to create secret provider class pod status for pod %s/%s, err: %v", podNamespace, podName, err)
+		return nil, fmt.Errorf("failed to create secret provider class pod status for pod %s/%s, err: %w", podNamespace, podName, err)
 	}
 
 	klog.InfoS("node publish volume complete", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
@@ -265,6 +288,13 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 	if err != nil && !os.IsNotExist(err) {
 		klog.ErrorS(err, "failed to clean and unmount target path", "targetPath", targetPath)
 		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	podUID := fileutil.GetPodUIDFromTargetPath(targetPath)
+	if podUID != "" {
+		// delete service account token from cache as the pod is deleted
+		// to ensure the cache isn't growing indefinitely
+		ns.tokenClient.DeleteServiceAccountToken(types.UID(podUID))
 	}
 
 	klog.InfoS("node unpublish volume complete", "targetPath", targetPath)

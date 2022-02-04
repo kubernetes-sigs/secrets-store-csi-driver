@@ -22,7 +22,7 @@ import (
 
 	"sigs.k8s.io/secrets-store-csi-driver/controllers"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	coreInformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/informers/internalinterfaces"
@@ -43,7 +43,7 @@ type Lister struct {
 // Store for secrets with label 'secrets-store.csi.k8s.io/used'
 type Store interface {
 	// GetNodePublishSecretRefSecret returns the NodePublishSecretRef secret matching name and namespace
-	GetNodePublishSecretRefSecret(name, namespace string) (*v1.Secret, error)
+	GetNodePublishSecretRefSecret(name, namespace string) (*corev1.Secret, error)
 	// Run initializes and runs the informers
 	Run(stopCh <-chan struct{}) error
 }
@@ -72,7 +72,7 @@ func (s k8sStore) Run(stopCh <-chan struct{}) error {
 }
 
 // GetNodePublishSecretRefSecret returns the NodePublishSecretRef secret matching name and namespace
-func (s k8sStore) GetNodePublishSecretRefSecret(name, namespace string) (*v1.Secret, error) {
+func (s k8sStore) GetNodePublishSecretRefSecret(name, namespace string) (*corev1.Secret, error) {
 	return s.listers.NodePublishSecretRefSecret.GetWithKey(fmt.Sprintf("%s/%s", namespace, name))
 }
 
@@ -92,7 +92,7 @@ func (i *Informer) run(stopCh <-chan struct{}) error {
 func newNodePublishSecretRefSecretInformer(kubeClient kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
 	return coreInformers.NewFilteredSecretInformer(
 		kubeClient,
-		v1.NamespaceAll,
+		corev1.NamespaceAll,
 		resyncPeriod,
 		cache.Indexers{},
 		usedFilterForSecret(),

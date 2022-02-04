@@ -6,13 +6,13 @@ linux:
   enabled: true
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v1.0.0
+    tag: v1.0.1
     pullPolicy: IfNotPresent
   
   crds:
     image:
       repository: k8s.gcr.io/csi-secrets-store/driver-crds
-      tag: v1.0.0
+      tag: v1.0.1
       pullPolicy: IfNotPresent
     annotations: {}
 
@@ -38,7 +38,7 @@ linux:
 
   registrarImage:
     repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
-    tag: v2.3.0
+    tag: v2.4.0
     pullPolicy: IfNotPresent
 
   registrar:
@@ -53,7 +53,7 @@ linux:
 
   livenessProbeImage:
     repository: k8s.gcr.io/sig-storage/livenessprobe
-    tag: v2.4.0
+    tag: v2.5.0
     pullPolicy: IfNotPresent
 
   livenessProbe:
@@ -97,7 +97,7 @@ windows:
   enabled: false
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v1.0.0
+    tag: v1.0.1
     pullPolicy: IfNotPresent
 
   ## Prevent the CSI driver from being scheduled on virtual-kubelet nodes
@@ -122,7 +122,7 @@ windows:
 
   registrarImage:
     repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
-    tag: v2.3.0
+    tag: v2.4.0
     pullPolicy: IfNotPresent
 
   registrar:
@@ -137,7 +137,7 @@ windows:
 
   livenessProbeImage:
     repository: k8s.gcr.io/sig-storage/livenessprobe
-    tag: v2.4.0
+    tag: v2.5.0
     pullPolicy: IfNotPresent
 
   livenessProbe:
@@ -204,9 +204,6 @@ enableSecretRotation: false
 ## Secret rotation poll interval duration
 rotationPollInterval:
 
-## Filtered watch nodePublishSecretRef secrets
-filteredWatchSecret: true
-
 ## Provider HealthCheck
 providerHealthCheck: false
 
@@ -214,3 +211,9 @@ providerHealthCheck: false
 providerHealthCheckInterval: 2m
 
 imagePullSecrets: []
+
+## This allows CSI drivers to impersonate the pods that they mount the volumes for.
+# refer to https://kubernetes-csi.github.io/docs/token-requests.html for more details.
+tokenRequests: []
+# - audience: aud1
+# - audience: aud2

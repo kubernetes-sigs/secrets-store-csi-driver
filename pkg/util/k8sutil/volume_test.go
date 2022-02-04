@@ -20,30 +20,30 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func TestSPCVolume(t *testing.T) {
 	tests := []struct {
 		name    string
-		pod     *v1.Pod
+		pod     *corev1.Pod
 		spcName string
-		want    *v1.Volume
+		want    *corev1.Volume
 	}{
 		{
 			name:    "No Volume",
-			pod:     &v1.Pod{},
+			pod:     &corev1.Pod{},
 			spcName: "foo",
 			want:    nil,
 		},
 		{
 			name: "No CSI Volume",
-			pod: &v1.Pod{
-				Spec: v1.PodSpec{
-					Volumes: []v1.Volume{
+			pod: &corev1.Pod{
+				Spec: corev1.PodSpec{
+					Volumes: []corev1.Volume{
 						{
 							Name:         "non-csi-volume",
-							VolumeSource: v1.VolumeSource{},
+							VolumeSource: corev1.VolumeSource{},
 						},
 					},
 				},
@@ -53,13 +53,13 @@ func TestSPCVolume(t *testing.T) {
 		},
 		{
 			name: "CSI volume but wrong driver",
-			pod: &v1.Pod{
-				Spec: v1.PodSpec{
-					Volumes: []v1.Volume{
+			pod: &corev1.Pod{
+				Spec: corev1.PodSpec{
+					Volumes: []corev1.Volume{
 						{
 							Name: "csi-volume",
-							VolumeSource: v1.VolumeSource{
-								CSI: &v1.CSIVolumeSource{
+							VolumeSource: corev1.VolumeSource{
+								CSI: &corev1.CSIVolumeSource{
 									Driver: "example-driver.k8s.io",
 								},
 							},
@@ -72,13 +72,13 @@ func TestSPCVolume(t *testing.T) {
 		},
 		{
 			name: "Wrong Volume",
-			pod: &v1.Pod{
-				Spec: v1.PodSpec{
-					Volumes: []v1.Volume{
+			pod: &corev1.Pod{
+				Spec: corev1.PodSpec{
+					Volumes: []corev1.Volume{
 						{
 							Name: "csi-volume",
-							VolumeSource: v1.VolumeSource{
-								CSI: &v1.CSIVolumeSource{
+							VolumeSource: corev1.VolumeSource{
+								CSI: &corev1.CSIVolumeSource{
 									Driver:           "secrets-store.csi.k8s.io",
 									VolumeAttributes: map[string]string{"secretProviderClass": "spc1"},
 								},
@@ -92,13 +92,13 @@ func TestSPCVolume(t *testing.T) {
 		},
 		{
 			name: "Correct Volume",
-			pod: &v1.Pod{
-				Spec: v1.PodSpec{
-					Volumes: []v1.Volume{
+			pod: &corev1.Pod{
+				Spec: corev1.PodSpec{
+					Volumes: []corev1.Volume{
 						{
 							Name: "csi-volume",
-							VolumeSource: v1.VolumeSource{
-								CSI: &v1.CSIVolumeSource{
+							VolumeSource: corev1.VolumeSource{
+								CSI: &corev1.CSIVolumeSource{
 									Driver:           "secrets-store.csi.k8s.io",
 									VolumeAttributes: map[string]string{"secretProviderClass": "spc1"},
 								},
@@ -108,10 +108,10 @@ func TestSPCVolume(t *testing.T) {
 				},
 			},
 			spcName: "spc1",
-			want: &v1.Volume{
+			want: &corev1.Volume{
 				Name: "csi-volume",
-				VolumeSource: v1.VolumeSource{
-					CSI: &v1.CSIVolumeSource{
+				VolumeSource: corev1.VolumeSource{
+					CSI: &corev1.CSIVolumeSource{
 						Driver:           "secrets-store.csi.k8s.io",
 						VolumeAttributes: map[string]string{"secretProviderClass": "spc1"},
 					},
@@ -120,13 +120,13 @@ func TestSPCVolume(t *testing.T) {
 		},
 		{
 			name: "Multiple Volumes",
-			pod: &v1.Pod{
-				Spec: v1.PodSpec{
-					Volumes: []v1.Volume{
+			pod: &corev1.Pod{
+				Spec: corev1.PodSpec{
+					Volumes: []corev1.Volume{
 						{
 							Name: "csi-volume-0",
-							VolumeSource: v1.VolumeSource{
-								CSI: &v1.CSIVolumeSource{
+							VolumeSource: corev1.VolumeSource{
+								CSI: &corev1.CSIVolumeSource{
 									Driver:           "secrets-store.csi.k8s.io",
 									VolumeAttributes: map[string]string{"secretProviderClass": "spc0"},
 								},
@@ -134,8 +134,8 @@ func TestSPCVolume(t *testing.T) {
 						},
 						{
 							Name: "csi-volume",
-							VolumeSource: v1.VolumeSource{
-								CSI: &v1.CSIVolumeSource{
+							VolumeSource: corev1.VolumeSource{
+								CSI: &corev1.CSIVolumeSource{
 									Driver:           "secrets-store.csi.k8s.io",
 									VolumeAttributes: map[string]string{"secretProviderClass": "spc1"},
 								},
@@ -145,10 +145,10 @@ func TestSPCVolume(t *testing.T) {
 				},
 			},
 			spcName: "spc1",
-			want: &v1.Volume{
+			want: &corev1.Volume{
 				Name: "csi-volume",
-				VolumeSource: v1.VolumeSource{
-					CSI: &v1.CSIVolumeSource{
+				VolumeSource: corev1.VolumeSource{
+					CSI: &corev1.CSIVolumeSource{
 						Driver:           "secrets-store.csi.k8s.io",
 						VolumeAttributes: map[string]string{"secretProviderClass": "spc1"},
 					},

@@ -27,6 +27,7 @@ import (
 
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	"sigs.k8s.io/secrets-store-csi-driver/controllers"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/metrics"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/rotation"
 	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
@@ -38,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	json "k8s.io/component-base/logs/json"
@@ -62,11 +64,6 @@ var (
 	profilePort          = flag.Int("pprof-port", 6065, "port for pprof profiling")
 	maxCallRecvMsgSize   = flag.Int("max-call-recv-msg-size", 1024*1024*4, "maximum size in bytes of gRPC response from plugins")
 
-	// enable filtered watch for NodePublishSecretRef secrets. The filtering is done on the csi driver label: secrets-store.csi.k8s.io/used=true
-	// For Kubernetes secrets used to provide credentials for use with the CSI driver, set the label by running: kubectl label secret secrets-store-creds secrets-store.csi.k8s.io/used=true
-	// This feature is enabled by default starting v0.1.0 and can't be disabled starting v1.0.0 release.
-	filteredWatchSecret = flag.Bool("filtered-watch-secret", true, "enable filtered watch for NodePublishSecretRef secrets with label secrets-store.csi.k8s.io/used=true")
-
 	// Enable optional healthcheck for provider clients that exist in memory
 	providerHealthCheck         = flag.Bool("provider-health-check", false, "Enable health check for configured providers")
 	providerHealthCheckInterval = flag.Duration("provider-health-check-interval", 2*time.Minute, "Provider healthcheck interval duration")
@@ -87,7 +84,8 @@ func main() {
 	flag.Parse()
 
 	if *logFormatJSON {
-		klog.SetLogger(json.JSONLogger)
+		logger, _ := json.NewJSONLogger(nil, nil)
+		klog.SetLogger(logger)
 	}
 	if *enableProfile {
 		klog.InfoS("Starting profiling", "port", *profilePort)
@@ -95,10 +93,6 @@ func main() {
 			addr := fmt.Sprintf("%s:%d", "localhost", *profilePort)
 			klog.ErrorS(http.ListenAndServe(addr, nil), "unable to start profiling server")
 		}()
-	}
-
-	if !*filteredWatchSecret {
-		klog.Warning("Filtered watch for nodePublishSecretRef secret based on secrets-store.csi.k8s.io/used=true label can't be disabled. The --filtered-watch-secret flag will be deprecated in future releases.")
 	}
 
 	// initialize metrics exporter before creating measurements
@@ -186,9 +180,21 @@ func main() {
 		reconciler.RunPatcher(ctx)
 	}()
 
+	// token request client
+	kubeClient := kubernetes.NewForConfigOrDie(cfg)
+	tokenClient := k8s.NewTokenClient(kubeClient, *driverName, 10*time.Minute)
+	if err != nil {
+		klog.ErrorS(err, "failed to create token client")
+		os.Exit(1)
+	}
+	if err = tokenClient.Run(ctx.Done()); err != nil {
+		klog.ErrorS(err, "failed to run token client")
+		os.Exit(1)
+	}
+
 	// Secret rotation
 	if *enableSecretRotation {
-		rec, err := rotation.NewReconciler(mgr.GetCache(), scheme, *providerVolumePath, *nodeID, *rotationPollInterval, providerClients)
+		rec, err := rotation.NewReconciler(mgr.GetCache(), scheme, *providerVolumePath, *nodeID, *rotationPollInterval, providerClients, tokenClient)
 		if err != nil {
 			klog.ErrorS(err, "failed to initialize rotation reconciler")
 			os.Exit(1)
@@ -196,7 +202,7 @@ func main() {
 		go rec.Run(ctx.Done())
 	}
 
-	driver := secretsstore.NewSecretsStoreDriver(*driverName, *nodeID, *endpoint, *providerVolumePath, providerClients, mgr.GetClient(), mgr.GetAPIReader())
+	driver := secretsstore.NewSecretsStoreDriver(*driverName, *nodeID, *endpoint, *providerVolumePath, providerClients, mgr.GetClient(), mgr.GetAPIReader(), tokenClient)
 	driver.Run(ctx)
 }
 

@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/controllers"
 
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -46,7 +46,7 @@ func TestGetNodePublishSecretRefSecret(t *testing.T) {
 	g.Expect(err).To(HaveOccurred())
 	g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 
-	secretToAdd := &v1.Secret{
+	secretToAdd := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "secret1",
 			Namespace: "default",

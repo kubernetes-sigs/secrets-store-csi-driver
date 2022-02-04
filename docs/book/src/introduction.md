@@ -1,8 +1,8 @@
 # Kubernetes Secrets Store CSI Driver
 
-Secrets Store CSI driver for Kubernetes secrets - Integrates secrets stores with Kubernetes via a [Container Storage Interface (CSI)](https://kubernetes-csi.github.io/docs/) volume.
+Secrets Store CSI Driver for Kubernetes secrets - Integrates secrets stores with Kubernetes via a [Container Storage Interface (CSI)](https://kubernetes-csi.github.io/docs/) volume.
 
-The Secrets Store CSI driver `secrets-store.csi.k8s.io` allows Kubernetes to mount multiple secrets, keys, and certs stored in enterprise-grade external secrets stores into their pods as a volume. Once the Volume is attached, the data in it is mounted into the container's file system.
+The Secrets Store CSI Driver `secrets-store.csi.k8s.io` allows Kubernetes to mount multiple secrets, keys, and certs stored in enterprise-grade external secrets stores into their pods as a volume. Once the Volume is attached, the data in it is mounted into the container's file system.
 
 ## Want to help?
 
@@ -15,10 +15,10 @@ Join us to help define the direction and implementation of this project!
 
 ## Project Status
 
-| Driver                                                                                    | Compatible Kubernetes | `secrets-store.csi.k8s.io` Versions |
-|-------------------------------------------------------------------------------------------|-----------------------|-------------------------------------|
-| [v1.0.0](https://github.com/kubernetes-sigs/secrets-store-csi-driver/releases/tag/v1.0.0) | 1.19+                 | `v1`, `v1alpha1`                    |
-| [v0.3.0](https://github.com/kubernetes-sigs/secrets-store-csi-driver/releases/tag/v0.3.0) | 1.19+                 | `v1alpha1`                          |
+| Driver                                                                                    | Compatible Kubernetes | `secrets-store.csi.x-k8s.io` Versions |
+| ----------------------------------------------------------------------------------------- | --------------------- | ------------------------------------- |
+| [v1.0.0](https://github.com/kubernetes-sigs/secrets-store-csi-driver/releases/tag/v1.0.0) | 1.19+                 | `v1`, `v1alpha1`                      |
+| [v0.3.0](https://github.com/kubernetes-sigs/secrets-store-csi-driver/releases/tag/v0.3.0) | 1.19+                 | `v1alpha1`                            |
 
 See
 [Release Management](./release-management.md)
@@ -31,9 +31,9 @@ for additional details on versioning. We aim to release a new minor version ever
 
 - Multiple external [secrets store providers](./providers.md)
 - Pod portability with the `SecretProviderClass` `CustomResourceDefinition`
-- Mounts secrets/keys/certs to pod using a CSI volume
+- Mounts secrets/keys/certs to pod using a CSI Inline volume
 - Mount multiple secrets store objects as a single volume
-- Windows containers
+- Linux and Windows containers
 
 ### Alpha Functionality
 

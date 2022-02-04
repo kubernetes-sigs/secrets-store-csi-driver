@@ -29,8 +29,8 @@ E2E_PROVIDER_IMAGE_NAME ?= e2e-provider
 
 # Release version is the current supported release for the driver
 # Update this version when the helm chart is being updated for release
-RELEASE_VERSION := v1.0.0
-IMAGE_VERSION ?= v1.0.0
+RELEASE_VERSION := v1.0.1
+IMAGE_VERSION ?= v1.0.1.1
 
 # Use a custom version for E2E tests if we are testing in CI
 ifdef CI
@@ -75,7 +75,8 @@ ARCH ?= amd64
 OSVERSION ?= 1809
 # Output type of docker buildx build
 OUTPUT_TYPE ?= registry
-QEMUVERSION ?= 5.2.0-2
+BUILDX_BUILDER_NAME ?= img-builder
+QEMU_VERSION ?= 5.2.0-2
 
 # Binaries
 GOLANGCI_LINT := $(TOOLS_BIN_DIR)/golangci-lint
@@ -90,7 +91,6 @@ AZURE_CLI := az
 KIND := kind
 KUBECTL := kubectl
 ENVSUBST := envsubst
-SHELLCHECK := $(TOOLS_BIN_DIR)/shellcheck-$(SHELLCHECK_VER)
 EKSCTL := eksctl
 AWS_CLI := aws
 YQ := yq
@@ -157,11 +157,11 @@ sanity-test:
 .PHONY: image-scan
 image-scan: $(TRIVY)
 	# show all vulnerabilities
-	$(TRIVY) --severity MEDIUM,HIGH,CRITICAL $(IMAGE_TAG)
-	$(TRIVY) --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
+	$(TRIVY) image --severity MEDIUM,HIGH,CRITICAL $(IMAGE_TAG)
+	$(TRIVY) image --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
 	# show vulnerabilities that have been fixed
-	$(TRIVY) --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(IMAGE_TAG)
-	$(TRIVY) --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
+	$(TRIVY) image --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(IMAGE_TAG)
+	$(TRIVY) image --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
 
 ## --------------------------------------
 ## Tooling Binaries
@@ -217,6 +217,7 @@ $(PROTOC): ## Install protoc
 $(YQ): ## Install yq for running the tests
 	curl -LO https://github.com/mikefarah/yq/releases/download/$(YQ_VERSION)/yq_linux_amd64 && chmod +x ./yq_linux_amd64 && mv yq_linux_amd64 /usr/local/bin/yq
 
+SHELLCHECK := $(TOOLS_BIN_DIR)/shellcheck-$(SHELLCHECK_VER)
 $(SHELLCHECK): OS := $(shell uname | tr '[:upper:]' '[:lower:]')
 $(SHELLCHECK): ARCH := $(shell uname -m)
 $(SHELLCHECK):
@@ -245,12 +246,12 @@ lint-full: $(GOLANGCI_LINT)
 	$(GOLANGCI_LINT) run -v --fast=false
 
 lint-charts: $(HELM) # Run helm lint tests
-	helm lint --strict charts/secrets-store-csi-driver
-	helm lint --strict manifest_staging/charts/secrets-store-csi-driver
+	helm lint charts/secrets-store-csi-driver
+	helm lint manifest_staging/charts/secrets-store-csi-driver
 
 .PHONY: shellcheck
 shellcheck: $(SHELLCHECK)
-	$(SHELLCHECK) */*.sh
+	find . -name '*.sh' -not -path './third_party/*'  | xargs $(SHELLCHECK)
 
 ## --------------------------------------
 ## Builds
@@ -286,20 +287,20 @@ endif
 
 .PHONY: e2e-provider-container
 e2e-provider-container:
-	docker build --no-cache -t $(E2E_PROVIDER_IMAGE_TAG) -f test/e2eprovider/Dockerfile .
+	docker buildx build --no-cache -t $(E2E_PROVIDER_IMAGE_TAG) -f test/e2eprovider/Dockerfile --progress=plain .
 
 .PHONY: container
 container: crd-container
-	docker build --no-cache --build-arg IMAGE_VERSION=$(IMAGE_VERSION) -t $(IMAGE_TAG) -f docker/Dockerfile .
+	docker buildx build --no-cache --build-arg IMAGE_VERSION=$(IMAGE_VERSION) -t $(IMAGE_TAG) -f docker/Dockerfile --progress=plain .
 
 .PHONY: crd-container
 crd-container: build-crds
-	docker build --no-cache --build-arg ARCH=$(ARCH) -t $(CRD_IMAGE_TAG) -f docker/crd.Dockerfile _output/crds/
+	docker buildx build --no-cache -t $(CRD_IMAGE_TAG) -f docker/crd.Dockerfile --progress=plain _output/crds/
 
 .PHONY: crd-container-linux
 crd-container-linux: build-crds docker-buildx-builder
 	docker buildx build --no-cache --output=type=$(OUTPUT_TYPE) --platform="linux/$(ARCH)" \
-		--build-arg ARCH=$(ARCH) -t $(CRD_IMAGE_TAG)-linux-$(ARCH) -f docker/crd.Dockerfile _output/crds/
+		-t $(CRD_IMAGE_TAG)-linux-$(ARCH) -f docker/crd.Dockerfile _output/crds/
 
 .PHONY: container-linux
 container-linux: docker-buildx-builder
@@ -315,15 +316,14 @@ container-windows: docker-buildx-builder
 
 .PHONY: docker-buildx-builder
 docker-buildx-builder:
-	@if ! docker buildx ls | grep -q container-builder; then\
-		DOCKER_CLI_EXPERIMENTAL=enabled docker buildx create --name container-builder --use;\
+	@if ! docker buildx ls | grep $(BUILDX_BUILDER_NAME); then \
+		docker run --rm --privileged multiarch/qemu-user-static:$(QEMU_VERSION) --reset -p yes; \
+		docker buildx create --name $(BUILDX_BUILDER_NAME) --use; \
+		docker buildx inspect $(BUILDX_BUILDER_NAME) --bootstrap; \
 	fi
 
 .PHONY: container-all
-container-all:
-	# Enable execution of multi-architecture containers
-	docker run --rm --privileged multiarch/qemu-user-static:$(QEMUVERSION) --reset -p yes
-
+container-all: docker-buildx-builder
 	for arch in $(ALL_ARCH.linux); do \
 		ARCH=$${arch} $(MAKE) container-linux; \
 		ARCH=$${arch} $(MAKE) crd-container-linux; \
@@ -378,8 +378,7 @@ ifdef TEST_WINDOWS
 	$(MAKE) container-all push-manifest
 else
 	$(MAKE) container
-	kind load docker-image --name kind $(IMAGE_TAG)
-	kind load docker-image --name kind $(CRD_IMAGE_TAG)
+	kind load docker-image --name kind $(IMAGE_TAG) $(CRD_IMAGE_TAG)
 endif
 
 .PHONY: e2e-mock-provider-container
@@ -405,8 +404,11 @@ e2e-deploy-manifest:
 	kubectl apply -f manifest_staging/deploy/rbac-secretproviderclass.yaml
 	kubectl apply -f manifest_staging/deploy/rbac-secretproviderrotation.yaml
 	kubectl apply -f manifest_staging/deploy/rbac-secretprovidersyncing.yaml
+	kubectl apply -f manifest_staging/deploy/rbac-secretprovidertokenrequest.yaml
 	kubectl apply -f manifest_staging/deploy/secrets-store.csi.x-k8s.io_secretproviderclasses.yaml
 	kubectl apply -f manifest_staging/deploy/secrets-store.csi.x-k8s.io_secretproviderclasspodstatuses.yaml
+	kubectl apply -f manifest_staging/deploy/role-secretproviderclasses-admin.yaml
+	kubectl apply -f manifest_staging/deploy/role-secretproviderclasses-viewer.yaml
 
 	yq e '(.spec.template.spec.containers[1].image = "$(IMAGE_TAG)") | (.spec.template.spec.containers[1].args as $$x | $$x += "--enable-secret-rotation=true" | $$x[-1] style="double") | (.spec.template.spec.containers[1].args as $$x | $$x += "--rotation-poll-interval=30s" | $$x[-1] style="double")' 'manifest_staging/deploy/secrets-store-csi-driver.yaml' | kubectl apply -f -
 
@@ -428,11 +430,13 @@ e2e-helm-deploy:
 		--set linux.enabled=true \
 		--set syncSecret.enabled=true \
 		--set enableSecretRotation=true \
-		--set rotationPollInterval=30s
+		--set rotationPollInterval=30s \
+		--set tokenRequests[0].audience="aud1" \
+		--set tokenRequests[1].audience="aud2"
 
 .PHONY: e2e-helm-upgrade
 e2e-helm-upgrade:
-	helm upgrade csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace kube-system --reuse-values --timeout=5m -v=5 --debug --set filteredWatchSecret=true \
+	helm upgrade csi-secrets-store manifest_staging/charts/secrets-store-csi-driver --namespace kube-system --reuse-values --timeout=5m -v=5 --debug \
 		--set linux.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
 		--set linux.image.tag=$(IMAGE_VERSION) \
 		--set windows.image.repository=$(REGISTRY)/$(IMAGE_NAME) \
@@ -515,6 +519,14 @@ manifests: $(CONTROLLER_GEN) $(KUSTOMIZE)
 	cp config/rbac-rotation/role_binding.yaml manifest_staging/charts/secrets-store-csi-driver/templates/role-rotation_binding.yaml
 	@sed -i '1s/^/{{ if .Values.enableSecretRotation }}\n/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-rotation.yaml
 	@sed -i '1s/^/{{ if .Values.enableSecretRotation }}\n/gm; s/namespace: .*/namespace: {{ .Release.Namespace }}/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-rotation_binding.yaml
+
+	# Generate token requests specific RBAC
+	$(CONTROLLER_GEN) rbac:roleName=secretprovidertokenrequest-role paths="./controllers/tokenrequest" output:dir=config/rbac-tokenrequest
+	$(KUSTOMIZE) build config/rbac-tokenrequest -o manifest_staging/deploy/rbac-secretprovidertokenrequest.yaml
+	cp config/rbac-tokenrequest/role.yaml manifest_staging/charts/secrets-store-csi-driver/templates/role-tokenrequest.yaml
+	cp config/rbac-tokenrequest/role_binding.yaml manifest_staging/charts/secrets-store-csi-driver/templates/role-tokenrequest_binding.yaml
+	@sed -i '1s/^/{{ if .Values.tokenRequests }}\n/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-tokenrequest.yaml
+	@sed -i '1s/^/{{ if .Values.tokenRequests }}\n/gm; s/namespace: .*/namespace: {{ .Release.Namespace }}/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-tokenrequest_binding.yaml
 
 .PHONY: generate-protobuf
 generate-protobuf: $(PROTOC) $(PROTOC_GEN_GO) # generates protobuf

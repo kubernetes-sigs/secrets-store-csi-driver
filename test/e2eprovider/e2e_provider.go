@@ -69,6 +69,7 @@ func main() {
 		os.Setenv("ROTATION_ENABLED", "false")
 
 		http.HandleFunc("/rotation", server.RotationHandler)
+		http.HandleFunc("/validate-token-requests", server.ValidateTokenAudienceHandler)
 		klog.Fatal(http.ListenAndServe(":8080", nil))
 	}()
 

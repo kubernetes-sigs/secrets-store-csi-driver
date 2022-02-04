@@ -12,6 +12,8 @@ Set `NAMESPACE` to the same namespace where the driver was originally installed,
 If you are upgrading from one of the following versions there may be additional
 steps that you should take.
 
+<!-- toc -->
+
 ## pre `v1.0.0`
 
 Versions `v1.0.0-rc.1` and later use the `v1` version of the `SecretProviderClass` and `SecretProviderClassPodStatus`

@@ -34,13 +34,33 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 # export the secrets-store API version to be used
 export API_VERSION=$(get_secrets_store_api_version)
 
+# export the token requests audience configured in the CSIDriver
+# refer to https://kubernetes-csi.github.io/docs/token-requests.html for more information
+export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
+
+@test "setup mock provider validation config" {
+  if [[ -n "${VALIDATE_TOKENS_AUDIENCE}" ]]; then
+    # configure the mock provider to validate the token requests
+    kubectl create ns enable-token-requests
+    local curl_pod_name=curl-$(openssl rand -hex 5)
+    kubectl run ${curl_pod_name} -n enable-token-requests --image=curlimages/curl:7.75.0 --labels="util=enable-token-requests" -- tail -f /dev/null
+    kubectl wait -n enable-token-requests --for=condition=Ready --timeout=60s pod ${curl_pod_name}
+    local pod_ip=$(kubectl get pod -n kube-system -l app=csi-secrets-store-e2e-provider -o jsonpath="{.items[0].status.podIP}")
+    run kubectl exec ${curl_pod_name} -n enable-token-requests -- curl http://${pod_ip}:8080/validate-token-requests?audience=${VALIDATE_TOKENS_AUDIENCE}
+    kubectl delete pod -l util=enable-token-requests -n enable-token-requests --force --grace-period 0
+    kubectl delete ns enable-token-requests
+  fi
+
+  log_secrets_store_api_version
+  log_token_requests_audience
+}
+
+
 @test "secretproviderclasses crd is established" {
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
   run kubectl get crd/secretproviderclasses.secrets-store.csi.x-k8s.io
   assert_success
-
-  log_secrets_store_api_version
 }
 
 @test "secretproviderclasspodstatuses crd is established" {
@@ -54,10 +74,19 @@ export API_VERSION=$(get_secrets_store_api_version)
   run kubectl get clusterrole/secretproviderclasses-role
   assert_success
 
+  run kubectl get clusterrole/secretproviderclasses-admin-role
+  assert_success
+
+  run kubectl get clusterrole/secretproviderclasses-viewer-role
+  assert_success
+
   run kubectl get clusterrole/secretproviderrotation-role
   assert_success
 
   run kubectl get clusterrole/secretprovidersyncing-role
+  assert_success
+
+  run kubectl get clusterrole/secretprovidertokenrequest-role
   assert_success
 
   run kubectl get clusterrolebinding/secretproviderclasses-rolebinding
@@ -67,6 +96,9 @@ export API_VERSION=$(get_secrets_store_api_version)
   assert_success
 
   run kubectl get clusterrolebinding/secretprovidersyncing-rolebinding
+  assert_success
+
+  run kubectl get clusterrolebinding/secretprovidertokenrequest-rolebinding
   assert_success
 }
 

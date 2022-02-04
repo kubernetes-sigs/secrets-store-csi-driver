@@ -16,7 +16,7 @@ spec:
   parameters:                                 # provider-specific parameters
 ```
 
-Here is a sample [`SecretProviderClass` custom resource](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/main/test/bats/tests/vault/vault_v1alpha1_secretproviderclass.yaml)
+Here is a sample [`SecretProviderClass` custom resource](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/release-1.0/test/bats/tests/vault/vault_v1_secretproviderclass.yaml)
 
 ### Update your Deployment Yaml
 
