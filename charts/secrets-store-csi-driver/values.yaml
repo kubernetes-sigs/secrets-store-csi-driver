@@ -4,7 +4,7 @@ linux:
     repository: k8s.gcr.io/csi-secrets-store/driver
     tag: v1.0.1
     pullPolicy: IfNotPresent
-  
+
   crds:
     image:
       repository: k8s.gcr.io/csi-secrets-store/driver-crds
@@ -13,7 +13,7 @@ linux:
     annotations: {}
 
   ## Prevent the CSI driver from being scheduled on virtual-kubelet nodes
-  affinity: 
+  affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms:
@@ -97,7 +97,7 @@ windows:
     pullPolicy: IfNotPresent
 
   ## Prevent the CSI driver from being scheduled on virtual-kubelet nodes
-  affinity: 
+  affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms:
