@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The Kubernetes Authors.
+Copyright 2022 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import (
 	"time"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -46,13 +45,14 @@ type TokenClient struct {
 // NewTokenClient creates a new TokenClient
 // The client will be used to request a token for token requests configured in the CSIDriver.
 func NewTokenClient(kubeClient kubernetes.Interface, driverName string, resyncPeriod time.Duration) *TokenClient {
-	kubeInformerFactory := kubeinformers.NewFilteredSharedInformerFactory(
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(
 		kubeClient,
 		resyncPeriod,
-		corev1.NamespaceAll,
-		func(options *metav1.ListOptions) {
-			options.FieldSelector = fmt.Sprintf("metadata.name=%s", driverName)
-		},
+		kubeinformers.WithTweakListOptions(
+			func(options *metav1.ListOptions) {
+				options.FieldSelector = fmt.Sprintf("metadata.name=%s", driverName)
+			},
+		),
 	)
 
 	csiDriverInformer := kubeInformerFactory.Storage().V1().CSIDrivers()
