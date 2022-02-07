@@ -1,0 +1,36 @@
+# refer to https://goreleaser.com for more options
+build:
+  skip: true
+release:
+  prerelease: auto
+  header: |
+    ## {{.Tag}} - {{ time "2006-01-02" }}
+  extra_files:
+    - glob: deploy/*.yaml
+changelog:
+  skip: false
+  groups:
+    - title: Bug Fixes 🐞
+      regexp: ^.*fix[(\\w)]*:+.*$
+    - title: Build 🏭
+      regexp: ^.*build[(\\w)]*:+.*$
+    - title: Code Refactoring 💎
+      regexp: ^.*refactor[(\\w)]*:+.*$
+    - title: Code Style 🎶
+      regexp: ^.*style[(\\w)]*:+.*$
+    - title: Continuous Integration 💜
+      regexp: ^.*ci[(\\w)]*:+.*$
+    - title: Documentation 📘
+      regexp: ^.*docs[(\\w)]*:+.*$
+    - title: Features 🌈
+      regexp: ^.*feat[(\\w)]*:+.*$
+    - title: Maintenance 🔧
+      regexp: ^.*chore[(\\w)]*:+.*$
+    - title: Performance Improvements 🚀
+      regexp: ^.*perf[(\\w)]*:+.*$
+    - title: Revert Change ◀️
+      regexp: ^.*revert[(\\w)]*:+.*$
+    - title: Security Fix 🛡️
+      regexp: ^.*security[(\\w)]*:+.*$
+    - title: Testing 💚
+      regexp: ^.*test[(\\w)]*:+.*$
