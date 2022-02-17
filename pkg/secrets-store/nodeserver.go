@@ -79,8 +79,8 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			// again for mount, entire node publish volume is retried
 			if targetPath != "" && mounted {
 				klog.InfoS("unmounting target path as node publish volume failed", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
-				if err = ns.mounter.Unmount(targetPath); err != nil {
-					klog.ErrorS(err, "failed to unmounting target path")
+				if unmountErr := ns.mounter.Unmount(targetPath); unmountErr != nil {
+					klog.ErrorS(unmountErr, "failed to unmounting target path")
 				}
 			}
 			ns.reporter.ReportNodePublishErrorCtMetric(providerName, errorReason)
@@ -232,6 +232,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	mounted = true
 	var objectVersions map[string]string
 	if objectVersions, errorReason, err = ns.mountSecretsStoreObjectContent(ctx, providerName, string(parametersStr), string(secretStr), targetPath, string(permissionStr), podName); err != nil {
+		klog.ErrorS(err, "failed to mount secrets store object content", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 		return nil, fmt.Errorf("failed to mount secrets store objects for pod %s/%s, err: %w", podNamespace, podName, err)
 	}
 
