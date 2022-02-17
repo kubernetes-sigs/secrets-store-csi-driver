@@ -212,6 +212,7 @@ imagePullSecrets: []
 
 ## This allows CSI drivers to impersonate the pods that they mount the volumes for.
 # refer to https://kubernetes-csi.github.io/docs/token-requests.html for more details.
+# Supported only for Kubernetes v1.20+
 tokenRequests: []
 # - audience: aud1
 # - audience: aud2
