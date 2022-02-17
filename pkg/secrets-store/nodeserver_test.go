@@ -322,6 +322,56 @@ func TestNodePublishVolume(t *testing.T) {
 	}
 }
 
+func TestTestNodePublishVolume_ProviderError(t *testing.T) {
+	s := scheme.Scheme
+	s.AddKnownTypes(schema.GroupVersion{Group: secretsstorev1.GroupVersion.Group, Version: secretsstorev1.GroupVersion.Version},
+		&secretsstorev1.SecretProviderClass{},
+		&secretsstorev1.SecretProviderClassList{},
+		&secretsstorev1.SecretProviderClassPodStatus{},
+	)
+
+	initObjects := []client.Object{
+		&secretsstorev1.SecretProviderClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "simple_provider",
+				Namespace: "default",
+			},
+			Spec: secretsstorev1.SecretProviderClassSpec{
+				Provider:   "simple_provider",
+				Parameters: map[string]string{"parameter1": "value1"},
+			},
+		},
+	}
+
+	r := mocks.NewFakeReporter()
+	tmpDir := tmpdir.New(t, "", "ut")
+	ns, err := testNodeServer(t, tmpDir, []mount.MountPoint{}, fake.NewClientBuilder().WithScheme(s).WithObjects(initObjects...).Build(), r)
+	if err != nil {
+		t.Fatalf("expected error to be nil, got: %+v", err)
+	}
+
+	nodePublishVolReq := csi.NodePublishVolumeRequest{
+		VolumeCapability: &csi.VolumeCapability{},
+		VolumeId:         "testvolid1",
+		TargetPath:       tmpdir.New(t, "", "ut"),
+		VolumeContext: map[string]string{
+			"secretProviderClass": "simple_provider",
+			csipodname:            "pod1",
+			csipodnamespace:       "default",
+			csipoduid:             "poduid1",
+			// not a real token, just for testing
+			csipodsatokens: `{"https://kubernetes.default.svc":{"token":"eyJhbGciOiJSUzI1NiIsImtpZCI6IjEyMyJ9.eyJhdWQiOlsiaHR0cHM6Ly9rdWJlcm5ldGVzLmRlZmF1bHQuc3ZjIl0sImV4cCI6MTYxMTk1OTM5NiwiaWF0IjoxNjExOTU4Nzk2LCJpc3MiOiJodHRwczovL2t1YmVybmV0ZXMuZGVmYXVsdC5zdmMiLCJrdWJlcm5ldGVzLmlvIjp7Im5hbWVzcGFjZSI6ImRlZmF1bHQiLCJzZXJ2aWNlYWNjb3VudCI6eyJuYW1lIjoiZGVmYXVsdCIsInVpZCI6IjA5MWUyNTU3LWJkODYtNDhhMC1iZmNmLWI1YTI4ZjRjODAyNCJ9fSwibmJmIjoxNjExOTU4Nzk2LCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6ZGVmYXVsdDpkZWZhdWx0In0.YNU2Z_gEE84DGCt8lh9GuE8gmoof-Pk_7emp3fsyj9pq16DRiDaLtOdprH-njpOYqvtT5Uf_QspFc_RwD_pdq9UJWCeLxFkRTsYR5WSjhMFcl767c4Cwp_oZPYhaHd1x7aU1emH-9oarrM__tr1hSmGoAc2I0gUSkAYFueaTUSy5e5d9QKDfjVljDRc7Yrp6qAAfd1OuDdk1XYIjrqTHk1T1oqGGlcd3lRM_dKSsW5I_YqgKMrjwNt8yOKcdKBrgQhgC42GZbFDRVJDJHs_Hq32xo-2s3PJ8UZ_alN4wv8EbuwB987_FHBTc_XAULHPvp0mCv2C5h0V2A7gzccv30A","expirationTimestamp":"2021-01-29T22:29:56Z"}}`,
+			"providerName": "simple_provider",
+		},
+		Readonly: true,
+	}
+
+	_, err = ns.NodePublishVolume(context.TODO(), &nodePublishVolReq)
+	if err == nil {
+		t.Fatalf("NodePublishVolume() expected error, got nil")
+	}
+}
+
 func TestMountSecretsStoreObjectContent(t *testing.T) {
 	tests := []struct {
 		name                string
