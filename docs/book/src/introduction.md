@@ -49,3 +49,4 @@ These features are not stable. If you use these be sure to consult the
 - [Azure Provider](https://azure.github.io/secrets-store-csi-driver-provider-azure/)
 - [GCP Provider](https://github.com/GoogleCloudPlatform/secrets-store-csi-driver-provider-gcp)
 - [Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault)
+- [Akeyless Provider](https://github.com/akeylesslabs/akeyless-csi-provider)

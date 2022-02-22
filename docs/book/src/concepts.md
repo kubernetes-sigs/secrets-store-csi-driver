@@ -30,6 +30,7 @@ Currently supported providers:
 - [Azure Provider](https://azure.github.io/secrets-store-csi-driver-provider-azure/)
 - [GCP Provider](https://github.com/GoogleCloudPlatform/secrets-store-csi-driver-provider-gcp)
 - [Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault)
+- [Akeyless Provider](https://github.com/akeylesslabs/akeyless-csi-provider)
 
 ## Custom Resource Definitions (CRDs)
 
@@ -45,7 +46,7 @@ kind: SecretProviderClass
 metadata:
   name: my-provider
 spec:
-  provider: vault                             # accepted provider options: azure or vault or gcp
+  provider: vault                             # accepted provider options: azure or vault or gcp or akeyless
   parameters:                                 # provider-specific parameters
 ```
 
