@@ -2,26 +2,26 @@ linux:
   enabled: true
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v1.1.0-rc.0
+    tag: v1.1.0
     pullPolicy: IfNotPresent
-  
+
   crds:
     image:
       repository: k8s.gcr.io/csi-secrets-store/driver-crds
-      tag: v1.1.0-rc.0
+      tag: v1.1.0
       pullPolicy: IfNotPresent
     annotations: {}
 
   ## Prevent the CSI driver from being scheduled on virtual-kubelet nodes
-  affinity: 
+  affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms:
-        - matchExpressions:
-          - key: type
-            operator: NotIn
-            values:
-            - virtual-kubelet
+          - matchExpressions:
+              - key: type
+                operator: NotIn
+                values:
+                  - virtual-kubelet
 
   driver:
     resources:
@@ -34,7 +34,7 @@ linux:
 
   registrarImage:
     repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
-    tag: v2.4.0
+    tag: v2.5.0
     pullPolicy: IfNotPresent
 
   registrar:
@@ -49,7 +49,7 @@ linux:
 
   livenessProbeImage:
     repository: k8s.gcr.io/sig-storage/livenessprobe
-    tag: v2.5.0
+    tag: v2.6.0
     pullPolicy: IfNotPresent
 
   livenessProbe:
@@ -61,7 +61,6 @@ linux:
         cpu: 10m
         memory: 20Mi
 
-
   updateStrategy:
     type: RollingUpdate
     rollingUpdate:
@@ -69,6 +68,8 @@ linux:
 
   kubeletRootDir: /var/lib/kubelet
   providersDir: /etc/kubernetes/secrets-store-csi-providers
+  additionalProvidersDirs: 
+    - /var/run/secrets-store-csi-providers
   nodeSelector: {}
   tolerations: []
   metricsAddr: ":8095"
@@ -93,19 +94,19 @@ windows:
   enabled: false
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v1.1.0-rc.0
+    tag: v1.1.0
     pullPolicy: IfNotPresent
 
   ## Prevent the CSI driver from being scheduled on virtual-kubelet nodes
-  affinity: 
+  affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms:
-        - matchExpressions:
-          - key: type
-            operator: NotIn
-            values:
-            - virtual-kubelet
+          - matchExpressions:
+              - key: type
+                operator: NotIn
+                values:
+                  - virtual-kubelet
 
   driver:
     resources:
@@ -118,7 +119,7 @@ windows:
 
   registrarImage:
     repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
-    tag: v2.4.0
+    tag: v2.5.0
     pullPolicy: IfNotPresent
 
   registrar:
@@ -133,7 +134,7 @@ windows:
 
   livenessProbeImage:
     repository: k8s.gcr.io/sig-storage/livenessprobe
-    tag: v2.5.0
+    tag: v2.6.0
     pullPolicy: IfNotPresent
 
   livenessProbe:
@@ -151,7 +152,8 @@ windows:
       maxUnavailable: 1
 
   kubeletRootDir: C:\var\lib\kubelet
-  providersDir: C:\k\secrets-store-csi-providers
+  providersDir: C:\\k\\secrets-store-csi-providers
+  additionalProvidersDirs:
   nodeSelector: {}
   tolerations: []
   metricsAddr: ":8095"
@@ -210,6 +212,7 @@ imagePullSecrets: []
 
 ## This allows CSI drivers to impersonate the pods that they mount the volumes for.
 # refer to https://kubernetes-csi.github.io/docs/token-requests.html for more details.
+# Supported only for Kubernetes v1.20+
 tokenRequests: []
 # - audience: aud1
 # - audience: aud2
