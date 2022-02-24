@@ -43,6 +43,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/component-base/config"
 	json "k8s.io/component-base/logs/json"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -89,7 +90,8 @@ func main() {
 	flag.Parse()
 
 	if *logFormatJSON {
-		logger, _ := json.NewJSONLogger(nil, nil)
+		jsonFactory := json.Factory{}
+		logger, _ := jsonFactory.Create(config.FormatOptions{})
 		klog.SetLogger(logger)
 	}
 	if *enableProfile {
