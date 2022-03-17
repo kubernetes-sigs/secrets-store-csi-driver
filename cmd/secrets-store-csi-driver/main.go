@@ -62,13 +62,12 @@ var (
 	// https://github.com/kubernetes-sigs/secrets-store-csi-driver/issues/823.
 	// The default should be moved to /var/ in https://github.com/kubernetes-sigs/secrets-store-csi-driver/issues/870
 	additionalProviderPaths = flag.String("additional-provider-volume-paths", "/var/run/secrets-store-csi-providers", "Comma separated list of additional paths to communicate with providers")
-	// this will be removed in a future release
-	metricsAddr          = flag.String("metrics-addr", ":8095", "The address the metric endpoint binds to")
-	enableSecretRotation = flag.Bool("enable-secret-rotation", false, "Enable secret rotation feature [alpha]")
-	rotationPollInterval = flag.Duration("rotation-poll-interval", 2*time.Minute, "Secret rotation poll interval duration")
-	enableProfile        = flag.Bool("enable-pprof", false, "enable pprof profiling")
-	profilePort          = flag.Int("pprof-port", 6065, "port for pprof profiling")
-	maxCallRecvMsgSize   = flag.Int("max-call-recv-msg-size", 1024*1024*4, "maximum size in bytes of gRPC response from plugins")
+	metricsAddr             = flag.String("metrics-addr", ":8095", "The address the metric endpoint binds to")
+	enableSecretRotation    = flag.Bool("enable-secret-rotation", false, "Enable secret rotation feature [alpha]")
+	rotationPollInterval    = flag.Duration("rotation-poll-interval", 2*time.Minute, "Secret rotation poll interval duration")
+	enableProfile           = flag.Bool("enable-pprof", false, "enable pprof profiling")
+	profilePort             = flag.Int("pprof-port", 6065, "port for pprof profiling")
+	maxCallRecvMsgSize      = flag.Int("max-call-recv-msg-size", 1024*1024*4, "maximum size in bytes of gRPC response from plugins")
 
 	// Enable optional healthcheck for provider clients that exist in memory
 	providerHealthCheck         = flag.Bool("provider-health-check", false, "Enable health check for configured providers")
