@@ -20,3 +20,26 @@ The CSI driver is invoked by kubelet only during the pod volume mount. So subseq
 2. Restart the application pod.
 
 When the pod is recreated, `kubelet` invokes the CSI driver for mounting the volume. As part of this mount request, the latest content will be fetched from external secrets store and populated in the pod. The same content is then mirrored in the Kubernetes secret data.
+
+## Secrets not rotated when using subPath volume mount
+
+A container using `subPath` volume mount will not receive secret updates when it is rotated.
+
+```yaml
+    volumeMounts:
+    - mountPath: /app/spapi/settings.ini
+      name: app-config
+      subPath: settings.ini
+...
+  volumes:
+  - csi:
+      driver: secrets-store.csi.k8s.io
+      readOnly: true
+      volumeAttributes:
+        secretProviderClass: app-config
+    name: app-config
+```
+
+Secrets Store CSI Driver uses [atomic writer](https://github.com/kubernetes/kubernetes/blob/master/pkg/volume/util/atomic_writer.go) to write the secret files. This is the same writer used by Kubernetes to write secret, configmap and downward API volumes. Atomic writer relies on symlinks to update the content of the file. The secret file is bind mounted into the container and is a symlink to the actual secret file in a timestamped directory. When the secret gets updated, the symlink is updated but the actual secret file bind mounted into the container remains unchanged. Refer to [kubernetes/kubernetes#50345](https://github.com/kubernetes/kubernetes/issues/50345) for more details.
+
+The only way to get the latest content is to restart the pod or not use `subPath` volume mount.
