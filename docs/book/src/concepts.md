@@ -54,7 +54,7 @@ spec:
 Here is an example of a `SecretProviderClass` resource:
 
 ```yaml
-apiVersion: secrets-store.csi.x-k8s.io/v1alpha1
+apiVersion: secrets-store.csi.x-k8s.io/v1
 kind: SecretProviderClass
 metadata:
   name: my-provider
@@ -119,7 +119,7 @@ metadata:
     name: nginx-secrets-store-inline-crd
     uid: 10f3e31c-d20b-4e46-921a-39e4cace6db2
   resourceVersion: "1638459"
-  selfLink: /apis/secrets-store.csi.x-k8s.io/v1alpha1/namespaces/dev/secretproviderclasspodstatuses/nginx-secrets-store-inline-crd
+  selfLink: /apis/secrets-store.csi.x-k8s.io/v1/namespaces/dev/secretproviderclasspodstatuses/nginx-secrets-store-inline-crd
   uid: 1d078ad7-c363-4147-a7e1-234d4b9e0d53
 status:
   mounted: true
