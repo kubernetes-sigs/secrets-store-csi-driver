@@ -229,19 +229,11 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
 
 @test "Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences with multiple owners" {
   POD=$(kubectl get pod -l app=busybox -o jsonpath="{.items[0].metadata.name}")
-  SYNC_ALL_POD=$(kubectl get pod -l app=busybox-sync-all -o jsonpath="{.items[0].metadata.name}")
 
   result=$(kubectl exec $POD -- cat /mnt/secrets-store/$SECRET_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl exec $SYNC_ALL_POD -- cat /mnt/secrets-store/$SECRET_NAME)
-  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
-
   result=$(kubectl exec $POD -- cat /mnt/secrets-store/$KEY_NAME)
-  result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
-  [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
-
-  result=$(kubectl exec $SYNC_ALL_POD -- cat /mnt/secrets-store/$KEY_NAME)
   result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
   [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 
@@ -250,8 +242,6 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
 
   result=$(kubectl exec $POD -- printenv | grep SECRET_USERNAME) | awk -F"=" '{ print $2}'
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
-  result=$(kubectl exec $SYNC_ALL_POD -- printenv | grep SECRET_USERNAME) | awk -F"=" '{ print $2}'
-  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   result=$(kubectl get secret foosecret -o jsonpath="{.metadata.labels.environment}")
   [[ "${result//$'\r'}" == "${LABEL_VALUE}" ]]
@@ -259,7 +249,7 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   result=$(kubectl get secret foosecret -o jsonpath="{.metadata.labels.secrets-store\.csi\.k8s\.io/managed}")
   [[ "${result//$'\r'}" == "true" ]]
 
-  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 3"
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 2"
   assert_success
 }
 
@@ -271,22 +261,65 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   run kubectl delete -f $BATS_TESTS_DIR/deployment-synck8s-e2e-provider.yaml
   assert_success
 
-  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 2"
-  assert_success
-
-  run kubectl delete -f $BATS_TESTS_DIR/deployment-two-synck8s-e2e-provider.yaml
-  assert_success
-
   run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 1"
   assert_success
 
-  run kubectl delete -f $BATS_TESTS_DIR/deployment-sync_allk8s-e2e-provider-sync-all.yaml
+  run kubectl delete -f $BATS_TESTS_DIR/deployment-two-synck8s-e2e-provider.yaml
   assert_success
 
   run wait_for_process $WAIT_TIME $SLEEP_TIME "check_secret_deleted foosecret default"
   assert_success
 
   envsubst < $BATS_TESTS_DIR/e2e_provider_synck8s_v1_secretproviderclass.yaml | kubectl delete -f -
+}
+
+@test "Sync all with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences" {
+  SYNC_ALL_POD=$(kubectl get pod -l app=busybox-sync-all -o jsonpath="{.items[0].metadata.name}")
+
+  result=$(kubectl exec $SYNC_ALL_POD -- cat /mnt/secrets-store/$SECRET_NAME)
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+
+  result=$(kubectl exec $SYNC_ALL_POD -- cat /mnt/secrets-store/$KEY_NAME)
+  result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
+  [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
+
+  result=$(kubectl get secret foo -o jsonpath="{.data.foo}" | base64 -d)
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+
+  result=$(kubectl exec $SYNC_ALL_POD -- printenv | grep SECRET_USERNAME) | awk -F"=" '{ print $2}'
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+
+  FOO_KEY="LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KVGhpcyBpcyBtb2NrIGtleQotLS0tLUVORCBQVUJMSUMgS0VZLS0tLS0="
+  result_base64_encoded=$(kubectl get secret fookey -o jsonpath="{.data.fookey}")
+  [[ "${result_base64_encoded}" == "${FOO_KEY}" ]]
+
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foo default 1"
+  assert_success
+}
+
+@test "Sync all with K8s secrets - delete deployment, check owner ref updated, check secret deleted" {  
+  if [[ "${INPLACE_UPGRADE_TEST}" == "true" ]]; then
+    skip
+  fi
+
+  run kubectl delete -f $BATS_TESTS_DIR/deployment-sync_allk8s-e2e-provider-sync-all.yaml
+  assert_success
+
+# run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foo default 1"
+# assert_success
+
+# run kubectl delete -f $BATS_TESTS_DIR/deployment-two-synck8s-e2e-provider.yaml
+# assert_success
+
+# run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 1"
+# assert_success
+
+# run kubectl delete -f $BATS_TESTS_DIR/deployment-sync_allk8s-e2e-provider-sync-all.yaml
+# assert_success
+
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "check_secret_deleted foo default"
+  assert_success
+
   envsubst < $BATS_TESTS_DIR/e2e_provider_sync_allk8s_v1_secretproviderclass.yaml | kubectl delete -f -
 }
 

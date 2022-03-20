@@ -26,8 +26,8 @@ spec:
             - name: SECRET_USERNAME
               valueFrom:
                 secretKeyRef:
-                  name: foosecret
-                  key: username
+                  name: foo
+                  key: foo
           volumeMounts:
             - name: secrets-store-inline
               mountPath: "/mnt/secrets-store"

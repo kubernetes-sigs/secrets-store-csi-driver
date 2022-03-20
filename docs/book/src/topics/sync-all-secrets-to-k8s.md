@@ -16,7 +16,7 @@ spec:
   provider: vault
   parameters:
     roleName: "csi"
-    vaultAddress: "http://vault.vault:8200"
+    # vaultAddress: "http://vault.vault:8200"
     objects: |
       - secretPath: "secret/data/db-creds"
         objectName: "username"
@@ -99,7 +99,7 @@ spec:
   provider: vault
   parameters:
     roleName: "csi"
-    vaultAddress: "http://vault.vault:8200"
+    # vaultAddress: "http://vault.vault:8200"
     objects: |
       - secretPath: "secret/data/db-creds"
         objectName: "username"
@@ -199,7 +199,7 @@ spec:
   provider: vault
   parameters:
     roleName: "csi"
-    vaultAddress: "http://vault.vault:8200"
+    # vaultAddress: "http://vault.vault:8200"
     objects: |
       - secretPath: "secret/data/certs"
         objectName: "cert1"
@@ -344,7 +344,7 @@ spec:
   provider: vault
   parameters:
     roleName: "csi"
-    vaultAddress: "http://vault.vault:8200"
+    # vaultAddress: "http://vault.vault:8200"
     objects: |
       - secretPath: "secret/data/basic1"
         objectName: "basic/basic1"
@@ -451,7 +451,7 @@ spec:
   provider: vault
   parameters:
     roleName: "csi"
-    vaultAddress: "http://vault.vault:8200"
+    # vaultAddress: "http://vault.vault:8200"
     objects: |
       - secretPath: "secret/data/db-creds"
         objectName: "username"
