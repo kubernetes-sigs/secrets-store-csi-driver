@@ -38,7 +38,6 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -467,16 +466,6 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 			spc.Spec.SecretObjects = spcutil.BuildSecretObjects(files, secretutil.GetSecretType(strings.TrimSpace(spc.Spec.SyncOptions.Type)))
 		} else {
 			spc.Spec.SecretObjects = append(spc.Spec.SecretObjects, spcutil.BuildSecretObjects(files, secretutil.GetSecretType(strings.TrimSpace(spc.Spec.SyncOptions.Type)))...)
-		}
-	}
-
-	for _, secretObj := range spc.Spec.SecretObjects {
-		if secretObj.SyncAll {
-			if secretutil.GetSecretType(strings.TrimSpace(secretObj.Type)) != v1.SecretTypeOpaque {
-				return fmt.Errorf("secret provider class %s/%s cannot use secretObjects[*].syncAll for non-opaque secrets", spc.Namespace, spc.Name)
-			}
-
-			spcutil.BuildSecretObjectData(files, secretObj)
 		}
 	}
 

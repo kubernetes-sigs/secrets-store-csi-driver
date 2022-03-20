@@ -123,51 +123,6 @@ C9I7vbQHcdYGWqof7MBPsMcaJ+0=
 	dockerconfigjson = "{\"auths\":{\"https://index.docker.io/v1/\":{\"username\":\"user1\",\"password\":\"password1\",\"email\":\"account1@email.com\",\"auth\":\"dXNlcjE6cGFzc3dvcmQx\"}}}"
 )
 
-func TestBuildSecretObjectData(t *testing.T) {
-	files := map[string]string{
-		"username":               "test user",
-		"password":               "test password",
-		"nested/username":        "test nested user",
-		"nested/double/username": "double nested user",
-	}
-
-	secretObj := &secretsstorev1.SecretObject{
-		SecretName: "test-secret",
-		Type:       "Opaque",
-		SyncAll:    true,
-	}
-
-	BuildSecretObjectData(files, secretObj)
-
-	expected := &secretsstorev1.SecretObject{
-		SecretName: "test-secret",
-		Type:       "Opaque",
-		SyncAll:    true,
-		Data: []*secretsstorev1.SecretObjectData{
-			{
-				ObjectName: "username",
-				Key:        "username",
-			},
-			{
-				ObjectName: "password",
-				Key:        "password",
-			},
-			{
-				ObjectName: "nested/username",
-				Key:        "nested-username",
-			},
-			{
-				ObjectName: "nested/double/username",
-				Key:        "nested-double-username",
-			},
-		},
-	}
-
-	if ok := assertSecretsObjectsEqual(expected, secretObj); !ok {
-		t.Fatal("secret objects did not match")
-	}
-}
-
 func TestBuildSecretObjects(t *testing.T) {
 	tests := []struct {
 		files      map[string]string

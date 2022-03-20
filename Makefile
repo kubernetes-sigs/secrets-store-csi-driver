@@ -287,15 +287,15 @@ endif
 
 .PHONY: e2e-provider-container
 e2e-provider-container:
-	docker buildx build --no-cache --output=type=docker -t $(E2E_PROVIDER_IMAGE_TAG) -f test/e2eprovider/Dockerfile --progress=plain .
+	docker buildx build --no-cache -t $(E2E_PROVIDER_IMAGE_TAG) -f test/e2eprovider/Dockerfile --progress=plain .
 
 .PHONY: container
 container: crd-container
-	docker buildx build --no-cache --output=type=docker --build-arg IMAGE_VERSION=$(IMAGE_VERSION) -t $(IMAGE_TAG) -f docker/Dockerfile --progress=plain .
+	docker buildx build --no-cache --build-arg IMAGE_VERSION=$(IMAGE_VERSION) -t $(IMAGE_TAG) -f docker/Dockerfile --progress=plain .
 
 .PHONY: crd-container
 crd-container: build-crds
-	docker buildx build --no-cache --output=type=docker -t $(CRD_IMAGE_TAG) -f docker/crd.Dockerfile --progress=plain _output/crds/
+	docker buildx build --no-cache -t $(CRD_IMAGE_TAG) -f docker/crd.Dockerfile --progress=plain _output/crds/
 
 .PHONY: crd-container-linux
 crd-container-linux: build-crds docker-buildx-builder

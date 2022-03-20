@@ -307,16 +307,6 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 		}
 	}
 
-	for _, secretObj := range spc.Spec.SecretObjects {
-		if secretObj.SyncAll {
-			if secretutil.GetSecretType(strings.TrimSpace(secretObj.Type)) != corev1.SecretTypeOpaque {
-				return ctrl.Result{}, fmt.Errorf("secret provider class %s/%s cannot use secretObjects[*].syncAll for non-opaque secrets", spc.Namespace, spc.Name)
-			}
-
-			spcutil.BuildSecretObjectData(files, secretObj)
-		}
-	}
-
 	errs := make([]error, 0)
 	for _, secretObj := range spc.Spec.SecretObjects {
 		secretName := strings.TrimSpace(secretObj.SecretName)

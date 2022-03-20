@@ -31,33 +31,33 @@ const (
 )
 
 // BuildSecretObjectData builds the .Spec.SecretObjects[*].Data list of a SecretObject when SyncAll is true
-func BuildSecretObjectData(files map[string]string, secretObj *secretsstorev1.SecretObject) {
+// func BuildSecretObjectData(files map[string]string, secretObj *secretsstorev1.SecretObject) {
 
-	for key := range files {
-		var (
-			nested     []string
-			renamedKey string
-		)
+// 	for key := range files {
+// 		var (
+// 			nested     []string
+// 			renamedKey string
+// 		)
 
-		nested = strings.Split(key, "/")
-		if len(nested) > 0 {
-			renamedKey = strings.Join(nested, "-")
-		}
+// 		nested = strings.Split(key, "/")
+// 		if len(nested) > 0 {
+// 			renamedKey = strings.Join(nested, "-")
+// 		}
 
-		if renamedKey == "" {
-			secretObj.Data = append(secretObj.Data, &secretsstorev1.SecretObjectData{
-				ObjectName: key,
-				Key:        key,
-			})
-			continue
-		}
+// 		if renamedKey == "" {
+// 			secretObj.Data = append(secretObj.Data, &secretsstorev1.SecretObjectData{
+// 				ObjectName: key,
+// 				Key:        key,
+// 			})
+// 			continue
+// 		}
 
-		secretObj.Data = append(secretObj.Data, &secretsstorev1.SecretObjectData{
-			ObjectName: key,
-			Key:        renamedKey,
-		})
-	}
-}
+// 		secretObj.Data = append(secretObj.Data, &secretsstorev1.SecretObjectData{
+// 			ObjectName: key,
+// 			Key:        renamedKey,
+// 		})
+// 	}
+// }
 
 // BuildSecretObjects builds the .Spec.SecretObjects list of a SecretProviderClass when .SyncOptions.SyncAll is true
 // How a SecretObject is built is dependent on the type of secret
