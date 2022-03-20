@@ -90,13 +90,6 @@ spec:
 3. nested-username
 4. nested-password
 
-- You will also notice that we have one item in the `.spec.secretObjects` field. With `Opaque` type secrets, we can sync all mounted secrets into a single K8s secret. **This does not work with other secret types**
-- In this example, we can expect a K8s secret named `db-secret` with the following keys
-1. username
-2. password
-3. nested-username
-4. nested-password
-
 ```yaml
 apiVersion: secrets-store.csi.x-k8s.io/v1
 kind: SecretProviderClass
@@ -123,10 +116,6 @@ spec:
   syncOptions:
     type: Opaque
     syncAll: true
-  secretObjects:
-    - secretName: db-secret
-      type: Opaque
-      syncAll: true
 ---
 kind: ServiceAccount
 apiVersion: v1
@@ -179,26 +168,6 @@ spec:
                 secretKeyRef:
                   name: nested-password
                   key: password
-            - name: DB_SECRET_USER
-              valueFrom:
-                secretKeyRef:
-                  name: db-secret
-                  key: username
-            - name: DB_SECRET_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: db-secret
-                  key: password
-            - name: DB_SECRET_NESTED_USER
-              valueFrom:
-                secretKeyRef:
-                  name: db-secret
-                  key: username
-            - name: DB_SECRET_NESTED_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: db-secret
-                  key: password
           volumeMounts:
             - name: secrets-store-inline
               mountPath: "/mnt/secrets-store"
@@ -218,7 +187,7 @@ spec:
 <details>
 <summary>TLS Examples</summary>
 
-- For TLS secrets, you need to mount the certificate and private key on a single mount as shown in the example below.
+- For TLS secrets, you need to mount the certificate and private key as a single file as shown in the example below.
 - The driver will separate the two values and assign them to the `tls.crt` and `tls.key` keys respectively.
 
 ```yaml
