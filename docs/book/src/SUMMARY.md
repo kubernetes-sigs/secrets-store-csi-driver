@@ -7,6 +7,7 @@
     - [Usage](./getting-started/usage.md)
     - [Upgrades](./getting-started/upgrades.md)
 - [Topics](./topics/topics.md)
+    - [Command Reference](./topics/command-reference.md)
     - [Metrics](./topics/metrics.md)
     - [Secret Auto Rotation](./topics/secret-auto-rotation.md)
     - [Sync as Kubernetes Secret](./topics/sync-as-kubernetes-secret.md)
