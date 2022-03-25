@@ -14,7 +14,7 @@
 
 ARG BASEIMAGE=k8s.gcr.io/build-image/debian-base:bullseye-v1.1.0
 
-FROM golang:1.17 as builder
+FROM golang:1.18 as builder
 WORKDIR /go/src/sigs.k8s.io/secrets-store-csi-driver
 ADD . .
 ARG TARGETARCH
