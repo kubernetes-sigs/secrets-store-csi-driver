@@ -214,6 +214,8 @@ func TestGetSecretData(t *testing.T) {
 		name            string
 		secretObjData   []*secretsstorev1.SecretObjectData
 		secretType      corev1.SecretType
+		secretFormat    string
+		jsonPath        string
 		currentFiles    map[string]string
 		expectedDataMap map[string][]byte
 		expectedError   bool
@@ -226,6 +228,7 @@ func TestGetSecretData(t *testing.T) {
 				},
 			},
 			secretType:      corev1.SecretTypeOpaque,
+			secretFormat:    formatPlaintext,
 			expectedDataMap: make(map[string][]byte),
 			expectedError:   true,
 		},
@@ -237,6 +240,7 @@ func TestGetSecretData(t *testing.T) {
 				},
 			},
 			secretType:      corev1.SecretTypeOpaque,
+			secretFormat:    formatPlaintext,
 			expectedDataMap: make(map[string][]byte),
 			expectedError:   true,
 		},
@@ -249,6 +253,7 @@ func TestGetSecretData(t *testing.T) {
 				},
 			},
 			secretType:      corev1.SecretTypeOpaque,
+			secretFormat:    formatPlaintext,
 			currentFiles:    map[string]string{"obj2": ""},
 			expectedDataMap: make(map[string][]byte),
 			expectedError:   true,
@@ -262,6 +267,7 @@ func TestGetSecretData(t *testing.T) {
 				},
 			},
 			secretType:      corev1.SecretTypeOpaque,
+			secretFormat:    formatPlaintext,
 			currentFiles:    map[string]string{"obj2": ""},
 			expectedDataMap: make(map[string][]byte),
 			expectedError:   true,
@@ -275,6 +281,7 @@ func TestGetSecretData(t *testing.T) {
 				},
 			},
 			secretType:      corev1.SecretTypeOpaque,
+			secretFormat:    formatPlaintext,
 			currentFiles:    map[string]string{"obj1": ""},
 			expectedDataMap: map[string][]byte{"file1": []byte("test")},
 			expectedError:   false,
@@ -288,6 +295,7 @@ func TestGetSecretData(t *testing.T) {
 				},
 			},
 			secretType:      corev1.SecretTypeOpaque,
+			secretFormat:    formatPlaintext,
 			currentFiles:    map[string]string{"obj1": ""},
 			expectedDataMap: map[string][]byte{"file1": []byte("test")},
 			expectedError:   false,
@@ -301,9 +309,54 @@ func TestGetSecretData(t *testing.T) {
 				},
 			},
 			secretType:      corev1.SecretTypeOpaque,
+			secretFormat:    formatPlaintext,
 			currentFiles:    map[string]string{"obj1": ""},
 			expectedDataMap: map[string][]byte{"file1": []byte("test")},
 			expectedError:   false,
+		},
+		{
+			name: "JSON key-value pairs in file matches datamap object",
+			secretObjData: []*secretsstorev1.SecretObjectData{
+				{
+					ObjectName: "obj1",
+					Key:        "file1",
+				},
+			},
+			secretType:      corev1.SecretTypeOpaque,
+			secretFormat:    formatJSON,
+			currentFiles:    map[string]string{"obj1": ""},
+			expectedDataMap: map[string][]byte{"key1": []byte("value1"), "key2": []byte("value2")},
+			expectedError:   false,
+		},
+		{
+			name: "JSON key-value pairs in file matches datamap object with specified jsonPath",
+			secretObjData: []*secretsstorev1.SecretObjectData{
+				{
+					ObjectName: "obj1",
+					Key:        "file1",
+				},
+			},
+			secretType:      corev1.SecretTypeOpaque,
+			secretFormat:    formatJSON,
+			jsonPath:        "$.data.data",
+			currentFiles:    map[string]string{"obj1": ""},
+			expectedDataMap: map[string][]byte{"key1": []byte("value1"), "key2": []byte("value2")},
+			expectedError:   false,
+		},
+		{
+			name: "JSON key-value pairs in file causes error due to bad jsonPath",
+			secretObjData: []*secretsstorev1.SecretObjectData{
+				{
+					ObjectName: "obj1",
+					Key:        "file1",
+				},
+			},
+			secretType:      corev1.SecretTypeOpaque,
+			secretFormat:    formatJSON,
+			jsonPath:        "$.bad.path",
+			currentFiles:    map[string]string{"obj1": ""},
+			expectedDataMap: make(map[string][]byte),
+			expectedError:   true,
 		},
 	}
 
@@ -316,15 +369,15 @@ func TestGetSecretData(t *testing.T) {
 			defer os.RemoveAll(tmpDir)
 
 			for fileName := range test.currentFiles {
-				filePath, err := createTestFile(tmpDir, fileName)
+				filePath, err := createTestFile(tmpDir, fileName, test.secretFormat, test.jsonPath)
 				if err != nil {
 					t.Fatalf("expected err to be nil, got: %+v", err)
 				}
 				test.currentFiles[fileName] = filePath
 			}
-			// TODO: Come back to this
-			datamap, err := GetSecretData(test.secretObjData, test.secretType, test.currentFiles, "json", ".data.data")
-			if test.expectedError && err == nil {
+
+			datamap, err := GetSecretData(test.secretObjData, test.secretType, test.currentFiles, test.secretFormat, test.jsonPath)
+			if test.expectedError && err == nil || !test.expectedError && err != nil {
 				t.Fatalf("expected err: %+v, got: %+v", test.expectedError, err)
 			}
 			if !reflect.DeepEqual(datamap, test.expectedDataMap) {
@@ -334,7 +387,7 @@ func TestGetSecretData(t *testing.T) {
 	}
 }
 
-func createTestFile(tmpDir, fileName string) (string, error) {
+func createTestFile(tmpDir, fileName, format, jsonPath string) (string, error) {
 	if fileName != "" {
 		filePath := fmt.Sprintf("%s/%s", tmpDir, fileName)
 		f, err := os.Create(filePath)
@@ -347,7 +400,17 @@ func createTestFile(tmpDir, fileName string) (string, error) {
 		if err != nil {
 			return filePath, err
 		}
-		_, err = f.Write([]byte("test"))
+
+		switch format {
+		case formatJSON:
+			if jsonPath != "" {
+				_, err = f.Write([]byte("{\"data\": {\"data\": {\"key1\": \"value1\", \"key2\": \"value2\"}}}"))
+			} else {
+				_, err = f.Write([]byte("{\"key1\": \"value1\", \"key2\": \"value2\"}"))
+			}
+		default:
+			_, err = f.Write([]byte("test"))
+		}
 		if err != nil {
 			return filePath, err
 		}

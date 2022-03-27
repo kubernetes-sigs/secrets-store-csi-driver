@@ -36,7 +36,7 @@ type SecretObjectData struct {
 // SecretObject defines the desired state of synced K8s secret objects
 type SecretObject struct {
 	// name of the K8s secret object
-	ObjectName string `json:"objectName,omitempty"`
+	SecretName string `json:"secretName,omitempty"`
 	// type of K8s secret object
 	Type string `json:"type,omitempty"`
 	// labels of K8s secret object
@@ -54,14 +54,13 @@ type SyncOptions struct {
 	// the format of the secret (plaintext|json)
 	Format string `json:"format,omitempty"`
 	// the nested object to target for syncing
-	JsonPath string `json:"jsonPath,omitempty"`
-	// TODO: description needed
-	Secrets []Secret `json:"secrets,omitempty"`
+	JsonPath string   `json:"jsonPath,omitempty"`
+	Secrets  []Secret `json:"secrets,omitempty"`
 }
 
 type Secret struct {
-	// the name of the mounted secret file
-	ObjectName string `json:"objectName,omitempty"`
+	// name of the K8s secret object
+	SecretName string `json:"secretName,omitempty"`
 	// the format of the secret (plaintext|json)
 	Format string `json:"format,omitempty"`
 	// the nested object to target for syncing

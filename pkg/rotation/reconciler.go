@@ -471,16 +471,12 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 
 	for _, secretObj := range spc.Spec.SecretObjects {
 		secretName := strings.TrimSpace(secretObj.SecretName)
+		jsonPath := secretutil.GetJsonPath(secretName, spc.Spec.SyncOptions)
 		secretFormat, err := secretutil.GetSecretFormat(secretName, spc.Spec.SyncOptions)
 		if err != nil {
 			klog.ErrorS(err, "failed to get format for secret", "secret", secretName, "spc", klog.KObj(spc), "controller", "rotation")
 			errs = append(errs, fmt.Errorf("failed to get format for secret %s, err: %w", secretName, err))
 			continue
-		}
-
-		var jsonPath string
-		if secretFormat == secretutil.FormatJSON {
-			jsonPath = secretutil.GetJsonPath(secretName, spc.Spec.SyncOptions)
 		}
 
 		if err = secretutil.ValidateSecretObject(*secretObj); err != nil {
