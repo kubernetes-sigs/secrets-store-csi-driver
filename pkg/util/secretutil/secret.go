@@ -21,6 +21,7 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -40,6 +41,11 @@ const (
 	privateKeyTypeEC  = "EC PRIVATE KEY"
 	basicAuthUsername = "username"
 	basicAuthPassword = "password"
+)
+
+const (
+	FormatJSON      = "json"
+	FormatPlaintext = "plaintext"
 )
 
 type basicAuthCreds struct {
@@ -165,7 +171,7 @@ func ValidateSecretObject(secretObj secretsstorev1.SecretObject) error {
 
 // GetSecretData gets the object contents from the pods target path and returns a
 // map that will be populated in the Kubernetes secret data field
-func GetSecretData(secretObjData []*secretsstorev1.SecretObjectData, secretType corev1.SecretType, files map[string]string) (map[string][]byte, error) {
+func GetSecretData(secretObjData []*secretsstorev1.SecretObjectData, secretType corev1.SecretType, files map[string]string, format, jsonPath string) (map[string][]byte, error) {
 	datamap := make(map[string][]byte)
 	for _, data := range secretObjData {
 		objectName := strings.TrimSpace(data.ObjectName)
@@ -185,21 +191,55 @@ func GetSecretData(secretObjData []*secretsstorev1.SecretObjectData, secretType 
 		if err != nil {
 			return datamap, fmt.Errorf("failed to read file %s, err: %w", objectName, err)
 		}
-		datamap[dataKey] = content
-		if secretType == corev1.SecretTypeTLS {
-			c, err := GetCertPart(content, dataKey)
-			if err != nil {
-				return datamap, fmt.Errorf("failed to get cert data from file %s, err: %w", file, err)
-			}
-			datamap[dataKey] = c
-		}
-		if secretType == corev1.SecretTypeBasicAuth {
-			credentials := getCredentials(content)
-			delete(datamap, dataKey)
 
-			datamap[basicAuthUsername] = []byte(credentials.Username)
-			datamap[basicAuthPassword] = []byte(credentials.Password)
+		// TODO: Take auto-detection into consideration, maybe that should be the default and give plaintext its own case?
+		switch format {
+		case FormatJSON:
+			var (
+				jsonContent map[string]interface{}
+				valBytes    []byte
+				err         error
+			)
+			if err = json.Unmarshal(content, &jsonContent); err == nil {
+				if jsonPath != "" {
+					var (
+						jsonPathSplit []string
+						valid         bool
+					)
+					jsonPathSplit = strings.Split(jsonPath, ".")[1:]
+					for _, path := range jsonPathSplit {
+						if jsonContent, valid = jsonContent[path].(map[string]interface{}); !valid {
+							return datamap, fmt.Errorf("invalid json path %s", jsonPath)
+						}
+					}
+				}
+				for key, val := range jsonContent {
+					if valBytes, err = json.Marshal(val); err != nil {
+						return datamap, fmt.Errorf("failed to marshal value %v, err: %w", val, err)
+					}
+					datamap[key] = valBytes
+				}
+				continue
+			}
+			return datamap, fmt.Errorf("failed to unmarshal file contents %s, err: %w", file, err)
+		default:
+			datamap[dataKey] = content
+			if secretType == corev1.SecretTypeTLS {
+				c, err := GetCertPart(content, dataKey)
+				if err != nil {
+					return datamap, fmt.Errorf("failed to get cert data from file %s, err: %w", file, err)
+				}
+				datamap[dataKey] = c
+			}
+			if secretType == corev1.SecretTypeBasicAuth {
+				credentials := getCredentials(content)
+				delete(datamap, dataKey)
+
+				datamap[basicAuthUsername] = []byte(credentials.Username)
+				datamap[basicAuthPassword] = []byte(credentials.Password)
+			}
 		}
+
 	}
 	return datamap, nil
 }
@@ -214,6 +254,48 @@ func GetSHAFromSecret(data map[string][]byte) (string, error) {
 	// same content in different order
 	sort.Strings(values)
 	return generateSHA(strings.Join(values, ";"))
+}
+
+// TODO: Add description, write unit tests
+func GetSecretFormat(secretName string, syncOptions secretsstorev1.SyncOptions) (string, error) {
+	var format string
+
+	if syncOptions.Format != "" {
+		format = syncOptions.Format
+	}
+	for _, secret := range syncOptions.Secrets {
+		if secret.SecretName == secretName {
+			if secret.Format != "" {
+				format = secret.Format
+			}
+		}
+	}
+	if format == "" {
+		format = FormatPlaintext
+	}
+	if format != FormatPlaintext && format != FormatJSON {
+		return format, fmt.Errorf("unsupported secret format: %s", format)
+	}
+
+	return format, nil
+}
+
+// TODO: Add description, write unit tests
+func GetJsonPath(secretName string, syncOptions secretsstorev1.SyncOptions) string {
+	var jsonPath string
+
+	if syncOptions.JsonPath != "" {
+		jsonPath = syncOptions.JsonPath
+	}
+	for _, secret := range syncOptions.Secrets {
+		if secret.SecretName == secretName {
+			if secret.JsonPath != "" {
+				jsonPath = secret.JsonPath
+			}
+		}
+	}
+
+	return jsonPath
 }
 
 // generateSHA generates SHA from string

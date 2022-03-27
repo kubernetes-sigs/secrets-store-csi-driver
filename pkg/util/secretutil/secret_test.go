@@ -322,7 +322,8 @@ func TestGetSecretData(t *testing.T) {
 				}
 				test.currentFiles[fileName] = filePath
 			}
-			datamap, err := GetSecretData(test.secretObjData, test.secretType, test.currentFiles)
+			// TODO: Come back to this
+			datamap, err := GetSecretData(test.secretObjData, test.secretType, test.currentFiles, "json", ".data.data")
 			if test.expectedError && err == nil {
 				t.Fatalf("expected err: %+v, got: %+v", test.expectedError, err)
 			}

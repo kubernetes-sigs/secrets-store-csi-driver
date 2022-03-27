@@ -123,6 +123,7 @@ C9I7vbQHcdYGWqof7MBPsMcaJ+0=
 	dockerconfigjson = "{\"auths\":{\"https://index.docker.io/v1/\":{\"username\":\"user1\",\"password\":\"password1\",\"email\":\"account1@email.com\",\"auth\":\"dXNlcjE6cGFzc3dvcmQx\"}}}"
 )
 
+// TODO: the value of the map is the path to the secret, not the content
 func TestBuildSecretObjects(t *testing.T) {
 	tests := []struct {
 		files      map[string]string
@@ -278,6 +279,7 @@ func TestBuildSecretObjects(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		// TODO: Check back here
 		actualSecretObjects := BuildSecretObjects(test.files, test.secretType)
 		if ok := assertSecretObjectSlicesEqual(test.expected, actualSecretObjects); !ok {
 			t.Fatal("secret object slices did not match")

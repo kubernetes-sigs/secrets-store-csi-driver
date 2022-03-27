@@ -167,6 +167,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 			if err != nil {
 				return fmt.Errorf("failed to get mounted files for pod %s/%s: %v", namespace, pod.Name, err)
 			} else {
+				// TODO: Check back here
 				if len(spc.Spec.SecretObjects) == 0 {
 					spc.Spec.SecretObjects = spcutil.BuildSecretObjects(files, secretutil.GetSecretType(strings.TrimSpace(spc.Spec.SyncOptions.Type)))
 				} else {
@@ -300,6 +301,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 	}
 
 	if spc.Spec.SyncOptions.SyncAll {
+		// TODO: Check back here
 		if len(spc.Spec.SecretObjects) == 0 {
 			spc.Spec.SecretObjects = spcutil.BuildSecretObjects(files, secretutil.GetSecretType(strings.TrimSpace(spc.Spec.SyncOptions.Type)))
 		} else {
@@ -310,6 +312,17 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 	errs := make([]error, 0)
 	for _, secretObj := range spc.Spec.SecretObjects {
 		secretName := strings.TrimSpace(secretObj.SecretName)
+		secretFormat, err := secretutil.GetSecretFormat(secretName, spc.Spec.SyncOptions)
+		if err != nil {
+			klog.ErrorS(err, "failed to get format for secret", "secret", klog.ObjectRef{Namespace: req.Namespace, Name: secretName}, "spc", klog.KObj(spc), "pod", klog.KObj(pod), "spcps", klog.KObj(spcPodStatus))
+			errs = append(errs, fmt.Errorf("failed to get format for secret %s, err: %w", secretName, err))
+			continue
+		}
+
+		var jsonPath string
+		if secretFormat == secretutil.FormatJSON {
+			jsonPath = secretutil.GetJsonPath(secretName, spc.Spec.SyncOptions)
+		}
 
 		if err = secretutil.ValidateSecretObject(*secretObj); err != nil {
 			klog.ErrorS(err, "failed to validate secret object in spc", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "spcps", klog.KObj(spcPodStatus))
@@ -334,7 +347,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 			secretType := secretutil.GetSecretType(strings.TrimSpace(secretObj.Type))
 
 			var datamap map[string][]byte
-			if datamap, err = secretutil.GetSecretData(secretObj.Data, secretType, files); err != nil {
+			if datamap, err = secretutil.GetSecretData(secretObj.Data, secretType, files, secretFormat, jsonPath); err != nil {
 				r.generateEvent(pod, corev1.EventTypeWarning, secretCreationFailedReason, fmt.Sprintf("failed to get data in spc %s/%s for secret %s, err: %+v", req.Namespace, spcName, secretName, err))
 				klog.ErrorS(err, "failed to get data in spc for secret", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "secret", klog.ObjectRef{Namespace: req.Namespace, Name: secretName}, "spcps", klog.KObj(spcPodStatus))
 				errs = append(errs, fmt.Errorf("failed to get data in spc %s/%s for secret %s, err: %w", req.Namespace, spcName, secretName, err))

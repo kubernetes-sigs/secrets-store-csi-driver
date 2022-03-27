@@ -32,29 +32,22 @@ const (
 
 // BuildSecretObjects builds the .Spec.SecretObjects list of a SecretProviderClass when .SyncOptions.SyncAll is true
 // How a SecretObject is built is dependent on the type of secret
-func BuildSecretObjects(files map[string]string, secretType corev1.SecretType) []*secretsstorev1.SecretObject {
-	var (
-		secretObject  *secretsstorev1.SecretObject
-		secretObjects []*secretsstorev1.SecretObject
-	)
-
-	secretObjects = make([]*secretsstorev1.SecretObject, 0)
+func BuildSecretObjects(files map[string]string, secretType corev1.SecretType /*, format string*/) []*secretsstorev1.SecretObject {
+	secretObjects := make([]*secretsstorev1.SecretObject, 0)
 	for key := range files {
 
 		switch secretType {
 		case corev1.SecretTypeOpaque:
-			secretObject = createOpaqueSecretDataObject(key)
+			secretObjects = append(secretObjects, createOpaqueSecretDataObject(key))
 		case corev1.SecretTypeTLS:
-			secretObject = createTLSSecretDataObject(key)
+			secretObjects = append(secretObjects, createTLSSecretDataObject(key))
 		case corev1.SecretTypeDockerConfigJson:
-			secretObject = createDockerConfigJsonSecretDataObject(key)
+			secretObjects = append(secretObjects, createDockerConfigJsonSecretDataObject(key))
 		case corev1.SecretTypeBasicAuth:
-			secretObject = createBasicAuthSecretDataObject(key)
+			secretObjects = append(secretObjects, createBasicAuthSecretDataObject(key))
 		case corev1.SecretTypeSSHAuth:
-			secretObject = createSSHSecretDataObject(key)
+			secretObjects = append(secretObjects, createSSHSecretDataObject(key))
 		}
-
-		secretObjects = append(secretObjects, secretObject)
 	}
 
 	return secretObjects
