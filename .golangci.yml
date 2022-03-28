@@ -3,6 +3,11 @@ run:
   skip-dirs: []
   skip-files:
   - "zz_generated.*\\.go$"
+  # some of the linters don't work correctly with 1.18
+  # xref: https://github.com/golangci/golangci-lint/issues/2649
+  # we are not using generics, so we can pin this to 1.17
+  # the base image used for prow is updated to use 1.18, so pinning the version
+  go: '1.17'
 
 linters:
   disable-all: true
