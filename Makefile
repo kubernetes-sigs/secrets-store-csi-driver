@@ -96,16 +96,13 @@ AWS_CLI := aws
 YQ := yq
 
 # Test variables
-KIND_VERSION ?= 0.11.0
-KUBERNETES_VERSION ?= 1.21.1
-# Use a different kubectl version to pickup https://github.com/kubernetes/kubernetes/pull/96702 which resolves an issue
-# with kubectl wait needed for integration testing. When KUBERNETES_VERSION is updated to >= 1.22.1 this can likely be
-# removed.
-KUBECTL_VERSION ?= 1.22.1
+KIND_VERSION ?= 0.12.0
+KUBERNETES_VERSION ?= 1.23.5
+KUBECTL_VERSION ?= 1.23.5
 BATS_VERSION ?= 1.4.1
-TRIVY_VERSION ?= 0.19.2
+TRIVY_VERSION ?= 0.24.4
 PROTOC_VERSION ?= 3.15.2
-SHELLCHECK_VER ?= v0.7.2
+SHELLCHECK_VER ?= v0.8.0
 YQ_VERSION ?= v4.11.2
 
 # For aws integration tests 
