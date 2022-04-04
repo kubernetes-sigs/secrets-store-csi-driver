@@ -15,7 +15,7 @@
 REGISTRY?=docker.io/deislabs
 IMAGE_NAME=driver
 CRD_IMAGE_NAME=driver-crds
-IMAGE_VERSION?=v1.1.2
+IMAGE_VERSION?=v1.1.2.0
 BUILD_TIMESTAMP := $(shell date +%Y-%m-%d-%H:%M)
 BUILD_COMMIT := $(shell git rev-parse --short HEAD)
 IMAGE_TAG=$(REGISTRY)/$(IMAGE_NAME):$(IMAGE_VERSION)
