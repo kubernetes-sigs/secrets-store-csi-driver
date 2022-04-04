@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG BASEIMAGE=k8s.gcr.io/build-image/debian-base:bullseye-v1.1.0
+ARG BASEIMAGE=k8s.gcr.io/build-image/debian-base:bullseye-v1.2.0
 
 FROM golang:1.18 as builder
 WORKDIR /go/src/sigs.k8s.io/secrets-store-csi-driver
@@ -28,14 +28,8 @@ RUN export GOOS=$TARGETOS && \
 
 FROM $BASEIMAGE
 COPY --from=builder /go/src/sigs.k8s.io/secrets-store-csi-driver/_output/secrets-store-csi /secrets-store-csi
-# upgrading libgmp10 due to CVE-2021-43618
-# upgrading bsdutils due to CVE-2021-3995 and CVE-2021-3996
-# upgrading libssl1.1 due to CVE-2022-0778 and CVE-2021-4160
-# upgrading libc-bin due to CVE-2021-33574, CVE-2022-23218, CVE-2022-23219 and CVE-2021-43396
-# upgrading libc6 due to CVE-2021-33574, CVE-2022-23218, CVE-2022-23219 and CVE-2021-43396
-# upgrading libsystemd0 due to CVE-2021-3997
-# upgrading libudev1 due to CVE-2021-3997
-RUN clean-install ca-certificates mount libgmp10 bsdutils libssl1.1 libc-bin libc6 libsystemd0 libudev1
+# upgrading zlib1g due to CVE-2018-25032
+RUN clean-install ca-certificates mount zlib1g
 
 LABEL maintainers="ritazh"
 LABEL description="Secrets Store CSI Driver"
