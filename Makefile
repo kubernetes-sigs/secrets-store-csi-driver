@@ -474,6 +474,10 @@ e2e-azure: $(AZURE_CLI)
 e2e-vault:
 	bats -t test/bats/vault.bats
 
+.PHONY: e2e-akeyless
+e2e-akeyless:
+	bats -t test/bats/akeyless.bats
+
 .PHONY: e2e-gcp
 e2e-gcp:
 	bats -t test/bats/gcp.bats
