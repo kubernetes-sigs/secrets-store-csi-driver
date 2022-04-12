@@ -37,7 +37,7 @@ The scripts also require the `gh` tool, available from <https://github.com/cli/c
     ```bash
     git checkout <RELEASE_BRANCH>
     git checkout -b bump-version-<NEW_VERSION>
-    git commit -m "chore: bump version to <NEW_VERSION> in <RELEASE_BRANCH>"
+    git commit -m "release: bump version to <NEW_VERSION> in <RELEASE_BRANCH>"
     git push <YOUR FORK>
     ```
 
@@ -102,11 +102,22 @@ The scripts also require the `gh` tool, available from <https://github.com/cli/c
     ```
 
 1. Once the PR is merged to `release-X.X` we are ready to tag `release-X.X` with release
-   version. This should be done by creating the release in the GitHub UI.
+   version.
 
 ## Publishing
 
-1. Create a draft release in GitHub and associate it with the tag that was just created
-1. Collect release notes (example [tag compare](https://github.com/kubernetes-sigs/secrets-store-csi-driver/compare/v0.3.0...main))
-1. Write the release notes similar to [this](https://github.com/kubernetes-sigs/secrets-store-csi-driver/releases/tag/v0.0.12) and upload all the artifacts from the `deploy/` dir
-1. Publish release
+> The following steps can only be performed by the maintainers of the repository.
+
+Clone the repository and tag the release with the semantic version of the release.
+
+ ```bash
+ git clone git@github.com:kubernetes-sigs/secrets-store-csi-driver.git
+ cd secrets-store-csi-driver
+ git checkout <RELASE_BRANCH>
+ git tag -a v<NEW_VERSION> -m "release: <NEW_VERSION>" # NEW_VERSION is the semantic version of the release and will contain the v prefix. e.g. v1.0.0
+ git push origin --tags
+ ```
+
+> Delete the clone of the repository from local machine to prevent accidental actions on the main repository.
+
+After the tag is created, [Create release](https://github.com/kubernetes-sigs/secrets-store-csi-driver/actions/workflows/create-release.yaml) action will be triggered to create a release on GitHub. This workflow will create a release with the deployment manifests and generate a changelog.
