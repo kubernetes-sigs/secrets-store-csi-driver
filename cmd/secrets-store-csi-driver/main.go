@@ -57,11 +57,10 @@ var (
 	driverName         = flag.String("drivername", "secrets-store.csi.k8s.io", "name of the driver")
 	nodeID             = flag.String("nodeid", "", "node id")
 	logFormatJSON      = flag.Bool("log-format-json", false, "set log formatter to json")
-	providerVolumePath = flag.String("provider-volume", "/etc/kubernetes/secrets-store-csi-providers", "Volume path for provider")
+	providerVolumePath = flag.String("provider-volume", "/var/run/secrets-store-csi-providers", "Volume path for provider")
 	// Check in additional paths for providers. Added to support migration from /etc/ to /var/ as part of
 	// https://github.com/kubernetes-sigs/secrets-store-csi-driver/issues/823.
-	// The default should be moved to /var/ in https://github.com/kubernetes-sigs/secrets-store-csi-driver/issues/870
-	additionalProviderPaths = flag.String("additional-provider-volume-paths", "/var/run/secrets-store-csi-providers", "Comma separated list of additional paths to communicate with providers")
+	additionalProviderPaths = flag.String("additional-provider-volume-paths", "/etc/kubernetes/secrets-store-csi-providers", "Comma separated list of additional paths to communicate with providers")
 	metricsAddr             = flag.String("metrics-addr", ":8095", "The address the metric endpoint binds to")
 	enableSecretRotation    = flag.Bool("enable-secret-rotation", false, "Enable secret rotation feature [alpha]")
 	rotationPollInterval    = flag.Duration("rotation-poll-interval", 2*time.Minute, "Secret rotation poll interval duration")
