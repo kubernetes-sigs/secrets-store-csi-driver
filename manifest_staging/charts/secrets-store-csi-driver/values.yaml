@@ -67,9 +67,9 @@ linux:
       maxUnavailable: 1
 
   kubeletRootDir: /var/lib/kubelet
-  providersDir: /etc/kubernetes/secrets-store-csi-providers
+  providersDir: /var/run/secrets-store-csi-providers
   additionalProvidersDirs: 
-    - /var/run/secrets-store-csi-providers
+    - /etc/kubernetes/secrets-store-csi-providers
   nodeSelector: {}
   tolerations: []
   metricsAddr: ":8095"
