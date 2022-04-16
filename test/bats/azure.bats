@@ -6,7 +6,6 @@ BATS_TESTS_DIR=test/bats/tests/azure
 WAIT_TIME=60
 SLEEP_TIME=1
 NAMESPACE=kube-system
-PROVIDER_YAML=https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/deployment/provider-azure-installer.yaml
 NODE_SELECTOR_OS=linux
 BASE64_FLAGS="-w 0"
 if [[ "$OSTYPE" == *"darwin"* ]]; then
@@ -14,7 +13,6 @@ if [[ "$OSTYPE" == *"darwin"* ]]; then
 fi
 
 if [ $TEST_WINDOWS ]; then
-  PROVIDER_YAML=https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/deployment/provider-azure-installer-windows.yaml
   NODE_SELECTOR_OS=windows
 fi
 
@@ -47,16 +45,18 @@ setup() {
   fi
 }
 
-@test "install azure provider" {	
-  run kubectl apply -f $PROVIDER_YAML --namespace $NAMESPACE	
-  assert_success	
+@test "install azure provider" {
+  # install the azure provider using the helm charts
+  helm repo add csi-provider-azure https://azure.github.io/secrets-store-csi-driver-provider-azure/charts
+  helm repo update
+  helm install csi csi-provider-azure/csi-secrets-store-provider-azure --namespace $NAMESPACE \
+        --set "secrets-store-csi-driver.install=false" \
+        --set "windows.enabled=$TEST_WINDOWS" \
+        --set "logVerbosity=5" \
+        --set "logFormatJSON=true" \
 
-  kubectl wait --for=condition=Ready --timeout=120s pod -l app=csi-secrets-store-provider-azure --namespace $NAMESPACE
-
-  AZURE_PROVIDER_POD=$(kubectl get pod --namespace $NAMESPACE -l app=csi-secrets-store-provider-azure -o jsonpath="{.items[0].metadata.name}")	
-
-  run kubectl get pod/$AZURE_PROVIDER_POD --namespace $NAMESPACE
-  assert_success
+  # wait for azure-csi-provider pod to be running
+  kubectl wait --for=condition=Ready --timeout=150s pods -l app=csi-secrets-store-provider-azure --namespace $NAMESPACE
 }
 
 @test "create azure k8s secret" {
