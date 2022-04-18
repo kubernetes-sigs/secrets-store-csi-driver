@@ -49,7 +49,7 @@ setup() {
   # install the azure provider using the helm charts
   helm repo add csi-provider-azure https://azure.github.io/secrets-store-csi-driver-provider-azure/charts
   helm repo update
-  helm install csi csi-provider-azure/csi-secrets-store-provider-azure --namespace $NAMESPACE \
+  helm upgrade --install csi csi-provider-azure/csi-secrets-store-provider-azure --namespace $NAMESPACE \
         --set "secrets-store-csi-driver.install=false" \
         --set "windows.enabled=$TEST_WINDOWS" \
         --set "logVerbosity=5" \
