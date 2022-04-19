@@ -29,7 +29,8 @@ RUN export GOOS=$TARGETOS && \
 FROM $BASEIMAGE
 COPY --from=builder /go/src/sigs.k8s.io/secrets-store-csi-driver/_output/secrets-store-csi /secrets-store-csi
 # upgrading zlib1g due to CVE-2018-25032
-RUN clean-install ca-certificates mount zlib1g
+# upgrading gzip and liblzma5 due to CVE-2022-1271
+RUN clean-install ca-certificates mount zlib1g gzip liblzma5
 
 LABEL maintainers="ritazh"
 LABEL description="Secrets Store CSI Driver"
