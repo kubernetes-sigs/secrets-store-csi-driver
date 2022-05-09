@@ -1,0 +1,22 @@
+{
+    "httpHeaders": [
+        {
+            "comment": "Workaround as suggested here: https://github.com/tcort/markdown-link-check/issues/201",
+            "urls": [
+                "https://docs.github.com/"
+            ],
+            "headers": {
+                "Accept-Encoding": "zstd, br, gzip, deflate"
+            }
+        }
+    ],
+    "timeout": "5s",
+    "retryOn429": true,
+    "retryCount": 5,
+    "fallbackRetryDelay": "30s",
+    "aliveStatusCodes": [
+        200,
+        206
+    ]
+}
+
