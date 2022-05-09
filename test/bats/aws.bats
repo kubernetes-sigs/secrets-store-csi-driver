@@ -61,33 +61,6 @@ teardown_file() {
     assert_success
 }
 
-@test "secretproviderclasses crd is established" {
-    kubectl wait --namespace $NAMESPACE --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
-
-    run kubectl get crd/secretproviderclasses.secrets-store.csi.x-k8s.io
-    assert_success
-}
-
-@test "Test rbac roles and role bindings exist" {
-  run kubectl get clusterrole/secretproviderclasses-role
-  assert_success
-
-  run kubectl get clusterrole/secretproviderrotation-role
-  assert_success
-
-  run kubectl get clusterrole/secretprovidersyncing-role
-  assert_success
-
-  run kubectl get clusterrolebinding/secretproviderclasses-rolebinding
-  assert_success
-
-  run kubectl get clusterrolebinding/secretproviderrotation-rolebinding
-  assert_success
-
-  run kubectl get clusterrolebinding/secretprovidersyncing-rolebinding
-  assert_success
-}
-
 @test "deploy aws secretproviderclass crd" {
     envsubst < $BATS_TEST_DIR/BasicTestMountSPC.yaml | kubectl --namespace $NAMESPACE apply -f -
 
