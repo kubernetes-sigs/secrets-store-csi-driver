@@ -2,11 +2,15 @@ name: Check Markdown links
 
 on:
   push:
+    paths:
+      - "**.md"
     branches:
     - main
   pull_request:
     branches:
     - main
+    paths: 
+    - "**.md"
   schedule:
     - cron: "0 9 * * *"
 
@@ -25,3 +29,4 @@ jobs:
         use-quiet-mode: 'yes'
         # this will show detailed HTTP status for checked links
         use-verbose-mode: 'yes'
+        config-file: .markdownlinkcheck.json
