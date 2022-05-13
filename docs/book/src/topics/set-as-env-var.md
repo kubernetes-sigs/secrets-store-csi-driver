@@ -20,6 +20,8 @@ spec:
     data: 
     - objectName: secretalias                    # name of the mounted content to sync. this could be the object name or object alias 
       key: username
+    - plainValue: hello folks                    # publicly available information that is NOT kept secret 
+      key: greeting
   parameters:
     usePodIdentity: "false"                      
     keyvaultName: "$KEYVAULT_NAME"               # the name of the KeyVault

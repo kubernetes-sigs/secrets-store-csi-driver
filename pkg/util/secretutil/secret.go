@@ -149,35 +149,53 @@ func ValidateSecretObject(secretObj secretsstorev1.SecretObject) error {
 // GetSecretData gets the object contents from the pods target path and returns a
 // map that will be populated in the Kubernetes secret data field
 func GetSecretData(secretObjData []*secretsstorev1.SecretObjectData, secretType corev1.SecretType, files map[string]string) (map[string][]byte, error) {
-	datamap := make(map[string][]byte)
+	dataMap := make(map[string][]byte)
 	for _, data := range secretObjData {
-		objectName := strings.TrimSpace(data.ObjectName)
 		dataKey := strings.TrimSpace(data.Key)
-
-		if len(objectName) == 0 {
-			return datamap, fmt.Errorf("object name in secretObjects.data")
-		}
 		if len(dataKey) == 0 {
-			return datamap, fmt.Errorf("key in secretObjects.data is empty")
+			return dataMap, fmt.Errorf("key in secretObjects.data is empty")
 		}
-		file, ok := files[objectName]
-		if !ok {
-			return datamap, fmt.Errorf("file matching objectName %s not found in the pod", objectName)
-		}
-		content, err := os.ReadFile(file)
+
+		secret, err := extractSecretValue(dataKey, data, secretType, files)
 		if err != nil {
-			return datamap, fmt.Errorf("failed to read file %s, err: %w", objectName, err)
+			return dataMap, err
 		}
-		datamap[dataKey] = content
-		if secretType == corev1.SecretTypeTLS {
-			c, err := GetCertPart(content, dataKey)
-			if err != nil {
-				return datamap, fmt.Errorf("failed to get cert data from file %s, err: %w", file, err)
-			}
-			datamap[dataKey] = c
-		}
+		dataMap[dataKey] = secret
 	}
-	return datamap, nil
+	return dataMap, nil
+}
+
+func extractSecretValue(key string, data *secretsstorev1.SecretObjectData, secretType corev1.SecretType, files map[string]string) ([]byte, error) {
+	objectName := strings.TrimSpace(data.ObjectName)
+	plainValue := strings.TrimSpace(data.PlainValue)
+
+	if len(objectName) == 0 && len(plainValue) == 0 {
+		return nil, fmt.Errorf("neither object name nor plain value in secretObjects.data")
+	}
+	if len(objectName) > 0 && len(plainValue) > 0 {
+		return nil, fmt.Errorf("object name and plain value simultaneously in secretObjects.data")
+	}
+
+	if len(plainValue) > 0 {
+		return []byte(plainValue), nil
+	}
+
+	file, ok := files[objectName]
+	if !ok {
+		return nil, fmt.Errorf("file matching objectName %s not found in the pod", objectName)
+	}
+	content, err := os.ReadFile(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file %s, err: %w", objectName, err)
+	}
+	if secretType == corev1.SecretTypeTLS {
+		c, err := GetCertPart(content, key)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get cert data from file %s, err: %w", file, err)
+		}
+		return c, nil
+	}
+	return content, nil
 }
 
 // GetSHAFromSecret gets SHA for the secret data

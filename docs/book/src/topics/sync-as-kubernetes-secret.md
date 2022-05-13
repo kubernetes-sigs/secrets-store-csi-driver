@@ -84,6 +84,8 @@ spec:
   - data:
     - key: username                           # data field to populate
       objectName: foo1                        # name of the mounted content to sync. this could be the object name or the object alias
+    - key: greeting
+      plainValue: hello folks                 # publicly available information that is NOT kept secret, e.g. for names or descriptions
     secretName: foosecret                     # name of the Kubernetes Secret object
     type: Opaque                              # type of the Kubernetes Secret object e.g. Opaque, kubernetes.io/tls
 ```

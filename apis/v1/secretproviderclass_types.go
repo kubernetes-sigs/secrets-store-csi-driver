@@ -31,6 +31,8 @@ type SecretObjectData struct {
 	ObjectName string `json:"objectName,omitempty"`
 	// data field to populate
 	Key string `json:"key,omitempty"`
+	// non-secret value to use instead of object
+	PlainValue string `json:"plainValue,omitempty"`
 }
 
 // SecretObject defines the desired state of synced K8s secret objects

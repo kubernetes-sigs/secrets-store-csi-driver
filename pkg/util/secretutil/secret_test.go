@@ -219,10 +219,11 @@ func TestGetSecretData(t *testing.T) {
 		expectedError   bool
 	}{
 		{
-			name: "object name not set",
+			name: "object name and plain value not set",
 			secretObjData: []*secretsstorev1.SecretObjectData{
 				{
 					ObjectName: "",
+					PlainValue: "",
 				},
 			},
 			secretType:      corev1.SecretTypeOpaque,
@@ -267,6 +268,20 @@ func TestGetSecretData(t *testing.T) {
 			expectedError:   true,
 		},
 		{
+			name: "object name and plain value set",
+			secretObjData: []*secretsstorev1.SecretObjectData{
+				{
+					ObjectName: "obj1",
+					PlainValue: "value1",
+					Key:        "file1",
+				},
+			},
+			secretType:      corev1.SecretTypeOpaque,
+			currentFiles:    map[string]string{"obj1": ""},
+			expectedDataMap: make(map[string][]byte),
+			expectedError:   true,
+		},
+		{
 			name: "file matching object found in fs",
 			secretObjData: []*secretsstorev1.SecretObjectData{
 				{
@@ -303,6 +318,19 @@ func TestGetSecretData(t *testing.T) {
 			secretType:      corev1.SecretTypeOpaque,
 			currentFiles:    map[string]string{"obj1": ""},
 			expectedDataMap: map[string][]byte{"file1": []byte("test")},
+			expectedError:   false,
+		},
+		{
+			name: "plain value set",
+			secretObjData: []*secretsstorev1.SecretObjectData{
+				{
+					PlainValue: "plain value 1",
+					Key:        "   file1",
+				},
+			},
+			secretType:      corev1.SecretTypeOpaque,
+			currentFiles:    map[string]string{"obj1": ""},
+			expectedDataMap: map[string][]byte{"file1": []byte("plain value 1")},
 			expectedError:   false,
 		},
 	}
