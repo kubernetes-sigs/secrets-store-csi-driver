@@ -51,3 +51,14 @@ Return the appropriate apiVersion for CSIDriver.
 {{- print "storage.k8s.io/v1beta1" -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Create the image path for the passed in image field
+*/}}
+{{- define "csidriver.image" -}}
+{{- if .sha -}}
+{{- printf "%s@%s" .repository .sha -}}
+{{- else -}}
+{{- printf "%s:%s" .repository .tag -}}
+{{- end -}}
+{{- end -}}

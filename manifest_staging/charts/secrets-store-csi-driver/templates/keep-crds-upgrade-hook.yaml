@@ -98,7 +98,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: crds-keep
-        image: "{{ .Values.linux.crds.image.repository }}:{{ .Values.linux.crds.image.tag }}"
+        image: {{ template "csidriver.image" .Values.linux.crds.image }}
         args:
         - patch
         - crd
