@@ -30,7 +30,8 @@ FROM $BASEIMAGE
 COPY --from=builder /go/src/sigs.k8s.io/secrets-store-csi-driver/_output/secrets-store-csi /secrets-store-csi
 # upgrading zlib1g due to CVE-2018-25032
 # upgrading gzip and liblzma5 due to CVE-2022-1271
-RUN clean-install ca-certificates mount zlib1g gzip liblzma5
+# upgrading libssl1.1 due to CVE-2022-1292
+RUN clean-install ca-certificates mount zlib1g gzip liblzma5 libssl1.1
 
 LABEL maintainers="ritazh"
 LABEL description="Secrets Store CSI Driver"
