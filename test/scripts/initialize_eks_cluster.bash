@@ -17,6 +17,18 @@
 EKS_CLUSTER_NAME=$1
 IMAGE_VERSION=$2
 
+install_aws_cli() {
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    unzip awscliv2.zip > /dev/null 2>&1 
+    ./aws/install
+    aws --version
+}
+
+# install the latest aws-cli
+install_aws_cli
+# log the kubectl version
+kubectl version --client=true
+
 if [ -z "$AWS_REGION" ]; then
     AWS_REGION="us-west-2"
 fi
@@ -41,7 +53,9 @@ if [ -z "$RELEASE" ]; then
     docker push $CRD_IMAGE_TAG
 fi
 
-eksctl create cluster --name $EKS_CLUSTER_NAME --node-type m5.large --region $AWS_REGION 
+eksctl create cluster --name $EKS_CLUSTER_NAME --node-type m5.large --region $AWS_REGION
+# update kubeconfig for https://github.com/aws/aws-cli/issues/6920
+aws eks update-kubeconfig --name $EKS_CLUSTER_NAME --region $AWS_REGION
 eksctl utils associate-iam-oidc-provider --name $EKS_CLUSTER_NAME --approve --region $AWS_REGION
 eksctl create iamserviceaccount \
      --name $AWS_SERVICE_ACCOUNT_NAME \
