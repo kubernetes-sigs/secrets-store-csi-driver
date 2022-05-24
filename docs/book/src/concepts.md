@@ -31,6 +31,27 @@ Currently supported providers:
 - [GCP Provider](https://github.com/GoogleCloudPlatform/secrets-store-csi-driver-provider-gcp)
 - [Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault)
 
+## Security
+
+The Secrets Store CSI Driver **daemonset** runs as `root` in a `privileged` pod. This is because the **daemonset** is
+responsible for creating new `tmpfs` filesystems and `mount`ing them into existing pod filesystems within the node's
+`hostPath`. `root` is necessary for the `mount` syscall and other filesystem operations and `privledged` is required for
+to use `mountPropagation: Bidirectional` to modify other running pod's filesystems.
+
+The provider plugins are also required to run as `root` (though `privileged` should not be necessary). This is because
+the provider plugin must create a unix domain socket in a `hostPath` for the driver to connect to.
+
+Further, service account tokens for pods that require secrets may be forwarded from the kubelet process to the driver
+and then to provider plugins. This allows the provider to impersonate the pod when contacting the external secret API.
+
+**Note:** On Windows hosts secrets will be written to the the node's filesystem which may be persistent storage. This
+contrasts with Linux where a `tmpfs` is used to try to ensure that secret material is never persisted.
+
+**Note:** Kubernetes 1.22 introduced a way to configure nodes to
+[use swap memory](https://kubernetes.io/blog/2021/08/09/run-nodes-with-swap-alpha/), however if this is used then secret
+material may be persisted to the node's disk. To ensure that secrets are not written to persistent disk ensure
+`failSwapOn` is set to `true` (which is the default).
+
 ## Custom Resource Definitions (CRDs)
 
 ### SecretProviderClass
