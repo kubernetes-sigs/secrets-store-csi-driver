@@ -287,7 +287,6 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 	errs := make([]error, 0)
 	for _, secretObj := range spc.Spec.SecretObjects {
 		secretName := strings.TrimSpace(secretObj.SecretName)
-		// TODO (manedurphy) can we migrate the configuration for the secret type to be in just syncOptions?
 		secretType := secretutil.GetSecretType(strings.TrimSpace(secretObj.Type), secretName, spc.Spec.SyncOptions)
 		jsonPath := secretutil.GetJsonPath(secretName, spc.Spec.SyncOptions)
 		secretFormat, err := secretutil.GetSecretFormat(secretName, spc.Spec.SyncOptions)

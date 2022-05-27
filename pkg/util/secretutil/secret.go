@@ -160,10 +160,6 @@ func ValidateSecretObject(secretObj secretsstorev1.SecretObject) error {
 	if len(secretObj.SecretName) == 0 {
 		return fmt.Errorf("secret name is empty")
 	}
-	// TODO (manedurphy) remove this because we are determining the secret type between the secret object & sync options
-	// if len(secretObj.Type) == 0 {
-	// 	return fmt.Errorf("secret type is empty")
-	// }
 	if len(secretObj.Data) == 0 {
 		return fmt.Errorf("data is empty")
 	}
@@ -223,7 +219,7 @@ func GetSecretData(secretObjData []*secretsstorev1.SecretObjectData, secretType 
 					case string:
 						valBytes = []byte(val)
 					default:
-						// TODO (manedurphy) Describe the behavior here
+						// we can marshal non-string types to get unquoted values as well as handle nested objects
 						if valBytes, err = json.Marshal(val); err != nil {
 							return datamap, fmt.Errorf("failed to marshal value %v, err: %w", val, err)
 						}
@@ -243,14 +239,6 @@ func GetSecretData(secretObjData []*secretsstorev1.SecretObjectData, secretType 
 				}
 				datamap[dataKey] = c
 			}
-			// TODO (manedurphy) handle basic auth data, perhaps differently
-			// if secretType == corev1.SecretTypeBasicAuth {
-			// 	username, password := getBasicAuthCredentials(content)
-			// 	delete(datamap, dataKey)
-
-			// 	datamap[basicAuthUsername] = []byte(username)
-			// 	datamap[basicAuthPassword] = []byte(password)
-			// }
 		}
 	}
 	return datamap, nil
