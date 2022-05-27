@@ -132,17 +132,12 @@ func getPrivateKey(data []byte) ([]byte, error) {
 // Kubernetes doesn't impose any constraints on the type name: https://kubernetes.io/docs/concepts/configuration/secret/#secret-types
 // If the secret type is empty, then default is Opaque.
 func GetSecretType(secretType, secretName string, syncOptions secretsstorev1.SyncOptions) corev1.SecretType {
-	// if secretType == "" {
-	// 	return corev1.SecretTypeOpaque
-	// }
-	// return corev1.SecretType(secretType)
-
 	if secretType != "" {
 		return corev1.SecretType(secretType)
 	}
 
 	for _, secret := range syncOptions.Secrets {
-		if secret.SecretName == secretName && secret.Type == secretType {
+		if secret.SecretName == secretName && secret.Type != "" {
 			return corev1.SecretType(secret.Type)
 		}
 	}
@@ -205,8 +200,10 @@ func GetSecretData(secretObjData []*secretsstorev1.SecretObjectData, secretType 
 						jsonPathSplit []string
 						valid         bool
 					)
+
 					jsonPathSplit = strings.Split(jsonPath, ".")[1:]
 					for _, path := range jsonPathSplit {
+						// set the value of "jsonContent" to the nested object at the key "path"
 						if jsonContent, valid = jsonContent[path].(map[string]interface{}); !valid {
 							return datamap, fmt.Errorf("invalid json path: %s", jsonPath)
 						}
@@ -215,16 +212,18 @@ func GetSecretData(secretObjData []*secretsstorev1.SecretObjectData, secretType 
 
 				// extract key-value pairs from the json object file content
 				for key, val := range jsonContent {
-					switch val := val.(type) {
-					case string:
-						valBytes = []byte(val)
-					default:
-						// we can marshal non-string types to get unquoted values as well as handle nested objects
-						if valBytes, err = json.Marshal(val); err != nil {
-							return datamap, fmt.Errorf("failed to marshal value %v, err: %w", val, err)
+					if data.Key == key {
+						switch val := val.(type) {
+						case string:
+							valBytes = []byte(val)
+						default:
+							// we can marshal non-string types to get unquoted values as well as handle nested objects
+							if valBytes, err = json.Marshal(val); err != nil {
+								return datamap, fmt.Errorf("failed to marshal value %v, err: %w", val, err)
+							}
 						}
+						datamap[key] = valBytes
 					}
-					datamap[key] = valBytes
 				}
 				continue
 			}
