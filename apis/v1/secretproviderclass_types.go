@@ -46,6 +46,25 @@ type SecretObject struct {
 	Data        []*SecretObjectData `json:"data,omitempty"`
 }
 
+type SyncOptions struct {
+	// type of K8s secret object
+	Type string `json:"type,omitempty"`
+	// the format of the secret (plaintext|json|yaml)
+	Format string `json:"format,omitempty"`
+	// the nested object to target for syncing
+	JsonPath string   `json:"jsonPath,omitempty"`
+	Secrets  []Secret `json:"secrets,omitempty"`
+}
+
+type Secret struct {
+	// name of the K8s secret object
+	SecretName string `json:"secretName,omitempty"`
+	// the format of the secret (plaintext|json)
+	Format string `json:"format,omitempty"`
+	// the nested object to target for syncing
+	JsonPath string `json:"jsonPath,omitempty"`
+}
+
 // SecretProviderClassSpec defines the desired state of SecretProviderClass
 type SecretProviderClassSpec struct {
 	// Configuration for provider name
@@ -53,6 +72,7 @@ type SecretProviderClassSpec struct {
 	// Configuration for specific provider
 	Parameters    map[string]string `json:"parameters,omitempty"`
 	SecretObjects []*SecretObject   `json:"secretObjects,omitempty"`
+	SyncOptions   SyncOptions       `json:"syncOptions,omitempty"`
 }
 
 // ByPodStatus defines the state of SecretProviderClass as seen by
