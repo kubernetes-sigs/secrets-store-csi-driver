@@ -10,5 +10,5 @@ spec:
   - Ephemeral
   {{- if and (semverCompare ">=1.20-0" .Capabilities.KubeVersion.Version) .Values.tokenRequests }}
   tokenRequests:
-    {{- toYaml .Values.tokenRequests | nindent 2}}
+    {{- toYaml .Values.tokenRequests | nindent 2 }}
   {{- end }}
