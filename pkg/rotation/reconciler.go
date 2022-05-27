@@ -455,6 +455,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	}
 	for _, secretObj := range spc.Spec.SecretObjects {
 		secretName := strings.TrimSpace(secretObj.SecretName)
+		secretType := secretutil.GetSecretType(strings.TrimSpace(secretObj.Type), secretName, spc.Spec.SyncOptions)
 		jsonPath := secretutil.GetJsonPath(secretName, spc.Spec.SyncOptions)
 		secretFormat, err := secretutil.GetSecretFormat(secretName, spc.Spec.SyncOptions)
 		if err != nil {
@@ -470,7 +471,6 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 			continue
 		}
 
-		secretType := secretutil.GetSecretType(strings.TrimSpace(secretObj.Type))
 		var datamap map[string][]byte
 		if datamap, err = secretutil.GetSecretData(secretObj.Data, secretType, files, secretFormat, jsonPath); err != nil {
 			r.generateEvent(pod, corev1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed to get data in spc %s/%s for secret %s, err: %+v", spc.Namespace, spc.Name, secretName, err))

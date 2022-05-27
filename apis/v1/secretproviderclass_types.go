@@ -57,6 +57,8 @@ type SyncOptions struct {
 }
 
 type Secret struct {
+	// type of K8s secret object
+	Type string `json:"type,omitempty"`
 	// name of the K8s secret object
 	SecretName string `json:"secretName,omitempty"`
 	// the format of the secret (plaintext|json)

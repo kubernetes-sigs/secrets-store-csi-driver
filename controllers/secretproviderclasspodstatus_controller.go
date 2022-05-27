@@ -287,6 +287,8 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 	errs := make([]error, 0)
 	for _, secretObj := range spc.Spec.SecretObjects {
 		secretName := strings.TrimSpace(secretObj.SecretName)
+		// TODO (manedurphy) can we migrate the configuration for the secret type to be in just syncOptions?
+		secretType := secretutil.GetSecretType(strings.TrimSpace(secretObj.Type), secretName, spc.Spec.SyncOptions)
 		jsonPath := secretutil.GetJsonPath(secretName, spc.Spec.SyncOptions)
 		secretFormat, err := secretutil.GetSecretFormat(secretName, spc.Spec.SyncOptions)
 		if err != nil {
@@ -315,8 +317,6 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 		var funcs []func() (bool, error)
 
 		if !exists {
-			secretType := secretutil.GetSecretType(strings.TrimSpace(secretObj.Type))
-
 			var datamap map[string][]byte
 			if datamap, err = secretutil.GetSecretData(secretObj.Data, secretType, files, secretFormat, jsonPath); err != nil {
 				r.generateEvent(pod, corev1.EventTypeWarning, secretCreationFailedReason, fmt.Sprintf("failed to get data in spc %s/%s for secret %s, err: %+v", req.Namespace, spcName, secretName, err))

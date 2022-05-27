@@ -131,11 +131,27 @@ func getPrivateKey(data []byte) ([]byte, error) {
 // GetSecretType returns a k8s secret type.
 // Kubernetes doesn't impose any constraints on the type name: https://kubernetes.io/docs/concepts/configuration/secret/#secret-types
 // If the secret type is empty, then default is Opaque.
-func GetSecretType(sType string) corev1.SecretType {
-	if sType == "" {
-		return corev1.SecretTypeOpaque
+func GetSecretType(secretType, secretName string, syncOptions secretsstorev1.SyncOptions) corev1.SecretType {
+	// if secretType == "" {
+	// 	return corev1.SecretTypeOpaque
+	// }
+	// return corev1.SecretType(secretType)
+
+	if secretType != "" {
+		return corev1.SecretType(secretType)
 	}
-	return corev1.SecretType(sType)
+
+	for _, secret := range syncOptions.Secrets {
+		if secret.SecretName == secretName && secret.Type == secretType {
+			return corev1.SecretType(secret.Type)
+		}
+	}
+
+	if syncOptions.Type != "" {
+		return corev1.SecretType(syncOptions.Type)
+	}
+
+	return corev1.SecretTypeOpaque
 }
 
 // ValidateSecretObject performs basic validation of the secret provider class
@@ -144,9 +160,10 @@ func ValidateSecretObject(secretObj secretsstorev1.SecretObject) error {
 	if len(secretObj.SecretName) == 0 {
 		return fmt.Errorf("secret name is empty")
 	}
-	if len(secretObj.Type) == 0 {
-		return fmt.Errorf("secret type is empty")
-	}
+	// TODO (manedurphy) remove this because we are determining the secret type between the secret object & sync options
+	// if len(secretObj.Type) == 0 {
+	// 	return fmt.Errorf("secret type is empty")
+	// }
 	if len(secretObj.Data) == 0 {
 		return fmt.Errorf("data is empty")
 	}
