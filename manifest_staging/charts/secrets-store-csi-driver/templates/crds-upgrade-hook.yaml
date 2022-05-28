@@ -87,7 +87,11 @@ spec:
       name: {{ template "sscd.fullname" . }}-upgrade-crds
       {{- if .Values.linux.crds.annotations }}
       annotations:
-        {{ toYaml .Values.linux.crds.annotations}}
+        {{ toYaml .Values.linux.crds.annotations }}
+      {{- end }}
+      {{- if .Values.linux.crds.podLabels }}
+      labels:
+        {{ toYaml .Values.linux.crds.podLabels }}
       {{- end }}
     spec:
       serviceAccountName: {{ template "sscd.fullname" . }}-upgrade-crds

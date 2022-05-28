@@ -89,6 +89,10 @@ spec:
       annotations:
         {{ toYaml .Values.linux.crds.annotations}}
       {{- end }}
+      {{- if .Values.linux.crds.podLabels }}
+      labels:
+        {{ toYaml .Values.linux.crds.podLabels }}
+      {{- end }}
     spec:
       serviceAccountName: {{ template "sscd.fullname" . }}-keep-crds
       {{- if .Values.imagePullSecrets }}

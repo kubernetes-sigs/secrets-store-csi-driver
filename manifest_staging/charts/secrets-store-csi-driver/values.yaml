@@ -11,6 +11,7 @@ linux:
       tag: v1.1.2
       pullPolicy: IfNotPresent
     annotations: {}
+    podLabels: {}
 
   ## Prevent the CSI driver from being scheduled on virtual-kubelet nodes
   affinity:
@@ -68,7 +69,7 @@ linux:
 
   kubeletRootDir: /var/lib/kubelet
   providersDir: /var/run/secrets-store-csi-providers
-  additionalProvidersDirs: 
+  additionalProvidersDirs:
     - /etc/kubernetes/secrets-store-csi-providers
   nodeSelector: {}
   tolerations: []
