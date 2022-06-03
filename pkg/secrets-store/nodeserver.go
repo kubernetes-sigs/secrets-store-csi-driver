@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
+	"time"
 
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
@@ -60,11 +60,11 @@ const (
 	csipodsa                 = "csi.storage.k8s.io/serviceAccount.name"
 	csipodsatokens           = "csi.storage.k8s.io/serviceAccount.tokens" //nolint
 	secretProviderClassField = "secretProviderClass"
-	osWindows                = "windows"
 )
 
 //gocyclo:ignore
 func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (npvr *csi.NodePublishVolumeResponse, err error) {
+	startTime := time.Now()
 	var parameters map[string]string
 	var providerName string
 	var podName, podNamespace, podUID, serviceAccountName string
@@ -244,11 +244,12 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		return nil, fmt.Errorf("failed to create secret provider class pod status for pod %s/%s, err: %w", podNamespace, podName, err)
 	}
 
-	klog.InfoS("node publish volume complete", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
+	klog.InfoS("node publish volume complete", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName}, "time", time.Since(startTime))
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
 func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (nuvr *csi.NodeUnpublishVolumeResponse, err error) {
+	startTime := time.Now()
 	defer func() {
 		if err != nil {
 			ns.reporter.ReportNodeUnPublishErrorCtMetric()
@@ -270,24 +271,22 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 		return &csi.NodeUnpublishVolumeResponse{}, nil
 	}
 
-	// for windows as the target path is not a mount point, we need to explicitly remove the contents from the
-	// dir to be able to cleanup the target path.
-	if runtime.GOOS == osWindows {
-		files, err := filepath.Glob(filepath.Join(targetPath, "*"))
-		if err != nil {
-			klog.ErrorS(err, "failed to get files from target path", "targetPath", targetPath)
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-		for _, file := range files {
-			if err = os.RemoveAll(file); err != nil {
-				klog.ErrorS(err, "failed to delete file from target path", "targetPath", targetPath, "file", file)
-			}
+	// explicitly remove the contents from the dir to be able to cleanup the target path in
+	// case of a failed unpublish
+	files, err := filepath.Glob(filepath.Join(targetPath, "*"))
+	if err != nil {
+		klog.ErrorS(err, "failed to get files from target path", "targetPath", targetPath)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	for _, file := range files {
+		if err = os.RemoveAll(file); err != nil {
+			klog.ErrorS(err, "failed to delete file from target path", "targetPath", targetPath, "file", file)
 		}
 	}
 
 	err = mount.CleanupMountPoint(targetPath, ns.mounter, false)
 	if err != nil && !os.IsNotExist(err) {
-		klog.ErrorS(err, "failed to clean and unmount target path", "targetPath", targetPath)
+		klog.ErrorS(err, "failed to clean and unmount target path", "targetPath", targetPath, "time", time.Since(startTime))
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
@@ -298,7 +297,7 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 		ns.tokenClient.DeleteServiceAccountToken(types.UID(podUID))
 	}
 
-	klog.InfoS("node unpublish volume complete", "targetPath", targetPath)
+	klog.InfoS("node unpublish volume complete", "targetPath", targetPath, "time", time.Since(startTime))
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 
