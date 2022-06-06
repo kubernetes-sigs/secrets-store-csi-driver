@@ -91,7 +91,7 @@ spec:
       {{- end }}
       {{- if .Values.linux.crds.podLabels }}
       labels:
-        {{ toYaml .Values.linux.crds.podLabels }}
+        {{- toYaml .Values.linux.crds.podLabels | nindent 8 }}
       {{- end }}
     spec:
       serviceAccountName: {{ template "sscd.fullname" . }}-upgrade-crds
