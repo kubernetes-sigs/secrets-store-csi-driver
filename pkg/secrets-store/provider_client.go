@@ -34,6 +34,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/klog/v2"
@@ -97,7 +98,7 @@ func NewPluginClientBuilder(paths []string, opts ...grpc.DialOption) *PluginClie
 		socketPaths: paths,
 		lock:        sync.RWMutex{},
 		opts: append(opts, []grpc.DialOption{
-			grpc.WithInsecure(), // the interface is only secured through filesystem ACLs
+			grpc.WithTransportCredentials(insecure.NewCredentials()), // the interface is only secured through filesystem ACLs
 			grpc.WithContextDialer(func(ctx context.Context, target string) (net.Conn, error) {
 				return (&net.Dialer{}).DialContext(ctx, "unix", target)
 			}),
