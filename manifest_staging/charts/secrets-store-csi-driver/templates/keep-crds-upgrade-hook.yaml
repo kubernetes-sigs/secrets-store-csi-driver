@@ -78,7 +78,7 @@ metadata:
 {{ include "sscd.labels" . | indent 2 }}
   annotations:
     helm.sh/hook: pre-upgrade
-    helm.sh/hook-weight: "2"
+    helm.sh/hook-weight: "20"
     helm.sh/hook-delete-policy: "hook-succeeded,before-hook-creation"
 spec:
   backoffLimit: 0
