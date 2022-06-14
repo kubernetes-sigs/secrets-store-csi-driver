@@ -68,7 +68,7 @@ metadata:
   annotations:
     helm.sh/hook: pre-upgrade
     helm.sh/hook-delete-policy: "hook-succeeded,before-hook-creation"
-    helm.sh/hook-weight: "2"
+    helm.sh/hook-weight: "10"
 ---
 apiVersion: batch/v1
 kind: Job
