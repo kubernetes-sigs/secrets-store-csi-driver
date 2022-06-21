@@ -7,7 +7,7 @@ require (
 	github.com/golangci/golangci-lint v1.46.2
 	k8s.io/code-generator v0.24.2
 	sigs.k8s.io/controller-tools v0.9.0
-	sigs.k8s.io/kustomize/kustomize/v3 v3.10.0
+	sigs.k8s.io/kustomize/kustomize/v4 v4.5.5
 )
 
 require (
@@ -26,7 +26,6 @@ require (
 	github.com/ashanbrown/forbidigo v1.3.0 // indirect
 	github.com/ashanbrown/makezero v1.1.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/bkielbasa/cyclop v1.2.0 // indirect
 	github.com/blizzy78/varnamelen v0.8.0 // indirect
 	github.com/bombsimon/wsl/v3 v3.3.0 // indirect
@@ -51,17 +50,9 @@ require (
 	github.com/go-critic/go-critic v0.6.3 // indirect
 	github.com/go-errors/errors v1.0.1 // indirect
 	github.com/go-logr/logr v1.2.0 // indirect
-	github.com/go-openapi/analysis v0.19.5 // indirect
-	github.com/go-openapi/errors v0.19.2 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
 	github.com/go-openapi/jsonreference v0.19.5 // indirect
-	github.com/go-openapi/loads v0.19.4 // indirect
-	github.com/go-openapi/runtime v0.19.4 // indirect
-	github.com/go-openapi/spec v0.19.5 // indirect
-	github.com/go-openapi/strfmt v0.19.5 // indirect
 	github.com/go-openapi/swag v0.19.14 // indirect
-	github.com/go-openapi/validate v0.19.8 // indirect
-	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/go-toolsmith/astcast v1.0.0 // indirect
 	github.com/go-toolsmith/astcopy v1.0.0 // indirect
 	github.com/go-toolsmith/astequal v1.0.1 // indirect
@@ -83,6 +74,7 @@ require (
 	github.com/golangci/misspell v0.3.5 // indirect
 	github.com/golangci/revgrep v0.0.0-20210930125155-c22e5001d4f2 // indirect
 	github.com/golangci/unconvert v0.0.0-20180507085042-28b1c447d1f4 // indirect
+	github.com/google/gnostic v0.5.7-v3refs // indirect
 	github.com/google/go-cmp v0.5.7 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
@@ -92,9 +84,7 @@ require (
 	github.com/gostaticanalysis/forcetypeassert v0.1.0 // indirect
 	github.com/gostaticanalysis/nilerr v0.1.1 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
-	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
-	github.com/hashicorp/go-safetemp v1.0.0 // indirect
 	github.com/hashicorp/go-version v1.4.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hexops/gotextdiff v1.0.3 // indirect
@@ -126,7 +116,6 @@ require (
 	github.com/mbilski/exhaustivestruct v1.2.0 // indirect
 	github.com/mgechev/revive v1.2.1 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
-	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
@@ -147,7 +136,6 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
-	github.com/qri-io/starlib v0.4.2-0.20200213133954-ff2e8cd5ef8d // indirect
 	github.com/quasilyte/go-ruleguard v0.3.16-0.20220213074421-6aa060fab41a // indirect
 	github.com/quasilyte/gogrep v0.0.0-20220120141003-628d8b3623b5 // indirect
 	github.com/quasilyte/regex/syntax v0.0.0-20200407221936-30656e2c4a95 // indirect
@@ -179,16 +167,13 @@ require (
 	github.com/timakin/bodyclose v0.0.0-20210704033933-f49887972144 // indirect
 	github.com/tomarrell/wrapcheck/v2 v2.6.1 // indirect
 	github.com/tommy-muehle/go-mnd/v2 v2.5.0 // indirect
-	github.com/ulikunitz/xz v0.5.8 // indirect
 	github.com/ultraware/funlen v0.0.3 // indirect
 	github.com/ultraware/whitespace v0.0.5 // indirect
 	github.com/uudashr/gocognit v1.0.5 // indirect
 	github.com/xlab/treeprint v0.0.0-20181112141820-a009c3971eca // indirect
 	github.com/yagipy/maintidx v1.0.0 // indirect
 	github.com/yeya24/promlinter v0.2.0 // indirect
-	github.com/yujunz/go-getter v1.5.1-lite.0.20201201013212-6d9c071adddf // indirect
 	gitlab.com/bosi/decorder v0.2.1 // indirect
-	go.mongodb.org/mongo-driver v1.1.2 // indirect
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20220218215828-6cf2b201936e // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3 // indirect
@@ -209,16 +194,16 @@ require (
 	k8s.io/apimachinery v0.24.0 // indirect
 	k8s.io/gengo v0.0.0-20211129171323-c02415ce4185 // indirect
 	k8s.io/klog/v2 v2.60.1 // indirect
-	k8s.io/kube-openapi v0.0.0-20220328201542-3ee0da9b0b42 // indirect
+	k8s.io/kube-openapi v0.0.0-20220401212409-b28bf2818661 // indirect
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9 // indirect
 	mvdan.cc/gofumpt v0.3.1 // indirect
 	mvdan.cc/interfacer v0.0.0-20180901003855-c20040233aed // indirect
 	mvdan.cc/lint v0.0.0-20170908181259-adc824a0674b // indirect
 	mvdan.cc/unparam v0.0.0-20211214103731-d0ef000c54e5 // indirect
 	sigs.k8s.io/json v0.0.0-20211208200746-9f7c6b3444d2 // indirect
-	sigs.k8s.io/kustomize/api v0.8.0 // indirect
-	sigs.k8s.io/kustomize/cmd/config v0.9.1 // indirect
-	sigs.k8s.io/kustomize/kyaml v0.10.9 // indirect
+	sigs.k8s.io/kustomize/api v0.11.5 // indirect
+	sigs.k8s.io/kustomize/cmd/config v0.10.7 // indirect
+	sigs.k8s.io/kustomize/kyaml v0.13.7 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
