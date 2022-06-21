@@ -95,11 +95,11 @@ EKSCTL := eksctl
 YQ := yq
 
 # Test variables
-KIND_VERSION ?= 0.13.0
+KIND_VERSION ?= 0.14.0
 KUBERNETES_VERSION ?= 1.24.0
 KUBECTL_VERSION ?= 1.24.0
 BATS_VERSION ?= 1.4.1
-TRIVY_VERSION ?= 0.24.4
+TRIVY_VERSION ?= 0.29.1
 PROTOC_VERSION ?= 3.15.2
 SHELLCHECK_VER ?= v0.8.0
 YQ_VERSION ?= v4.11.2
@@ -173,7 +173,7 @@ $(GOLANGCI_LINT): ## Build golangci-lint from tools folder.
 
 $(KUSTOMIZE): ## Build kustomize from tools folder.
 	cd $(TOOLS_MOD_DIR) && \
-		GOPROXY=$(GOPROXY) go build -tags=tools -o $(TOOLS_BIN_DIR)/kustomize sigs.k8s.io/kustomize/kustomize/v3
+		GOPROXY=$(GOPROXY) go build -tags=tools -o $(TOOLS_BIN_DIR)/kustomize sigs.k8s.io/kustomize/kustomize/v4
 
 $(PROTOC_GEN_GO):
 	cd $(TOOLS_MOD_DIR) && \

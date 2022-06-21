@@ -27,5 +27,5 @@ import (
 	_ "github.com/golangci/golangci-lint/cmd/golangci-lint" //nolint
 	_ "k8s.io/code-generator"                               //nolint
 	_ "sigs.k8s.io/controller-tools/cmd/controller-gen"     //nolint
-	_ "sigs.k8s.io/kustomize/kustomize/v3"                  //nolint
+	_ "sigs.k8s.io/kustomize/kustomize/v4"                  //nolint
 )
