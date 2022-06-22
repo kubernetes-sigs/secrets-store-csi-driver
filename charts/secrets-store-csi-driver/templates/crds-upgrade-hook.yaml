@@ -78,7 +78,7 @@ metadata:
 {{ include "sscd.labels" . | indent 2 }}
   annotations:
     helm.sh/hook: pre-install,pre-upgrade
-    helm.sh/hook-weight: "1"
+    helm.sh/hook-weight: "10"
     helm.sh/hook-delete-policy: "hook-succeeded,before-hook-creation"
 spec:
   backoffLimit: 0
@@ -87,7 +87,11 @@ spec:
       name: {{ template "sscd.fullname" . }}-upgrade-crds
       {{- if .Values.linux.crds.annotations }}
       annotations:
-        {{ toYaml .Values.linux.crds.annotations}}
+        {{ toYaml .Values.linux.crds.annotations }}
+      {{- end }}
+      {{- if .Values.linux.crds.podLabels }}
+      labels:
+        {{- toYaml .Values.linux.crds.podLabels | nindent 8 }}
       {{- end }}
     spec:
       serviceAccountName: {{ template "sscd.fullname" . }}-upgrade-crds
