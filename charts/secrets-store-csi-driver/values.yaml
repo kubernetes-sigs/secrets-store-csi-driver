@@ -2,15 +2,16 @@ linux:
   enabled: true
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v1.1.2
+    tag: v1.2.0
     pullPolicy: IfNotPresent
 
   crds:
     image:
       repository: k8s.gcr.io/csi-secrets-store/driver-crds
-      tag: v1.1.2
+      tag: v1.2.0
       pullPolicy: IfNotPresent
     annotations: {}
+    podLabels: {}
 
   ## Prevent the CSI driver from being scheduled on virtual-kubelet nodes
   affinity:
@@ -34,7 +35,7 @@ linux:
 
   registrarImage:
     repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
-    tag: v2.5.0
+    tag: v2.5.1
     pullPolicy: IfNotPresent
 
   registrar:
@@ -49,7 +50,7 @@ linux:
 
   livenessProbeImage:
     repository: k8s.gcr.io/sig-storage/livenessprobe
-    tag: v2.6.0
+    tag: v2.7.0
     pullPolicy: IfNotPresent
 
   livenessProbe:
@@ -67,9 +68,9 @@ linux:
       maxUnavailable: 1
 
   kubeletRootDir: /var/lib/kubelet
-  providersDir: /etc/kubernetes/secrets-store-csi-providers
-  additionalProvidersDirs: 
-    - /var/run/secrets-store-csi-providers
+  providersDir: /var/run/secrets-store-csi-providers
+  additionalProvidersDirs:
+    - /etc/kubernetes/secrets-store-csi-providers
   nodeSelector: {}
   tolerations: []
   metricsAddr: ":8095"
@@ -94,7 +95,7 @@ windows:
   enabled: false
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v1.1.2
+    tag: v1.2.0
     pullPolicy: IfNotPresent
 
   ## Prevent the CSI driver from being scheduled on virtual-kubelet nodes
@@ -119,7 +120,7 @@ windows:
 
   registrarImage:
     repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
-    tag: v2.5.0
+    tag: v2.5.1
     pullPolicy: IfNotPresent
 
   registrar:
@@ -134,7 +135,7 @@ windows:
 
   livenessProbeImage:
     repository: k8s.gcr.io/sig-storage/livenessprobe
-    tag: v2.6.0
+    tag: v2.7.0
     pullPolicy: IfNotPresent
 
   livenessProbe:
