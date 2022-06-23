@@ -17,6 +17,7 @@ limitations under the License.
 syntax = "proto3";
 
 package v1alpha1;
+option go_package = "./provider/v1alpha1";
 
 service CSIDriverProvider {
     // Version returns the runtime name and runtime version of the Secrets Store CSI Driver Provider
