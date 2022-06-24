@@ -536,6 +536,8 @@ manifests: $(CONTROLLER_GEN) $(KUSTOMIZE)
 .PHONY: generate-protobuf
 generate-protobuf: $(PROTOC) $(PROTOC_GEN_GO) $(PROTOC_GEN_GO_GRPC) # generates protobuf
 	@PATH=$(PATH):$(TOOLS_BIN_DIR) $(PROTOC) -I . provider/v1alpha1/service.proto --go-grpc_out=require_unimplemented_servers=false:. --go_out=.
+	# Update boilerplate for the generated file.
+	cat hack/boilerplate.go.txt provider/v1alpha1/service_grpc.pb.go > tmpfile && mv tmpfile provider/v1alpha1/service_grpc.pb.go
 
 ## --------------------------------------
 ## Release
