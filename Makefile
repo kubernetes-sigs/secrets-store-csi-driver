@@ -82,8 +82,9 @@ QEMU_VERSION ?= 5.2.0-2
 GOLANGCI_LINT := $(TOOLS_BIN_DIR)/golangci-lint
 CONTROLLER_GEN := $(TOOLS_BIN_DIR)/controller-gen
 KUSTOMIZE := $(TOOLS_BIN_DIR)/kustomize
-PROTOC_GEN_GO := $(TOOLS_BIN_DIR)/protoc-gen-go
-PROTOC := $(TOOLS_BIN_DIR)/bin/protoc
+PROTOC := $(TOOLS_DIR)/bin/protoc
+PROTOC_GEN_GO := $(TOOLS_DIR)/bin/protoc-gen-go
+PROTOC_GEN_GO_GRPC := $(TOOLS_DIR)/bin/protoc-gen-go-grpc
 TRIVY := trivy
 HELM := helm
 BATS := bats
@@ -100,7 +101,7 @@ KUBERNETES_VERSION ?= 1.24.0
 KUBECTL_VERSION ?= 1.24.0
 BATS_VERSION ?= 1.4.1
 TRIVY_VERSION ?= 0.29.1
-PROTOC_VERSION ?= 3.15.2
+PROTOC_VERSION ?= 3.20.1
 SHELLCHECK_VER ?= v0.8.0
 YQ_VERSION ?= v4.11.2
 
@@ -175,9 +176,13 @@ $(KUSTOMIZE): ## Build kustomize from tools folder.
 	cd $(TOOLS_MOD_DIR) && \
 		GOPROXY=$(GOPROXY) go build -tags=tools -o $(TOOLS_BIN_DIR)/kustomize sigs.k8s.io/kustomize/kustomize/v4
 
-$(PROTOC_GEN_GO):
+$(PROTOC_GEN_GO): ## Build protoc-gen-go from tools folder.
 	cd $(TOOLS_MOD_DIR) && \
-		GOPROXY=$(GOPROXY) go build -tags=tools -o $(TOOLS_BIN_DIR)/protoc-gen-go github.com/golang/protobuf/protoc-gen-go
+		GOPROXY=$(GOPROXY) go build -tags=tools -o $(TOOLS_BIN_DIR)/protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go
+
+$(PROTOC_GEN_GO_GRPC): ## Build protoc-gen-go-grpc from tools folder.
+	cd $(TOOLS_MOD_DIR) && \
+		GOPROXY=$(GOPROXY) go build -tags=tools -o $(TOOLS_BIN_DIR)/protoc-gen-go-grpc google.golang.org/grpc/cmd/protoc-gen-go-grpc
 
 ## --------------------------------------
 ## Testing Binaries
@@ -208,7 +213,7 @@ $(ENVSUBST): ## Install envsubst for running the tests
 	envsubst -V || (apt-get -o Acquire::Retries=30 update && apt-get -o Acquire::Retries=30 install gettext-base -y)
 
 $(PROTOC): ## Install protoc
-	curl -sSLO https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip && unzip protoc-${PROTOC_VERSION}-linux-x86_64.zip bin/protoc -d $(TOOLS_BIN_DIR) && rm protoc-${PROTOC_VERSION}-linux-x86_64.zip 
+	curl -sSLO https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip && unzip protoc-${PROTOC_VERSION}-linux-x86_64.zip bin/protoc -d $(TOOLS_DIR) && rm protoc-${PROTOC_VERSION}-linux-x86_64.zip 
 
 $(YQ): ## Install yq for running the tests
 	curl -LO https://github.com/mikefarah/yq/releases/download/$(YQ_VERSION)/yq_linux_amd64 && chmod +x ./yq_linux_amd64 && mv yq_linux_amd64 /usr/local/bin/yq
@@ -529,8 +534,8 @@ manifests: $(CONTROLLER_GEN) $(KUSTOMIZE)
 	@sed -i '1s/^/{{ if .Values.tokenRequests }}\n/gm; s/namespace: .*/namespace: {{ .Release.Namespace }}/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-tokenrequest_binding.yaml
 
 .PHONY: generate-protobuf
-generate-protobuf: $(PROTOC) $(PROTOC_GEN_GO) # generates protobuf
-	$(PROTOC) -I . provider/v1alpha1/service.proto --go_out=plugins=grpc:. --plugin=$(PROTOC_GEN_GO)
+generate-protobuf: $(PROTOC) $(PROTOC_GEN_GO) $(PROTOC_GEN_GO_GRPC) # generates protobuf
+	@PATH=$(PATH):$(TOOLS_BIN_DIR) $(PROTOC) -I . provider/v1alpha1/service.proto --go-grpc_out=require_unimplemented_servers=false:. --go_out=.
 
 ## --------------------------------------
 ## Release

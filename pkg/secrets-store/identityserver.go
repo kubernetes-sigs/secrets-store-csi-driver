@@ -20,9 +20,9 @@ import (
 	"context"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	wrappers "github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/klog/v2"
 )
 
