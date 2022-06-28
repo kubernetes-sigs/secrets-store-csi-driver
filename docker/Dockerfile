@@ -29,7 +29,8 @@ RUN export GOOS=$TARGETOS && \
 FROM $BASEIMAGE
 COPY --from=builder /go/src/sigs.k8s.io/secrets-store-csi-driver/_output/secrets-store-csi /secrets-store-csi
 # upgrading dpkg due to CVE-2022-1664
-RUN clean-install ca-certificates mount dpkg
+# upgrading libssl1.1 due to CVE-2022-2068
+RUN clean-install ca-certificates mount dpkg libssl1.1
 
 LABEL maintainers="ritazh"
 LABEL description="Secrets Store CSI Driver"
