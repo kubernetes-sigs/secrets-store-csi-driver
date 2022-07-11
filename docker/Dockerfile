@@ -29,7 +29,8 @@ RUN export GOOS=$TARGETOS && \
 FROM $BASEIMAGE
 COPY --from=builder /go/src/sigs.k8s.io/secrets-store-csi-driver/_output/secrets-store-csi /secrets-store-csi
 # upgrading gpgv due to CVE-2022-34903
-RUN clean-install ca-certificates mount gpgv
+# upgrading libgnutls30 due to CVE-2021-4209
+RUN clean-install ca-certificates mount gpgv libgnutls30
 
 LABEL maintainers="ritazh"
 LABEL description="Secrets Store CSI Driver"
