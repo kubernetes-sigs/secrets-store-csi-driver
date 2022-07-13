@@ -28,6 +28,7 @@ import (
 	"testing"
 
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/test_utils/tmpdir"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/runtimeutil"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 )
 
@@ -442,7 +443,7 @@ func readPayloads(path string, payloads []*v1alpha1.File) error {
 		if err != nil {
 			return err
 		}
-		if runtime.GOOS == "windows" {
+		if runtimeutil.IsRuntimeWindows() {
 			// on windows only the 0200 bitmask is used by chmod
 			// https://golang.org/src/os/file.go?s=15847:15891#L522
 			if (info.Mode() & 0200) != (fs.FileMode(p.Mode) & 0200) {
