@@ -30,6 +30,7 @@ import (
 
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/runtimeutil"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 
 	"google.golang.org/grpc"
@@ -133,6 +134,15 @@ func (p *PluginClientBuilder) Get(ctx context.Context, provider string) (v1alpha
 		if _, err := os.Stat(tryPath); err == nil {
 			socketPath = tryPath
 			break
+		}
+		// TODO: This is a workaround for Windows 20H2 issue for os.Stat(). See
+		// microsoft/Windows-Containers#97 for details.
+		// Once the issue is resolved, the following os.Lstat() is not needed.
+		if runtimeutil.IsRuntimeWindows() {
+			if _, err := os.Lstat(tryPath); err == nil {
+				socketPath = tryPath
+				break
+			}
 		}
 	}
 

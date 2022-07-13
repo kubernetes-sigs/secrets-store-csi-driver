@@ -20,10 +20,10 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"runtime"
 	"strings"
 
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/runtimeutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/spcpsutil"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -57,7 +57,7 @@ func (ns *nodeServer) ensureMountPoint(target string) (bool, error) {
 		return !notMnt, err
 	}
 
-	if runtime.GOOS == "windows" {
+	if runtimeutil.IsRuntimeWindows() {
 		// IsLikelyNotMountPoint always returns notMnt=true for windows as the
 		// target path is not a soft link to the global mount
 		// instead check if the dir exists for windows and if it's not empty

@@ -21,10 +21,11 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
+
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/runtimeutil"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	pbSanitizer "github.com/kubernetes-csi/csi-lib-utils/protosanitizer"
@@ -86,7 +87,7 @@ func (s *nonBlockingGRPCServer) serve(ctx context.Context, endpoint string, ids 
 	}
 
 	if proto == "unix" {
-		if runtime.GOOS != "windows" {
+		if !runtimeutil.IsRuntimeWindows() {
 			addr = "/" + addr
 		}
 		if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {

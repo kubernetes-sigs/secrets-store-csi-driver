@@ -27,9 +27,10 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
+
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/runtimeutil"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
@@ -195,7 +196,7 @@ func (w *AtomicWriter) Write(payload map[string]FileProjection) error {
 	}
 
 	// (9)
-	if runtime.GOOS == "windows" {
+	if runtimeutil.IsRuntimeWindows() {
 		os.Remove(dataDirPath)
 		err = os.Symlink(tsDirName, dataDirPath)
 		os.Remove(newDataDirPath)
