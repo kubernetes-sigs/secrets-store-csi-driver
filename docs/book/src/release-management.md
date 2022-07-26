@@ -44,6 +44,11 @@ This project strictly follows [semantic versioning](https://semver.org/spec/v2.0
 
 - Any `fixes` or `patches` should be merged to main and then `cherry pick` to the release branch.
 
+## Security Vulnerabilities
+
+We use [trivy](https://github.com/aquasecurity/trivy) to scan the base image for known vulnerabilities. When a vulnerability is detected and has a fixed version, we will update the image to include the fix. For vulnerabilities that are not in a fixed version, there is nothing that can be done immediately. 
+Fixable CVE patches will be part of the patch releases published **second week of every month**.
+
 ## Supported Releases
 
 Applicable fixes, including security fixes, may be cherry-picked into the release branch, depending on severity and feasibility. Patch releases are cut from that branch as needed.
