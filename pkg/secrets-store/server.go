@@ -148,11 +148,32 @@ func logInterceptor() grpc.UnaryServerInterceptor {
 		start := time.Now()
 		deadline, _ := ctx.Deadline()
 		dd := time.Until(deadline).String()
-		klog.V(5).InfoS("request", "method", info.FullMethod, "req", pbSanitizer.StripSecrets(req).String(), "deadline", dd)
+		klog.V(5).InfoS("request", "method", info.FullMethod, "req", sanitizeRequest(req), "deadline", dd)
 
 		resp, err := handler(ctx, req)
 		s, _ := status.FromError(err)
 		klog.V(5).InfoS("response", "method", info.FullMethod, "deadline", dd, "duration", time.Since(start).String(), "status.code", s.Code(), "status.message", s.Message())
 		return resp, err
 	}
+}
+
+// sanitizeRequest returns a sanitized version of the request.
+// protosanitizer strips out sensitive information from the secret field, however it doesn't handle
+// tokens in the volume context. This function handles that.
+func sanitizeRequest(req interface{}) string {
+	r, ok := req.(*csi.NodePublishVolumeRequest)
+	if !ok {
+		return pbSanitizer.StripSecrets(req).String()
+	}
+
+	tmp := *r
+	volumeContext := make(map[string]string)
+	for k, v := range r.VolumeContext {
+		volumeContext[k] = v
+	}
+	if _, ok := volumeContext[CSIPodServiceAccountTokens]; ok {
+		volumeContext[CSIPodServiceAccountTokens] = "***stripped***"
+	}
+	tmp.VolumeContext = volumeContext
+	return pbSanitizer.StripSecrets(&tmp).String()
 }
