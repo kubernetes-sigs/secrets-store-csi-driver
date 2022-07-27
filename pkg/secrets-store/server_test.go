@@ -17,8 +17,10 @@ limitations under the License.
 package secretsstore
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -102,6 +104,48 @@ func TestParseEndpointError(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			_, _, err := parseEndpoint(test.endpoint)
 			assert.Error(t, err)
+		})
+	}
+}
+
+func TestSanitizeRequest(t *testing.T) {
+	tests := []struct {
+		name     string
+		req      interface{}
+		expected string
+	}{
+		{
+			name:     "node unpublish volume request",
+			req:      &csi.NodeUnpublishVolumeRequest{},
+			expected: "{}",
+		},
+		{
+			name: "node publish volume request without tokens",
+			req: &csi.NodePublishVolumeRequest{
+				Secrets: map[string]string{
+					"foo": "bar",
+				},
+			},
+			expected: `{"secrets":"***stripped***"}`,
+		},
+		{
+			name: "node publish volume request with tokens",
+			req: &csi.NodePublishVolumeRequest{
+				Secrets: map[string]string{
+					"foo": "bar",
+				},
+				VolumeContext: map[string]string{
+					CSIPodServiceAccountTokens: "token1,token2",
+				},
+			},
+			expected: fmt.Sprintf(`{"secrets":"***stripped***","volume_context":{"%s":"***stripped***"}}`, CSIPodServiceAccountTokens),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actual := sanitizeRequest(test.req)
+			assert.Equal(t, test.expected, actual)
 		})
 	}
 }
