@@ -52,13 +52,20 @@ type nodeServer struct {
 }
 
 const (
-	permission os.FileMode = 0644
+	// FilePermission is the permission to be used for the staging target path
+	FilePermission os.FileMode = 0644
 
-	csipodname               = "csi.storage.k8s.io/pod.name"
-	csipodnamespace          = "csi.storage.k8s.io/pod.namespace"
-	csipoduid                = "csi.storage.k8s.io/pod.uid"
-	csipodsa                 = "csi.storage.k8s.io/serviceAccount.name"
-	csipodsatokens           = "csi.storage.k8s.io/serviceAccount.tokens" //nolint
+	// CSIPodName is the name of the pod that the mount is created for
+	CSIPodName = "csi.storage.k8s.io/pod.name"
+	// CSIPodNamespace is the namespace of the pod that the mount is created for
+	CSIPodNamespace = "csi.storage.k8s.io/pod.namespace"
+	// CSIPodUID is the UID of the pod that the mount is created for
+	CSIPodUID = "csi.storage.k8s.io/pod.uid"
+	// CSIPodServiceAccountName is the name of the pod service account that the mount is created for
+	CSIPodServiceAccountName = "csi.storage.k8s.io/serviceAccount.name"
+	// CSIPodServiceAccountTokens is the service account tokens of the pod that the mount is created for
+	CSIPodServiceAccountTokens = "csi.storage.k8s.io/serviceAccount.tokens" //nolint
+
 	secretProviderClassField = "secretProviderClass"
 )
 
@@ -111,10 +118,10 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 	secretProviderClass := attrib[secretProviderClassField]
 	providerName = attrib["providerName"]
-	podName = attrib[csipodname]
-	podNamespace = attrib[csipodnamespace]
-	podUID = attrib[csipoduid]
-	serviceAccountName = attrib[csipodsa]
+	podName = attrib[CSIPodName]
+	podNamespace = attrib[CSIPodNamespace]
+	podUID = attrib[CSIPodUID]
+	serviceAccountName = attrib[CSIPodServiceAccountName]
 
 	mounted, err = ns.ensureMountPoint(targetPath)
 	if err != nil {
@@ -182,7 +189,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	// to provider irrespective of the Kubernetes version. If the token doesn't exist in the
 	// volume request context, the CSI driver will generate the token for the configured audience
 	// and send it to the provider in the parameters.
-	if parameters[csipodsatokens] == "" {
+	if parameters[CSIPodServiceAccountTokens] == "" {
 		// Inject pod service account token into volume attributes
 		serviceAccountTokenAttrs, err := ns.tokenClient.PodServiceAccountTokenAttrs(podNamespace, podName, serviceAccountName, types.UID(podUID))
 		if err != nil {
@@ -209,7 +216,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		klog.ErrorS(err, "failed to marshal node publish secrets", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 		return nil, err
 	}
-	permissionStr, err := json.Marshal(permission)
+	permissionStr, err := json.Marshal(FilePermission)
 	if err != nil {
 		klog.ErrorS(err, "failed to marshal file permission", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 		return nil, err

@@ -55,18 +55,12 @@ import (
 )
 
 const (
-	permission       os.FileMode = 0644
-	maxNumOfRequeues int         = 5
+	maxNumOfRequeues int = 5
 
 	mountRotationFailedReason       = "MountRotationFailed"
 	mountRotationCompleteReason     = "MountRotationComplete"
 	k8sSecretRotationFailedReason   = "SecretRotationFailed"
 	k8sSecretRotationCompleteReason = "SecretRotationComplete"
-
-	csipodname      = "csi.storage.k8s.io/pod.name"
-	csipodnamespace = "csi.storage.k8s.io/pod.namespace"
-	csipoduid       = "csi.storage.k8s.io/pod.uid"
-	csipodsa        = "csi.storage.k8s.io/serviceAccount.name"
 )
 
 // Reconciler reconciles and rotates contents in the pod
@@ -313,10 +307,10 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 		parameters = spc.Spec.Parameters
 	}
 	// Set these parameters to mimic the exact same attributes we get as part of NodePublishVolumeRequest
-	parameters[csipodname] = pod.Name
-	parameters[csipodnamespace] = pod.Namespace
-	parameters[csipoduid] = string(pod.UID)
-	parameters[csipodsa] = pod.Spec.ServiceAccountName
+	parameters[secretsstore.CSIPodName] = pod.Name
+	parameters[secretsstore.CSIPodNamespace] = pod.Namespace
+	parameters[secretsstore.CSIPodUID] = string(pod.UID)
+	parameters[secretsstore.CSIPodServiceAccountName] = pod.Spec.ServiceAccountName
 	// csi.storage.k8s.io/serviceAccount.tokens is empty for Kubernetes version < 1.20.
 	// For 1.20+, if tokenRequests is set in the CSI driver spec, kubelet will generate
 	// a token for the pod and send it to the CSI driver.
@@ -336,7 +330,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	if err != nil {
 		return fmt.Errorf("failed to marshal parameters, err: %w", err)
 	}
-	permissionJSON, err := json.Marshal(permission)
+	permissionJSON, err := json.Marshal(secretsstore.FilePermission)
 	if err != nil {
 		return fmt.Errorf("failed to marshal permission, err: %w", err)
 	}
