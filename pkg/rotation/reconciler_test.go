@@ -604,7 +604,7 @@ func TestReconcileNoError(t *testing.T) {
 		err = server.Start()
 		g.Expect(err).NotTo(HaveOccurred())
 
-		err = os.WriteFile(secretProviderClassPodStatusToProcess.Status.TargetPath+"/object1", []byte("newdata"), permission)
+		err = os.WriteFile(secretProviderClassPodStatusToProcess.Status.TargetPath+"/object1", []byte("newdata"), secretsstore.FilePermission)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		err = testReconciler.reconcile(context.TODO(), secretProviderClassPodStatusToProcess)
