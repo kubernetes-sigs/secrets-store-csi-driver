@@ -2,7 +2,7 @@ The Secrets Store CSI Driver is getting deployed to your cluster.
 
 To verify that Secrets Store CSI Driver has started, run:
 
-  kubectl --namespace={{ .Release.Namespace }} get pods -l "app={{ template "sscd.name" . }}"
+  kubectl --namespace={{ default .Release.Namespace .Values.namespace }} get pods -l "app={{ template "sscd.name" . }}"
 
 Now you can follow these steps https://secrets-store-csi-driver.sigs.k8s.io/getting-started/usage.html
 to create a SecretProviderClass resource, and a deployment using the SecretProviderClass.
