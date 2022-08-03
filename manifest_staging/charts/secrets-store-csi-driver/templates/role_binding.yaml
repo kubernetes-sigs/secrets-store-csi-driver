@@ -10,5 +10,5 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: secrets-store-csi-driver
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ default .Release.Namespace .Values.namespace }}
 {{ end }}
