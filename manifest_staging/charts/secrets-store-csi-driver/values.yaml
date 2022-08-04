@@ -217,3 +217,7 @@ imagePullSecrets: []
 tokenRequests: []
 # - audience: aud1
 # - audience: aud2
+
+## Namespace in which csi-driver to be installed. By default, takes the value
+# from Release namespace.
+namespace:
