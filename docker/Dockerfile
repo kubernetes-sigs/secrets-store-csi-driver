@@ -28,7 +28,10 @@ RUN export GOOS=$TARGETOS && \
 
 FROM $BASEIMAGE
 COPY --from=builder /go/src/sigs.k8s.io/secrets-store-csi-driver/_output/secrets-store-csi /secrets-store-csi
-RUN clean-install ca-certificates mount
+# upgrading libtirpc-common due to CVE-2021-46828
+# upgrading libtirpc3 due to CVE-2021-46828
+# upgrading libgnutls30 due to CVE-2022-2509
+RUN clean-install ca-certificates mount libtirpc-common libtirpc3 libgnutls30
 
 LABEL maintainers="ritazh"
 LABEL description="Secrets Store CSI Driver"
