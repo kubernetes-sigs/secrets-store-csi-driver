@@ -137,6 +137,9 @@ func ValidateSecretObject(secretObj secretsstorev1.SecretObject) error {
 	if len(secretObj.SecretName) == 0 {
 		return fmt.Errorf("secret name is empty")
 	}
+	if len(secretObj.Type) == 0 {
+		return fmt.Errorf("secret type is empty")
+	}
 	if len(secretObj.Data) == 0 {
 		return fmt.Errorf("data is empty")
 	}
