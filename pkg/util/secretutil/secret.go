@@ -121,6 +121,9 @@ func getPrivateKey(data []byte) ([]byte, error) {
 	return pem.EncodeToMemory(block), nil
 }
 
+// GetSecretType returns a k8s secret type.
+// Kubernetes doesn't impose any constraints on the type name: https://kubernetes.io/docs/concepts/configuration/secret/#secret-types
+// If the secret type is empty, then default is Opaque.
 func GetSecretType(sType string) corev1.SecretType {
 	if sType == "" {
 		return corev1.SecretTypeOpaque
