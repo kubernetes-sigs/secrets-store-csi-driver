@@ -199,6 +199,30 @@ func TestMountContent(t *testing.T) {
 			},
 			transformOptions: &v1.TransformOptions{Format: formatJSON},
 		},
+		{
+			name:       "provider response with JSON format with JSON path",
+			permission: "777",
+			files: []*v1alpha1.File{
+				{
+					Path:     "db-creds",
+					Mode:     0666,
+					Contents: []byte("{\"data\": {\"data\": {\"username\": \"db-user\", \"password\": \"db-password\"}}}"),
+				},
+				{
+					Path:     "tls",
+					Mode:     0400,
+					Contents: []byte("{\"data\": {\"data\": {\"tls.key\": \"some-key\", \"tls.crt\": \"some-certificate\"}}}"),
+				},
+			},
+			objectVersions: map[string]string{"foo": "v1"},
+			expectedFiles: map[string]os.FileMode{
+				"db-creds/username": 0666,
+				"db-creds/password": 0666,
+				"tls/tls.key":       0400,
+				"tls/tls.crt":       0400,
+			},
+			transformOptions: &v1.TransformOptions{Format: formatJSON, JsonPath: "$.data.data"},
+		},
 	}
 
 	for _, test := range cases {

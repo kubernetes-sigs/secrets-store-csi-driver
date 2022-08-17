@@ -45,4 +45,8 @@ const (
 	PodVolumeNotFound = "PodVolumeNotFound"
 	// FileWriteError error
 	FileWriteError = "FileWriteError"
+	// MarhsalError error
+	MarshalError = "MarshalError"
+	// UnmarhsalError error
+	UnmarshalError = "UnmarshalError"
 )

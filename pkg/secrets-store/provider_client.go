@@ -305,7 +305,7 @@ func MountContent(ctx context.Context, client v1alpha1.CSIDriverProviderClient, 
 			case formatJSON:
 				var fileContent map[string]interface{}
 				if err := json.Unmarshal(file.Contents, &fileContent); err != nil {
-					return nil, "UnmarshalFileContentError", fmt.Errorf("could not unmarshal file contents: %w", err)
+					return nil, internalerrors.UnmarshalError, fmt.Errorf("failed to unmarshal file contents: %w", err)
 				}
 
 				for _, path := range strings.Split(jsonPath, ".")[1:] {
@@ -321,7 +321,10 @@ func MountContent(ctx context.Context, client v1alpha1.CSIDriverProviderClient, 
 					case string:
 						content = []byte(val)
 					default:
-						content, _ = json.Marshal(val)
+						content, err = json.Marshal(val)
+						if err != nil {
+							return nil, internalerrors.MarshalError, fmt.Errorf("failed to marshal file contents: %w", err)
+						}
 					}
 
 					files = append(files, &v1alpha1.File{
