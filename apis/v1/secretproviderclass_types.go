@@ -46,16 +46,21 @@ type SecretObject struct {
 	Data        []*SecretObjectData `json:"data,omitempty"`
 }
 
-type TransformOptions struct {
-	Format   string   `json:"format,omitempty"`
-	JsonPath string   `json:"jsonPath,omitempty"`
-	Secrets  []Secret `json:"secrets,omitempty"`
+type Secret struct {
+	// name of the object to sync
+	ObjectName string `json:"objectName,omitempty"`
+	// expected format of the secret received from the provider (e.g. plaintext, json)
+	Format string `json:"format,omitempty"`
+	// JSON path to target for a secret received in JSON format
+	JsonPath string `json:"jsonPath,omitempty"`
 }
 
-type Secret struct {
-	ObjectName string `json:"objectName,omitempty"`
-	Format     string `json:"format,omitempty"`
-	JsonPath   string `json:"jsonPath,omitempty"`
+type TransformOptions struct {
+	// expected format of the secret received from the provider (e.g. plaintext, json)
+	Format string `json:"format,omitempty"`
+	// JSON path to target for a secret received in JSON format
+	JsonPath string   `json:"jsonPath,omitempty"`
+	Secrets  []Secret `json:"secrets,omitempty"`
 }
 
 // SecretProviderClassSpec defines the desired state of SecretProviderClass
