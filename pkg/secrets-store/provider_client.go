@@ -93,7 +93,7 @@ type PluginClientBuilder struct {
 // plugins in the provided absolute path to a folder. Plugin servers must listen
 // to the unix domain socket at:
 //
-// 		<path>/<plugin_name>.sock
+//	<path>/<plugin_name>.sock
 //
 // where <plugin_name> must match the PluginNameRe regular expression.
 //
@@ -337,47 +337,6 @@ func MountContent(ctx context.Context, client v1alpha1.CSIDriverProviderClient, 
 		if err := fileutil.WritePayloads(targetPath, files); err != nil {
 			return nil, internalerrors.FileWriteError, err
 		}
-
-		// switch transformOptions.Format {
-		// case "json":
-		// 	var files []*v1alpha1.File
-		// 	for _, file := range resp.GetFiles() {
-		// 		var fileContent map[string]interface{}
-		// 		if err := json.Unmarshal(file.Contents, &fileContent); err != nil {
-		// 			return nil, "UnmarshalFileContentError", fmt.Errorf("could not unmarshal file contents: %w", err)
-		// 		}
-
-		// 		for _, path := range strings.Split(transformOptions.JsonPath, ".")[1:] {
-		// 			if content, valid := fileContent[path]; valid {
-		// 				fileContent = content.(map[string]interface{})
-		// 			}
-		// 		}
-
-		// 		for k, v := range fileContent {
-		// 			var content []byte
-
-		// 			switch val := v.(type) {
-		// 			case string:
-		// 				content = []byte(val)
-		// 			default:
-		// 				content, _ = json.Marshal(val)
-		// 			}
-
-		// 			files = append(files, &v1alpha1.File{
-		// 				Path:     fmt.Sprintf("%s/%s", file.Path, k),
-		// 				Mode:     file.Mode,
-		// 				Contents: content,
-		// 			})
-		// 		}
-		// 	}
-		// 	if err := fileutil.WritePayloads(targetPath, files); err != nil {
-		// 		return nil, internalerrors.FileWriteError, err
-		// 	}
-		// default:
-		// 	if err := fileutil.WritePayloads(targetPath, resp.GetFiles()); err != nil {
-		// 		return nil, internalerrors.FileWriteError, err
-		// 	}
-		// }
 	} else {
 		// when no files are returned we assume that the plugin has not migrated
 		// grpc responses for writing files yet.

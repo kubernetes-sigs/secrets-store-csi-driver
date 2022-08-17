@@ -405,7 +405,7 @@ func TestMountSecretsStoreObjectContent(t *testing.T) {
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
-			_, errorReason, err := ns.mountSecretsStoreObjectContent(context.TODO(), "provider1", test.attributes, test.secrets, test.targetPath, test.permission, "pod")
+			_, errorReason, err := ns.mountSecretsStoreObjectContent(context.TODO(), "provider1", test.attributes, test.secrets, test.targetPath, test.permission, "pod", nil)
 			if errorReason != test.expectedErrorReason {
 				t.Fatalf("expected error reason to be %s, got: %s", test.expectedErrorReason, errorReason)
 			}

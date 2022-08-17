@@ -27,6 +27,7 @@ import (
 	"testing"
 	"time"
 
+	v1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/test_utils/tmpdir"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/fake"
@@ -58,7 +59,8 @@ func TestMountContent(t *testing.T) {
 	cases := []struct {
 		name string
 		// inputs
-		permission string
+		permission       string
+		transformOptions *v1.TransformOptions
 		// mock outputs
 		objectVersions map[string]string
 		providerError  error
@@ -68,10 +70,11 @@ func TestMountContent(t *testing.T) {
 		skipon        string
 	}{
 		{
-			name:           "provider successful response (no files)",
-			permission:     "420",
-			objectVersions: map[string]string{"secret/secret1": "v1", "secret/secret2": "v2"},
-			expectedFiles:  map[string]os.FileMode{},
+			name:             "provider successful response (no files)",
+			permission:       "420",
+			objectVersions:   map[string]string{"secret/secret1": "v1", "secret/secret2": "v2"},
+			expectedFiles:    map[string]os.FileMode{},
+			transformOptions: &v1.TransformOptions{},
 		},
 		{
 			name:       "provider response with file",
@@ -87,6 +90,7 @@ func TestMountContent(t *testing.T) {
 			expectedFiles: map[string]os.FileMode{
 				"foo": 0666,
 			},
+			transformOptions: &v1.TransformOptions{},
 		},
 		{
 			name:       "provider response with multiple files",
@@ -108,6 +112,7 @@ func TestMountContent(t *testing.T) {
 				"foo": 0666,
 				"bar": 0444,
 			},
+			transformOptions: &v1.TransformOptions{},
 		},
 		{
 			name:       "provider response with nested files (linux)",
@@ -135,7 +140,8 @@ func TestMountContent(t *testing.T) {
 				"baz/bar": 0777,
 				"baz/qux": 0777,
 			},
-			skipon: "windows",
+			skipon:           "windows",
+			transformOptions: &v1.TransformOptions{},
 		},
 		{
 			// note: this is a bit weird because the path `baz\bar` on windows
@@ -167,6 +173,31 @@ func TestMountContent(t *testing.T) {
 				"baz\\bar": 0444,
 				"baz\\qux": 0666,
 			},
+			transformOptions: &v1.TransformOptions{},
+		},
+		{
+			name:       "provider response with JSON format",
+			permission: "777",
+			files: []*v1alpha1.File{
+				{
+					Path:     "db-creds",
+					Mode:     0666,
+					Contents: []byte("{\"username\": \"db-user\", \"password\": \"db-password\"}"),
+				},
+				{
+					Path:     "tls",
+					Mode:     0400,
+					Contents: []byte("{\"tls.key\": \"some-key\", \"tls.crt\": \"some-certificate\"}"),
+				},
+			},
+			objectVersions: map[string]string{"foo": "v1"},
+			expectedFiles: map[string]os.FileMode{
+				"db-creds/username": 0666,
+				"db-creds/password": 0666,
+				"tls/tls.key":       0400,
+				"tls/tls.crt":       0400,
+			},
+			transformOptions: &v1.TransformOptions{Format: formatJSON},
 		},
 	}
 
@@ -196,7 +227,7 @@ func TestMountContent(t *testing.T) {
 				t.Fatalf("expected err to be nil, got: %+v", err)
 			}
 
-			objectVersions, _, err := MountContent(context.TODO(), client, "{}", "{}", targetPath, test.permission, nil)
+			objectVersions, _, err := MountContent(context.TODO(), client, "{}", "{}", targetPath, test.permission, nil, test.transformOptions)
 			if err != nil {
 				t.Errorf("expected err to be nil, got: %+v", err)
 			}
@@ -254,7 +285,7 @@ func TestMountContent_TooLarge(t *testing.T) {
 	}
 
 	// rpc error: code = ResourceExhausted desc = grpc: received message larger than max (28 vs. 5)
-	_, errorCode, err := MountContent(context.TODO(), client, "{}", "{}", targetPath, "777", nil)
+	_, errorCode, err := MountContent(context.TODO(), client, "{}", "{}", targetPath, "777", nil, &v1.TransformOptions{})
 	if err == nil {
 		t.Errorf("expected err to be not nil")
 	}
@@ -348,7 +379,7 @@ func TestMountContentError(t *testing.T) {
 				t.Fatalf("expected err to be nil, got: %+v", err)
 			}
 
-			objectVersions, errorCode, err := MountContent(context.TODO(), client, test.attributes, test.secrets, test.targetPath, test.permission, nil)
+			objectVersions, errorCode, err := MountContent(context.TODO(), client, test.attributes, test.secrets, test.targetPath, test.permission, nil, nil)
 			if err == nil {
 				t.Errorf("expected err to be not nil")
 			}
