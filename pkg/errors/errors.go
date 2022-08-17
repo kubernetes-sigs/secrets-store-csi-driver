@@ -49,4 +49,6 @@ const (
 	MarshalError = "MarshalError"
 	// UnmarhsalError error
 	UnmarshalError = "UnmarshalError"
+	// InvalidJSONPathError error
+	InvalidJSONPathError = "InvalidJSONPathError"
 )

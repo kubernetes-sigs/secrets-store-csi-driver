@@ -308,10 +308,14 @@ func MountContent(ctx context.Context, client v1alpha1.CSIDriverProviderClient, 
 					return nil, internalerrors.UnmarshalError, fmt.Errorf("failed to unmarshal file contents: %w", err)
 				}
 
+				// The JSON path is configured in the SecretProviderClass: $.data.data -> ["data", "data"]
 				for _, path := range strings.Split(jsonPath, ".")[1:] {
 					if content, valid := fileContent[path]; valid {
+						// Update the value of "fileContent" to the nested path
 						fileContent = content.(map[string]interface{})
+						continue
 					}
+					return nil, internalerrors.InvalidJSONPathError, fmt.Errorf("invalid json path: %s", transformOptions.JsonPath)
 				}
 
 				for k, v := range fileContent {
