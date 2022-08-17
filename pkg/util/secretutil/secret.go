@@ -143,6 +143,8 @@ func ValidateSecretObject(secretObj secretsstorev1.SecretObject) error {
 	return nil
 }
 
+// GetSecretData gets the object contents from the pods target path and returns a
+// map that will be populated in the Kubernetes secret data field
 func GetSecretData(secretObjData []*secretsstorev1.SecretObjectData, secretType corev1.SecretType, files map[string]string) (map[string][]byte, error) {
 	datamap := make(map[string][]byte)
 	for _, data := range secretObjData {
