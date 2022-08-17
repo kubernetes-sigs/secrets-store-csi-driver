@@ -384,7 +384,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 		r.generateEvent(pod, corev1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to lookup provider client: %q", providerName))
 		return fmt.Errorf("failed to lookup provider client: %q", providerName)
 	}
-	newObjectVersions, errorReason, err := secretsstore.MountContent(ctx, providerClient, string(paramsJSON), string(secretsJSON), spcps.Status.TargetPath, string(permissionJSON), oldObjectVersions)
+	newObjectVersions, errorReason, err := secretsstore.MountContent(ctx, providerClient, string(paramsJSON), string(secretsJSON), spcps.Status.TargetPath, string(permissionJSON), oldObjectVersions, &spc.Spec.TransformOptions)
 	if err != nil {
 		r.generateEvent(pod, corev1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("provider mount err: %+v", err))
 		return fmt.Errorf("failed to rotate objects for pod %s/%s, err: %w", spcps.Namespace, spcps.Status.PodName, err)
@@ -455,14 +455,6 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	}
 	for _, secretObj := range spc.Spec.SecretObjects {
 		secretName := strings.TrimSpace(secretObj.SecretName)
-		secretType := secretutil.GetSecretType(strings.TrimSpace(secretObj.Type), secretName, spc.Spec.SyncOptions)
-		jsonPath := secretutil.GetJsonPath(secretName, spc.Spec.SyncOptions)
-		secretFormat, err := secretutil.GetSecretFormat(secretName, spc.Spec.SyncOptions)
-		if err != nil {
-			klog.ErrorS(err, "failed to get format for secret", "secret", secretName, "spc", klog.KObj(spc), "controller", "rotation")
-			errs = append(errs, fmt.Errorf("failed to get format for secret %s, err: %w", secretName, err))
-			continue
-		}
 
 		if err = secretutil.ValidateSecretObject(*secretObj); err != nil {
 			r.generateEvent(pod, corev1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed validation for secret object in spc %s/%s, err: %+v", spc.Namespace, spc.Name, err))
@@ -471,8 +463,9 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 			continue
 		}
 
+		secretType := secretutil.GetSecretType(strings.TrimSpace(secretObj.Type))
 		var datamap map[string][]byte
-		if datamap, err = secretutil.GetSecretData(secretObj.Data, secretType, files, secretFormat, jsonPath); err != nil {
+		if datamap, err = secretutil.GetSecretData(secretObj.Data, secretType, files); err != nil {
 			r.generateEvent(pod, corev1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed to get data in spc %s/%s for secret %s, err: %+v", spc.Namespace, spc.Name, secretName, err))
 			klog.ErrorS(err, "failed to get data in spc for secret", "spc", klog.KObj(spc), "secret", klog.ObjectRef{Namespace: spc.Namespace, Name: secretName}, "controller", "rotation")
 			errs = append(errs, err)

@@ -18,6 +18,7 @@ package secretsstore
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -28,6 +29,7 @@ import (
 	"sync"
 	"time"
 
+	v1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/runtimeutil"
@@ -64,6 +66,11 @@ const ServiceConfig = `
 	]
 }
 `
+
+const (
+	formatJSON      = "json"
+	formatPlaintext = "plaintext"
+)
 
 var (
 	// PluginNameRe is the regular expression used to validate plugin names.
@@ -222,7 +229,7 @@ func (p *PluginClientBuilder) HealthCheck(ctx context.Context, interval time.Dur
 
 // MountContent calls the client's Mount() RPC with helpers to format the
 // request and interpret the response.
-func MountContent(ctx context.Context, client v1alpha1.CSIDriverProviderClient, attributes, secrets, targetPath, permission string, oldObjectVersions map[string]string) (map[string]string, string, error) {
+func MountContent(ctx context.Context, client v1alpha1.CSIDriverProviderClient, attributes, secrets, targetPath, permission string, oldObjectVersions map[string]string, transformOptions *v1.TransformOptions) (map[string]string, string, error) {
 	var objVersions []*v1alpha1.ObjectVersion
 	for obj, version := range oldObjectVersions {
 		objVersions = append(objVersions, &v1alpha1.ObjectVersion{Id: obj, Version: version})
@@ -268,9 +275,109 @@ func MountContent(ctx context.Context, client v1alpha1.CSIDriverProviderClient, 
 		if err := fileutil.Validate(resp.GetFiles()); err != nil {
 			return nil, internalerrors.FileWriteError, err
 		}
-		if err := fileutil.WritePayloads(targetPath, resp.GetFiles()); err != nil {
+
+		getSecret := func(path string) v1.Secret {
+			for _, secret := range transformOptions.Secrets {
+				if secret.ObjectName == path {
+					return secret
+				}
+			}
+			return v1.Secret{}
+		}
+
+		var files []*v1alpha1.File
+		for _, file := range resp.GetFiles() {
+			format := formatPlaintext
+			jsonPath := transformOptions.JsonPath
+			secret := getSecret(file.Path)
+
+			if transformOptions.Format != "" {
+				format = transformOptions.Format
+			}
+			if secret.Format != "" {
+				format = secret.Format
+			}
+			if secret.JsonPath != "" {
+				jsonPath = secret.JsonPath
+			}
+
+			switch format {
+			case formatJSON:
+				var fileContent map[string]interface{}
+				if err := json.Unmarshal(file.Contents, &fileContent); err != nil {
+					return nil, "UnmarshalFileContentError", fmt.Errorf("could not unmarshal file contents: %w", err)
+				}
+
+				for _, path := range strings.Split(jsonPath, ".")[1:] {
+					if content, valid := fileContent[path]; valid {
+						fileContent = content.(map[string]interface{})
+					}
+				}
+
+				for k, v := range fileContent {
+					var content []byte
+
+					switch val := v.(type) {
+					case string:
+						content = []byte(val)
+					default:
+						content, _ = json.Marshal(val)
+					}
+
+					files = append(files, &v1alpha1.File{
+						Path:     fmt.Sprintf("%s/%s", file.Path, k),
+						Mode:     file.Mode,
+						Contents: content,
+					})
+				}
+			case formatPlaintext:
+				files = append(files, file)
+			}
+		}
+		if err := fileutil.WritePayloads(targetPath, files); err != nil {
 			return nil, internalerrors.FileWriteError, err
 		}
+
+		// switch transformOptions.Format {
+		// case "json":
+		// 	var files []*v1alpha1.File
+		// 	for _, file := range resp.GetFiles() {
+		// 		var fileContent map[string]interface{}
+		// 		if err := json.Unmarshal(file.Contents, &fileContent); err != nil {
+		// 			return nil, "UnmarshalFileContentError", fmt.Errorf("could not unmarshal file contents: %w", err)
+		// 		}
+
+		// 		for _, path := range strings.Split(transformOptions.JsonPath, ".")[1:] {
+		// 			if content, valid := fileContent[path]; valid {
+		// 				fileContent = content.(map[string]interface{})
+		// 			}
+		// 		}
+
+		// 		for k, v := range fileContent {
+		// 			var content []byte
+
+		// 			switch val := v.(type) {
+		// 			case string:
+		// 				content = []byte(val)
+		// 			default:
+		// 				content, _ = json.Marshal(val)
+		// 			}
+
+		// 			files = append(files, &v1alpha1.File{
+		// 				Path:     fmt.Sprintf("%s/%s", file.Path, k),
+		// 				Mode:     file.Mode,
+		// 				Contents: content,
+		// 			})
+		// 		}
+		// 	}
+		// 	if err := fileutil.WritePayloads(targetPath, files); err != nil {
+		// 		return nil, internalerrors.FileWriteError, err
+		// 	}
+		// default:
+		// 	if err := fileutil.WritePayloads(targetPath, resp.GetFiles()); err != nil {
+		// 		return nil, internalerrors.FileWriteError, err
+		// 	}
+		// }
 	} else {
 		// when no files are returned we assume that the plugin has not migrated
 		// grpc responses for writing files yet.

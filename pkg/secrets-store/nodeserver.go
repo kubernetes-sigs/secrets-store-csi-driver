@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"time"
 
+	v1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
@@ -238,7 +239,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	}
 	mounted = true
 	var objectVersions map[string]string
-	if objectVersions, errorReason, err = ns.mountSecretsStoreObjectContent(ctx, providerName, string(parametersStr), string(secretStr), targetPath, string(permissionStr), podName); err != nil {
+	if objectVersions, errorReason, err = ns.mountSecretsStoreObjectContent(ctx, providerName, string(parametersStr), string(secretStr), targetPath, string(permissionStr), podName, &spc.Spec.TransformOptions); err != nil {
 		klog.ErrorS(err, "failed to mount secrets store object content", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 		return nil, fmt.Errorf("failed to mount secrets store objects for pod %s/%s, err: %w", podNamespace, podName, err)
 	}
@@ -335,7 +336,7 @@ func (ns *nodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstag
 	return &csi.NodeUnstageVolumeResponse{}, nil
 }
 
-func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, providerName, attributes, secrets, targetPath, permission, podName string) (map[string]string, string, error) {
+func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, providerName, attributes, secrets, targetPath, permission, podName string, transformOptions *v1.TransformOptions) (map[string]string, string, error) {
 	if len(attributes) == 0 {
 		return nil, "", errors.New("missing attributes")
 	}
@@ -358,7 +359,7 @@ func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, provid
 
 	klog.InfoS("Using gRPC client", "provider", providerName, "pod", podName)
 
-	return MountContent(ctx, client, attributes, secrets, targetPath, permission, nil)
+	return MountContent(ctx, client, attributes, secrets, targetPath, permission, nil, transformOptions)
 }
 
 func (ns *nodeServer) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
