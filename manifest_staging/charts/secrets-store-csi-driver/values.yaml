@@ -217,3 +217,7 @@ imagePullSecrets: []
 tokenRequests: []
 # - audience: aud1
 # - audience: aud2
+
+# -- Labels to apply to all resources
+commonLabels: {}
+# team_name: dev
