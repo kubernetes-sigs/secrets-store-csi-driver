@@ -436,6 +436,72 @@ func TestWritePayloads_BackwardCompatible(t *testing.T) {
 	}
 }
 
+func TestCleanupProviderFiles(t *testing.T) {
+	wantFiles := []*v1alpha1.File{
+		{Path: "foo", Contents: []byte("whatever"), Mode: 0600},
+		{Path: "bar/baz", Contents: []byte("whatever"), Mode: 0600},
+	}
+	dontWantFiles := []*v1alpha1.File{
+		{Path: "asdf", Contents: []byte("whatever"), Mode: 0600},
+		{Path: "abc/123", Contents: []byte("whatever"), Mode: 0600},
+	}
+
+	dir := t.TempDir()
+
+	// writes with AtomicWriter
+	w, err := NewAtomicWriter(dir, "")
+	if err != nil {
+		t.Fatalf("creating atomic writer: %s", err)
+	}
+	filesToWriteAtomically := make(map[string]FileProjection, len(wantFiles))
+	for _, f := range wantFiles {
+		filesToWriteAtomically[f.Path] = FileProjection{Data: f.Contents, Mode: f.Mode}
+	}
+	if err := w.Write(filesToWriteAtomically); err != nil {
+		t.Errorf("writing with AtomicWriter: %s", err)
+	}
+
+	// writes without AtomicWriter
+	for _, f := range dontWantFiles {
+		if subdir, _ := filepath.Split(f.Path); subdir != "" {
+			if err := os.MkdirAll(filepath.Join(dir, subdir), 0700); err != nil {
+				t.Errorf("creating subdir: %s", err)
+			}
+		}
+		if err := os.WriteFile(filepath.Join(dir, f.Path), f.Contents, fs.FileMode(f.Mode)); err != nil {
+			t.Errorf("writing files without AtomicWriter: %s", err)
+		}
+	}
+
+	var toCleanup []*v1alpha1.File
+	toCleanup = append(toCleanup, wantFiles...)
+	toCleanup = append(toCleanup, dontWantFiles...)
+	if err := cleanupProviderFiles(dir, toCleanup); err != nil {
+		t.Errorf("cleaning provider files: %s", err)
+	}
+
+	// all files written by AtomicWriter should NOT be cleaned up by cleanupProviderFiles
+	for _, f := range wantFiles {
+		path := filepath.Join(dir, f.Path)
+		if fh, err := os.Open(path); err != nil {
+			t.Errorf("got error opening %q, written by AtomicWriter, want no error: %s", f.Path, err)
+		} else {
+			fh.Close()
+		}
+	}
+
+	// all other files SHOULD be cleaned up by cleanupProviderFiles
+	for _, f := range dontWantFiles {
+		path := filepath.Join(dir, f.Path)
+		if fh, err := os.Open(path); err == nil { // if NO error
+			fh.Close()
+			t.Errorf("got no error opening %q, written without AtomicWriter, want os.IsNotExist", f.Path)
+		} else if !os.IsNotExist(err) {
+			t.Errorf("got unexpected error opening %q, written without AtomicWriter, want os.IsNotExist: %s", f.Path, err)
+		}
+	}
+}
+
 func readPayloads(path string, payloads []*v1alpha1.File) error {
 	for _, p := range payloads {
 		fp := filepath.Join(path, p.Path)

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 )
@@ -75,7 +76,10 @@ func WritePayloads(path string, payloads []*v1alpha1.File) error {
 // get updated
 func cleanupProviderFiles(path string, payloads []*v1alpha1.File) error {
 	for i := range payloads {
-		p := filepath.Join(path, payloads[i].GetPath())
+		// AtomicWriter only symlinks the top file or directory
+		firstComponent := strings.Split(payloads[i].GetPath(), string(os.PathSeparator))[0]
+
+		p := filepath.Join(path, firstComponent)
 		info, err := os.Lstat(p)
 		if os.IsNotExist(err) {
 			continue
@@ -87,7 +91,7 @@ func cleanupProviderFiles(path string, payloads []*v1alpha1.File) error {
 		if info.Mode()&os.ModeSymlink != 0 {
 			continue
 		}
-		if err := os.Remove(p); err != nil {
+		if err := os.RemoveAll(p); err != nil {
 			return err
 		}
 	}
