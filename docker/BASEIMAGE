@@ -1,5 +1,5 @@
-linux/amd64=k8s.gcr.io/build-image/debian-base:bullseye-v1.1.0
-linux/arm64=k8s.gcr.io/build-image/debian-base:bullseye-v1.1.0
+linux/amd64=k8s.gcr.io/build-image/debian-base:bullseye-v1.4.1
+linux/arm64=k8s.gcr.io/build-image/debian-base:bullseye-v1.4.1
 windows/amd64/1809=mcr.microsoft.com/windows/nanoserver:1809
 windows/amd64/1903=mcr.microsoft.com/windows/nanoserver:1903
 windows/amd64/1909=mcr.microsoft.com/windows/nanoserver:1909
