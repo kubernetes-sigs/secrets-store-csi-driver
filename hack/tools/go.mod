@@ -38,7 +38,7 @@ require (
 	github.com/daixiang0/gci v0.3.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/denis-tingaikin/go-header v0.4.3 // indirect
-	github.com/emicklei/go-restful/v3 v3.7.5-0.20220308211933-7c971ca4d0fd // indirect
+	github.com/emicklei/go-restful/v3 v3.8.0 // indirect
 	github.com/esimonov/ifshort v1.0.4 // indirect
 	github.com/ettle/strcase v0.1.1 // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
