@@ -12,7 +12,7 @@ rules:
   - apiGroups: ["apiextensions.k8s.io"]
     resources: ["customresourcedefinitions"]
     verbs: ["get", "patch"]
-{{- if .Values.rbac.pspEnabled }}
+{{- if and .Values.rbac.pspEnabled (.Capabilities.APIVersions.Has "policy/v1beta1/PodSecurityPolicy") }}
   - apiGroups: ['policy']
     resources: ['podsecuritypolicies']
     verbs:     ['use']
@@ -39,7 +39,7 @@ roleRef:
   name: {{ template "sscd.fullname" . }}-keep-crds
   apiGroup: rbac.authorization.k8s.io
 ---
-{{- if .Values.rbac.pspEnabled }}
+{{- if and .Values.rbac.pspEnabled (.Capabilities.APIVersions.Has "policy/v1beta1/PodSecurityPolicy") }}
 apiVersion: policy/v1beta1
 kind: PodSecurityPolicy
 metadata:
