@@ -72,7 +72,7 @@ const (
 //gocyclo:ignore
 func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (npvr *csi.NodePublishVolumeResponse, err error) {
 	startTime := time.Now()
-	var parameters map[string]string
+	var parameters map[string]interface{}
 	var providerName string
 	var podName, podNamespace, podUID, serviceAccountName string
 	var targetPath string

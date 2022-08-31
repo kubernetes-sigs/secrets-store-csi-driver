@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -51,8 +52,8 @@ type SecretProviderClassSpec struct {
 	// Configuration for provider name
 	Provider Provider `json:"provider,omitempty"`
 	// Configuration for specific provider
-	Parameters    map[string]string `json:"parameters,omitempty"`
-	SecretObjects []*SecretObject   `json:"secretObjects,omitempty"`
+	Parameters    apiextensionsv1.JSON `json:"parameters,omitempty"`
+	SecretObjects []*SecretObject      `json:"secretObjects,omitempty"`
 }
 
 // ByPodStatus defines the state of SecretProviderClass as seen by

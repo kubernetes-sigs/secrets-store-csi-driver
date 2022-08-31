@@ -302,10 +302,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 		return fmt.Errorf("could not find secret provider class pod status volume for pod %s/%s", pod.Namespace, pod.Name)
 	}
 
-	parameters := make(map[string]string)
-	if spc.Spec.Parameters != nil {
-		parameters = spc.Spec.Parameters
-	}
+	parameters := make(map[string]interface{})
 	// Set these parameters to mimic the exact same attributes we get as part of NodePublishVolumeRequest
 	parameters[secretsstore.CSIPodName] = pod.Name
 	parameters[secretsstore.CSIPodNamespace] = pod.Namespace
@@ -324,6 +321,14 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	}
 	for k, v := range serviceAccountTokenAttrs {
 		parameters[k] = v
+	}
+
+	if spc.Spec.Parameters.Raw != nil {
+		p := make(map[string]interface{})
+		if err = json.Unmarshal(spc.Spec.Parameters.Raw, &p); err != nil {
+			return err
+		}
+		parameters = p
 	}
 
 	paramsJSON, err := json.Marshal(parameters)

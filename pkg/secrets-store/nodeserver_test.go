@@ -18,6 +18,7 @@ package secretsstore
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -31,6 +32,7 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	fakeclient "k8s.io/client-go/kubernetes/fake"
@@ -47,6 +49,10 @@ func testNodeServer(t *testing.T, tmpDir string, mountPoints []mount.MountPoint,
 }
 
 func TestNodePublishVolume(t *testing.T) {
+	jsonParams, err := json.Marshal(map[string]interface{}{"parameter1": "value1"})
+	if err != nil {
+		t.Fail()
+	}
 	tests := []struct {
 		name               string
 		nodePublishVolReq  csi.NodePublishVolumeRequest
@@ -184,8 +190,10 @@ func TestNodePublishVolume(t *testing.T) {
 						Namespace: "default",
 					},
 					Spec: secretsstorev1.SecretProviderClassSpec{
-						Provider:   "provider1",
-						Parameters: map[string]string{"parameter1": "value1"},
+						Provider: "provider1",
+						Parameters: v1.JSON{
+							Raw: jsonParams,
+						},
 					},
 				},
 			},
@@ -208,8 +216,10 @@ func TestNodePublishVolume(t *testing.T) {
 						Namespace: "default",
 					},
 					Spec: secretsstorev1.SecretProviderClassSpec{
-						Provider:   "provider1",
-						Parameters: map[string]string{"parameter1": "value1"},
+						Provider: "provider1",
+						Parameters: v1.JSON{
+							Raw: jsonParams,
+						},
 					},
 				},
 			},
@@ -241,8 +251,10 @@ func TestNodePublishVolume(t *testing.T) {
 						Namespace: "default",
 					},
 					Spec: secretsstorev1.SecretProviderClassSpec{
-						Provider:   "simple_provider",
-						Parameters: map[string]string{"parameter1": "value1"},
+						Provider: "simple_provider",
+						Parameters: v1.JSON{
+							Raw: jsonParams,
+						},
 					},
 				},
 			},
@@ -323,6 +335,10 @@ func TestNodePublishVolume(t *testing.T) {
 }
 
 func TestTestNodePublishVolume_ProviderError(t *testing.T) {
+	jsonParams, err := json.Marshal(map[string]interface{}{"parameter1": "value1"})
+	if err != nil {
+		t.Fail()
+	}
 	s := scheme.Scheme
 	s.AddKnownTypes(schema.GroupVersion{Group: secretsstorev1.GroupVersion.Group, Version: secretsstorev1.GroupVersion.Version},
 		&secretsstorev1.SecretProviderClass{},
@@ -337,8 +353,10 @@ func TestTestNodePublishVolume_ProviderError(t *testing.T) {
 				Namespace: "default",
 			},
 			Spec: secretsstorev1.SecretProviderClassSpec{
-				Provider:   "simple_provider",
-				Parameters: map[string]string{"parameter1": "value1"},
+				Provider: "simple_provider",
+				Parameters: v1.JSON{
+					Raw: jsonParams,
+				},
 			},
 		},
 	}

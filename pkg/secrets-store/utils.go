@@ -18,6 +18,7 @@ package secretsstore
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -161,11 +162,15 @@ func getProviderFromSPC(spc *secretsstorev1.SecretProviderClass) (string, error)
 }
 
 // getParametersFromSPC returns the parameters map as defined in SecretProviderClass
-func getParametersFromSPC(spc *secretsstorev1.SecretProviderClass) (map[string]string, error) {
-	if len(spc.Spec.Parameters) == 0 {
+func getParametersFromSPC(spc *secretsstorev1.SecretProviderClass) (map[string]interface{}, error) {
+	if len(spc.Spec.Parameters.Raw) == 0 {
 		return nil, fmt.Errorf("parameters not set in %s/%s", spc.Namespace, spc.Name)
 	}
-	return spc.Spec.Parameters, nil
+	result := make(map[string]interface{})
+	if err := json.Unmarshal(spc.Spec.Parameters.Raw, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // isMockProvider returns true if the provider is mock
