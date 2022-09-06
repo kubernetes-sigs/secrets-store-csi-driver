@@ -43,7 +43,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/component-base/config"
+	logsapi "k8s.io/component-base/logs/api/v1"
 	json "k8s.io/component-base/logs/json"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -89,7 +89,7 @@ func main() {
 
 	if *logFormatJSON {
 		jsonFactory := json.Factory{}
-		logger, _ := jsonFactory.Create(config.LoggingConfiguration{Format: "json"})
+		logger, _ := jsonFactory.Create(logsapi.LoggingConfiguration{Format: "json"})
 		klog.SetLogger(logger)
 	}
 	if *enableProfile {

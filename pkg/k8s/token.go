@@ -78,13 +78,15 @@ func (c *TokenClient) Run(stopCh <-chan struct{}) error {
 
 // PodServiceAccountTokenAttrs returns the token for the pod service account that can be bound to the pod.
 // This token will be sent to the providers and is of the format:
-// "csi.storage.k8s.io/serviceAccount.tokens": {
-//   <audience>: {
-//     'token': <token>,
-//     'expirationTimestamp': <expiration timestamp in RFC3339 format>,
-//   },
-//   ...
-// }
+//
+//	"csi.storage.k8s.io/serviceAccount.tokens": {
+//	  <audience>: {
+//	    'token': <token>,
+//	    'expirationTimestamp': <expiration timestamp in RFC3339 format>,
+//	  },
+//	  ...
+//	}
+//
 // ref: https://kubernetes-csi.github.io/docs/token-requests.html#usage
 func (c *TokenClient) PodServiceAccountTokenAttrs(namespace, podName, serviceAccountName string, podUID types.UID) (map[string]string, error) {
 	csiDriver, err := c.csiDriverLister.Get(c.driverName)
