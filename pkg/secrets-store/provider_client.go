@@ -86,7 +86,7 @@ type PluginClientBuilder struct {
 // plugins in the provided absolute path to a folder. Plugin servers must listen
 // to the unix domain socket at:
 //
-// 		<path>/<plugin_name>.sock
+//	<path>/<plugin_name>.sock
 //
 // where <plugin_name> must match the PluginNameRe regular expression.
 //
