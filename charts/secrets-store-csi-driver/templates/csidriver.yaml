@@ -2,6 +2,8 @@ apiVersion: {{ template "csidriver.apiVersion" . }}
 kind: CSIDriver
 metadata:
   name: secrets-store.csi.k8s.io
+  labels:
+{{ include "sscd.labels" . | indent 4 }}
 spec:
   podInfoOnMount: true
   attachRequired: false

@@ -28,13 +28,15 @@ If release name contains chart name it will be used as a full name.
 Standard labels for helm resources
 */}}
 {{- define "sscd.labels" -}}
-labels:
-  app.kubernetes.io/instance: "{{ .Release.Name }}"
-  app.kubernetes.io/managed-by: "{{ .Release.Service }}"
-  app.kubernetes.io/name: "{{ template "sscd.name" . }}"
-  app.kubernetes.io/version: "{{ .Chart.AppVersion }}"
-  app: {{ template "sscd.name" . }}
-  helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+app.kubernetes.io/instance: "{{ .Release.Name }}"
+app.kubernetes.io/managed-by: "{{ .Release.Service }}"
+app.kubernetes.io/name: "{{ template "sscd.name" . }}"
+app.kubernetes.io/version: "{{ .Chart.AppVersion }}"
+app: {{ template "sscd.name" . }}
+helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+{{- if .Values.commonLabels}}
+{{ toYaml .Values.commonLabels }}
+{{- end }}
 {{- end -}}
 
 {{- define "sscd-psp.fullname" -}}
