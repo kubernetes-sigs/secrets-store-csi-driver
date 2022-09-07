@@ -2,13 +2,13 @@ linux:
   enabled: true
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v1.2.3
+    tag: v1.2.4
     pullPolicy: IfNotPresent
 
   crds:
     image:
       repository: k8s.gcr.io/csi-secrets-store/driver-crds
-      tag: v1.2.3
+      tag: v1.2.4
       pullPolicy: IfNotPresent
     annotations: {}
     podLabels: {}
@@ -95,7 +95,7 @@ windows:
   enabled: false
   image:
     repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v1.2.3
+    tag: v1.2.4
     pullPolicy: IfNotPresent
 
   ## Prevent the CSI driver from being scheduled on virtual-kubelet nodes
@@ -217,3 +217,7 @@ imagePullSecrets: []
 tokenRequests: []
 # - audience: aud1
 # - audience: aud2
+
+# -- Labels to apply to all resources
+commonLabels: {}
+# team_name: dev

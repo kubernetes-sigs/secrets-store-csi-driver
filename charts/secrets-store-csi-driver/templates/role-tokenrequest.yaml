@@ -5,6 +5,8 @@ kind: ClusterRole
 metadata:
   creationTimestamp: null
   name: secretprovidertokenrequest-role
+  labels:
+{{ include "sscd.labels" . | indent 4 }}
 rules:
 - apiGroups:
   - ""
