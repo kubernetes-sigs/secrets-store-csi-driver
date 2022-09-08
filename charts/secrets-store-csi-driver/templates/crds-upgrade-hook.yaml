@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "sscd.fullname" . }}-upgrade-crds
+  name: {{ include "sscd.fullname.upgradeCRDs" . }}
   labels:
 {{ include "sscd.labels" . | indent 4 }}
   annotations:
@@ -23,7 +23,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ template "sscd.fullname" . }}-upgrade-crds
+  name: {{ include "sscd.fullname.upgradeCRDs" . }}
   labels:
 {{ include "sscd.labels" . | indent 4 }}
   annotations:
@@ -32,11 +32,11 @@ metadata:
     helm.sh/hook-weight: "1"
 subjects:
   - kind: ServiceAccount
-    name: {{ template "sscd.fullname" . }}-upgrade-crds
+    name: {{ include "sscd.fullname.upgradeCRDs" . }}
     namespace: {{ .Release.Namespace }}
 roleRef:
   kind: ClusterRole
-  name: {{ template "sscd.fullname" . }}-upgrade-crds
+  name: {{ include "sscd.fullname.upgradeCRDs" . }}
   apiGroup: rbac.authorization.k8s.io
 ---
 {{- if and .Values.rbac.pspEnabled (.Capabilities.APIVersions.Has "policy/v1beta1/PodSecurityPolicy") }}
@@ -66,7 +66,7 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ template "sscd.fullname" . }}-upgrade-crds
+  name: {{ include "sscd.fullname.upgradeCRDs" . }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ include "sscd.labels" . | indent 4 }}
@@ -90,7 +90,7 @@ spec:
   backoffLimit: 0
   template:
     metadata:
-      name: {{ template "sscd.fullname" . }}-upgrade-crds
+      name: {{ include "sscd.fullname.upgradeCRDs" . }}
       {{- if .Values.linux.crds.annotations }}
       annotations:
         {{ toYaml .Values.linux.crds.annotations }}
@@ -100,7 +100,7 @@ spec:
         {{- toYaml .Values.linux.crds.podLabels | nindent 8 }}
       {{- end }}
     spec:
-      serviceAccountName: {{ template "sscd.fullname" . }}-upgrade-crds
+      serviceAccountName: {{ include "sscd.fullname.upgradeCRDs" . }}
       {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
 {{ toYaml .Values.imagePullSecrets | indent 6 }}

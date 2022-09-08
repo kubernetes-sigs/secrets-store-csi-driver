@@ -1,3 +1,7 @@
+global:
+  fullnameOverride:
+  nameOverride:
+
 linux:
   enabled: true
   image:
