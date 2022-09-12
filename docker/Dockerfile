@@ -29,7 +29,9 @@ RUN export GOOS=$TARGETOS && \
 FROM $BASEIMAGE
 COPY --from=builder /go/src/sigs.k8s.io/secrets-store-csi-driver/_output/secrets-store-csi /secrets-store-csi
 # upgrading zlib1g due to CVE-2022-37434
-RUN clean-install ca-certificates mount zlib1g
+# upgrading libc-bin and libc6 due to CVE-2021-3999
+# upgrading libpcre2-8-0 due to CVE-2022-1586, CVE-2022-1587
+RUN clean-install ca-certificates mount zlib1g libc-bin libc6 libpcre2-8-0
 
 LABEL maintainers="ritazh"
 LABEL description="Secrets Store CSI Driver"
