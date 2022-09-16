@@ -8,7 +8,6 @@ run:
 linters:
   disable-all: true
   enable:
-    - deadcode
     - durationcheck
     - exportloopref
     - errcheck
@@ -27,11 +26,9 @@ linters:
     - nilerr
     - revive
     - staticcheck
-    - structcheck
     - stylecheck
     - typecheck
     - unused
-    - varcheck
   # Run with --fast=false for more extensive checks (enables all linters)
   fast: true
 
