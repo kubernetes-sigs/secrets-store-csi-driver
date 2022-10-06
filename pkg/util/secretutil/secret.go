@@ -30,6 +30,7 @@ import (
 
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 
+	"golang.org/x/crypto/pkcs12"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -40,7 +41,7 @@ const (
 	privateKeyTypeEC  = "EC PRIVATE KEY"
 )
 
-// getCertPart returns the certificate or the private key part of the cert
+// GetCertPart returns the certificate or the private key part of the cert
 func GetCertPart(data []byte, key string) ([]byte, error) {
 	if key == corev1.TLSPrivateKeyKey {
 		return getPrivateKey(data)
@@ -65,16 +66,34 @@ func getCert(data []byte) ([]byte, error) {
 		}
 		data = rest
 	}
+
+	// if cert is nil, then it might be a pfx cert
+	if certs == nil {
+		pemBlocks, err := pkcs12.ToPEM(data, "")
+		if err != nil {
+			return nil, err
+		}
+
+		// pem Blocks returns both the certificate and private key types
+		for _, block := range pemBlocks {
+			// get bytes for certificate
+			if block.Type == certType {
+				certs = append(certs, pem.EncodeToMemory(block)...)
+			}
+		}
+	}
+
 	return certs, nil
 }
 
 // getPrivateKey returns the private key part of a cert
 func getPrivateKey(data []byte) ([]byte, error) {
-	var der, derKey []byte
+	var der, derKey, rest []byte
+	var pemBlock *pem.Block
 	privKeyType := privateKeyType
 
 	for {
-		pemBlock, rest := pem.Decode(data)
+		pemBlock, rest = pem.Decode(data)
 		if pemBlock == nil {
 			break
 		}
@@ -82,6 +101,22 @@ func getPrivateKey(data []byte) ([]byte, error) {
 			der = pemBlock.Bytes
 		}
 		data = rest
+	}
+
+	// if both der is nil, then certificate might be in the pfx format
+	if der == nil {
+		pemBlocks, err := pkcs12.ToPEM(data, "")
+		if err != nil {
+			return nil, err
+		}
+
+		// pem blocks returns both the certificate and private key types
+		for _, block := range pemBlocks {
+			// get bytes for private key
+			if block.Type == privateKeyType {
+				der = block.Bytes
+			}
+		}
 	}
 
 	// parses an RSA private key in PKCS #1, ASN.1 DER form
