@@ -95,8 +95,11 @@ func main() {
 	if *enableProfile {
 		klog.InfoS("Starting profiling", "port", *profilePort)
 		go func() {
-			addr := fmt.Sprintf("%s:%d", "localhost", *profilePort)
-			klog.ErrorS(http.ListenAndServe(addr, nil), "unable to start profiling server")
+			server := &http.Server{
+				Addr:              fmt.Sprintf(":%d", *profilePort),
+				ReadHeaderTimeout: 5 * time.Second,
+			}
+			klog.ErrorS(server.ListenAndServe(), "unable to start profiling server")
 		}()
 	}
 

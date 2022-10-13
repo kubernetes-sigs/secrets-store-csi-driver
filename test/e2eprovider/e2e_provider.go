@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/server"
 
@@ -70,7 +71,12 @@ func main() {
 
 		http.HandleFunc("/rotation", server.RotationHandler)
 		http.HandleFunc("/validate-token-requests", server.ValidateTokenAudienceHandler)
-		klog.Fatal(http.ListenAndServe(":8080", nil))
+
+		server := &http.Server{
+			Addr:              ":8080",
+			ReadHeaderTimeout: 5 * time.Second,
+		}
+		klog.Fatal(server.ListenAndServe())
 	}()
 
 	<-signalChan
