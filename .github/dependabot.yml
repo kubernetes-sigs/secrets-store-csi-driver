@@ -6,9 +6,13 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "chore"
+    labels:
+      - "ok-to-test"
   - package-ecosystem: "gomod"
     directory: "/hack/tools"
     schedule:
       interval: "weekly"
     commit-message:
       prefix: "chore"
+    labels:
+      - "ok-to-test"
