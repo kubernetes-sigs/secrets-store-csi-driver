@@ -23,7 +23,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     # pinning to the sha 9710f0fec812ce0a3b98bef4c9d842fc1f39d976 from https://github.com/gaurav-nelson/github-action-markdown-link-check/releases/tag/1.0.13
-    - uses: gaurav-nelson/github-action-markdown-link-check@9710f0fec812ce0a3b98bef4c9d842fc1f39d976
+    - uses: gaurav-nelson/github-action-markdown-link-check@0a51127e9955b855a9bbfa1ff5577f1d1338c9a5
       with:
         # this will only show errors in the output
         use-quiet-mode: 'yes'
