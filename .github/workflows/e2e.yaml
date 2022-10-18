@@ -27,7 +27,7 @@ jobs:
         KUBERNETES_VERSION: ["v1.22.13", "v1.23.10", "v1.24.4", "v1.25.0"]
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
         with:
           submodules: true
           fetch-depth: 0  
