@@ -6,6 +6,7 @@ linux:
     pullPolicy: IfNotPresent
 
   crds:
+    enabled: true
     image:
       repository: k8s.gcr.io/csi-secrets-store/driver-crds
       tag: v1.2.4
