@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	targetPathRe = regexp.MustCompile(`[\\|\/]+pods[\\|\/]+(.+?)[\\|\/]+volumes[\\|\/]+kubernetes.io~csi[\\|\/]+(.+?)[\\|\/]+mount$`)
+	targetPathRe = regexp.MustCompile(`[\\|\/]+pods[\\|\/]+(.+?)[\\|\/]+volumes[\\|\/]+kubernetes\.io~csi[\\|\/]+(.+?)[\\|\/]+mount$`)
 )
 
 // GetMountedFiles returns all the mounted files mapping their path relative to
