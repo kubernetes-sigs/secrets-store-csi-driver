@@ -267,6 +267,10 @@ func TestGetVolumeNameFromTargetPath(t *testing.T) {
 			want:       "",
 		},
 		{
+			targetPath: "/var/lib/kubelet/pods/7e7686a1-56c4-4c67-a6fd-4656ac484f0a/volumes/kubernetesxio~csi/secrets-store-inline/mount",
+			want:       "",
+		},
+		{
 			targetPath: "/var/lib/kubelet/pods/7e7686a1-56c4-4c67-a6fd-4656ac484f0a/volumes/kubernetes.io~csi/secrets-store-inline/mount",
 			want:       "secrets-store-inline",
 		},
