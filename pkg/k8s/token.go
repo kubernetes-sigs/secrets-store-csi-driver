@@ -31,7 +31,7 @@ import (
 	storagelisters "k8s.io/client-go/listers/storage/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/pkg/kubelet/token"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s/token"
 )
 
 // TokenClient is a client for Kubernetes Token API

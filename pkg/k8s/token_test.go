@@ -27,13 +27,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	fakeclient "k8s.io/client-go/kubernetes/fake"
 	clitesting "k8s.io/client-go/testing"
-	pkgauthenticationv1 "k8s.io/kubernetes/pkg/apis/authentication/v1"
-	pkgcorev1 "k8s.io/kubernetes/pkg/apis/core/v1"
-	pkgstoragev1 "k8s.io/kubernetes/pkg/apis/storage/v1"
+	"k8s.io/utils/pointer"
 )
 
 var (
@@ -46,9 +43,6 @@ var (
 
 func TestPodServiceAccountTokenAttrs(t *testing.T) {
 	scheme := runtime.NewScheme()
-	utilruntime.Must(pkgauthenticationv1.RegisterDefaults(scheme))
-	utilruntime.Must(pkgstoragev1.RegisterDefaults(scheme))
-	utilruntime.Must(pkgcorev1.RegisterDefaults(scheme))
 	audience := "aud"
 
 	tests := []struct {
@@ -115,6 +109,9 @@ func TestPodServiceAccountTokenAttrs(t *testing.T) {
 				scheme.Default(tr)
 				if len(tr.Spec.Audiences) == 0 {
 					tr.Spec.Audiences = []string{"api"}
+				}
+				if tr.Spec.ExpirationSeconds == nil {
+					tr.Spec.ExpirationSeconds = pointer.Int64Ptr(3600)
 				}
 				tr.Status.Token = fmt.Sprintf("%v:%v:%d:%v", action.GetNamespace(), testAccount, *tr.Spec.ExpirationSeconds, tr.Spec.Audiences)
 				tr.Status.ExpirationTimestamp = metav1.NewTime(time.Unix(1, 1))
