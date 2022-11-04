@@ -50,7 +50,7 @@ linux:
 
   livenessProbeImage:
     repository: k8s.gcr.io/sig-storage/livenessprobe
-    tag: v2.7.0
+    tag: v2.8.0
     pullPolicy: IfNotPresent
 
   livenessProbe:
@@ -135,7 +135,7 @@ windows:
 
   livenessProbeImage:
     repository: k8s.gcr.io/sig-storage/livenessprobe
-    tag: v2.7.0
+    tag: v2.8.0
     pullPolicy: IfNotPresent
 
   livenessProbe:
