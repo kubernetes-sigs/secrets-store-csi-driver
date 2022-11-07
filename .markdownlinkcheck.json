@@ -17,6 +17,11 @@
     "aliveStatusCodes": [
         200,
         206
+    ],
+    "ignorePatterns": [
+        {
+            "pattern": "https://img.shields.io/badge/Slack-%23csi--secrets--store-blueviolet",
+        }
     ]
 }
 
