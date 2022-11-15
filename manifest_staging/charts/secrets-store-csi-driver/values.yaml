@@ -11,6 +11,14 @@ linux:
       repository: k8s.gcr.io/csi-secrets-store/driver-crds
       tag: v1.2.4
       pullPolicy: IfNotPresent
+    ## Optionally override resource limits for crd hooks(jobs)
+    resources: {}
+      # requests:
+      #   cpu: "100m"
+      #   memory: "128Mi"
+      # limits:
+      #   cpu: "500m"
+      #   memory: "512Mi"
     annotations: {}
     podLabels: {}
 

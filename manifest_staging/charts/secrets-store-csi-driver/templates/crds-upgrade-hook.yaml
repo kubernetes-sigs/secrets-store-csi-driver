@@ -115,6 +115,10 @@ spec:
         - -f
         - crds/
         imagePullPolicy: {{ .Values.linux.crds.image.pullPolicy }}
+        {{- with .Values.linux.crds.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
       nodeSelector:
         kubernetes.io/os: linux
 {{- if .Values.linux.nodeSelector }}
