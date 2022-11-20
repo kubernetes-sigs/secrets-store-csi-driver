@@ -35,7 +35,7 @@ Currently supported providers:
 
 The Secrets Store CSI Driver **daemonset** runs as `root` in a `privileged` pod. This is because the **daemonset** is
 responsible for creating new `tmpfs` filesystems and `mount`ing them into existing pod filesystems within the node's
-`hostPath`. `root` is necessary for the `mount` syscall and other filesystem operations and `privledged` is required for
+`hostPath`. `root` is necessary for the `mount` syscall and other filesystem operations and `privileged` is required for
 to use `mountPropagation: Bidirectional` to modify other running pod's filesystems.
 
 The provider plugins are also required to run as `root` (though `privileged` should not be necessary). This is because
