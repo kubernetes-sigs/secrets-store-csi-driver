@@ -78,7 +78,7 @@ Katu6uOQ6tjRyEbx1/vXXPV7Peztr9/8daMeIAdbAoGBAOYRJ1CzMYQKjWF32Uas
 7hhQxyH1QI4nV56Dryq7l/UWun2pfwNLZFqOHD3qm05aznzNKvk9aHAsOPFfUUXO
 7sp0Ge5FLMSw1uMNnutcVcMz37KAY2fOoE2xoLM4DU/H2NqDjeGCsOsU1ReRS1vB
 J+42JGwBdLV99ruYKVKOWPh4
------END PRIVATE KEY-----	
+-----END PRIVATE KEY-----
 `
 	certPEM = `-----BEGIN CERTIFICATE-----
 MIIDOTCCAiGgAwIBAgIJAP0J5Z7N0Y5fMA0GCSqGSIb3DQEBCwUAMDMxFzAVBgNV
@@ -206,6 +206,7 @@ func TestGetCert(t *testing.T) {
 }
 
 func TestValidateSecretObject(t *testing.T) {
+	stringData := "file1:obj1"
 	tests := []struct {
 		name          string
 		secretObj     secretsstorev1.SecretObject
@@ -232,6 +233,14 @@ func TestValidateSecretObject(t *testing.T) {
 				SecretName: "secret1",
 				Type:       "Opaque",
 				Data:       []*secretsstorev1.SecretObjectData{{ObjectName: "obj1", Key: "file1"}}},
+			expectedError: false,
+		},
+		{
+			name: "valid string secret object",
+			secretObj: secretsstorev1.SecretObject{
+				SecretName: "secret1",
+				Type:       "Opaque",
+				StringData: &stringData},
 			expectedError: false,
 		},
 	}
@@ -359,7 +368,102 @@ func TestGetSecretData(t *testing.T) {
 				}
 				test.currentFiles[fileName] = filePath
 			}
-			datamap, err := GetSecretData(test.secretObjData, test.secretType, test.currentFiles)
+			secretObject := secretsstorev1.SecretObject{}
+			secretObject.Data = test.secretObjData
+			datamap, err := GetSecretData(&secretObject, test.secretType, test.currentFiles)
+			if test.expectedError && err == nil {
+				t.Fatalf("expected err: %+v, got: %+v", test.expectedError, err)
+			}
+			if !reflect.DeepEqual(datamap, test.expectedDataMap) {
+				t.Fatalf("expected data map doesn't match actual")
+			}
+		})
+	}
+}
+
+func TestGetSecretStringData(t *testing.T) {
+	tests := []struct {
+		name                string
+		secretObjStringData string
+		secretType          corev1.SecretType
+		currentFiles        map[string]string
+		expectedDataMap     map[string][]byte
+		expectedError       bool
+	}{
+		{
+			name:                "object name not set",
+			secretObjStringData: "",
+			secretType:          corev1.SecretTypeOpaque,
+			expectedDataMap:     make(map[string][]byte),
+			expectedError:       true,
+		},
+		{
+			name:                "key not set",
+			secretObjStringData: ":obj1",
+			secretType:          corev1.SecretTypeOpaque,
+			expectedDataMap:     make(map[string][]byte),
+			expectedError:       true,
+		},
+		{
+			name:                "file matching object doesn't exist in map",
+			secretObjStringData: "file1:obj1",
+			secretType:          corev1.SecretTypeOpaque,
+			currentFiles:        map[string]string{"obj2": ""},
+			expectedDataMap:     make(map[string][]byte),
+			expectedError:       true,
+		},
+		{
+			name:                "file matching object doesn't exist in the fs",
+			secretObjStringData: "file1:obj1",
+			secretType:          corev1.SecretTypeOpaque,
+			currentFiles:        map[string]string{"obj2": ""},
+			expectedDataMap:     make(map[string][]byte),
+			expectedError:       true,
+		},
+		{
+			name:                "file matching object found in fs",
+			secretObjStringData: "file1:obj1",
+			secretType:          corev1.SecretTypeOpaque,
+			currentFiles:        map[string]string{"obj1": ""},
+			expectedDataMap:     map[string][]byte{"file1": []byte("test")},
+			expectedError:       false,
+		},
+		{
+			name:                "file matching object found in fs after trimming spaces in object name",
+			secretObjStringData: "file1:obj1     ",
+			secretType:          corev1.SecretTypeOpaque,
+			currentFiles:        map[string]string{"obj1": ""},
+			expectedDataMap:     map[string][]byte{"file1": []byte("test")},
+			expectedError:       false,
+		},
+		{
+			name:                "file matching object found in fs after trimming spaces in key",
+			secretObjStringData: "   file1:obj1     ",
+			secretType:          corev1.SecretTypeOpaque,
+			currentFiles:        map[string]string{"obj1": ""},
+			expectedDataMap:     map[string][]byte{"file1": []byte("test")},
+			expectedError:       false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tmpDir, err := os.MkdirTemp("", "ut")
+			if err != nil {
+				t.Fatalf("expected err to be nil, got: %+v", err)
+			}
+			defer os.RemoveAll(tmpDir)
+
+			for fileName := range test.currentFiles {
+				filePath, err := createTestFile(tmpDir, fileName)
+				if err != nil {
+					t.Fatalf("expected err to be nil, got: %+v", err)
+				}
+				test.currentFiles[fileName] = filePath
+			}
+			secretObject := secretsstorev1.SecretObject{}
+			secretObject.StringData = &test.secretObjStringData
+			datamap, err := GetSecretData(&secretObject, test.secretType, test.currentFiles)
 			if test.expectedError && err == nil {
 				t.Fatalf("expected err: %+v, got: %+v", test.expectedError, err)
 			}

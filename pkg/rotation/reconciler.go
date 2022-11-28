@@ -465,7 +465,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 
 		secretType := secretutil.GetSecretType(strings.TrimSpace(secretObj.Type))
 		var datamap map[string][]byte
-		if datamap, err = secretutil.GetSecretData(secretObj.Data, secretType, files); err != nil {
+		if datamap, err = secretutil.GetSecretData(secretObj, secretType, files); err != nil {
 			r.generateEvent(pod, corev1.EventTypeWarning, k8sSecretRotationFailedReason, fmt.Sprintf("failed to get data in spc %s/%s for secret %s, err: %+v", spc.Namespace, spc.Name, secretName, err))
 			klog.ErrorS(err, "failed to get data in spc for secret", "spc", klog.KObj(spc), "secret", klog.ObjectRef{Namespace: spc.Namespace, Name: secretName}, "controller", "rotation")
 			errs = append(errs, err)

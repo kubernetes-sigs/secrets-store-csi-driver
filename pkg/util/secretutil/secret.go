@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -175,7 +176,7 @@ func ValidateSecretObject(secretObj secretsstorev1.SecretObject) error {
 	if len(secretObj.Type) == 0 {
 		return fmt.Errorf("secret type is empty")
 	}
-	if len(secretObj.Data) == 0 {
+	if len(secretObj.Data) == 0 && (secretObj.StringData == nil || len(*secretObj.StringData) == 0) {
 		return fmt.Errorf("data is empty")
 	}
 	return nil
@@ -183,33 +184,67 @@ func ValidateSecretObject(secretObj secretsstorev1.SecretObject) error {
 
 // GetSecretData gets the object contents from the pods target path and returns a
 // map that will be populated in the Kubernetes secret data field
-func GetSecretData(secretObjData []*secretsstorev1.SecretObjectData, secretType corev1.SecretType, files map[string]string) (map[string][]byte, error) {
+func GetSecretData(secretObj *secretsstorev1.SecretObject, secretType corev1.SecretType, files map[string]string) (map[string][]byte, error) {
 	datamap := make(map[string][]byte)
-	for _, data := range secretObjData {
-		objectName := strings.TrimSpace(data.ObjectName)
-		dataKey := strings.TrimSpace(data.Key)
-
-		if len(objectName) == 0 {
-			return datamap, fmt.Errorf("object name in secretObjects.data")
+	kvmap := make(map[string]string)
+	var (
+		objectName string
+		dataKey    string
+	)
+	if secretObj.Data != nil {
+		for _, data := range secretObj.Data {
+			r := reflect.ValueOf(data)
+			objectName = strings.TrimSpace(reflect.Indirect(r).FieldByName("ObjectName").String())
+			dataKey = strings.TrimSpace(reflect.Indirect(r).FieldByName("Key").String())
+			kvmap[dataKey] = objectName
 		}
-		if len(dataKey) == 0 {
-			return datamap, fmt.Errorf("key in secretObjects.data is empty")
-		}
-		file, ok := files[objectName]
-		if !ok {
-			return datamap, fmt.Errorf("file matching objectName %s not found in the pod", objectName)
-		}
-		content, err := os.ReadFile(file)
-		if err != nil {
-			return datamap, fmt.Errorf("failed to read file %s, err: %w", objectName, err)
-		}
-		datamap[dataKey] = content
-		if secretType == corev1.SecretTypeTLS {
-			c, err := GetCertPart(content, dataKey)
-			if err != nil {
-				return datamap, fmt.Errorf("failed to get cert data from file %s, err: %w", file, err)
+	}
+	if secretObj.StringData != nil && *secretObj.StringData != "" {
+		r := reflect.ValueOf(*secretObj.StringData)
+		keyValue := reflect.Indirect(r).Interface().(string)
+		lineSlice := strings.Split(keyValue, "\n")
+		if len(lineSlice) < 1 {
+			return datamap, fmt.Errorf("key value in secretObjects.stringData is invalid\n")
+		} else {
+			for _, kvdata := range lineSlice {
+				kvSlice := strings.Split(kvdata, ":")
+				if len(kvSlice) < 2 {
+					return datamap, fmt.Errorf("key value in secretObjects.stringData is invalid\n")
+				} else {
+					objectName = strings.TrimSpace(kvSlice[1])
+					dataKey = strings.TrimSpace(kvSlice[0])
+					kvmap[dataKey] = objectName
+				}
 			}
-			datamap[dataKey] = c
+		}
+	}
+	if len(kvmap) == 0 {
+		return datamap, fmt.Errorf("key value in secretObjects.data or secretObjects.stringData is invalid\n")
+	} else {
+		for dataKey, objectName := range kvmap {
+			if len(objectName) == 0 {
+				return datamap, fmt.Errorf("object name in secretObjects.data or secretObjects.stringData is empty")
+			}
+			if len(dataKey) == 0 {
+				return datamap, fmt.Errorf("key in secretObjects.data or secretObjects.stringData is empty")
+			}
+
+			file, ok := files[objectName]
+			if !ok {
+				return datamap, fmt.Errorf("file matching objectName %s not found in the pod", objectName)
+			}
+			content, err := os.ReadFile(file)
+			if err != nil {
+				return datamap, fmt.Errorf("failed to read file %s, err: %w", objectName, err)
+			}
+			datamap[dataKey] = content
+			if secretType == corev1.SecretTypeTLS {
+				c, err := GetCertPart(content, dataKey)
+				if err != nil {
+					return datamap, fmt.Errorf("failed to get cert data from file %s, err: %w", file, err)
+				}
+				datamap[dataKey] = c
+			}
 		}
 	}
 	return datamap, nil

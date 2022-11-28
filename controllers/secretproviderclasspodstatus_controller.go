@@ -311,7 +311,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 			secretType := secretutil.GetSecretType(strings.TrimSpace(secretObj.Type))
 
 			var datamap map[string][]byte
-			if datamap, err = secretutil.GetSecretData(secretObj.Data, secretType, files); err != nil {
+			if datamap, err = secretutil.GetSecretData(secretObj, secretType, files); err != nil {
 				r.generateEvent(pod, corev1.EventTypeWarning, secretCreationFailedReason, fmt.Sprintf("failed to get data in spc %s/%s for secret %s, err: %+v", req.Namespace, spcName, secretName, err))
 				klog.ErrorS(err, "failed to get data in spc for secret", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "secret", klog.ObjectRef{Namespace: req.Namespace, Name: secretName}, "spcps", klog.KObj(spcPodStatus))
 				errs = append(errs, fmt.Errorf("failed to get data in spc %s/%s for secret %s, err: %w", req.Namespace, spcName, secretName, err))

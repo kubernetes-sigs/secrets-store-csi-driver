@@ -1,4 +1,4 @@
-FROM golang:1.16-alpine
+FROM docker.io/golang:1.19-alpine
 
 ENV CGO_ENABLED=0
 ENV GOROOT=/usr/local/go
@@ -6,8 +6,7 @@ ENV GOPATH=${HOME}/go
 ENV PATH=$PATH:${GOROOT}/bin
 
 RUN apk update && apk add --no-cache \
-    git && \
-    go get github.com/go-delve/delve/cmd/dlv
+    git && go install github.com/go-delve/delve/cmd/dlv@latest
 
 WORKDIR /secrets-store-csi-driver-codebase
 

@@ -44,6 +44,8 @@ type SecretObject struct {
 	// annotations of k8s secret object
 	Annotations map[string]string   `json:"annotations,omitempty"`
 	Data        []*SecretObjectData `json:"data,omitempty"`
+	// secret objects key:value as stringData
+	StringData *string `json:"stringData,omitempty"`
 }
 
 // SecretProviderClassSpec defines the desired state of SecretProviderClass
