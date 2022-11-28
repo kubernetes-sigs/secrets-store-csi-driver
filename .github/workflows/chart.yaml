@@ -24,7 +24,7 @@ jobs:
           fetch-depth: 0
       - name: Publish Helm chart
         # pinning to the sha f1701eb82e4d4b82016e7965501c8b6d79feaec9 from https://github.com/stefanprodan/helm-gh-pages/releases/tag/v1.4.1
-        uses: stefanprodan/helm-gh-pages@a5c92527816f345553e78c3136b031c91724ecf1
+        uses: stefanprodan/helm-gh-pages@0ad2bb377311d61ac04ad9eb6f252fb68e207260
         with:
           # GitHub automatically creates a GITHUB_TOKEN secret to use in your workflow. You can use the GITHUB_TOKEN to authenticate in a workflow run.
           # See https://docs.github.com/en/actions/reference/authentication-in-a-workflow#about-the-github_token-secret
