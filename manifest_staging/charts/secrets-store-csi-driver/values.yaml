@@ -1,14 +1,14 @@
 linux:
   enabled: true
   image:
-    repository: k8s.gcr.io/csi-secrets-store/driver
+    repository: registry.k8s.io/csi-secrets-store/driver
     tag: v1.2.4
     pullPolicy: IfNotPresent
 
   crds:
     enabled: true
     image:
-      repository: k8s.gcr.io/csi-secrets-store/driver-crds
+      repository: registry.k8s.io/csi-secrets-store/driver-crds
       tag: v1.2.4
       pullPolicy: IfNotPresent
     ## Optionally override resource limits for crd hooks(jobs)
@@ -43,7 +43,7 @@ linux:
         memory: 100Mi
 
   registrarImage:
-    repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
+    repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
     tag: v2.6.2
     pullPolicy: IfNotPresent
 
@@ -58,7 +58,7 @@ linux:
     logVerbosity: 5
 
   livenessProbeImage:
-    repository: k8s.gcr.io/sig-storage/livenessprobe
+    repository: registry.k8s.io/sig-storage/livenessprobe
     tag: v2.8.0
     pullPolicy: IfNotPresent
 
@@ -103,7 +103,7 @@ linux:
 windows:
   enabled: false
   image:
-    repository: k8s.gcr.io/csi-secrets-store/driver
+    repository: registry.k8s.io/csi-secrets-store/driver
     tag: v1.2.4
     pullPolicy: IfNotPresent
 
@@ -128,7 +128,7 @@ windows:
         memory: 100Mi
 
   registrarImage:
-    repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
+    repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
     tag: v2.6.2
     pullPolicy: IfNotPresent
 
@@ -143,7 +143,7 @@ windows:
     logVerbosity: 5
 
   livenessProbeImage:
-    repository: k8s.gcr.io/sig-storage/livenessprobe
+    repository: registry.k8s.io/sig-storage/livenessprobe
     tag: v2.8.0
     pullPolicy: IfNotPresent
 
