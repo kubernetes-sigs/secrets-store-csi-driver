@@ -105,7 +105,7 @@ PROTOC_VERSION ?= 3.20.1
 SHELLCHECK_VER ?= v0.8.0
 YQ_VERSION ?= v4.11.2
 
-# For aws integration tests 
+# For aws integration tests
 BUILD_TIMESTAMP_W_SEC := $(shell date +%Y-%m-%d-%H-%M-%S)
 EKS_CLUSTER_NAME := integ-cluster-$(BUILD_TIMESTAMP_W_SEC)
 AWS_REGION := us-west-2
@@ -158,7 +158,7 @@ image-scan: $(TRIVY)
 	$(TRIVY) image --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
 	# show vulnerabilities that have been fixed
 	$(TRIVY) image --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(IMAGE_TAG)
-	$(TRIVY) image --vuln-type os --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
+	$(TRIVY) image --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
 
 ## --------------------------------------
 ## Tooling Binaries
@@ -197,7 +197,7 @@ $(KIND): ## Download and install kind
 $(AZURE_CLI): ## Download and install azure cli
 	curl -sL https://aka.ms/InstallAzureCLIDeb | bash
 
-$(EKSCTL): ## Download and install eksctl 
+$(EKSCTL): ## Download and install eksctl
 	curl -sSLO  https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_Linux_amd64.tar.gz && tar -zxvf eksctl_Linux_amd64.tar.gz && chmod +x eksctl && mv eksctl /usr/local/bin/
 
 $(KUBECTL): ## Install kubectl
@@ -213,7 +213,7 @@ $(ENVSUBST): ## Install envsubst for running the tests
 	envsubst -V || (apt-get -o Acquire::Retries=30 update && apt-get -o Acquire::Retries=30 install gettext-base -y)
 
 $(PROTOC): ## Install protoc
-	curl -sSLO https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip && unzip protoc-${PROTOC_VERSION}-linux-x86_64.zip bin/protoc -d $(TOOLS_DIR) && rm protoc-${PROTOC_VERSION}-linux-x86_64.zip 
+	curl -sSLO https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip && unzip protoc-${PROTOC_VERSION}-linux-x86_64.zip bin/protoc -d $(TOOLS_DIR) && rm protoc-${PROTOC_VERSION}-linux-x86_64.zip
 
 $(YQ): ## Install yq for running the tests
 	curl -LO https://github.com/mikefarah/yq/releases/download/$(YQ_VERSION)/yq_linux_amd64 && chmod +x ./yq_linux_amd64 && mv yq_linux_amd64 /usr/local/bin/yq
@@ -371,7 +371,7 @@ setup-kind: $(KIND)
 
 .PHONY: setup-eks-cluster
 setup-eks-cluster: $(HELM) $(EKSCTL) $(BATS) $(ENVSUBST) $(YQ)
-	bash test/scripts/initialize_eks_cluster.bash $(EKS_CLUSTER_NAME) $(IMAGE_VERSION)  
+	bash test/scripts/initialize_eks_cluster.bash $(EKS_CLUSTER_NAME) $(IMAGE_VERSION)
 
 .PHONY: e2e-container
 e2e-container:
@@ -463,7 +463,7 @@ e2e-kind-cleanup:
 	kind delete cluster --name kind
 
 .PHONY: e2e-eks-cleanup
-e2e-eks-cleanup: 
+e2e-eks-cleanup:
 	eksctl delete cluster --name $(EKS_CLUSTER_NAME) --region $(AWS_REGION)
 
 .PHONY: e2e-provider
@@ -489,7 +489,7 @@ e2e-gcp:
 .PHONY: e2e-aws
 e2e-aws:
 	bats -t test/bats/aws.bats
-	
+
 ## --------------------------------------
 ## Generate
 ## --------------------------------------
