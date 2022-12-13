@@ -1,15 +1,24 @@
 linux:
   enabled: true
   image:
-    repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v1.2.4
+    repository: registry.k8s.io/csi-secrets-store/driver
+    tag: v1.3.0
     pullPolicy: IfNotPresent
 
   crds:
+    enabled: true
     image:
-      repository: k8s.gcr.io/csi-secrets-store/driver-crds
-      tag: v1.2.4
+      repository: registry.k8s.io/csi-secrets-store/driver-crds
+      tag: v1.3.0
       pullPolicy: IfNotPresent
+    ## Optionally override resource limits for crd hooks(jobs)
+    resources: {}
+      # requests:
+      #   cpu: "100m"
+      #   memory: "128Mi"
+      # limits:
+      #   cpu: "500m"
+      #   memory: "512Mi"
     annotations: {}
     podLabels: {}
 
@@ -34,8 +43,8 @@ linux:
         memory: 100Mi
 
   registrarImage:
-    repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
-    tag: v2.5.1
+    repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
+    tag: v2.6.2
     pullPolicy: IfNotPresent
 
   registrar:
@@ -49,8 +58,8 @@ linux:
     logVerbosity: 5
 
   livenessProbeImage:
-    repository: k8s.gcr.io/sig-storage/livenessprobe
-    tag: v2.7.0
+    repository: registry.k8s.io/sig-storage/livenessprobe
+    tag: v2.8.0
     pullPolicy: IfNotPresent
 
   livenessProbe:
@@ -72,7 +81,10 @@ linux:
   additionalProvidersDirs:
     - /etc/kubernetes/secrets-store-csi-providers
   nodeSelector: {}
-  tolerations: []
+  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+  # An empty key with operator Exists matches all keys, values and effects which means this will tolerate everything.
+  tolerations:
+    - operator: "Exists"
   metricsAddr: ":8095"
   env: []
   priorityClassName: ""
@@ -94,8 +106,8 @@ linux:
 windows:
   enabled: false
   image:
-    repository: k8s.gcr.io/csi-secrets-store/driver
-    tag: v1.2.4
+    repository: registry.k8s.io/csi-secrets-store/driver
+    tag: v1.3.0
     pullPolicy: IfNotPresent
 
   ## Prevent the CSI driver from being scheduled on virtual-kubelet nodes
@@ -119,8 +131,8 @@ windows:
         memory: 100Mi
 
   registrarImage:
-    repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
-    tag: v2.5.1
+    repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
+    tag: v2.6.2
     pullPolicy: IfNotPresent
 
   registrar:
@@ -134,8 +146,8 @@ windows:
     logVerbosity: 5
 
   livenessProbeImage:
-    repository: k8s.gcr.io/sig-storage/livenessprobe
-    tag: v2.7.0
+    repository: registry.k8s.io/sig-storage/livenessprobe
+    tag: v2.8.0
     pullPolicy: IfNotPresent
 
   livenessProbe:
@@ -156,7 +168,10 @@ windows:
   providersDir: C:\\k\\secrets-store-csi-providers
   additionalProvidersDirs:
   nodeSelector: {}
-  tolerations: []
+  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+  # An empty key with operator Exists matches all keys, values and effects which means this will tolerate everything.
+  tolerations:
+    - operator: "Exists"
   metricsAddr: ":8095"
   env: []
   priorityClassName: ""
