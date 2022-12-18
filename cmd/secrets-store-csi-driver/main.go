@@ -28,9 +28,7 @@ import (
 
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	"sigs.k8s.io/secrets-store-csi-driver/controllers"
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/metrics"
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/rotation"
 	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
@@ -40,7 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	logsapi "k8s.io/component-base/logs/api/v1"
@@ -62,11 +59,12 @@ var (
 	// https://github.com/kubernetes-sigs/secrets-store-csi-driver/issues/823.
 	additionalProviderPaths = flag.String("additional-provider-volume-paths", "/etc/kubernetes/secrets-store-csi-providers", "Comma separated list of additional paths to communicate with providers")
 	metricsAddr             = flag.String("metrics-addr", ":8095", "The address the metric endpoint binds to")
-	enableSecretRotation    = flag.Bool("enable-secret-rotation", false, "Enable secret rotation feature [alpha]")
-	rotationPollInterval    = flag.Duration("rotation-poll-interval", 2*time.Minute, "Secret rotation poll interval duration")
-	enableProfile           = flag.Bool("enable-pprof", false, "enable pprof profiling")
-	profilePort             = flag.Int("pprof-port", 6065, "port for pprof profiling")
-	maxCallRecvMsgSize      = flag.Int("max-call-recv-msg-size", 1024*1024*4, "maximum size in bytes of gRPC response from plugins")
+	// TODO: remove these flags in 1.5.
+	enableSecretRotation = flag.Bool("enable-secret-rotation", false, "Enable secret rotation feature [deprecated]")
+	_                    = flag.Duration("rotation-poll-interval", 2*time.Minute, "Secret rotation poll interval duration [deprecated]")
+	enableProfile        = flag.Bool("enable-pprof", false, "enable pprof profiling")
+	profilePort          = flag.Int("pprof-port", 6065, "port for pprof profiling")
+	maxCallRecvMsgSize   = flag.Int("max-call-recv-msg-size", 1024*1024*4, "maximum size in bytes of gRPC response from plugins")
 
 	// Enable optional healthcheck for provider clients that exist in memory
 	providerHealthCheck         = flag.Bool("provider-health-check", false, "Enable health check for configured providers")
@@ -190,29 +188,12 @@ func main() {
 		reconciler.RunPatcher(ctx)
 	}()
 
-	// token request client
-	kubeClient := kubernetes.NewForConfigOrDie(cfg)
-	tokenClient := k8s.NewTokenClient(kubeClient, *driverName, 10*time.Minute)
-	if err != nil {
-		klog.ErrorS(err, "failed to create token client")
-		os.Exit(1)
-	}
-	if err = tokenClient.Run(ctx.Done()); err != nil {
-		klog.ErrorS(err, "failed to run token client")
-		os.Exit(1)
-	}
-
 	// Secret rotation
 	if *enableSecretRotation {
-		rec, err := rotation.NewReconciler(mgr.GetCache(), scheme, *providerVolumePath, *nodeID, *rotationPollInterval, providerClients, tokenClient)
-		if err != nil {
-			klog.ErrorS(err, "failed to initialize rotation reconciler")
-			os.Exit(1)
-		}
-		go rec.Run(ctx.Done())
+		klog.Warning("--enable-secret-rotation and --rotation-poll-interval are deprecated, use RequiresRepublish instead.")
 	}
 
-	driver := secretsstore.NewSecretsStoreDriver(*driverName, *nodeID, *endpoint, *providerVolumePath, providerClients, mgr.GetClient(), mgr.GetAPIReader(), tokenClient)
+	driver := secretsstore.NewSecretsStoreDriver(*driverName, *nodeID, *endpoint, *providerVolumePath, providerClients, mgr.GetClient(), mgr.GetAPIReader())
 	driver.Run(ctx)
 }
 

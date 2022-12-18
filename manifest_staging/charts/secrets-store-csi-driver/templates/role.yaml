@@ -5,8 +5,6 @@ kind: ClusterRole
 metadata:
   creationTimestamp: null
   name: secretproviderclasses-role
-  labels:
-{{ include "sscd.labels" . | indent 4 }}
 rules:
 - apiGroups:
   - ""
@@ -61,7 +59,7 @@ rules:
   - get
   - list
   - watch
-{{- if and .Values.rbac.pspEnabled (.Capabilities.APIVersions.Has "policy/v1beta1/PodSecurityPolicy") }}
+{{- if .Values.rbac.pspEnabled }}
 - apiGroups:
   - policy
   resources:

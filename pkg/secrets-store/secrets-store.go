@@ -20,7 +20,6 @@ import (
 	"context"
 	"os"
 
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
 	"k8s.io/klog/v2"
@@ -41,11 +40,10 @@ type SecretsStore struct {
 func NewSecretsStoreDriver(driverName, nodeID, endpoint, providerVolumePath string,
 	providerClients *PluginClientBuilder,
 	client client.Client,
-	reader client.Reader,
-	tokenClient *k8s.TokenClient) *SecretsStore {
+	reader client.Reader) *SecretsStore {
 	klog.InfoS("Initializing Secrets Store CSI Driver", "driver", driverName, "version", version.BuildVersion, "buildTime", version.BuildTime)
 
-	ns, err := newNodeServer(providerVolumePath, nodeID, mount.New(""), providerClients, client, reader, NewStatsReporter(), tokenClient)
+	ns, err := newNodeServer(providerVolumePath, nodeID, mount.New(""), providerClients, client, reader, NewStatsReporter())
 	if err != nil {
 		klog.ErrorS(err, "failed to initialize node server")
 		os.Exit(1)
@@ -64,8 +62,7 @@ func newNodeServer(providerVolumePath, nodeID string,
 	providerClients *PluginClientBuilder,
 	client client.Client,
 	reader client.Reader,
-	statsReporter StatsReporter,
-	tokenClient *k8s.TokenClient) (*nodeServer, error) {
+	statsReporter StatsReporter) (*nodeServer, error) {
 	return &nodeServer{
 		providerVolumePath: providerVolumePath,
 		mounter:            mounter,
@@ -74,7 +71,6 @@ func newNodeServer(providerVolumePath, nodeID string,
 		client:             client,
 		reader:             reader,
 		providerClients:    providerClients,
-		tokenClient:        tokenClient,
 	}, nil
 }
 

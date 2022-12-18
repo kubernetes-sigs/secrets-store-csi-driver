@@ -15,8 +15,6 @@ The `secrets-store` container in the DaemonSet can be configured using the follo
 | `--provider-volume`                  | Volume path for provider                                               | `/etc/kubernetes/secrets-store-csi-providers` |
 | `--additional-provider-volume-paths` | Comma separated list of additional paths to communicate with providers | `/var/run/secrets-store-csi-providers`        |
 | `--metrics-addr`                     | The address the metric endpoint binds to                               | `:8095`                                       |
-| `--enable-secret-rotation`           | Enable secret rotation feature [alpha]                                 | `false`                                       |
-| `--rotation-poll-interval`           | Secret rotation poll interval duration                                 | `2m`                                            |
 | `--enable-pprof`                     | Enable pprof profiling                                                 | `false`                                       |
 | `--pprof-port`                       | Port for pprof profiling                                               | `6065`                                        |
 | `--max-call-recv-msg-size`           | Maximum size in bytes of gRPC response from plugins                    | `4194304`                                     |
