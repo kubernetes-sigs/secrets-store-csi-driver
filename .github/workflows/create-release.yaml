@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Checkout
       # pinning to the sha 5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f from https://github.com/actions/checkout/releases/tag/v2.3.4
-        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
         with:
           fetch-depth: 0
       # pinning to the sha 79d4afbba1b4eff8b9a98e3d2e58c4dbaf094e2b from https://github.com/goreleaser/goreleaser-action/releases/tag/v2.8.1
