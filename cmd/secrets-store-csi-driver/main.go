@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"net/http"
 	_ "net/http/pprof" // #nosec
-	"os"
 	"strings"
 	"time"
 
@@ -43,9 +42,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	logsapi "k8s.io/component-base/logs/api/v1"
-	json "k8s.io/component-base/logs/json"
 	"k8s.io/klog/v2"
+	"monis.app/mlog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -82,16 +80,28 @@ func init() {
 }
 
 func main() {
+	if err := mainErr(); err != nil {
+		mlog.Fatal(err)
+	}
+}
+
+func mainErr() error {
 	klog.InitFlags(nil)
-	defer klog.Flush()
 
 	flag.Parse()
 
+	ctx := withShutdownSignal(context.Background())
+
+	defer mlog.Setup()()
+	format := mlog.FormatText
 	if *logFormatJSON {
-		jsonFactory := json.Factory{}
-		logger, _ := jsonFactory.Create(logsapi.LoggingConfiguration{Format: "json"})
-		klog.SetLogger(logger)
+		format = mlog.FormatJSON
 	}
+	if err := mlog.ValidateAndSetKlogLevelAndFormatGlobally(ctx, getKlogLevel(), format); err != nil {
+		mlog.Error("failed to validate log level", err)
+		return err
+	}
+
 	if *enableProfile {
 		klog.InfoS("Starting profiling", "port", *profilePort)
 		go func() {
@@ -107,7 +117,7 @@ func main() {
 	err := metrics.InitMetricsExporter()
 	if err != nil {
 		klog.ErrorS(err, "failed to initialize metrics exporter")
-		os.Exit(1)
+		return err
 	}
 
 	cfg := ctrl.GetConfigOrDie()
@@ -150,21 +160,19 @@ func main() {
 	})
 	if err != nil {
 		klog.ErrorS(err, "failed to start manager")
-		os.Exit(1)
+		return err
 	}
 
 	reconciler, err := controllers.New(mgr, *nodeID)
 	if err != nil {
 		klog.ErrorS(err, "failed to create secret provider class pod status reconciler")
-		os.Exit(1)
+		return err
 	}
 	if err = reconciler.SetupWithManager(mgr); err != nil {
 		klog.ErrorS(err, "failed to create controller")
-		os.Exit(1)
+		return err
 	}
 	// +kubebuilder:scaffold:builder
-
-	ctx := withShutdownSignal(context.Background())
 
 	// create provider clients
 	providerPaths := strings.Split(strings.TrimSpace(*additionalProviderPaths), ",")
@@ -182,7 +190,7 @@ func main() {
 		klog.Info("starting manager")
 		if err := mgr.Start(ctx); err != nil {
 			klog.ErrorS(err, "failed to run manager")
-			os.Exit(1)
+			panic(err)
 		}
 	}()
 
@@ -195,11 +203,11 @@ func main() {
 	tokenClient := k8s.NewTokenClient(kubeClient, *driverName, 10*time.Minute)
 	if err != nil {
 		klog.ErrorS(err, "failed to create token client")
-		os.Exit(1)
+		return err
 	}
 	if err = tokenClient.Run(ctx.Done()); err != nil {
 		klog.ErrorS(err, "failed to run token client")
-		os.Exit(1)
+		return err
 	}
 
 	// Secret rotation
@@ -207,13 +215,15 @@ func main() {
 		rec, err := rotation.NewReconciler(mgr.GetCache(), scheme, *providerVolumePath, *nodeID, *rotationPollInterval, providerClients, tokenClient)
 		if err != nil {
 			klog.ErrorS(err, "failed to initialize rotation reconciler")
-			os.Exit(1)
+			return err
 		}
 		go rec.Run(ctx.Done())
 	}
 
 	driver := secretsstore.NewSecretsStoreDriver(*driverName, *nodeID, *endpoint, *providerVolumePath, providerClients, mgr.GetClient(), mgr.GetAPIReader(), tokenClient)
 	driver.Run(ctx)
+
+	return nil
 }
 
 // withShutdownSignal returns a copy of the parent context that will close if
@@ -228,4 +238,16 @@ func withShutdownSignal(ctx context.Context) context.Context {
 		cancel()
 	}()
 	return nctx
+}
+
+func getKlogLevel() klog.Level {
+	// hack around klog not exposing a Get method
+	for i := klog.Level(0); i < 1_000_000; i++ {
+		if klog.V(i).Enabled() {
+			continue
+		}
+		return i - 1
+	}
+
+	return -1
 }

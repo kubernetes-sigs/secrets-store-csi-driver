@@ -111,7 +111,7 @@ func TestPodServiceAccountTokenAttrs(t *testing.T) {
 					tr.Spec.Audiences = []string{"api"}
 				}
 				if tr.Spec.ExpirationSeconds == nil {
-					tr.Spec.ExpirationSeconds = pointer.Int64Ptr(3600)
+					tr.Spec.ExpirationSeconds = pointer.Int64(3600)
 				}
 				tr.Status.Token = fmt.Sprintf("%v:%v:%d:%v", action.GetNamespace(), testAccount, *tr.Spec.ExpirationSeconds, tr.Spec.Audiences)
 				tr.Status.ExpirationTimestamp = metav1.NewTime(time.Unix(1, 1))
