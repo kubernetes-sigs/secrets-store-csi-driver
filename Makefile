@@ -77,6 +77,9 @@ OSVERSION ?= 1809
 OUTPUT_TYPE ?= registry
 BUILDX_BUILDER_NAME ?= img-builder
 QEMU_VERSION ?= 5.2.0-2
+# pinning buildkit version to v0.10.6 as v0.11.0 is injecting sbom/prov to manifest
+# causing the manifest push to fail
+BUILDKIT_VERSION ?= v0.10.6
 
 # Binaries
 GOLANGCI_LINT := $(TOOLS_BIN_DIR)/golangci-lint
@@ -319,7 +322,7 @@ container-windows: docker-buildx-builder
 docker-buildx-builder:
 	@if ! docker buildx ls | grep $(BUILDX_BUILDER_NAME); then \
 		docker run --rm --privileged multiarch/qemu-user-static:$(QEMU_VERSION) --reset -p yes; \
-		docker buildx create --name $(BUILDX_BUILDER_NAME) --use; \
+		docker buildx create --driver-opt image=moby/buildkit:$(BUILDKIT_VERSION) --name $(BUILDX_BUILDER_NAME) --use; \
 		docker buildx inspect $(BUILDX_BUILDER_NAME) --bootstrap; \
 	fi
 
