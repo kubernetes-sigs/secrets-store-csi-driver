@@ -16,6 +16,7 @@ limitations under the License.
 package version
 
 import (
+	"encoding/json"
 	"fmt"
 	"runtime"
 )
@@ -32,4 +33,26 @@ var (
 // GetUserAgent returns a user agent of the format: csi-secrets-store/<controller name>/<version> (<goos>/<goarch>) <vcs>/<timestamp>
 func GetUserAgent(controllerName string) string {
 	return fmt.Sprintf("csi-secrets-store/%s/%s (%s/%s) %s/%s", controllerName, BuildVersion, runtime.GOOS, runtime.GOARCH, Vcs, BuildTime)
+}
+
+// PrintVersion prints the current driver version
+func PrintVersion() error {
+	var err error
+	pv := struct {
+		BuildVersion string
+		GitCommit    string
+		BuildDate    string
+	}{
+		BuildDate:    BuildTime,
+		BuildVersion: BuildVersion,
+		GitCommit:    Vcs,
+	}
+
+	var res []byte
+	if res, err = json.Marshal(pv); err != nil {
+		return err
+	}
+
+	fmt.Printf(string(res) + "\n")
+	return nil
 }

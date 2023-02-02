@@ -65,6 +65,7 @@ var (
 	enableProfile           = flag.Bool("enable-pprof", false, "enable pprof profiling")
 	profilePort             = flag.Int("pprof-port", 6065, "port for pprof profiling")
 	maxCallRecvMsgSize      = flag.Int("max-call-recv-msg-size", 1024*1024*4, "maximum size in bytes of gRPC response from plugins")
+	versionInfo             = flag.Bool("version", false, "Print the version and exit")
 
 	// Enable optional healthcheck for provider clients that exist in memory
 	providerHealthCheck         = flag.Bool("provider-health-check", false, "Enable health check for configured providers")
@@ -100,6 +101,10 @@ func mainErr() error {
 	if err := mlog.ValidateAndSetKlogLevelAndFormatGlobally(ctx, getKlogLevel(), format); err != nil {
 		mlog.Error("failed to validate log level", err)
 		return err
+	}
+
+	if *versionInfo {
+		return version.PrintVersion()
 	}
 
 	if *enableProfile {
