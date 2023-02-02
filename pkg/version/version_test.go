@@ -17,7 +17,10 @@ limitations under the License.
 package version
 
 import (
+	"bytes"
 	"fmt"
+	"io"
+	"os"
 	"runtime"
 	"strings"
 	"testing"
@@ -33,5 +36,38 @@ func TestGetUserAgent(t *testing.T) {
 	actual := GetUserAgent(controllerName)
 	if !strings.EqualFold(expected, actual) {
 		t.Fatalf("expected: %s, got: %s", expected, actual)
+	}
+}
+
+func TestPrintVersion(t *testing.T) {
+	BuildTime = "Now"
+	BuildVersion = "version"
+	Vcs = "hash"
+
+	old := os.Stdout // keep backup of the real stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := PrintVersion()
+
+	outC := make(chan string)
+	// copy the output in a separate goroutine so printing can't block indefinitely
+	go func() {
+		var buf bytes.Buffer
+		_, _ = io.Copy(&buf, r)
+		outC <- strings.TrimSpace(buf.String())
+	}()
+
+	// back to normal state
+	w.Close()
+	os.Stdout = old // restoring the real stdout
+	out := <-outC
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	expected := `{"BuildVersion":"version","GitCommit":"hash","BuildDate":"Now"}`
+	if !strings.EqualFold(out, expected) {
+		t.Fatalf("PrintVersion() expected %s, got %s", expected, out)
 	}
 }
