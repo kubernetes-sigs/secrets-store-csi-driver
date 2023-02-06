@@ -7,7 +7,7 @@ require (
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
 	google.golang.org/protobuf v1.28.1
 	k8s.io/code-generator v0.26.1
-	sigs.k8s.io/controller-tools v0.11.2
+	sigs.k8s.io/controller-tools v0.11.3
 	sigs.k8s.io/kustomize/kustomize/v4 v4.5.7
 )
 
