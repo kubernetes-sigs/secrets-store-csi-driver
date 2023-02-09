@@ -17,7 +17,7 @@ spec:
       serviceAccountName: secrets-store-csi-driver
       containers:
         - name: node-driver-registrar
-          image: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.2.0
+          image: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.2.0
           args:
             - --v=5
             - --csi-address=/csi/csi.sock
@@ -42,7 +42,7 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: liveness-probe
-          image: k8s.gcr.io/sig-storage/livenessprobe:v2.3.0
+          image: registry.k8s.io/sig-storage/livenessprobe:v2.3.0
           imagePullPolicy: IfNotPresent
           args:
           - --csi-address=/csi/csi.sock
