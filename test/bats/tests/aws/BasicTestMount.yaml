@@ -5,7 +5,7 @@ metadata:
 spec:
   serviceAccountName: basic-test-mount-sa
   containers:
-  - image: k8s.gcr.io/e2e-test-images/busybox:1.29
+  - image: registry.k8s.io/e2e-test-images/busybox:1.29-4
     name: busybox
     imagePullPolicy: IfNotPresent
     command:

@@ -15,13 +15,13 @@ spec:
   secretObjects:                                 # [OPTIONAL] SecretObject defines the desired state of synced K8s secret objects
   - secretName: foosecret
     type: Opaque
-    labels:                                   
+    labels:
       environment: "test"
-    data: 
-    - objectName: secretalias                    # name of the mounted content to sync. this could be the object name or object alias 
+    data:
+    - objectName: secretalias                    # name of the mounted content to sync. this could be the object name or object alias
       key: username
   parameters:
-    usePodIdentity: "false"                      
+    usePodIdentity: "false"
     keyvaultName: "$KEYVAULT_NAME"               # the name of the KeyVault
     objects: |
       array:
@@ -35,7 +35,7 @@ spec:
           objectType: key
           objectVersion: $KEY_VERSION
     tenantId: "tid"                             # the tenant ID of the KeyVault
-``` 
+```
 
 - `Pod` yaml
 
@@ -47,7 +47,7 @@ metadata:
 spec:
   containers:
   - name: busybox
-    image: k8s.gcr.io/e2e-test-images/busybox:1.29
+    image: registry.k8s.io/e2e-test-images/busybox:1.29
     command:
     - "/bin/sleep"
     - "10000"
@@ -77,7 +77,7 @@ Once the [secret is created](./sync-as-kubernetes-secret.md), you may wish to se
 ```yaml
 spec:
   containers:
-  - image: k8s.gcr.io/e2e-test-images/busybox:1.29
+  - image: registry.k8s.io/e2e-test-images/busybox:1.29
     name: busybox
     command:
     - "/bin/sleep"
