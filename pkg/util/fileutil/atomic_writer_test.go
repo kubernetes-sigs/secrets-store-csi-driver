@@ -890,7 +890,7 @@ func TestValidatePayload(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		real, err := validatePayload(tc.payload)
+		got, err := validatePayload(tc.payload)
 		if !tc.valid && err == nil {
 			t.Errorf("%v: unexpected success", tc.name)
 		}
@@ -901,7 +901,7 @@ func TestValidatePayload(t *testing.T) {
 				continue
 			}
 
-			realPaths := getPayloadPaths(real)
+			realPaths := getPayloadPaths(got)
 			if !realPaths.Equal(tc.expected) {
 				t.Errorf("%v: unexpected payload paths: %v is not equal to %v", tc.name, realPaths, tc.expected)
 			}

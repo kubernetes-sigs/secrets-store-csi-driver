@@ -167,6 +167,7 @@ func (r *Reconciler) Run(stopCh <-chan struct{}) {
 
 // runWorker runs a thread that process the queue
 func (r *Reconciler) runWorker() {
+	// nolint
 	for r.processNextItem() {
 
 	}
