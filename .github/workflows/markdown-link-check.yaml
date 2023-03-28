@@ -21,7 +21,7 @@ jobs:
   markdown-link-check:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f
+    - uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
     # pinning to the sha 9710f0fec812ce0a3b98bef4c9d842fc1f39d976 from https://github.com/gaurav-nelson/github-action-markdown-link-check/releases/tag/1.0.13
     - uses: gaurav-nelson/github-action-markdown-link-check@d53a906aa6b22b8979d33bc86170567e619495ec
       with:
