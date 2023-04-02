@@ -69,7 +69,6 @@ func newTestReconciler(client client.Reader, s *runtime.Scheme, kubeClient kuber
 	}
 
 	return &Reconciler{
-		providerVolumePath:   socketPath,
 		rotationPollInterval: rotationPollInterval,
 		providerClients:      secretsstore.NewPluginClientBuilder([]string{socketPath}),
 		queue:                workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),

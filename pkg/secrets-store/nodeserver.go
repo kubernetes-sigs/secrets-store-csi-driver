@@ -39,11 +39,10 @@ import (
 )
 
 type nodeServer struct {
-	providerVolumePath string
-	mounter            mount.Interface
-	reporter           StatsReporter
-	nodeID             string
-	client             client.Client
+	mounter  mount.Interface
+	reporter StatsReporter
+	nodeID   string
+	client   client.Client
 	// reader is an instance of mgr.GetAPIReader that is configured to use the API server.
 	// This should be used sparingly and only when the client does not fit the use case.
 	reader          client.Reader
@@ -344,11 +343,6 @@ func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, provid
 	}
 	if len(permission) == 0 {
 		return nil, "", errors.New("missing file permissions")
-	}
-	// get provider volume path
-	providerVolumePath := ns.providerVolumePath
-	if providerVolumePath == "" {
-		return nil, "", fmt.Errorf("providers volume path not found. Set PROVIDERS_VOLUME_PATH")
 	}
 
 	client, err := ns.providerClients.Get(ctx, providerName)
