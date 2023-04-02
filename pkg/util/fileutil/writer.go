@@ -43,6 +43,10 @@ func Validate(payloads []*v1alpha1.File) error {
 // atomic writer and converts the v1alpha1.File proto to the FileProjection type
 // used by the atomic writer.
 func WritePayloads(path string, payloads []*v1alpha1.File) error {
+	if err := Validate(payloads); err != nil {
+		return err
+	}
+
 	// cleanup any payload paths that may have been written by a previous
 	// version of the driver/provider.
 	if err := cleanupProviderFiles(path, payloads); err != nil {

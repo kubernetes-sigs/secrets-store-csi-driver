@@ -458,8 +458,8 @@ func TestPluginClientBuilderErrorNotFound(t *testing.T) {
 	cb := NewPluginClientBuilder([]string{path})
 	ctx := context.Background()
 
-	if _, err := cb.Get(ctx, "notfoundprovider"); !errors.Is(err, ErrProviderNotFound) {
-		t.Errorf("Get(%s) = %v, want %v", "notfoundprovider", err, ErrProviderNotFound)
+	if _, err := cb.Get(ctx, "notfoundprovider"); !errors.Is(err, errProviderNotFound) {
+		t.Errorf("Get(%s) = %v, want %v", "notfoundprovider", err, errProviderNotFound)
 	}
 
 	// check that the provider is found once server is started
@@ -480,8 +480,8 @@ func TestPluginClientBuilderErrorInvalid(t *testing.T) {
 	cb := NewPluginClientBuilder([]string{path})
 	ctx := context.Background()
 
-	if _, err := cb.Get(ctx, "bad/provider/name"); !errors.Is(err, ErrInvalidProvider) {
-		t.Errorf("Get(%s) = %v, want %v", "bad/provider/name", err, ErrInvalidProvider)
+	if _, err := cb.Get(ctx, "bad/provider/name"); !errors.Is(err, errInvalidProvider) {
+		t.Errorf("Get(%s) = %v, want %v", "bad/provider/name", err, errInvalidProvider)
 	}
 }
 
