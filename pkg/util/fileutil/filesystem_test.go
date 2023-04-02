@@ -22,8 +22,6 @@ import (
 	"sort"
 	"testing"
 
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/test_utils/tmpdir"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
@@ -43,14 +41,14 @@ func TestGetMountedFiles(t *testing.T) {
 		{
 			name: "target path dir found",
 			targetPath: func(t *testing.T) string {
-				return tmpdir.New(t, "", "ut")
+				return t.TempDir()
 			},
 			expectedErr: false,
 		},
 		{
 			name: "target path dir/file found",
 			targetPath: func(t *testing.T) string {
-				dir := tmpdir.New(t, "", "ut")
+				dir := t.TempDir()
 				f, err := os.Create(filepath.Join(dir, "secret.txt"))
 				if err != nil {
 					t.Fatalf("error writing file: %s", err)
@@ -66,7 +64,7 @@ func TestGetMountedFiles(t *testing.T) {
 		{
 			name: "target path dir/dir/file found",
 			targetPath: func(t *testing.T) string {
-				dir := tmpdir.New(t, "", "ut")
+				dir := t.TempDir()
 				if err := os.MkdirAll(filepath.Join(dir, "subdir"), 0700); err != nil {
 					t.Fatalf("could not make subdir: %s", err)
 				}
@@ -85,7 +83,7 @@ func TestGetMountedFiles(t *testing.T) {
 		{
 			name: "target path with atomic_writer symlinks",
 			targetPath: func(t *testing.T) string {
-				dir := tmpdir.New(t, "", "ut")
+				dir := t.TempDir()
 				writer, err := NewAtomicWriter(dir, "test")
 				if err != nil {
 					t.Fatalf("unable to create AtomicWriter: %s", err)
