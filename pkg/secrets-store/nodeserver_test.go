@@ -26,7 +26,6 @@ import (
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store/mocks"
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/test_utils/tmpdir"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
@@ -40,10 +39,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func testNodeServer(t *testing.T, tmpDir string, mountPoints []mount.MountPoint, client client.Client, reporter StatsReporter) (*nodeServer, error) {
+func testNodeServer(t *testing.T, mountPoints []mount.MountPoint, client client.Client, reporter StatsReporter) (*nodeServer, error) {
 	t.Helper()
-	providerClients := NewPluginClientBuilder([]string{tmpDir})
-	return newNodeServer(tmpDir, "testnode", mount.NewFakeMounter(mountPoints), providerClients, client, client, reporter, k8s.NewTokenClient(fakeclient.NewSimpleClientset(), "test-driver", 1*time.Second))
+	d := t.TempDir()
+	providerClients := NewPluginClientBuilder([]string{d})
+	return newNodeServer(d, "testnode", mount.NewFakeMounter(mountPoints), providerClients, client, client, reporter, k8s.NewTokenClient(fakeclient.NewSimpleClientset(), "test-driver", 1*time.Second))
 }
 
 func TestNodePublishVolume(t *testing.T) {
@@ -91,7 +91,7 @@ func TestNodePublishVolume(t *testing.T) {
 			nodePublishVolReq: csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
-				TargetPath:       tmpdir.New(t, "", "ut"),
+				TargetPath:       t.TempDir(),
 			},
 			RPCCode:            codes.InvalidArgument,
 			wantsRPCCode:       true,
@@ -103,7 +103,7 @@ func TestNodePublishVolume(t *testing.T) {
 			nodePublishVolReq: csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
-				TargetPath:       tmpdir.New(t, "", "ut"),
+				TargetPath:       t.TempDir(),
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1"},
 			},
 			expectedErr:        true,
@@ -114,7 +114,7 @@ func TestNodePublishVolume(t *testing.T) {
 			nodePublishVolReq: csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
-				TargetPath:       tmpdir.New(t, "", "ut"),
+				TargetPath:       t.TempDir(),
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1", CSIPodName: "pod1", CSIPodNamespace: "default"},
 			},
 			initObjects: []client.Object{
@@ -133,7 +133,7 @@ func TestNodePublishVolume(t *testing.T) {
 			nodePublishVolReq: csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
-				TargetPath:       tmpdir.New(t, "", "ut"),
+				TargetPath:       t.TempDir(),
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1", CSIPodName: "pod1", CSIPodNamespace: "default"},
 			},
 			initObjects: []client.Object{
@@ -152,7 +152,7 @@ func TestNodePublishVolume(t *testing.T) {
 			nodePublishVolReq: csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
-				TargetPath:       tmpdir.New(t, "", "ut"),
+				TargetPath:       t.TempDir(),
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1", CSIPodName: "pod1", CSIPodNamespace: "default"},
 			},
 			initObjects: []client.Object{
@@ -174,7 +174,7 @@ func TestNodePublishVolume(t *testing.T) {
 			nodePublishVolReq: csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
-				TargetPath:       tmpdir.New(t, "", "ut"),
+				TargetPath:       t.TempDir(),
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1", CSIPodName: "pod1", CSIPodNamespace: "default"},
 			},
 			initObjects: []client.Object{
@@ -197,7 +197,7 @@ func TestNodePublishVolume(t *testing.T) {
 			nodePublishVolReq: csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
-				TargetPath:       tmpdir.New(t, "", "ut"),
+				TargetPath:       t.TempDir(),
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1", CSIPodName: "pod1", CSIPodNamespace: "default", CSIPodUID: "poduid1", "providerName": "mock_provider"},
 				Readonly:         true,
 			},
@@ -222,7 +222,7 @@ func TestNodePublishVolume(t *testing.T) {
 			nodePublishVolReq: csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
-				TargetPath:       tmpdir.New(t, "", "ut"),
+				TargetPath:       t.TempDir(),
 				VolumeContext: map[string]string{
 					"secretProviderClass": "simple_provider",
 					CSIPodName:            "pod1",
@@ -274,8 +274,7 @@ func TestNodePublishVolume(t *testing.T) {
 			}
 			r := mocks.NewFakeReporter()
 
-			tmpDir := tmpdir.New(t, "", "ut")
-			ns, err := testNodeServer(t, tmpDir, test.mountPoints, fake.NewClientBuilder().WithScheme(s).WithObjects(test.initObjects...).Build(), r)
+			ns, err := testNodeServer(t, test.mountPoints, fake.NewClientBuilder().WithScheme(s).WithObjects(test.initObjects...).Build(), r)
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
@@ -322,7 +321,7 @@ func TestNodePublishVolume(t *testing.T) {
 	}
 }
 
-func TestTestNodePublishVolume_ProviderError(t *testing.T) {
+func TestNodePublishVolume_ProviderError(t *testing.T) {
 	s := scheme.Scheme
 	s.AddKnownTypes(schema.GroupVersion{Group: secretsstorev1.GroupVersion.Group, Version: secretsstorev1.GroupVersion.Version},
 		&secretsstorev1.SecretProviderClass{},
@@ -344,8 +343,7 @@ func TestTestNodePublishVolume_ProviderError(t *testing.T) {
 	}
 
 	r := mocks.NewFakeReporter()
-	tmpDir := tmpdir.New(t, "", "ut")
-	ns, err := testNodeServer(t, tmpDir, []mount.MountPoint{}, fake.NewClientBuilder().WithScheme(s).WithObjects(initObjects...).Build(), r)
+	ns, err := testNodeServer(t, []mount.MountPoint{}, fake.NewClientBuilder().WithScheme(s).WithObjects(initObjects...).Build(), r)
 	if err != nil {
 		t.Fatalf("expected error to be nil, got: %+v", err)
 	}
@@ -353,7 +351,7 @@ func TestTestNodePublishVolume_ProviderError(t *testing.T) {
 	nodePublishVolReq := csi.NodePublishVolumeRequest{
 		VolumeCapability: &csi.VolumeCapability{},
 		VolumeId:         "testvolid1",
-		TargetPath:       tmpdir.New(t, "", "ut"),
+		TargetPath:       t.TempDir(),
 		VolumeContext: map[string]string{
 			"secretProviderClass": "simple_provider",
 			CSIPodName:            "pod1",
@@ -394,14 +392,14 @@ func TestMountSecretsStoreObjectContent(t *testing.T) {
 		{
 			name:        "permission not set",
 			attributes:  "{}",
-			targetPath:  tmpdir.New(t, "", "ut"),
+			targetPath:  t.TempDir(),
 			expectedErr: true,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ns, err := testNodeServer(t, tmpdir.New(t, "", "ut"), nil, fake.NewClientBuilder().Build(), mocks.NewFakeReporter())
+			ns, err := testNodeServer(t, nil, fake.NewClientBuilder().Build(), mocks.NewFakeReporter())
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
@@ -450,7 +448,7 @@ func TestNodeUnpublishVolume(t *testing.T) {
 			name: "Success for a mounted volume with a retry",
 			nodeUnpublishVolReq: csi.NodeUnpublishVolumeRequest{
 				VolumeId:   "testvolid1",
-				TargetPath: tmpdir.New(t, "", `*mount`),
+				TargetPath: t.TempDir(),
 			},
 			mountPoints:        []mount.MountPoint{},
 			shouldRetryUnmount: true,
@@ -476,7 +474,7 @@ func TestNodeUnpublishVolume(t *testing.T) {
 			}
 
 			r := mocks.NewFakeReporter()
-			ns, err := testNodeServer(t, tmpdir.New(t, "", "ut"), test.mountPoints, fake.NewClientBuilder().WithScheme(s).Build(), r)
+			ns, err := testNodeServer(t, test.mountPoints, fake.NewClientBuilder().WithScheme(s).Build(), r)
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
