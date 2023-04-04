@@ -31,13 +31,12 @@ import (
 )
 
 const (
-	socket             = "/tmp/csi.sock"
-	endpoint           = "unix://" + socket
-	providerVolumePath = "/etc/kubernetes/secrets-store-csi-providers"
+	socket   = "/tmp/csi.sock"
+	endpoint = "unix://" + socket
 )
 
 func TestSanity(t *testing.T) {
-	driver := secretsstore.NewSecretsStoreDriver("secrets-store.csi.k8s.io", "somenodeid", endpoint, providerVolumePath, nil, nil, nil, nil)
+	driver := secretsstore.NewSecretsStoreDriver("secrets-store.csi.k8s.io", "somenodeid", endpoint, nil, nil, nil, nil)
 	go func() {
 		driver.Run(context.Background())
 	}()

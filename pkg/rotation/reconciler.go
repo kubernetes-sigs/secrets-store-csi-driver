@@ -66,7 +66,6 @@ const (
 // Reconciler reconciles and rotates contents in the pod
 // and Kubernetes secrets periodically
 type Reconciler struct {
-	providerVolumePath   string
 	rotationPollInterval time.Duration
 	providerClients      *secretsstore.PluginClientBuilder
 	queue                workqueue.RateLimitingInterface
@@ -89,7 +88,7 @@ type Reconciler struct {
 // NewReconciler returns a new reconciler for rotation
 func NewReconciler(client client.Reader,
 	s *runtime.Scheme,
-	providerVolumePath, nodeName string,
+	nodeName string,
 	rotationPollInterval time.Duration,
 	providerClients *secretsstore.PluginClientBuilder,
 	tokenClient *k8s.TokenClient) (*Reconciler, error) {
@@ -109,7 +108,6 @@ func NewReconciler(client client.Reader,
 	}
 
 	return &Reconciler{
-		providerVolumePath:   providerVolumePath,
 		rotationPollInterval: rotationPollInterval,
 		providerClients:      providerClients,
 		reporter:             newStatsReporter(),

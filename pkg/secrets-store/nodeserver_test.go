@@ -41,9 +41,8 @@ import (
 
 func testNodeServer(t *testing.T, mountPoints []mount.MountPoint, client client.Client, reporter StatsReporter) (*nodeServer, error) {
 	t.Helper()
-	d := t.TempDir()
-	providerClients := NewPluginClientBuilder([]string{d})
-	return newNodeServer(d, "testnode", mount.NewFakeMounter(mountPoints), providerClients, client, client, reporter, k8s.NewTokenClient(fakeclient.NewSimpleClientset(), "test-driver", 1*time.Second))
+	providerClients := NewPluginClientBuilder([]string{t.TempDir()})
+	return newNodeServer("testnode", mount.NewFakeMounter(mountPoints), providerClients, client, client, reporter, k8s.NewTokenClient(fakeclient.NewSimpleClientset(), "test-driver", 1*time.Second))
 }
 
 func TestNodePublishVolume(t *testing.T) {
