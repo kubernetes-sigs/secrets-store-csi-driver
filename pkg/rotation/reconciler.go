@@ -88,7 +88,6 @@ type Reconciler struct {
 // NewReconciler returns a new reconciler for rotation
 func NewReconciler(client client.Reader,
 	s *runtime.Scheme,
-	nodeName string,
 	rotationPollInterval time.Duration,
 	providerClients *secretsstore.PluginClientBuilder,
 	tokenClient *k8s.TokenClient) (*Reconciler, error) {
