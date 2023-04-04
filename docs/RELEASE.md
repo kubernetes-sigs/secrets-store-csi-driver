@@ -48,7 +48,7 @@ The scripts also require the `gh` tool, available from <https://github.com/cli/c
     gh workflow run e2e_mock_provider_tests -f imageVersion=<NEW_VERSION>
     ```
 
-1. Once the e2e tests on staging images completes, follow the [instructions](https://github.com/kubernetes/k8s.io/tree/main/k8s.gcr.io#image-promoter) to promote the image to production repo
+1. Once the e2e tests on staging images completes, follow the [instructions](https://github.com/kubernetes/k8s.io/tree/main/registry.k8s.io#image-promoter) to promote the image to production repo
     - Within the Prow job "Artifacts" tab there is a file `artifacts/build.log` which will include the Cloud Build URL:
 
     ```text
@@ -58,7 +58,7 @@ The scripts also require the `gh` tool, available from <https://github.com/cli/c
     - Run generate script to append the new image to promoter manifest
 
     ```bash
-    k8s.gcr.io/images/k8s-staging-csi-secrets-store/generate.sh > k8s.gcr.io/images/k8s-staging-csi-secrets-store/images.yaml
+    registry.k8s.io/images/k8s-staging-csi-secrets-store/generate.sh > registry.k8s.io/images/k8s-staging-csi-secrets-store/images.yaml
     ```
 
     - Preview the changes
@@ -68,8 +68,8 @@ The scripts also require the `gh` tool, available from <https://github.com/cli/c
     ```
 
     - Commit the changes and push to remote repository to create a pull request
-1. Once the image promoter PR is merged, the image will be promoted to prod repo (`k8s.gcr.io/csi-secrets-store/driver`)
-  
+1. Once the image promoter PR is merged, the image will be promoted to prod repo (`registry.k8s.io/csi-secrets-store/driver`)
+
 ## Building and releasing
 
 1. Modify the `Makefile`s to include the changes from the `Version` section above.
