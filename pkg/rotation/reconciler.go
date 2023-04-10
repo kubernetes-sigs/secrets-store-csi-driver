@@ -297,7 +297,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	}
 	if fileutil.GetVolumeNameFromTargetPath(spcps.Status.TargetPath) != podVol.Name {
 		errorReason = internalerrors.UnexpectedTargetPath
-		return fmt.Errorf("could not find secret provider class pod status volume for pod %s/%s", pod.Namespace, pod.Name)
+		return fmt.Errorf("secret provider class pod status(spcps) volume name does not match the volume name in the pod %s/%s", pod.Namespace, pod.Name)
 	}
 
 	parameters := make(map[string]string)
