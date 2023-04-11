@@ -141,7 +141,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		return &csi.NodePublishVolumeResponse{}, nil
 	}
 
-	klog.V(2).InfoS("node publish volume", "target", targetPath, "volumeId", volumeID, "attributes", attrib, "mount flags", mountFlags)
+	klog.V(2).InfoS("node publish volume", "target", targetPath, "volumeId", volumeID, "mount flags", mountFlags)
 
 	if isMockProvider(providerName) {
 		// mock provider is used only for running sanity tests against the driver
