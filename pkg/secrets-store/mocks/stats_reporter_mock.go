@@ -16,6 +16,8 @@ limitations under the License.
 
 package mocks // import sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store/mocks
 
+import "context"
+
 type FakeReporter struct {
 	reportNodePublishCtMetricInvoked        int
 	reportNodeUnPublishCtMetricInvoked      int
@@ -29,27 +31,27 @@ func NewFakeReporter() *FakeReporter {
 	return &FakeReporter{}
 }
 
-func (f *FakeReporter) ReportNodePublishCtMetric(provider string) {
+func (f *FakeReporter) ReportNodePublishCtMetric(ctx context.Context, provider string) {
 	f.reportNodePublishCtMetricInvoked++
 }
 
-func (f *FakeReporter) ReportNodeUnPublishCtMetric() {
+func (f *FakeReporter) ReportNodeUnPublishCtMetric(ctx context.Context) {
 	f.reportNodeUnPublishCtMetricInvoked++
 }
 
-func (f *FakeReporter) ReportNodePublishErrorCtMetric(provider, errType string) {
+func (f *FakeReporter) ReportNodePublishErrorCtMetric(ctx context.Context, provider, errType string) {
 	f.reportNodePublishErrorCtMetricInvoked++
 }
 
-func (f *FakeReporter) ReportNodeUnPublishErrorCtMetric() {
+func (f *FakeReporter) ReportNodeUnPublishErrorCtMetric(ctx context.Context) {
 	f.reportNodeUnPublishErrorCtMetricInvoked++
 }
 
-func (f *FakeReporter) ReportSyncK8SecretCtMetric(provider string, count int) {
+func (f *FakeReporter) ReportSyncK8SecretCtMetric(ctx context.Context, provider string, count int) {
 	f.reportSyncK8SecretCtMetricInvoked++
 }
 
-func (f *FakeReporter) ReportSyncK8SecretDuration(duration float64) {
+func (f *FakeReporter) ReportSyncK8SecretDuration(ctx context.Context, duration float64) {
 	f.reportSyncK8SecretDurationInvoked++
 }
 

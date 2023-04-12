@@ -89,10 +89,10 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 					klog.ErrorS(unmountErr, "failed to unmounting target path")
 				}
 			}
-			ns.reporter.ReportNodePublishErrorCtMetric(providerName, errorReason)
+			ns.reporter.ReportNodePublishErrorCtMetric(ctx, providerName, errorReason)
 			return
 		}
-		ns.reporter.ReportNodePublishCtMetric(providerName)
+		ns.reporter.ReportNodePublishCtMetric(ctx, providerName)
 	}()
 
 	// Check arguments
@@ -258,10 +258,10 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 	startTime := time.Now()
 	defer func() {
 		if err != nil {
-			ns.reporter.ReportNodeUnPublishErrorCtMetric()
+			ns.reporter.ReportNodeUnPublishErrorCtMetric(ctx)
 			return
 		}
-		ns.reporter.ReportNodeUnPublishCtMetric()
+		ns.reporter.ReportNodeUnPublishCtMetric(ctx)
 	}()
 
 	// Check arguments
