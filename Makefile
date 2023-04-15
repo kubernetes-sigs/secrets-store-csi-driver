@@ -103,7 +103,7 @@ KIND_VERSION ?= 0.15.0
 KUBERNETES_VERSION ?= 1.24.0
 KUBECTL_VERSION ?= 1.25.3
 BATS_VERSION ?= 1.4.1
-TRIVY_VERSION ?= 0.29.1
+TRIVY_VERSION ?= 0.39.1
 PROTOC_VERSION ?= 3.20.1
 SHELLCHECK_VER ?= v0.8.0
 YQ_VERSION ?= v4.11.2
@@ -161,7 +161,7 @@ image-scan: $(TRIVY)
 	$(TRIVY) image --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
 	# show vulnerabilities that have been fixed
 	$(TRIVY) image --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(IMAGE_TAG)
-	$(TRIVY) image --vuln-type os --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
+	$(TRIVY) image --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
 
 ## --------------------------------------
 ## Tooling Binaries
