@@ -1,9 +1,19 @@
 run:
   timeout: 5m
-  go: '1.20'
-  skip-dirs: []
+  go: "1.20"
   skip-files:
   - "zz_generated.*\\.go$"
+
+linters-settings:
+  gocritic:
+    enabled-tags:
+    - performance
+  lll:
+    line-length: 200
+  misspell:
+    locale: US
+  staticcheck:
+    go: "1.20"
 
 linters:
   disable-all: true
@@ -14,6 +24,7 @@ linters:
     - errorlint
     - exhaustive
     - goconst
+    - gocritic
     - gocyclo
     - gofmt
     - goimports
@@ -29,6 +40,7 @@ linters:
     - stylecheck
     - typecheck
     - unused
+    - whitespace
   # Run with --fast=false for more extensive checks (enables all linters)
   fast: true
 

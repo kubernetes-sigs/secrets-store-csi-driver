@@ -193,7 +193,7 @@ func (p *PluginClientBuilder) Cleanup() {
 // HealthCheck enables periodic healthcheck for configured provider clients by making
 // a Version() RPC call. If the provider healthcheck fails, we log an error.
 //
-// This method blocks until the parent context is cancelled during termination.
+// This method blocks until the parent context is canceled during termination.
 func (p *PluginClientBuilder) HealthCheck(ctx context.Context, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()

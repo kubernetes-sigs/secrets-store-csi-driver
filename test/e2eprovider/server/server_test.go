@@ -149,11 +149,9 @@ func TestMountError(t *testing.T) {
 			t.Errorf("received unexpected error: got - %v\nwanted - %v", err, wantError)
 			return
 		}
-	} else {
-		if err != nil {
-			t.Errorf("received unexpected error: got %v", err)
-			return
-		}
+	} else if err != nil {
+		t.Errorf("received unexpected error: got %v", err)
+		return
 	}
 }
 

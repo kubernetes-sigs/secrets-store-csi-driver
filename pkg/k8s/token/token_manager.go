@@ -58,7 +58,8 @@ func NewManager(c clientset.Interface) *Manager {
 			if err != nil {
 				return
 			}
-			for _, resource := range resources.APIResources {
+			for idx := range resources.APIResources {
+				resource := &resources.APIResources[idx]
 				if resource.Name == "serviceaccounts/token" {
 					supported = true
 					return
