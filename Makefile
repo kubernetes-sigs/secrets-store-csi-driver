@@ -34,7 +34,7 @@ IMAGE_VERSION ?= v1.3.3
 
 # Use a custom version for E2E tests if we are testing in CI
 ifdef CI
-override IMAGE_VERSION := v1.2.0-e2e-$(BUILD_COMMIT)
+override IMAGE_VERSION := v1.3.0-e2e-$(BUILD_COMMIT)
 endif
 
 IMAGE_TAG=$(REGISTRY)/$(IMAGE_NAME):$(IMAGE_VERSION)
