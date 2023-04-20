@@ -66,10 +66,12 @@ const ServiceConfig = `
 `
 
 var (
-	// PluginNameRe is the regular expression used to validate plugin names.
-	PluginNameRe        = regexp.MustCompile(`^[a-zA-Z0-9_-]{0,30}$`)
-	ErrInvalidProvider  = errors.New("invalid provider")
-	ErrProviderNotFound = errors.New("provider not found")
+	// pluginNameRe is the regular expression used to validate plugin names.
+	pluginNameRe = regexp.MustCompile(`^[a-zA-Z0-9_-]{0,30}$`)
+
+	errInvalidProvider       = errors.New("invalid provider")
+	errProviderNotFound      = errors.New("provider not found")
+	errMissingObjectVersions = errors.New("missing object versions")
 )
 
 // PluginClientBuilder builds and stores grpc clients for communicating with
@@ -123,8 +125,8 @@ func (p *PluginClientBuilder) Get(ctx context.Context, provider string) (v1alpha
 	}
 
 	// client does not exist, create a new one
-	if !PluginNameRe.MatchString(provider) {
-		return nil, fmt.Errorf("%w: provider %q", ErrInvalidProvider, provider)
+	if !pluginNameRe.MatchString(provider) {
+		return nil, fmt.Errorf("%w: provider %q", errInvalidProvider, provider)
 	}
 
 	// check all paths
@@ -147,7 +149,7 @@ func (p *PluginClientBuilder) Get(ctx context.Context, provider string) (v1alpha
 	}
 
 	if socketPath == "" {
-		return nil, fmt.Errorf("%w: provider %q", ErrProviderNotFound, provider)
+		return nil, fmt.Errorf("%w: provider %q", errProviderNotFound, provider)
 	}
 
 	conn, err := grpc.Dial(
@@ -249,7 +251,7 @@ func MountContent(ctx context.Context, client v1alpha1.CSIDriverProviderClient, 
 
 	ov := resp.GetObjectVersion()
 	if ov == nil {
-		return nil, internalerrors.GRPCProviderError, errors.New("missing object versions")
+		return nil, internalerrors.GRPCProviderError, errMissingObjectVersions
 	}
 	objectVersions := make(map[string]string)
 	for _, v := range ov {
@@ -263,19 +265,17 @@ func MountContent(ctx context.Context, client v1alpha1.CSIDriverProviderClient, 
 		klog.InfoS("proto above 1MiB, secret sync may fail", "size", size)
 	}
 
-	if len(resp.GetFiles()) > 0 {
-		klog.V(5).Info("writing mount response files")
-		if err := fileutil.Validate(resp.GetFiles()); err != nil {
-			return nil, internalerrors.FileWriteError, err
-		}
-		if err := fileutil.WritePayloads(targetPath, resp.GetFiles()); err != nil {
-			return nil, internalerrors.FileWriteError, err
-		}
-	} else {
-		// when no files are returned we assume that the plugin has not migrated
-		// grpc responses for writing files yet.
-		klog.V(5).Info("mount response has no files")
+	if len(resp.GetFiles()) == 0 {
+		// The plugin mount response contains no files. Possible that the plugin
+		// is writing its own files instead of the driver (See Issue #551).
+		klog.V(5).Info("Empty files in mount response. It is possible that the plugin has not migrated to driver-written files (Issue #551).")
+		return objectVersions, "", nil
 	}
+
+	if err := fileutil.WritePayloads(targetPath, resp.GetFiles()); err != nil {
+		return nil, internalerrors.FileWriteError, err
+	}
+	klog.V(5).Info("mount response files written.")
 
 	return objectVersions, "", nil
 }
