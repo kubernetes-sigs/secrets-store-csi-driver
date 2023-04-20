@@ -88,7 +88,7 @@ metadata:
     helm.sh/hook-weight: "20"
     helm.sh/hook-delete-policy: "hook-succeeded,before-hook-creation"
 spec:
-  backoffLimit: 0
+  backoffLimit: 3
   template:
     metadata:
       name: {{ template "sscd.fullname" . }}-keep-crds
