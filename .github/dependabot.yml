@@ -16,3 +16,29 @@ updates:
       prefix: "chore"
     labels:
       - "ok-to-test"
+
+
+  - package-ecosystem: docker
+    directory: /.local
+    schedule:
+      interval: daily
+
+  - package-ecosystem: docker
+    directory: /docker
+    schedule:
+      interval: daily
+
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: daily
+
+  - package-ecosystem: docker
+    directory: /test/e2eprovider
+    schedule:
+      interval: daily
+
+  - package-ecosystem: gomod
+    directory: /test/e2eprovider
+    schedule:
+      interval: daily

@@ -18,6 +18,9 @@ on:
         description: 'image version for Secret Store CSI driver and CRDs'
         required: true
         default: 'v1.CHANGE_ME'
+permissions:
+  contents: read
+
 jobs:
   e2e-test:
     runs-on: ubuntu-20.04
@@ -26,6 +29,11 @@ jobs:
       matrix:
         KUBERNETES_VERSION: ["v1.24.12", "v1.25.8", "v1.26.3", "v1.27.1"]
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@6b3083af2869dc3314a0257a42f4af696cc79ba3 # v2.3.1
+        with:
+          egress-policy: audit
+
       - name: Checkout
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab
         with:
