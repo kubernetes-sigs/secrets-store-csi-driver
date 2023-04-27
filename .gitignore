@@ -81,3 +81,6 @@ demo/
 docs/book/book
 __debug_bin
 test/e2eprovider/e2e-provider
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
