@@ -51,6 +51,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
+	"monis.app/mlog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -123,6 +124,12 @@ func NewReconciler(client client.Reader,
 
 // Run starts the rotation reconciler
 func (r *Reconciler) Run(stopCh <-chan struct{}) {
+	if err := r.runErr(stopCh); err != nil {
+		mlog.Fatal(err)
+	}
+}
+
+func (r *Reconciler) runErr(stopCh <-chan struct{}) error {
 	defer r.queue.ShutDown()
 	klog.InfoS("starting rotation reconciler", "rotationPollInterval", r.rotationPollInterval)
 
@@ -131,7 +138,7 @@ func (r *Reconciler) Run(stopCh <-chan struct{}) {
 
 	if err := r.secretStore.Run(stopCh); err != nil {
 		klog.ErrorS(err, "failed to run informers for rotation reconciler")
-		os.Exit(1)
+		return err
 	}
 
 	// TODO (aramase) consider adding more workers to process reconcile concurrently
@@ -142,7 +149,7 @@ func (r *Reconciler) Run(stopCh <-chan struct{}) {
 	for {
 		select {
 		case <-stopCh:
-			return
+			return nil
 		case <-ticker.C:
 			// The spc pod status informer is configured to do a filtered list watch of spc pod statuses
 			// labeled for the same node as the driver. LIST will only return the filtered results.

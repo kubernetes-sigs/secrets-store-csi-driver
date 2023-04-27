@@ -32,6 +32,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
+	"monis.app/mlog"
 )
 
 // Defines Non blocking GRPC server interfaces
@@ -60,7 +61,11 @@ type nonBlockingGRPCServer struct {
 // Start the server
 func (s *nonBlockingGRPCServer) Start(ctx context.Context, endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer) {
 	s.wg.Add(1)
-	go s.serve(ctx, endpoint, ids, cs, ns)
+	go func() {
+		if err := s.serve(ctx, endpoint, ids, cs, ns); err != nil {
+			mlog.Fatal(err)
+		}
+	}()
 }
 
 // Wait for the server to stop
@@ -78,7 +83,7 @@ func (s *nonBlockingGRPCServer) ForceStop() {
 	s.server.Stop()
 }
 
-func (s *nonBlockingGRPCServer) serve(ctx context.Context, endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer) {
+func (s *nonBlockingGRPCServer) serve(ctx context.Context, endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer) error {
 	defer s.wg.Done()
 
 	proto, addr, err := parseEndpoint(endpoint)
@@ -92,14 +97,14 @@ func (s *nonBlockingGRPCServer) serve(ctx context.Context, endpoint string, ids 
 		}
 		if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
 			klog.ErrorS(err, "failed to remove unix domain socket", "address", addr)
-			os.Exit(1)
+			return err
 		}
 	}
 
 	listener, err := net.Listen(proto, addr)
 	if err != nil {
 		klog.ErrorS(err, "failed to listen", "proto", proto, "address", addr)
-		os.Exit(1)
+		return err
 	}
 	defer listener.Close()
 
@@ -129,6 +134,7 @@ func (s *nonBlockingGRPCServer) serve(ctx context.Context, endpoint string, ids 
 
 	<-ctx.Done()
 	server.GracefulStop()
+	return nil
 }
 
 func parseEndpoint(ep string) (string, string, error) {

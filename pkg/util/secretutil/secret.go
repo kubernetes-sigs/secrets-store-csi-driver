@@ -219,7 +219,7 @@ func GetSecretData(secretObjData []*secretsstorev1.SecretObjectData, secretType 
 func GetSHAFromSecret(data map[string][]byte) (string, error) {
 	var values []string
 	for k, v := range data {
-		values = append(values, k+"="+string(v[:]))
+		values = append(values, k+"="+string(v))
 	}
 	// sort the values to always obtain a deterministic SHA for
 	// same content in different order

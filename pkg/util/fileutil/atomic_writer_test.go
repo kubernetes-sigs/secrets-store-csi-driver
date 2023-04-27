@@ -402,13 +402,14 @@ IAAAAAAAsDyZDwU=`
 
 		writer := &AtomicWriter{targetDir: targetDir, logContext: "-test-"}
 		err = writer.Write(tc.payload)
-		if err != nil && tc.success {
+		switch {
+		case err != nil && tc.success:
 			t.Errorf("%v: unexpected error writing payload: %v", tc.name, err)
 			continue
-		} else if err == nil && !tc.success {
+		case err == nil && !tc.success:
 			t.Errorf("%v: unexpected success", tc.name)
 			continue
-		} else if err != nil {
+		case err != nil:
 			continue
 		}
 
@@ -906,7 +907,6 @@ func TestValidatePayload(t *testing.T) {
 				t.Errorf("%v: unexpected payload paths: %v is not equal to %v", tc.name, realPaths, tc.expected)
 			}
 		}
-
 	}
 }
 

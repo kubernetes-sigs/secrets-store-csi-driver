@@ -48,9 +48,8 @@ func TestSanity(t *testing.T) {
 		targetPath = filepath.Join(tmpPath, targetPath)
 		return targetPath, createTargetDir(targetPath)
 	}
-	config.RemoveTargetPath = func(targetPath string) error {
-		return os.RemoveAll(targetPath)
-	}
+	config.RemoveTargetPath = os.RemoveAll
+
 	// setting idempotent count to 0 will skip the idempotent tests
 	// these tests depend on the Controller service which is not implemented in CSI driver
 	config.IdempotentCount = 0

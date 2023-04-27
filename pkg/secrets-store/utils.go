@@ -137,7 +137,7 @@ func createOrUpdateSecretProviderClassPodStatus(ctx context.Context, c client.Cl
 		if !apierrors.IsNotFound(err) {
 			return err
 		}
-		// the secret provider class pod status could be missing in the cache because it was labelled with a different node
+		// the secret provider class pod status could be missing in the cache because it was labeled with a different node
 		// label, so we need to get it from the API server
 		if err = reader.Get(ctx, client.ObjectKey{Name: spcpsName, Namespace: namespace}, spcps); err != nil {
 			return err
