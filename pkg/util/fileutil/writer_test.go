@@ -456,7 +456,7 @@ func TestCleanupProviderFiles(t *testing.T) {
 	for _, f := range wantFiles {
 		filesToWriteAtomically[f.Path] = FileProjection{Data: f.Contents, Mode: f.Mode}
 	}
-	if err := w.Write(filesToWriteAtomically); err != nil {
+	if err := w.Write(filesToWriteAtomically, nil); err != nil {
 		t.Errorf("writing with AtomicWriter: %s", err)
 	}
 

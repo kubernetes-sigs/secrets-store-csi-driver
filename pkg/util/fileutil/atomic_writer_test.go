@@ -18,14 +18,16 @@ limitations under the License.
 */
 
 // Vendored from kubernetes/pkg/volume/util/atomic_writer_test.go
-//  * tag: v1.20.6,
-//  * commit: 8a62859e515889f07e3e3be6a1080413f17cf2c3
-//  * link: https://github.com/kubernetes/kubernetes/blob/8a62859e515889f07e3e3be6a1080413f17cf2c3/pkg/volume/util/atomic_writer_test.go
+//  * tag: v1.27.1,
+//  * commit: 4c9411232e10168d7b050c49a1b59f6df9d7ea4b
+//  * link: https://github.com/kubernetes/kubernetes/blob/4c9411232e10168d7b050c49a1b59f6df9d7ea4b/pkg/volume/util/atomic_writer.go
 
 package fileutil
 
 import (
 	"encoding/base64"
+	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -233,14 +235,14 @@ func TestPathsToRemove(t *testing.T) {
 		defer os.RemoveAll(targetDir)
 
 		writer := &AtomicWriter{targetDir: targetDir, logContext: "-test-"}
-		err = writer.Write(tc.payload1)
+		err = writer.Write(tc.payload1, nil)
 		if err != nil {
 			t.Errorf("%v: unexpected error writing: %v", tc.name, err)
 			continue
 		}
 
 		dataDirPath := filepath.Join(targetDir, dataDirName)
-		oldTSDir, err := os.Readlink(dataDirPath)
+		oldTsDir, err := os.Readlink(dataDirPath)
 		if err != nil && os.IsNotExist(err) {
 			t.Errorf("Data symlink does not exist: %v", dataDirPath)
 			continue
@@ -249,7 +251,7 @@ func TestPathsToRemove(t *testing.T) {
 			continue
 		}
 
-		actual, err := writer.pathsToRemove(tc.payload2, filepath.Join(targetDir, oldTSDir))
+		actual, err := writer.pathsToRemove(tc.payload2, filepath.Join(targetDir, oldTsDir))
 		if err != nil {
 			t.Errorf("%v: unexpected error determining paths to remove: %v", tc.name, err)
 			continue
@@ -401,15 +403,14 @@ IAAAAAAAsDyZDwU=`
 		defer os.RemoveAll(targetDir)
 
 		writer := &AtomicWriter{targetDir: targetDir, logContext: "-test-"}
-		err = writer.Write(tc.payload)
-		switch {
-		case err != nil && tc.success:
+		err = writer.Write(tc.payload, nil)
+		if err != nil && tc.success {
 			t.Errorf("%v: unexpected error writing payload: %v", tc.name, err)
 			continue
-		case err == nil && !tc.success:
+		} else if err == nil && !tc.success {
 			t.Errorf("%v: unexpected success", tc.name)
 			continue
-		case err != nil:
+		} else if err != nil {
 			continue
 		}
 
@@ -579,7 +580,7 @@ func TestUpdate(t *testing.T) {
 
 		writer := &AtomicWriter{targetDir: targetDir, logContext: "-test-"}
 
-		err = writer.Write(tc.first)
+		err = writer.Write(tc.first, nil)
 		if err != nil {
 			t.Errorf("%v: unexpected error writing: %v", tc.name, err)
 			continue
@@ -590,7 +591,7 @@ func TestUpdate(t *testing.T) {
 			continue
 		}
 
-		err = writer.Write(tc.next)
+		err = writer.Write(tc.next, nil)
 		if err != nil {
 			if tc.shouldWrite {
 				t.Errorf("%v: unexpected error writing: %v", tc.name, err)
@@ -748,10 +749,7 @@ func TestMultipleUpdates(t *testing.T) {
 		writer := &AtomicWriter{targetDir: targetDir, logContext: "-test-"}
 
 		for _, payload := range tc.payloads {
-			if err := writer.Write(payload); err != nil {
-				t.Errorf("unexpected error writing payload: %v, err:%v", payload, err)
-				continue
-			}
+			writer.Write(payload, nil)
 
 			checkVolumeContents(targetDir, tc.name, payload, t)
 		}
@@ -773,7 +771,7 @@ func checkVolumeContents(targetDir, tcName string, payload map[string]FileProjec
 			return nil
 		}
 
-		content, err := os.ReadFile(path)
+		content, err := ioutil.ReadFile(path)
 		if err != nil {
 			return err
 		}
@@ -788,7 +786,7 @@ func checkVolumeContents(targetDir, tcName string, payload map[string]FileProjec
 		return nil
 	}
 
-	d, err := os.ReadDir(targetDir)
+	d, err := ioutil.ReadDir(targetDir)
 	if err != nil {
 		t.Errorf("Unable to read dir %v: %v", targetDir, err)
 		return
@@ -797,7 +795,7 @@ func checkVolumeContents(targetDir, tcName string, payload map[string]FileProjec
 		if strings.HasPrefix(info.Name(), "..") {
 			continue
 		}
-		if info.Type()&os.ModeSymlink != 0 {
+		if info.Mode()&os.ModeSymlink != 0 {
 			p := filepath.Join(targetDir, info.Name())
 			actual, err := os.Readlink(p)
 			if err != nil {
@@ -891,7 +889,7 @@ func TestValidatePayload(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		got, err := validatePayload(tc.payload)
+		real, err := validatePayload(tc.payload)
 		if !tc.valid && err == nil {
 			t.Errorf("%v: unexpected success", tc.name)
 		}
@@ -902,11 +900,12 @@ func TestValidatePayload(t *testing.T) {
 				continue
 			}
 
-			realPaths := getPayloadPaths(got)
+			realPaths := getPayloadPaths(real)
 			if !realPaths.Equal(tc.expected) {
 				t.Errorf("%v: unexpected payload paths: %v is not equal to %v", tc.name, realPaths, tc.expected)
 			}
 		}
+
 	}
 }
 
@@ -989,5 +988,56 @@ func TestCreateUserVisibleFiles(t *testing.T) {
 				t.Fatalf("%v: symlink destination %q not same with expected data dir %q", tc.name, destination, expectedDest)
 			}
 		}
+	}
+}
+
+func TestSetPerms(t *testing.T) {
+	targetDir, err := utiltesting.MkTmpdir("atomic-write")
+	if err != nil {
+		t.Fatalf("unexpected error creating tmp dir: %v", err)
+	}
+	defer os.RemoveAll(targetDir)
+
+	// Test that setPerms() is called once and with valid timestamp directory.
+	payload1 := map[string]FileProjection{
+		"foo/bar.txt": {Mode: 0644, Data: []byte("foo")},
+		"bar/zab.txt": {Mode: 0644, Data: []byte("bar")},
+	}
+
+	var setPermsCalled int
+	writer := &AtomicWriter{targetDir: targetDir, logContext: "-test-"}
+	err = writer.Write(payload1, func(subPath string) error {
+		fileInfo, err := os.Stat(filepath.Join(targetDir, subPath))
+		if err != nil {
+			t.Fatalf("unexpected error getting file info: %v", err)
+		}
+		// Ensure that given timestamp directory really exists.
+		if !fileInfo.IsDir() {
+			t.Fatalf("subPath is not a directory: %v", subPath)
+		}
+		setPermsCalled++
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("unexpected error writing: %v", err)
+	}
+	if setPermsCalled != 1 {
+		t.Fatalf("unexpected number of calls to setPerms: %v", setPermsCalled)
+	}
+
+	// Test that errors from setPerms() are propagated.
+	payload2 := map[string]FileProjection{
+		"foo/bar.txt": {Mode: 0644, Data: []byte("foo2")},
+		"bar/zab.txt": {Mode: 0644, Data: []byte("bar2")},
+	}
+
+	err = writer.Write(payload2, func(_ string) error {
+		return fmt.Errorf("error in setPerms")
+	})
+	if err == nil {
+		t.Fatalf("expected error while writing but got nil")
+	}
+	if !strings.Contains(err.Error(), "error in setPerms") {
+		t.Fatalf("unexpected error while writing: %v", err)
 	}
 }

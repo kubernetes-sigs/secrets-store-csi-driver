@@ -67,7 +67,7 @@ func WritePayloads(path string, payloads []*v1alpha1.File) error {
 		}
 	}
 
-	return w.Write(files)
+	return w.Write(files, nil)
 }
 
 // cleanupProviderFiles checks all the paths from payloads to determine whether

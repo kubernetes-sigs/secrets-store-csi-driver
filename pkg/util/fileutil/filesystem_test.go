@@ -101,7 +101,7 @@ func TestGetMountedFiles(t *testing.T) {
 						Data: []byte("foo.txt"),
 						Mode: 0700,
 					},
-				})
+				}, nil)
 				if err != nil {
 					t.Fatalf("unable to write FileProjection: %s", err)
 				}
