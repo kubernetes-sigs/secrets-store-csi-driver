@@ -113,7 +113,7 @@ func TestReconcileError(t *testing.T) {
 			},
 			secretProviderClassToAdd: &secretsstorev1.SecretProviderClass{},
 			podToAdd:                 &corev1.Pod{},
-			socketPath:               getTempTestDir(t),
+			socketPath:               t.TempDir(),
 			secretToAdd:              &corev1.Secret{},
 			expectedErr:              true,
 		},
@@ -150,7 +150,7 @@ func TestReconcileError(t *testing.T) {
 				},
 			},
 			podToAdd:    &corev1.Pod{},
-			socketPath:  getTempTestDir(t),
+			socketPath:  t.TempDir(),
 			secretToAdd: &corev1.Secret{},
 			expectedErr: true,
 		},
@@ -211,7 +211,7 @@ func TestReconcileError(t *testing.T) {
 					},
 				},
 			},
-			socketPath:          getTempTestDir(t),
+			socketPath:          t.TempDir(),
 			secretToAdd:         &corev1.Secret{},
 			expectedErr:         true,
 			expectedErrorEvents: true,
@@ -276,7 +276,7 @@ func TestReconcileError(t *testing.T) {
 					},
 				},
 			},
-			socketPath: getTempTestDir(t),
+			socketPath: t.TempDir(),
 			secretToAdd: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:            "object1",
@@ -349,7 +349,7 @@ func TestReconcileError(t *testing.T) {
 					},
 				},
 			},
-			socketPath: getTempTestDir(t),
+			socketPath: t.TempDir(),
 			secretToAdd: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:            "object1",
@@ -419,7 +419,7 @@ func TestReconcileError(t *testing.T) {
 					},
 				},
 			},
-			socketPath: getTempTestDir(t),
+			socketPath: t.TempDir(),
 			secretToAdd: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "secret1",
@@ -572,7 +572,7 @@ func TestReconcileNoError(t *testing.T) {
 			Data: map[string][]byte{"foo": []byte("olddata")},
 		}
 
-		socketPath := getTempTestDir(t)
+		socketPath := t.TempDir()
 		expectedObjectVersions := map[string]string{"secret/object1": "v2"}
 		scheme, err := setupScheme()
 		g.Expect(err).NotTo(HaveOccurred())
@@ -789,17 +789,8 @@ func TestHandleError(t *testing.T) {
 	g.Expect(testReconciler.queue.Len()).To(Equal(1))
 }
 
-func getTempTestDir(t *testing.T) string {
-	tmpDir, err := os.MkdirTemp("", "ut")
-	if err != nil {
-		t.Fatalf("expected err to be nil, got: %+v", err)
-	}
-	return tmpDir
-}
-
 func getTestTargetPath(t *testing.T, uid, vol string) string {
-	dir := getTempTestDir(t)
-	path := filepath.Join(dir, "pods", uid, "volumes", "kubernetes.io~csi", vol, "mount")
+	path := filepath.Join(t.TempDir(), "pods", uid, "volumes", "kubernetes.io~csi", vol, "mount")
 	if err := os.MkdirAll(path, 0755); err != nil {
 		t.Fatalf("expected err to be nil, got: %+v", err)
 	}

@@ -346,14 +346,8 @@ func TestGetSecretData(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			tmpDir, err := os.MkdirTemp("", "ut")
-			if err != nil {
-				t.Fatalf("expected err to be nil, got: %+v", err)
-			}
-			defer os.RemoveAll(tmpDir)
-
 			for fileName := range test.currentFiles {
-				filePath, err := createTestFile(tmpDir, fileName)
+				filePath, err := createTestFile(t.TempDir(), fileName)
 				if err != nil {
 					t.Fatalf("expected err to be nil, got: %+v", err)
 				}
