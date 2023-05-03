@@ -7,7 +7,7 @@ on:
       - master
     paths:
       - ".github/workflows/chart.yaml"
-      - "charts/**"    
+      - "charts/**"
 
 # List of all permissions: https://docs.github.com/en/actions/reference/authentication-in-a-workflow#permissions-for-the-github_token
 # We need write permission for contents to be able to publish the chart
@@ -18,13 +18,16 @@ jobs:
   deploy:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab
+      - name: Harden Runner
+        uses: step-security/harden-runner@6b3083af2869dc3314a0257a42f4af696cc79ba3 # v2.3.1
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           submodules: true
           fetch-depth: 0
       - name: Publish Helm chart
-        # pinning to the sha f1701eb82e4d4b82016e7965501c8b6d79feaec9 from https://github.com/stefanprodan/helm-gh-pages/releases/tag/v1.4.1
-        uses: stefanprodan/helm-gh-pages@0ad2bb377311d61ac04ad9eb6f252fb68e207260
+        uses: stefanprodan/helm-gh-pages@0ad2bb377311d61ac04ad9eb6f252fb68e207260 # v1.7.0
         with:
           # GitHub automatically creates a GITHUB_TOKEN secret to use in your workflow. You can use the GITHUB_TOKEN to authenticate in a workflow run.
           # See https://docs.github.com/en/actions/reference/authentication-in-a-workflow#about-the-github_token-secret
