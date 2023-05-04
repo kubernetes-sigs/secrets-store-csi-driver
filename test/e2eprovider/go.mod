@@ -5,7 +5,7 @@ go 1.19
 replace sigs.k8s.io/secrets-store-csi-driver => ../..
 
 require (
-	github.com/google/go-cmp v0.5.8
+	github.com/google/go-cmp v0.5.9
 	google.golang.org/grpc v1.47.0
 	k8s.io/klog/v2 v2.100.1
 	monis.app/mlog v0.0.4
