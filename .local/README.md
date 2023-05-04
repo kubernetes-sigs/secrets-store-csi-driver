@@ -19,6 +19,7 @@ It's much easier to debug code with breakpoints while developing new features or
 # YAML
 - hostPath: # /path/to/your/driver/secrets-store-csi-driver/codebase/on/host
 ```
+
 - Create Kind cluster:
 ```sh
 kind create cluster --config .local/kind-config.yaml
@@ -60,26 +61,38 @@ kubectl apply -f .local/persistent-volume.yaml
 ```sh
 kubectl apply -f .local/debug-driver.yaml
 ```
+
+- Check that everything was deployed correctly:
+```
+kubectl get pods --namespace=kube-system
+```
+
 - Check the logs of debug-driver pod to make sure `dlv` API server is listening:
 ```
 API server listening at: [::]:30123
 ```
 
 ### launch.json configuration
-Use following `launch.json` configuration to attach debugger.
+Replace in the `substitutePath` the `from` value to match with your local csi driver source code path and use the `launch.json` configuration to attach debugger.
 ```json
 {
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Driver debug",
+            "name": "CSIDriverDebug",
             "type": "go",
             "request": "attach",
             "mode":"remote",
-            "remotePath": "/secrets-store-csi-driver-codebase",
+            "substitutePath": [
+                {"from":"/path/to/your/driver/secrets-store-csi-driver/codebase/on/host", #replace with your path
+                "to":"/secrets-store-csi-driver-codebase"}
+            ],
             "port": 30123,
             "host": "127.0.0.1",
-            "showLog": true
+            "apiVersion": 2,
+            "debugAdapter": "dlv-dap",
+            "showLog": true,
+            "trace": "verbose"
         }
     ]
 }
