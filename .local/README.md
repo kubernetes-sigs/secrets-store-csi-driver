@@ -67,7 +67,7 @@ kubectl apply -f .local/debug-driver.yaml
 kubectl get pods --namespace=kube-system
 ```
 
-- Check the logs of debug-driver pod to make sure `dlv` API server is listening:
+- Check the logs of debug-driver pod to make sure `dlv` API server is listening (it can take up to 10 minutes for the log to appear):
 ```
 API server listening at: [::]:30123
 ```
