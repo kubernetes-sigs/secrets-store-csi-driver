@@ -55,22 +55,22 @@ func NewStatsReporter() (StatsReporter, error) {
 	r := &reporter{}
 	meter := global.Meter("secretsstore")
 
-	if r.nodePublishTotal, err = meter.Int64Counter("total_node_publish", metric.WithDescription("Total number of node publish calls")); err != nil {
+	if r.nodePublishTotal, err = meter.Int64Counter("node_publish", metric.WithDescription("Total number of node publish calls")); err != nil {
 		return nil, err
 	}
-	if r.nodeUnPublishTotal, err = meter.Int64Counter("total_node_unpublish", metric.WithDescription("Total number of node unpublish calls")); err != nil {
+	if r.nodeUnPublishTotal, err = meter.Int64Counter("node_unpublish", metric.WithDescription("Total number of node unpublish calls")); err != nil {
 		return nil, err
 	}
-	if r.nodePublishErrorTotal, err = meter.Int64Counter("total_node_publish_error", metric.WithDescription("Total number of node publish calls with error")); err != nil {
+	if r.nodePublishErrorTotal, err = meter.Int64Counter("node_publish_error", metric.WithDescription("Total number of node publish calls with error")); err != nil {
 		return nil, err
 	}
-	if r.nodeUnPublishErrorTotal, err = meter.Int64Counter("total_node_unpublish_error", metric.WithDescription("Total number of node unpublish calls with error")); err != nil {
+	if r.nodeUnPublishErrorTotal, err = meter.Int64Counter("node_unpublish_error", metric.WithDescription("Total number of node unpublish calls with error")); err != nil {
 		return nil, err
 	}
-	if r.syncK8sSecretTotal, err = meter.Int64Counter("total_sync_k8s_secret", metric.WithDescription("Total number of k8s secrets synced")); err != nil {
+	if r.syncK8sSecretTotal, err = meter.Int64Counter("sync_k8s_secret", metric.WithDescription("Total number of k8s secrets synced")); err != nil {
 		return nil, err
 	}
-	if r.syncK8sSecretDuration, err = meter.Float64Histogram("sync_k8s_secret_duration_sec", metric.WithDescription("Distribution of how long it took to sync k8s secret")); err != nil {
+	if r.syncK8sSecretDuration, err = meter.Float64Histogram("k8s_secret_duration_sec", metric.WithDescription("Distribution of how long it took to sync k8s secret")); err != nil {
 		return nil, err
 	}
 	return r, nil
