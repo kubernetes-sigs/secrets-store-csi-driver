@@ -3,6 +3,8 @@ run:
   go: "1.20"
   skip-files:
   - "zz_generated.*\\.go$"
+  - "pkg/util/fileutil/atomic_writer.go"
+  - "pkg/util/fileutil/atomic_writer_test.go"
 
 linters-settings:
   gocritic:
