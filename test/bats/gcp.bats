@@ -14,13 +14,13 @@ export RESOURCE_NAME=${RESOURCE_NAME:-"projects/735463103342/secrets/test-secret
 export FILE_NAME=${FILE_NAME:-"secret"}
 export SECRET_VALUE=${SECRET_VALUE:-"aHVudGVyMg=="}
 
-@test "install gcp provider" {	
+@test "install gcp provider" {
   run kubectl apply -f $PROVIDER_YAML --namespace $PROVIDER_NAMESPACE
-  assert_success	
+  assert_success
 
   kubectl wait --for=condition=Ready --timeout=120s pod -l app=csi-secrets-store-provider-gcp --namespace $PROVIDER_NAMESPACE
 
-  GCP_PROVIDER_POD=$(kubectl get pod --namespace $PROVIDER_NAMESPACE -l app=csi-secrets-store-provider-gcp -o jsonpath="{.items[0].metadata.name}")	
+  GCP_PROVIDER_POD=$(kubectl get pod --namespace $PROVIDER_NAMESPACE -l app=csi-secrets-store-provider-gcp -o jsonpath="{.items[0].metadata.name}")
 
   run kubectl get pod/$GCP_PROVIDER_POD --namespace $PROVIDER_NAMESPACE
   assert_success
@@ -35,7 +35,7 @@ export SECRET_VALUE=${SECRET_VALUE:-"aHVudGVyMg=="}
 
 @test "CSI inline volume test with pod portability" {
   envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply --namespace=$NAMESPACE -f -
-  
+
   kubectl wait --for=condition=Ready --timeout=60s --namespace=$NAMESPACE pod/secrets-store-inline-crd
 
   run kubectl get pod/secrets-store-inline-crd --namespace=$NAMESPACE
