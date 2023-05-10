@@ -36,10 +36,12 @@ func initPrometheusExporter() error {
 	meterProvider := metric.NewMeterProvider(
 		metric.WithReader(exporter),
 		metric.WithView(metric.NewView(
-			metric.Instrument{Name: "secretsstore_*"},
+			metric.Instrument{Kind: metric.InstrumentKindHistogram},
 			metric.Stream{
 				Aggregation: aggregation.ExplicitBucketHistogram{
-					Boundaries: []float64{0.1, 0.2, 0.3, 0.4, 0.5, 1, 1.5, 2, 2.5, 3.0, 5.0, 10.0, 15.0, 30.0},
+					// Use custom buckets to avoid the default buckets which are too small for our use case.
+					// Start 100ms with last bucket being [~4m, +Inf)
+					Boundaries: crprometheus.ExponentialBucketsRange(0.1, 2, 11),
 				}},
 		)),
 	)

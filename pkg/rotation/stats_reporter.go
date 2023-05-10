@@ -25,6 +25,10 @@ import (
 	"go.opentelemetry.io/otel/metric/global"
 )
 
+const (
+	scope = "sigs.k8s.io/secrets-store-csi-driver"
+)
+
 var (
 	providerKey = "provider"
 	errorKey    = "error_type"
@@ -47,8 +51,9 @@ type StatsReporter interface {
 
 func newStatsReporter() (StatsReporter, error) {
 	var err error
+
 	r := &reporter{}
-	meter := global.Meter("secretsstore")
+	meter := global.Meter(scope)
 
 	if r.rotationReconcileTotal, err = meter.Int64Counter("rotation_reconcile", metric.WithDescription("Total number of rotation reconciles")); err != nil {
 		return nil, err

@@ -25,6 +25,10 @@ import (
 	"go.opentelemetry.io/otel/metric/global"
 )
 
+const (
+	scope = "sigs.k8s.io/secrets-store-csi-driver"
+)
+
 var (
 	providerKey = "provider"
 	errorKey    = "error_type"
@@ -52,8 +56,9 @@ type StatsReporter interface {
 
 func NewStatsReporter() (StatsReporter, error) {
 	var err error
+
 	r := &reporter{}
-	meter := global.Meter("secretsstore")
+	meter := global.Meter(scope)
 
 	if r.nodePublishTotal, err = meter.Int64Counter("node_publish", metric.WithDescription("Total number of node publish calls")); err != nil {
 		return nil, err
