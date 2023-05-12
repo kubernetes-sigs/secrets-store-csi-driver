@@ -17,7 +17,7 @@ ARG KUBE_VERSION=v1.27.0
 ARG TARGETARCH
 
 RUN apk add --no-cache curl && \
-    curl -LO https://storage.googleapis.com/kubernetes-release/release/${KUBE_VERSION}/bin/linux/${TARGETARCH}/kubectl && \
+    curl -LO https://dl.k8s.io/release/${KUBE_VERSION}/bin/linux/${TARGETARCH}/kubectl && \
     chmod +x kubectl
 
 FROM gcr.io/distroless/static
