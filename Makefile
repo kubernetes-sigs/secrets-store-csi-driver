@@ -204,7 +204,7 @@ $(EKSCTL): ## Download and install eksctl
 	curl -sSLO  https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_Linux_amd64.tar.gz && tar -zxvf eksctl_Linux_amd64.tar.gz && chmod +x eksctl && mv eksctl /usr/local/bin/
 
 $(KUBECTL): ## Install kubectl
-	curl -LO https://storage.googleapis.com/kubernetes-release/release/v$(KUBECTL_VERSION)/bin/linux/amd64/kubectl && chmod +x ./kubectl && mv kubectl /usr/local/bin/
+	curl -LO https://dl.k8s.io/release/v$(KUBECTL_VERSION)/bin/linux/amd64/kubectl && chmod +x ./kubectl && mv kubectl /usr/local/bin/
 
 $(TRIVY): ## Install trivy for image vulnerability scan
 	trivy -v | grep -q $(TRIVY_VERSION) || (curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v$(TRIVY_VERSION))
