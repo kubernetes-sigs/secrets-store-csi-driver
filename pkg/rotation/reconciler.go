@@ -106,11 +106,15 @@ func NewReconciler(client client.Reader,
 	if err != nil {
 		return nil, err
 	}
+	sr, err := newStatsReporter()
+	if err != nil {
+		return nil, err
+	}
 
 	return &Reconciler{
 		rotationPollInterval: rotationPollInterval,
 		providerClients:      providerClients,
-		reporter:             newStatsReporter(),
+		reporter:             sr,
 		queue:                workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		eventRecorder:        recorder,
 		kubeClient:           kubeClient,
@@ -245,11 +249,11 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 
 	defer func() {
 		if err != nil {
-			r.reporter.reportRotationErrorCtMetric(providerName, errorReason, requiresUpdate)
+			r.reporter.reportRotationErrorCtMetric(ctx, providerName, errorReason, requiresUpdate)
 			return
 		}
-		r.reporter.reportRotationCtMetric(providerName, requiresUpdate)
-		r.reporter.reportRotationDuration(time.Since(begin).Seconds())
+		r.reporter.reportRotationCtMetric(ctx, providerName, requiresUpdate)
+		r.reporter.reportRotationDuration(ctx, time.Since(begin).Seconds())
 	}()
 
 	// get pod from manager's cache

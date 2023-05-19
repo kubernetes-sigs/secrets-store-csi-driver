@@ -125,6 +125,18 @@ archive_info() {
 
   # print generic cluster information
   kubectl cluster-info dump > ${LOGS_DIR}/cluster-info.txt
+
+  # collect metrics
+  local curl_pod_name=curl-$(openssl rand -hex 5)
+  kubectl run ${curl_pod_name} -n default --image=curlimages/curl:7.75.0 --labels="test=metrics_test" --overrides='{"spec": { "nodeSelector": {"kubernetes.io/os": "linux"}}}' -- tail -f /dev/null
+  kubectl wait --for=condition=Ready --timeout=60s -n default pod ${curl_pod_name}
+
+  for pod_ip in $(kubectl get pod -n kube-system -l app=secrets-store-csi-driver -o jsonpath="{.items[*].status.podIP}")
+  do
+    kubectl exec -n default ${curl_pod_name} -- curl -s http://${pod_ip}:8095/metrics > ${LOGS_DIR}/${pod_ip}.metrics
+  done
+
+  kubectl delete pod -n default ${curl_pod_name}
 }
 
 # get_secrets_store_api_version returns the API version of the secrets-store API
@@ -139,7 +151,7 @@ log_secrets_store_api_version() {
 }
 
 get_token_requests_audience() {
-  local token_requests_audience=$(kubectl get csidriver secrets-store.csi.k8s.io -o go-template --template='{{range $i, $v := .spec.tokenRequests}}{{if $i}},{{end}}{{printf "%s" .audience}}{{end}}') 
+  local token_requests_audience=$(kubectl get csidriver secrets-store.csi.k8s.io -o go-template --template='{{range $i, $v := .spec.tokenRequests}}{{if $i}},{{end}}{{printf "%s" .audience}}{{end}}')
   echo "${token_requests_audience}"
 }
 
