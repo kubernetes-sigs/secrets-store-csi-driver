@@ -508,9 +508,11 @@ manifests: $(CONTROLLER_GEN) $(KUSTOMIZE)
 	# generate rbac-secretproviderclass
 	$(KUSTOMIZE) build config/rbac -o manifest_staging/deploy/rbac-secretproviderclass.yaml
 	cp config/rbac/role.yaml config/rbac/role_binding.yaml config/rbac/serviceaccount.yaml manifest_staging/charts/secrets-store-csi-driver/templates/
-	@sed -i '1s/^/{{ if .Values.rbac.install }}\n/gm; $$s/$$/\n{{- if .Values.rbac.pspEnabled }}\n- apiGroups:\n  - policy\n  resources:\n  - podsecuritypolicies\n  verbs:\n  - use\n  resourceNames:\n  - {{ template "sscd-psp.fullname" . }}\n{{- end }}\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role.yaml
+	@sed -i '1s/^/{{ if .Values.rbac.install }}\n/gm; $$s/$$/\n{{- if and .Values.rbac.pspEnabled \(\.Capabilities.APIVersions.Has \"policy\/v1beta1\/PodSecurityPolicy\"\) }}\n- apiGroups:\n  - policy\n  resources:\n  - podsecuritypolicies\n  verbs:\n  - use\n  resourceNames:\n  - {{ template "sscd-psp.fullname" . }}\n{{- end }}\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role.yaml
+	@sed -i '/^rules:/i \ \ labels:\n{{ include \"sscd.labels\" . | indent 4 }}' manifest_staging/charts/secrets-store-csi-driver/templates/role.yaml
 	@sed -i '1s/^/{{ if .Values.rbac.install }}\n/gm; s/namespace: .*/namespace: {{ .Release.Namespace }}/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role_binding.yaml
-	@sed -i '1s/^/{{ if .Values.rbac.install }}\n/gm; s/namespace: .*/namespace: {{ .Release.Namespace }}/gm; $$s/$$/\n{{ include "sscd.labels" . | indent 2 }}\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/serviceaccount.yaml
+	@sed -i '/^roleRef:/i \ \ labels:\n{{ include \"sscd.labels\" . | indent 4 }}' manifest_staging/charts/secrets-store-csi-driver/templates/role_binding.yaml
+	@sed -i '1s/^/{{ if .Values.rbac.install }}\n/gm; s/namespace: .*/namespace: {{ .Release.Namespace }}/gm; $$s/$$/\n\ \ labels:\n{{ include "sscd.labels" . | indent 4 }}\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/serviceaccount.yaml
 
 	# Generate secret syncing specific RBAC
 	$(CONTROLLER_GEN) rbac:roleName=secretprovidersyncing-role paths="./controllers/syncsecret" output:dir=config/rbac-syncsecret
@@ -518,7 +520,9 @@ manifests: $(CONTROLLER_GEN) $(KUSTOMIZE)
 	cp config/rbac-syncsecret/role.yaml manifest_staging/charts/secrets-store-csi-driver/templates/role-syncsecret.yaml
 	cp config/rbac-syncsecret/role_binding.yaml manifest_staging/charts/secrets-store-csi-driver/templates/role-syncsecret_binding.yaml
 	@sed -i '1s/^/{{ if .Values.syncSecret.enabled }}\n/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-syncsecret.yaml
+	@sed -i '/^rules:/i \ \ labels:\n{{ include \"sscd.labels\" . | indent 4 }}' manifest_staging/charts/secrets-store-csi-driver/templates/role-syncsecret.yaml
 	@sed -i '1s/^/{{ if .Values.syncSecret.enabled }}\n/gm; s/namespace: .*/namespace: {{ .Release.Namespace }}/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-syncsecret_binding.yaml
+	@sed -i '/^roleRef:/i \ \ labels:\n{{ include \"sscd.labels\" . | indent 4 }}' manifest_staging/charts/secrets-store-csi-driver/templates/role-syncsecret_binding.yaml
 
 	# Generate rotation specific RBAC
 	$(CONTROLLER_GEN) rbac:roleName=secretproviderrotation-role paths="./pkg/rotation" output:dir=config/rbac-rotation
@@ -526,7 +530,9 @@ manifests: $(CONTROLLER_GEN) $(KUSTOMIZE)
 	cp config/rbac-rotation/role.yaml manifest_staging/charts/secrets-store-csi-driver/templates/role-rotation.yaml
 	cp config/rbac-rotation/role_binding.yaml manifest_staging/charts/secrets-store-csi-driver/templates/role-rotation_binding.yaml
 	@sed -i '1s/^/{{ if .Values.enableSecretRotation }}\n/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-rotation.yaml
+	@sed -i '/^rules:/i \ \ labels:\n{{ include \"sscd.labels\" . | indent 4 }}' manifest_staging/charts/secrets-store-csi-driver/templates/role-rotation.yaml
 	@sed -i '1s/^/{{ if .Values.enableSecretRotation }}\n/gm; s/namespace: .*/namespace: {{ .Release.Namespace }}/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-rotation_binding.yaml
+	@sed -i '/^roleRef:/i \ \ labels:\n{{ include \"sscd.labels\" . | indent 4 }}' manifest_staging/charts/secrets-store-csi-driver/templates/role-rotation_binding.yaml
 
 	# Generate token requests specific RBAC
 	$(CONTROLLER_GEN) rbac:roleName=secretprovidertokenrequest-role paths="./controllers/tokenrequest" output:dir=config/rbac-tokenrequest
@@ -534,7 +540,9 @@ manifests: $(CONTROLLER_GEN) $(KUSTOMIZE)
 	cp config/rbac-tokenrequest/role.yaml manifest_staging/charts/secrets-store-csi-driver/templates/role-tokenrequest.yaml
 	cp config/rbac-tokenrequest/role_binding.yaml manifest_staging/charts/secrets-store-csi-driver/templates/role-tokenrequest_binding.yaml
 	@sed -i '1s/^/{{ if .Values.tokenRequests }}\n/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-tokenrequest.yaml
+	@sed -i '/^rules:/i \ \ labels:\n{{ include \"sscd.labels\" . | indent 4 }}' manifest_staging/charts/secrets-store-csi-driver/templates/role-tokenrequest.yaml
 	@sed -i '1s/^/{{ if .Values.tokenRequests }}\n/gm; s/namespace: .*/namespace: {{ .Release.Namespace }}/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-tokenrequest_binding.yaml
+	@sed -i '/^roleRef:/i \ \ labels:\n{{ include \"sscd.labels\" . | indent 4 }}' manifest_staging/charts/secrets-store-csi-driver/templates/role-tokenrequest_binding.yaml
 
 .PHONY: generate-protobuf
 generate-protobuf: $(PROTOC) $(PROTOC_GEN_GO) $(PROTOC_GEN_GO_GRPC) # generates protobuf
