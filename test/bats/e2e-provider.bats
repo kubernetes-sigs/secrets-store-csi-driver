@@ -22,7 +22,7 @@ export SECRET_VALUE=${SECRET_VALUE:-"secret"}
 export KEY_NAME=${KEY_NAME:-fookey}
 # defualt version value returned by mock provider
 export KEY_VERSION=${KEY_VERSION:-"v1"}
-# default key value returned by mock provider. 
+# default key value returned by mock provider.
 # base64 encoded content comparision is easier in case of very long multiline string.
 export KEY_VALUE_CONTAINS=${KEY_VALUE:-"LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KVGhpcyBpcyBtb2NrIGtleQotLS0tLUVORCBQVUJMSUMgS0VZLS0tLS0K"}
 
@@ -118,7 +118,7 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
 
 @test "[v1alpha1] CSI inline volume test with pod portability" {
   envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -n test-v1alpha1 -f -
-  
+
   kubectl wait --for=condition=Ready -n test-v1alpha1 --timeout=180s pod/secrets-store-inline-crd
 
   run kubectl get pod/secrets-store-inline-crd -n test-v1alpha1
@@ -149,7 +149,7 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
 
 @test "CSI inline volume test with pod portability" {
   envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -f -
-  
+
   kubectl wait --for=condition=Ready --timeout=180s pod/secrets-store-inline-crd
 
   run kubectl get pod/secrets-store-inline-crd
@@ -192,7 +192,7 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
 }
 
 @test "Sync with K8s secrets - create deployment" {
-  envsubst < $BATS_TESTS_DIR/e2e_provider_synck8s_v1_secretproviderclass.yaml | kubectl apply -f - 
+  envsubst < $BATS_TESTS_DIR/e2e_provider_synck8s_v1_secretproviderclass.yaml | kubectl apply -f -
 
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
 
@@ -231,7 +231,7 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   assert_success
 }
 
-@test "Sync with K8s secrets - delete deployment, check owner ref updated, check secret deleted" {  
+@test "Sync with K8s secrets - delete deployment, check owner ref updated, check secret deleted" {
   if [[ "${INPLACE_UPGRADE_TEST}" == "true" ]]; then
     skip
   fi
@@ -316,7 +316,7 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   if [[ "${INPLACE_UPGRADE_TEST}" != "true" ]]; then
     run kubectl delete ns negative-test-ns
     assert_success
-  fi  
+  fi
 }
 
 @test "deploy multiple e2e provier secretproviderclass crd" {
@@ -333,7 +333,7 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
 
 @test "deploy pod with multiple secret provider class" {
   envsubst < $BATS_TESTS_DIR/pod-e2e-provider-inline-volume-multiple-spc.yaml | kubectl apply -f -
-  
+
   kubectl wait --for=condition=Ready --timeout=60s pod/secrets-store-inline-multiple-crd
 
   run kubectl get pod/secrets-store-inline-multiple-crd
@@ -392,7 +392,7 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
 
   result=$(kubectl get secret -n rotation rotationsecret -o jsonpath="{.data.username}" | base64 -d)
   [[ "${result//$'\r'}" == "secret" ]]
-  
+
   # enable rotation response in mock server
   local curl_pod_name=curl-$(openssl rand -hex 5)
   kubectl run ${curl_pod_name} -n rotation --image=curlimages/curl:7.75.0 --labels="test=rotation" -- tail -f /dev/null
@@ -414,13 +414,28 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   fi
 }
 
+@test "Validate metrics" {
+  kubectl create ns metrics
+  local curl_pod_name=curl-$(openssl rand -hex 5)
+  kubectl run ${curl_pod_name} -n metrics --image=curlimages/curl:7.75.0 --labels="test=metrics" -- tail -f /dev/null
+  kubectl wait -n metrics --for=condition=Ready --timeout=60s pod ${curl_pod_name}
+  for pod_ip in $(kubectl get pod -n kube-system -l app=secrets-store-csi-driver -o jsonpath="{.items[0].status.podIP}")
+  do
+    run kubectl exec ${curl_pod_name} -n metrics -- curl http://${pod_ip}:8095/metrics
+    assert_match "node_publish_total" "${output}"
+    assert_match "node_unpublish_total" "${output}"
+    assert_match "rotation_reconcile_total" "${output}"
+  done
+}
+
 teardown_file() {
   if [[ "${INPLACE_UPGRADE_TEST}" != "true" ]]; then
     #cleanup
     run kubectl delete namespace rotation
     run kubectl delete namespace test-ns
     run kubectl delete namespace test-v1alpha1
+    run kubectl delete namespace metrics
 
     run kubectl delete pods secrets-store-inline-crd secrets-store-inline-multiple-crd --force --grace-period 0
-  fi    
+  fi
 }
