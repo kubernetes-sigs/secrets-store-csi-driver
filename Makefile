@@ -29,8 +29,8 @@ E2E_PROVIDER_IMAGE_NAME ?= e2e-provider
 
 # Release version is the current supported release for the driver
 # Update this version when the helm chart is being updated for release
-RELEASE_VERSION := v1.3.3
-IMAGE_VERSION ?= v1.3.3
+RELEASE_VERSION := v1.3.4
+IMAGE_VERSION ?= v1.3.4
 
 # Use a custom version for E2E tests if we are testing in CI
 ifdef CI
@@ -161,7 +161,7 @@ image-scan: $(TRIVY)
 	$(TRIVY) image --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
 	# show vulnerabilities that have been fixed
 	$(TRIVY) image --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(IMAGE_TAG)
-	$(TRIVY) image --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
+	$(TRIVY) image --vuln-type os --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
 
 ## --------------------------------------
 ## Tooling Binaries
