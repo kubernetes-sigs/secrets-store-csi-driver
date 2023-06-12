@@ -44,7 +44,7 @@ the provider plugin must create a unix domain socket in a `hostPath` for the dri
 Further, service account tokens for pods that require secrets may be forwarded from the kubelet process to the driver
 and then to provider plugins. This allows the provider to impersonate the pod when contacting the external secret API.
 
-**Note:** On Windows hosts secrets will be written to the the node's filesystem which may be persistent storage. This
+**Note:** On Windows hosts secrets will be written to the node's filesystem which may be persistent storage. This
 contrasts with Linux where a `tmpfs` is used to try to ensure that secret material is never persisted.
 
 **Note:** Kubernetes 1.22 introduced a way to configure nodes to
