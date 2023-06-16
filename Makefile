@@ -413,6 +413,7 @@ e2e-deploy-manifest:
 	kubectl apply -f manifest_staging/deploy/secrets-store.csi.x-k8s.io_secretproviderclasspodstatuses.yaml
 	kubectl apply -f manifest_staging/deploy/role-secretproviderclasses-admin.yaml
 	kubectl apply -f manifest_staging/deploy/role-secretproviderclasses-viewer.yaml
+	kubectl apply -f manifest_staging/deploy/role-secretproviderclasspodstatuses-viewer.yaml
 
 	yq e '(.spec.template.spec.containers[1].image = "$(IMAGE_TAG)") | (.spec.template.spec.containers[1].args as $$x | $$x += "--enable-secret-rotation=true" | $$x[-1] style="double") | (.spec.template.spec.containers[1].args as $$x | $$x += "--rotation-poll-interval=30s" | $$x[-1] style="double")' 'manifest_staging/deploy/secrets-store-csi-driver.yaml' | kubectl apply -f -
 
