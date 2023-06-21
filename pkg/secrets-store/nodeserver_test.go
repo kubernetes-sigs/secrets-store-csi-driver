@@ -26,6 +26,7 @@ import (
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store/mocks"
+	providerfake "sigs.k8s.io/secrets-store-csi-driver/provider/fake"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
@@ -39,100 +40,100 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func testNodeServer(t *testing.T, mountPoints []mount.MountPoint, client client.Client, reporter StatsReporter) (*nodeServer, error) {
+func testNodeServer(t *testing.T, client client.Client, reporter StatsReporter) (*nodeServer, error) {
 	t.Helper()
-	providerClients := NewPluginClientBuilder([]string{t.TempDir()})
-	return newNodeServer("testnode", mount.NewFakeMounter(mountPoints), providerClients, client, client, reporter, k8s.NewTokenClient(fakeclient.NewSimpleClientset(), "test-driver", 1*time.Second))
+
+	// Create a mock provider named "provider1".
+	socketPath := t.TempDir()
+	server, err := providerfake.NewMocKCSIProviderServer(filepath.Join(socketPath, "provider1.sock"))
+	if err != nil {
+		t.Fatalf("unexpected mock provider failure: %v", err)
+	}
+	server.SetObjects(map[string]string{"secret/object1": "v2"})
+	if err := server.Start(); err != nil {
+		t.Fatalf("unexpected mock provider start failure: %v", err)
+	}
+	t.Cleanup(server.Stop)
+
+	providerClients := NewPluginClientBuilder([]string{socketPath})
+	return newNodeServer("testnode", mount.NewFakeMounter([]mount.MountPoint{}), providerClients, client, client, reporter, k8s.NewTokenClient(fakeclient.NewSimpleClientset(), "test-driver", 1*time.Second))
 }
 
-func TestNodePublishVolume(t *testing.T) {
+func TestNodePublishVolume_Errors(t *testing.T) {
 	tests := []struct {
-		name               string
-		nodePublishVolReq  csi.NodePublishVolumeRequest
-		mountPoints        []mount.MountPoint
-		initObjects        []client.Object
-		RPCCode            codes.Code
-		wantsRPCCode       bool
-		expectedErr        bool
-		shouldRetryRemount bool
+		name              string
+		nodePublishVolReq *csi.NodePublishVolumeRequest
+		initObjects       []client.Object
+		want              codes.Code
 	}{
 		{
-			name:               "volume capabilities nil",
-			nodePublishVolReq:  csi.NodePublishVolumeRequest{},
-			RPCCode:            codes.InvalidArgument,
-			wantsRPCCode:       true,
-			expectedErr:        true,
-			shouldRetryRemount: true,
+			name:              "volume capabilities nil",
+			nodePublishVolReq: &csi.NodePublishVolumeRequest{},
+			want:              codes.InvalidArgument,
 		},
 		{
 			name: "volume id is empty",
-			nodePublishVolReq: csi.NodePublishVolumeRequest{
+			nodePublishVolReq: &csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 			},
-			RPCCode:            codes.InvalidArgument,
-			wantsRPCCode:       true,
-			expectedErr:        true,
-			shouldRetryRemount: true,
+			want: codes.InvalidArgument,
 		},
 		{
 			name: "target path is empty",
-			nodePublishVolReq: csi.NodePublishVolumeRequest{
+			nodePublishVolReq: &csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
 			},
-			RPCCode:            codes.InvalidArgument,
-			wantsRPCCode:       true,
-			expectedErr:        true,
-			shouldRetryRemount: true,
+			want: codes.InvalidArgument,
 		},
 		{
 			name: "volume context is not set",
-			nodePublishVolReq: csi.NodePublishVolumeRequest{
+			nodePublishVolReq: &csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
-				TargetPath:       t.TempDir(),
+				TargetPath:       targetPath(t),
 			},
-			RPCCode:            codes.InvalidArgument,
-			wantsRPCCode:       true,
-			expectedErr:        true,
-			shouldRetryRemount: true,
+			want: codes.InvalidArgument,
 		},
 		{
 			name: "secret provider class not found",
-			nodePublishVolReq: csi.NodePublishVolumeRequest{
+			nodePublishVolReq: &csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
-				TargetPath:       t.TempDir(),
+				TargetPath:       targetPath(t),
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1"},
 			},
-			expectedErr:        true,
-			shouldRetryRemount: true,
+			want: codes.Unknown,
 		},
 		{
-			name: "secret provider class in pod namespace not found",
-			nodePublishVolReq: csi.NodePublishVolumeRequest{
+			name: "spc missing",
+			nodePublishVolReq: &csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
-				TargetPath:       t.TempDir(),
-				VolumeContext:    map[string]string{"secretProviderClass": "provider1", CSIPodName: "pod1", CSIPodNamespace: "default"},
+				TargetPath:       targetPath(t),
+				VolumeContext:    map[string]string{"secretProviderClass": "provider1", CSIPodName: "pod1", CSIPodNamespace: "default", CSIPodUID: "poduid1", "providerName": "provider1"},
+				Readonly:         true,
 			},
 			initObjects: []client.Object{
 				&secretsstorev1.SecretProviderClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "provider1",
-						Namespace: "testns",
+						Namespace: "incorrect_namespace",
+					},
+					Spec: secretsstorev1.SecretProviderClassSpec{
+						Provider:   "provider1",
+						Parameters: map[string]string{"parameter1": "value1"},
 					},
 				},
 			},
-			expectedErr:        true,
-			shouldRetryRemount: true,
+			want: codes.Unknown,
 		},
 		{
 			name: "provider not set in secret provider class",
-			nodePublishVolReq: csi.NodePublishVolumeRequest{
+			nodePublishVolReq: &csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
-				TargetPath:       t.TempDir(),
+				TargetPath:       targetPath(t),
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1", CSIPodName: "pod1", CSIPodNamespace: "default"},
 			},
 			initObjects: []client.Object{
@@ -143,15 +144,14 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				},
 			},
-			expectedErr:        true,
-			shouldRetryRemount: true,
+			want: codes.Unknown,
 		},
 		{
 			name: "parameters not set in secret provider class",
-			nodePublishVolReq: csi.NodePublishVolumeRequest{
+			nodePublishVolReq: &csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
-				TargetPath:       t.TempDir(),
+				TargetPath:       targetPath(t),
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1", CSIPodName: "pod1", CSIPodNamespace: "default"},
 			},
 			initObjects: []client.Object{
@@ -165,15 +165,14 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				},
 			},
-			expectedErr:        true,
-			shouldRetryRemount: true,
+			want: codes.Unknown,
 		},
 		{
 			name: "read only is not set to true",
-			nodePublishVolReq: csi.NodePublishVolumeRequest{
+			nodePublishVolReq: &csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
-				TargetPath:       t.TempDir(),
+				TargetPath:       targetPath(t),
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1", CSIPodName: "pod1", CSIPodNamespace: "default"},
 			},
 			initObjects: []client.Object{
@@ -188,17 +187,103 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				},
 			},
-			expectedErr:        true,
-			shouldRetryRemount: true,
+			want: codes.InvalidArgument,
 		},
 		{
-			name: "volume already mounted, no remount",
-			nodePublishVolReq: csi.NodePublishVolumeRequest{
+			name: "provider not installed",
+			nodePublishVolReq: &csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
-				TargetPath:       t.TempDir(),
-				VolumeContext:    map[string]string{"secretProviderClass": "provider1", CSIPodName: "pod1", CSIPodNamespace: "default", CSIPodUID: "poduid1", "providerName": "mock_provider"},
-				Readonly:         true,
+				TargetPath:       targetPath(t),
+				VolumeContext: map[string]string{
+					"secretProviderClass": "provider1",
+					CSIPodName:            "pod1",
+					CSIPodNamespace:       "default",
+					CSIPodUID:             "poduid1",
+				},
+				Readonly: true,
+			},
+			initObjects: []client.Object{
+				&secretsstorev1.SecretProviderClass{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "provider1",
+						Namespace: "default",
+					},
+					Spec: secretsstorev1.SecretProviderClassSpec{
+						Provider:   "provider_not_installed",
+						Parameters: map[string]string{"parameter1": "value1"},
+					},
+				},
+			},
+			want: codes.Unknown,
+		},
+	}
+
+	s := scheme.Scheme
+	s.AddKnownTypes(schema.GroupVersion{Group: secretsstorev1.GroupVersion.Group, Version: secretsstorev1.GroupVersion.Version},
+		&secretsstorev1.SecretProviderClass{},
+		&secretsstorev1.SecretProviderClassList{},
+		&secretsstorev1.SecretProviderClassPodStatus{},
+	)
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			r := mocks.NewFakeReporter()
+
+			ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).WithObjects(test.initObjects...).Build(), r)
+			if err != nil {
+				t.Fatalf("expected error to be nil, got: %+v", err)
+			}
+
+			for attempts := 2; attempts > 0; attempts-- {
+				// How many times 'total_node_publish' and 'total_node_publish_error' counters have been incremented so far.
+				c, cErr := r.ReportNodePublishCtMetricInvoked(), r.ReportNodePublishErrorCtMetricInvoked()
+
+				_, err = ns.NodePublishVolume(context.TODO(), test.nodePublishVolReq)
+				if code := status.Code(err); code != test.want {
+					t.Errorf("expected RPC status code: %v, got: %v\n\n %v", test.want, code, err)
+				}
+
+				// Check that the correct counter has been incremented.
+				if err != nil && r.ReportNodePublishErrorCtMetricInvoked() <= cErr {
+					t.Fatalf("expected 'total_node_publish_error' counter to be incremented, but it was not")
+				}
+				if err == nil && r.ReportNodePublishCtMetricInvoked() <= c {
+					t.Fatalf("expected 'total_node_publish' counter to be incremented, but it was not")
+				}
+
+				// if theres not an error we should check the mount w
+				mnts, err := ns.mounter.List()
+				if err != nil {
+					t.Fatalf("expected err to be nil, got: %v", err)
+				}
+				if len(mnts) != 0 {
+					t.Errorf("NodePublishVolume returned an error, expected mount points to be 0: %v", mnts)
+				}
+			}
+		})
+	}
+}
+
+func TestNodePublishVolume(t *testing.T) {
+	tests := []struct {
+		name              string
+		nodePublishVolReq *csi.NodePublishVolumeRequest
+		initObjects       []client.Object
+	}{
+		{
+			name: "volume mount",
+			nodePublishVolReq: &csi.NodePublishVolumeRequest{
+				VolumeCapability: &csi.VolumeCapability{},
+				VolumeId:         "testvolid1",
+				TargetPath:       targetPath(t),
+				VolumeContext: map[string]string{
+					"secretProviderClass": "provider1",
+					CSIPodName:            "pod1",
+					CSIPodNamespace:       "default",
+					CSIPodUID:             "poduid1",
+				},
+				Readonly: true,
 			},
 			initObjects: []client.Object{
 				&secretsstorev1.SecretProviderClass{
@@ -212,42 +297,36 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				},
 			},
-			mountPoints:        []mount.MountPoint{},
-			expectedErr:        false,
-			shouldRetryRemount: true,
 		},
 		{
-			name: "volume already mounted, refresh token",
-			nodePublishVolReq: csi.NodePublishVolumeRequest{
+			name: "volume mount with refresh token",
+			nodePublishVolReq: &csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
-				TargetPath:       t.TempDir(),
+				TargetPath:       targetPath(t),
 				VolumeContext: map[string]string{
-					"secretProviderClass": "simple_provider",
+					"secretProviderClass": "provider1",
 					CSIPodName:            "pod1",
 					CSIPodNamespace:       "default",
 					CSIPodUID:             "poduid1",
 					// not a real token, just for testing
 					CSIPodServiceAccountTokens: `{"https://kubernetes.default.svc":{"token":"eyJhbGciOiJSUzI1NiIsImtpZCI6IjEyMyJ9.eyJhdWQiOlsiaHR0cHM6Ly9rdWJlcm5ldGVzLmRlZmF1bHQuc3ZjIl0sImV4cCI6MTYxMTk1OTM5NiwiaWF0IjoxNjExOTU4Nzk2LCJpc3MiOiJodHRwczovL2t1YmVybmV0ZXMuZGVmYXVsdC5zdmMiLCJrdWJlcm5ldGVzLmlvIjp7Im5hbWVzcGFjZSI6ImRlZmF1bHQiLCJzZXJ2aWNlYWNjb3VudCI6eyJuYW1lIjoiZGVmYXVsdCIsInVpZCI6IjA5MWUyNTU3LWJkODYtNDhhMC1iZmNmLWI1YTI4ZjRjODAyNCJ9fSwibmJmIjoxNjExOTU4Nzk2LCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6ZGVmYXVsdDpkZWZhdWx0In0.YNU2Z_gEE84DGCt8lh9GuE8gmoof-Pk_7emp3fsyj9pq16DRiDaLtOdprH-njpOYqvtT5Uf_QspFc_RwD_pdq9UJWCeLxFkRTsYR5WSjhMFcl767c4Cwp_oZPYhaHd1x7aU1emH-9oarrM__tr1hSmGoAc2I0gUSkAYFueaTUSy5e5d9QKDfjVljDRc7Yrp6qAAfd1OuDdk1XYIjrqTHk1T1oqGGlcd3lRM_dKSsW5I_YqgKMrjwNt8yOKcdKBrgQhgC42GZbFDRVJDJHs_Hq32xo-2s3PJ8UZ_alN4wv8EbuwB987_FHBTc_XAULHPvp0mCv2C5h0V2A7gzccv30A","expirationTimestamp":"2021-01-29T22:29:56Z"}}`,
-					"providerName":             "simple_provider",
+					"providerName":             "provider1",
 				},
 				Readonly: true,
 			},
 			initObjects: []client.Object{
 				&secretsstorev1.SecretProviderClass{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "simple_provider",
+						Name:      "provider1",
 						Namespace: "default",
 					},
 					Spec: secretsstorev1.SecretProviderClassSpec{
-						Provider:   "simple_provider",
+						Provider:   "provider1",
 						Parameters: map[string]string{"parameter1": "value1"},
 					},
 				},
 			},
-			mountPoints:        []mount.MountPoint{},
-			expectedErr:        false,
-			shouldRetryRemount: true,
 		},
 	}
 
@@ -260,46 +339,23 @@ func TestNodePublishVolume(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if test.nodePublishVolReq.TargetPath != "" {
-				defer os.RemoveAll(test.nodePublishVolReq.TargetPath)
-			}
-			if test.mountPoints != nil {
-				// If file is a symlink, get its absolute path
-				absFile, err := filepath.EvalSymlinks(test.nodePublishVolReq.TargetPath)
-				if err != nil {
-					absFile = test.nodePublishVolReq.TargetPath
-				}
-				test.mountPoints = append(test.mountPoints, mount.MountPoint{Path: absFile})
-			}
 			r := mocks.NewFakeReporter()
 
-			ns, err := testNodeServer(t, test.mountPoints, fake.NewClientBuilder().WithScheme(s).WithObjects(test.initObjects...).Build(), r)
+			ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).WithObjects(test.initObjects...).Build(), r)
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
 
-			numberOfAttempts := 1
-			// to ensure the remount is tried after previous failure and still fails
-			if test.shouldRetryRemount {
-				numberOfAttempts = 2
-			}
-
-			for numberOfAttempts > 0 {
-				// How many times 'total_node_publish' and 'total_node_publish_error' counters have been incremented so far
+			for attempts := 2; attempts > 0; attempts-- {
+				// How many times 'total_node_publish' and 'total_node_publish_error' counters have been incremented so far.
 				c, cErr := r.ReportNodePublishCtMetricInvoked(), r.ReportNodePublishErrorCtMetricInvoked()
 
-				_, err = ns.NodePublishVolume(context.TODO(), &test.nodePublishVolReq)
-				if test.expectedErr && err == nil || !test.expectedErr && err != nil {
-					t.Fatalf("expected err: %v, got: %+v", test.expectedErr, err)
+				_, err = ns.NodePublishVolume(context.TODO(), test.nodePublishVolReq)
+				if code := status.Code(err); code != codes.OK {
+					t.Errorf("expected RPC status code: %v, got: %v\n", codes.OK, err)
 				}
 
-				// For the error cases where it is expected that the error will contain an RPC code
-				gRPCStatus, ok := status.FromError(err)
-				if test.wantsRPCCode && (!ok || test.RPCCode != gRPCStatus.Code()) {
-					t.Fatalf("expected RPC status code: %v, got: %v\n", test.RPCCode, gRPCStatus.Code())
-				}
-
-				// Check that the correct counter has been incremented
+				// Check that the correct counter has been incremented.
 				if err != nil && r.ReportNodePublishErrorCtMetricInvoked() <= cErr {
 					t.Fatalf("expected 'total_node_publish_error' counter to be incremented, but it was not")
 				}
@@ -307,150 +363,96 @@ func TestNodePublishVolume(t *testing.T) {
 					t.Fatalf("expected 'total_node_publish' counter to be incremented, but it was not")
 				}
 
+				// if theres not an error we should check the mount w
 				mnts, err := ns.mounter.List()
 				if err != nil {
 					t.Fatalf("expected err to be nil, got: %v", err)
 				}
-				if test.expectedErr && len(test.mountPoints) == 0 && len(mnts) != 0 {
-					t.Fatalf("expected mount points to be 0")
+				if len(mnts) == 0 {
+					t.Errorf("expected mounts...: %v", mnts)
 				}
-				numberOfAttempts--
-			}
-		})
-	}
-}
-
-func TestNodePublishVolume_ProviderError(t *testing.T) {
-	s := scheme.Scheme
-	s.AddKnownTypes(schema.GroupVersion{Group: secretsstorev1.GroupVersion.Group, Version: secretsstorev1.GroupVersion.Version},
-		&secretsstorev1.SecretProviderClass{},
-		&secretsstorev1.SecretProviderClassList{},
-		&secretsstorev1.SecretProviderClassPodStatus{},
-	)
-
-	initObjects := []client.Object{
-		&secretsstorev1.SecretProviderClass{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "simple_provider",
-				Namespace: "default",
-			},
-			Spec: secretsstorev1.SecretProviderClassSpec{
-				Provider:   "simple_provider",
-				Parameters: map[string]string{"parameter1": "value1"},
-			},
-		},
-	}
-
-	r := mocks.NewFakeReporter()
-	ns, err := testNodeServer(t, []mount.MountPoint{}, fake.NewClientBuilder().WithScheme(s).WithObjects(initObjects...).Build(), r)
-	if err != nil {
-		t.Fatalf("expected error to be nil, got: %+v", err)
-	}
-
-	nodePublishVolReq := csi.NodePublishVolumeRequest{
-		VolumeCapability: &csi.VolumeCapability{},
-		VolumeId:         "testvolid1",
-		TargetPath:       t.TempDir(),
-		VolumeContext: map[string]string{
-			"secretProviderClass": "simple_provider",
-			CSIPodName:            "pod1",
-			CSIPodNamespace:       "default",
-			CSIPodUID:             "poduid1",
-			// not a real token, just for testing
-			CSIPodServiceAccountTokens: `{"https://kubernetes.default.svc":{"token":"eyJhbGciOiJSUzI1NiIsImtpZCI6IjEyMyJ9.eyJhdWQiOlsiaHR0cHM6Ly9rdWJlcm5ldGVzLmRlZmF1bHQuc3ZjIl0sImV4cCI6MTYxMTk1OTM5NiwiaWF0IjoxNjExOTU4Nzk2LCJpc3MiOiJodHRwczovL2t1YmVybmV0ZXMuZGVmYXVsdC5zdmMiLCJrdWJlcm5ldGVzLmlvIjp7Im5hbWVzcGFjZSI6ImRlZmF1bHQiLCJzZXJ2aWNlYWNjb3VudCI6eyJuYW1lIjoiZGVmYXVsdCIsInVpZCI6IjA5MWUyNTU3LWJkODYtNDhhMC1iZmNmLWI1YTI4ZjRjODAyNCJ9fSwibmJmIjoxNjExOTU4Nzk2LCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6ZGVmYXVsdDpkZWZhdWx0In0.YNU2Z_gEE84DGCt8lh9GuE8gmoof-Pk_7emp3fsyj9pq16DRiDaLtOdprH-njpOYqvtT5Uf_QspFc_RwD_pdq9UJWCeLxFkRTsYR5WSjhMFcl767c4Cwp_oZPYhaHd1x7aU1emH-9oarrM__tr1hSmGoAc2I0gUSkAYFueaTUSy5e5d9QKDfjVljDRc7Yrp6qAAfd1OuDdk1XYIjrqTHk1T1oqGGlcd3lRM_dKSsW5I_YqgKMrjwNt8yOKcdKBrgQhgC42GZbFDRVJDJHs_Hq32xo-2s3PJ8UZ_alN4wv8EbuwB987_FHBTc_XAULHPvp0mCv2C5h0V2A7gzccv30A","expirationTimestamp":"2021-01-29T22:29:56Z"}}`,
-			"providerName":             "simple_provider",
-		},
-		Readonly: true,
-	}
-
-	_, err = ns.NodePublishVolume(context.TODO(), &nodePublishVolReq)
-	if err == nil {
-		t.Fatalf("NodePublishVolume() expected error, got nil")
-	}
-}
-
-func TestMountSecretsStoreObjectContent(t *testing.T) {
-	tests := []struct {
-		name                string
-		attributes          string
-		secrets             string
-		targetPath          string
-		permission          string
-		expectedErrorReason string
-		expectedErr         bool
-	}{
-		{
-			name:        "attributes empty",
-			expectedErr: true,
-		},
-		{
-			name:        "target path empty",
-			attributes:  "{}",
-			expectedErr: true,
-		},
-		{
-			name:        "permission not set",
-			attributes:  "{}",
-			targetPath:  t.TempDir(),
-			expectedErr: true,
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			ns, err := testNodeServer(t, nil, fake.NewClientBuilder().Build(), mocks.NewFakeReporter())
-			if err != nil {
-				t.Fatalf("expected error to be nil, got: %+v", err)
-			}
-			_, errorReason, err := ns.mountSecretsStoreObjectContent(context.TODO(), "provider1", test.attributes, test.secrets, test.targetPath, test.permission, "pod")
-			if errorReason != test.expectedErrorReason {
-				t.Fatalf("expected error reason to be %s, got: %s", test.expectedErrorReason, errorReason)
-			}
-			if test.expectedErr && err == nil || !test.expectedErr && err != nil {
-				t.Fatalf("expected err: %v, got: %+v", test.expectedErr, err)
 			}
 		})
 	}
 }
 
 func TestNodeUnpublishVolume(t *testing.T) {
+	s := scheme.Scheme
+	s.AddKnownTypes(schema.GroupVersion{Group: secretsstorev1.GroupVersion.Group, Version: secretsstorev1.GroupVersion.Version},
+		&secretsstorev1.SecretProviderClass{},
+		&secretsstorev1.SecretProviderClassList{},
+	)
+
+	r := mocks.NewFakeReporter()
+	ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).Build(), r)
+	if err != nil {
+		t.Fatalf("expected error to be nil, got: %+v", err)
+	}
+
+	req := &csi.NodeUnpublishVolumeRequest{
+		VolumeId:   "testvolid1",
+		TargetPath: targetPath(t),
+	}
+
+	// Create the fake mount first so that it can be unmounted.
+	if err := ns.mounter.Mount("tmpfs", req.TargetPath, "tmpfs", []string{}); err != nil {
+		t.Fatalf("unable to mount: %v", err)
+	}
+
+	// Add a file to the mount.
+	if err := os.WriteFile(filepath.Join(req.TargetPath, "testfile.txt"), []byte("test"), 0600); err != nil {
+		t.Fatalf("unable to add file to targetpath: %v", err)
+	}
+
+	// Repeat the request multiple times to ensure it consistently returns OK,
+	// even if it has already been unmounted.
+	for attempts := 2; attempts > 0; attempts-- {
+		// How many times 'total_node_unpublish' and 'total_node_unpublish_error' counters have been incremented so far
+		c, cErr := r.ReportNodeUnPublishCtMetricInvoked(), r.ReportNodeUnPublishErrorCtMetricInvoked()
+
+		_, err := ns.NodeUnpublishVolume(context.TODO(), req)
+		if code := status.Code(err); code != codes.OK {
+			t.Errorf("expected RPC status code: %v, got: %v\n", codes.OK, err)
+		}
+
+		// Check that the correct counter has been incremented
+		if err != nil && r.ReportNodeUnPublishErrorCtMetricInvoked() <= cErr {
+			t.Fatalf("expected 'total_node_unpublish_error' counter to be incremented, but it was not")
+		}
+		if err == nil && r.ReportNodeUnPublishCtMetricInvoked() <= c {
+			t.Fatalf("expected 'total_node_unpublish' counter to be incremented, but it was not")
+		}
+
+		// Ensure that the mounts were unmounted.
+		mnts, err := ns.mounter.List()
+		if err != nil {
+			t.Fatalf("expected err to be nil, got: %v", err)
+		}
+		if len(mnts) != 0 {
+			t.Errorf("NodeUnpublishVolume returned an error, expected mount points to be 0: %v", mnts)
+		}
+	}
+}
+
+func TestNodeUnpublishVolume_Error(t *testing.T) {
 	tests := []struct {
 		name                string
-		nodeUnpublishVolReq csi.NodeUnpublishVolumeRequest
-		mountPoints         []mount.MountPoint
-		RPCCode             codes.Code
-		wantsErr            bool
-		wantsRPCCode        bool
-		shouldRetryUnmount  bool
+		nodeUnpublishVolReq *csi.NodeUnpublishVolumeRequest
+		want                codes.Code
 	}{
 		{
 			name: "Failure: volume id is empty",
-			nodeUnpublishVolReq: csi.NodeUnpublishVolumeRequest{
-				VolumeId: "testvolid1",
+			nodeUnpublishVolReq: &csi.NodeUnpublishVolumeRequest{
+				TargetPath: targetPath(t),
 			},
-			wantsErr:           true,
-			wantsRPCCode:       true,
-			RPCCode:            codes.InvalidArgument,
-			shouldRetryUnmount: true,
+			want: codes.InvalidArgument,
 		},
 		{
 			name: "Failure: target path is empty",
-			nodeUnpublishVolReq: csi.NodeUnpublishVolumeRequest{
+			nodeUnpublishVolReq: &csi.NodeUnpublishVolumeRequest{
 				VolumeId: "testvolid1",
 			},
-			wantsErr:           true,
-			wantsRPCCode:       true,
-			RPCCode:            codes.InvalidArgument,
-			shouldRetryUnmount: true,
-		},
-		{
-			name: "Success for a mounted volume with a retry",
-			nodeUnpublishVolReq: csi.NodeUnpublishVolumeRequest{
-				VolumeId:   "testvolid1",
-				TargetPath: t.TempDir(),
-			},
-			mountPoints:        []mount.MountPoint{},
-			shouldRetryUnmount: true,
+			want: codes.InvalidArgument,
 		},
 	}
 	s := scheme.Scheme
@@ -460,43 +462,19 @@ func TestNodeUnpublishVolume(t *testing.T) {
 	)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if test.nodeUnpublishVolReq.TargetPath != "" {
-				defer os.RemoveAll(test.nodeUnpublishVolReq.TargetPath)
-			}
-			if test.mountPoints != nil {
-				// If file is a symlink, get its absolute path
-				absFile, err := filepath.EvalSymlinks(test.nodeUnpublishVolReq.TargetPath)
-				if err != nil {
-					absFile = test.nodeUnpublishVolReq.TargetPath
-				}
-				test.mountPoints = append(test.mountPoints, mount.MountPoint{Path: absFile})
-			}
-
 			r := mocks.NewFakeReporter()
-			ns, err := testNodeServer(t, test.mountPoints, fake.NewClientBuilder().WithScheme(s).Build(), r)
+			ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).Build(), r)
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
 
-			numberOfAttempts := 1
-			// to ensure the remount is tried after previous failure and still fails
-			if test.shouldRetryUnmount {
-				numberOfAttempts = 2
-			}
-
-			for numberOfAttempts > 0 {
+			for attempts := 2; attempts > 0; attempts-- {
 				// How many times 'total_node_unpublish' and 'total_node_unpublish_error' counters have been incremented so far
 				c, cErr := r.ReportNodeUnPublishCtMetricInvoked(), r.ReportNodeUnPublishErrorCtMetricInvoked()
 
-				_, err := ns.NodeUnpublishVolume(context.TODO(), &test.nodeUnpublishVolReq)
-				if test.wantsErr && err == nil || !test.wantsErr && err != nil {
-					t.Fatalf("expected err: %v, got: %+v", test.wantsErr, err)
-				}
-
-				// For the error cases where it is expected that the error will contain an RPC code
-				gRPCStatus, ok := status.FromError(err)
-				if test.wantsRPCCode && (!ok || test.RPCCode != gRPCStatus.Code()) {
-					t.Fatalf("expected RPC status code: %v, got: %v\n", test.RPCCode, gRPCStatus.Code())
+				_, err := ns.NodeUnpublishVolume(context.TODO(), test.nodeUnpublishVolReq)
+				if code := status.Code(err); code != test.want {
+					t.Errorf("expected RPC status code: %v, got: %v\n", test.want, code)
 				}
 
 				// Check that the correct counter has been incremented
@@ -506,9 +484,18 @@ func TestNodeUnpublishVolume(t *testing.T) {
 				if err == nil && r.ReportNodeUnPublishCtMetricInvoked() <= c {
 					t.Fatalf("expected 'total_node_unpublish' counter to be incremented, but it was not")
 				}
-
-				numberOfAttempts--
 			}
 		})
 	}
+}
+
+// targetPath returns a tmp file path that looks like a valid target path.
+func targetPath(t *testing.T) string {
+	uid := "fake-uid"
+	vol := "spc-volume"
+	path := filepath.Join(t.TempDir(), "pods", uid, "volumes", "kubernetes.io~csi", vol, "mount")
+	if err := os.MkdirAll(path, 0755); err != nil {
+		t.Fatalf("expected err to be nil, got: %+v", err)
+	}
+	return path
 }
