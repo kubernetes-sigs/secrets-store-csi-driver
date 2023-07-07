@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG BASEIMAGE=registry.k8s.io/build-image/debian-base:bullseye-v1.4.3
+ARG BASEIMAGE=registry.k8s.io/build-image/debian-base:bookworm-v1.0.0
 
 FROM golang:1.20@sha256:31a8f92b17829b3ccddf0add184f18203acfd79ccc1bcb5c43803ab1c4836cca as builder
 WORKDIR /go/src/sigs.k8s.io/secrets-store-csi-driver
