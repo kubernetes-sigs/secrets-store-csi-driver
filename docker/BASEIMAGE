@@ -1,4 +1,4 @@
-linux/amd64=registry.k8s.io/build-image/debian-base:bullseye-v1.4.3
-linux/arm64=registry.k8s.io/build-image/debian-base:bullseye-v1.4.3
+linux/amd64=registry.k8s.io/build-image/debian-base:bookworm-v1.0.0
+linux/arm64=registry.k8s.io/build-image/debian-base:bookworm-v1.0.0
 windows/amd64/1809=mcr.microsoft.com/windows/nanoserver:1809
 windows/amd64/ltsc2022=mcr.microsoft.com/windows/nanoserver:ltsc2022
