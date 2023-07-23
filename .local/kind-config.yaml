@@ -7,5 +7,5 @@ nodes:
     hostPort: 30123 # port on your host machine to communicate with the delve server
     protocol: TCP
   extraMounts:
-    - hostPath: # /path/to/your/driver/secrets-store-csi-driver/codebase/on/host
+    - hostPath: # /path/to/your/secrets-store-csi-driver/codebase/on/host
       containerPath: /secrets-store-csi-driver-codebase # path to the project folder inside cluster
