@@ -42,4 +42,4 @@ See [design doc](https://docs.google.com/document/d/10-RHUJGM0oMN88AZNxjOmGz0NsW
 | Sync as Kubernetes secret | Yes   | Yes | Yes | Yes   |
 | Rotation                  | Yes   | Yes | Yes | Yes   |
 | Windows                   | Yes   | No  | No  | No    |
-| Helm Chart                | Yes   | No  | No  | Yes   |
+| Helm Chart                | Yes   | No  | Yes  | Yes   |
