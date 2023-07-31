@@ -41,12 +41,7 @@ kind load docker-image debug-driver:latest
 ### Deploy resources for debugging
 - Deploy following Driver resources:
 ```sh
-kubectl apply -f deploy/rbac-secretproviderclass.yaml
-kubectl apply -f deploy/csidriver.yaml
-kubectl apply -f deploy/secrets-store.csi.x-k8s.io_secretproviderclasses.yaml
-kubectl apply -f deploy/secrets-store.csi.x-k8s.io_secretproviderclasspodstatuses.yaml
-kubectl apply -f deploy/rbac-secretprovidersyncing.yaml
-kubectl apply -f deploy/rbac-secretproviderrotation.yaml
+kubectl apply -f deploy/
 ```
 
 - Deploy [provider](https://secrets-store-csi-driver.sigs.k8s.io/getting-started/installation.html#use-the-secrets-store-csi-driver-with-a-provider).
