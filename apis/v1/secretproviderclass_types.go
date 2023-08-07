@@ -55,18 +55,8 @@ type SecretProviderClassSpec struct {
 	SecretObjects []*SecretObject   `json:"secretObjects,omitempty"`
 }
 
-// ByPodStatus defines the state of SecretProviderClass as seen by
-// an individual controller
-type ByPodStatus struct {
-	// id of the pod that wrote the status
-	ID string `json:"id,omitempty"`
-	// namespace of the pod that wrote the status
-	Namespace string `json:"namespace,omitempty"`
-}
-
 // SecretProviderClassStatus defines the observed state of SecretProviderClass
 type SecretProviderClassStatus struct {
-	ByPod []*ByPodStatus `json:"byPod,omitempty"`
 }
 
 // +kubebuilder:object:root=true
