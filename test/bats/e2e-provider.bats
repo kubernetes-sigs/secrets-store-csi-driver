@@ -80,6 +80,9 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   run kubectl get clusterrole/secretproviderclasses-viewer-role
   assert_success
 
+  run kubectl get clusterrole/secretproviderclasspodstatuses-viewer-role
+  assert_success
+
   run kubectl get clusterrole/secretproviderrotation-role
   assert_success
 
