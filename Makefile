@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 GOPATH  := $(shell go env GOPATH)
 GOARCH  := $(shell go env GOARCH)
 GOOS    := $(shell go env GOOS)
