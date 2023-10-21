@@ -24,13 +24,13 @@ import (
 
 // SPCVolume finds the Secret Provider Class volume from a Pod, or returns nil
 // if a volume could not be found.
-func SPCVolume(pod *corev1.Pod, spcName string) *corev1.Volume {
+func SPCVolume(pod *corev1.Pod, driverName, spcName string) *corev1.Volume {
 	for idx := range pod.Spec.Volumes {
 		vol := &pod.Spec.Volumes[idx]
 		if vol.CSI == nil {
 			continue
 		}
-		if vol.CSI.Driver != "secrets-store.csi.k8s.io" {
+		if vol.CSI.Driver != driverName {
 			continue
 		}
 		if vol.CSI.VolumeAttributes["secretProviderClass"] != spcName {
