@@ -20,55 +20,62 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // SecretObjectData defines the desired state of synchronized data within a Kubernetes secret object.
 type SecretObjectData struct {
-	// ObjectName is the name of the secret defined in the secret store. It must be either the secret name or
-	// the secret alias defined in the Secret Provider Class. This field is required.
+	// ObjectName is the name (or the alias) of the secret defined in the Secret Provider Class.
+	// +kubebuilder:validation:Required
 	ObjectName string `json:"objectName"`
 
-	// ObjectDataFieldKey is the key in the Kubernetes secret's data field map. This field is required.
-	ObjectDataFieldKey string `json:"objectDataKey"`
+	// SecretDataKey is the key in the Kubernetes secret's data field as described in the Kubernetes API reference:
+	// https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/secret-v1/
+	// +kubebuilder:validation:Required
+	SecretDataKey string `json:"secretDataKey"`
 }
 
 // SecretObject defines the desired state of synchronized Kubernetes secret objects.
 type SecretObject struct {
 	// Type specifies the type of the Kubernetes secret object, e.g., Opaque.
-	// This field is required.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum="Opaque";"kubernetes.io/basic-auth";"kubernetes.io/ssh-auth";"kubernetes.io/tls"
 	Type string `json:"type"`
 
 	// Data is a slice of SecretObjectData containing the object name (or alias) and the corresponding data field key
-	// used in the Kubernetes secret object. This field is required.
+	// used in the Kubernetes secret object.
+	// +kubebuilder:validation:Required
 	Data []SecretObjectData `json:"data"`
 
 	// Labels contains key-value pairs representing labels associated with the Kubernetes secret object.
 	// +optional
+	// +kubebuilder:default:={created-by:secrets-store.sync.x-k8s.io}
 	Labels map[string]string `json:"labels,omitempty"`
 
 	// Annotations contains key-value pairs representing annotations associated with the Kubernetes secret object.
 	// +optional
+	// +kubebuilder:default:={created-by:secrets-store.sync.x-k8s.io}
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // SecretStoreSyncSpec defines the desired state for synchronizing secret.
 type SecretStoreSyncSpec struct {
 	// SecretProviderClassName specifies the name of the secret provider class used to pass information to
-	// access the secret store. This field is required.
+	// access the secret store.
+	// +kubebuilder:validation:Required
 	SecretProviderClassName string `json:"secretProviderClassName"`
 
 	// ServiceAccountName specifies the name of the service account used to access the secret store.
-	// This field is required.
+	// +kubebuilder:validation:Required
 	ServiceAccountName string `json:"serviceAccountName"`
 
 	// SecretObject specifies the configuration for the synchronized Kubernetes secret object.
-	// This field is required.
+	// +kubebuilder:validation:Required
 	SecretObject SecretObject `json:"secretObject"`
 
-	// ForceSynchronization, if set to true, forces the controller to synchronize the secret.
+	// ForceSynchronization can be used to force the secret synchronization of the operand by providing a string.
+	// This provides a mechanism to kick a secret synchronization, for example if the secret was tempered with at
+	// the cluster level and there's a mismatch between the value stored in the cluster and the value stored
+	// in the cloud.
 	// +optional
-	ForceSynchronization bool `json:"forceSynchronization,omitempty"`
+	ForceSynchronization string `json:"forceSynchronization,omitempty"`
 }
 
 // SecretStoreSyncStatus defines the observed state of the secret synchronization process.
