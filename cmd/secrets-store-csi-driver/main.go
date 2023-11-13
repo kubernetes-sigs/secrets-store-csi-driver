@@ -168,7 +168,7 @@ func mainErr() error {
 		return err
 	}
 
-	reconciler, err := controllers.New(mgr, *nodeID)
+	reconciler, err := controllers.New(*driverName, mgr, *nodeID)
 	if err != nil {
 		klog.ErrorS(err, "failed to create secret provider class pod status reconciler")
 		return err
@@ -217,7 +217,7 @@ func mainErr() error {
 
 	// Secret rotation
 	if *enableSecretRotation {
-		rec, err := rotation.NewReconciler(mgr.GetCache(), scheme, *rotationPollInterval, providerClients, tokenClient)
+		rec, err := rotation.NewReconciler(*driverName, mgr.GetCache(), scheme, *rotationPollInterval, providerClients, tokenClient)
 		if err != nil {
 			klog.ErrorS(err, "failed to initialize rotation reconciler")
 			return err

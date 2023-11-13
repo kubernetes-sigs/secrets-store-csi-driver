@@ -64,10 +64,11 @@ type SecretProviderClassPodStatusReconciler struct {
 	reader        client.Reader
 	writer        client.Writer
 	eventRecorder record.EventRecorder
+	driverName    string
 }
 
 // New creates a new SecretProviderClassPodStatusReconciler
-func New(mgr manager.Manager, nodeID string) (*SecretProviderClassPodStatusReconciler, error) {
+func New(driverName string, mgr manager.Manager, nodeID string) (*SecretProviderClassPodStatusReconciler, error) {
 	eventBroadcaster := record.NewBroadcaster()
 	kubeClient := kubernetes.NewForConfigOrDie(mgr.GetConfig())
 	eventBroadcaster.StartRecordingToSink(&clientcorev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
@@ -81,6 +82,7 @@ func New(mgr manager.Manager, nodeID string) (*SecretProviderClassPodStatusRecon
 		reader:        mgr.GetCache(),
 		writer:        mgr.GetClient(),
 		eventRecorder: recorder,
+		driverName:    driverName,
 	}, nil
 }
 
@@ -265,7 +267,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 	}
 
 	// determine which pod volume this is associated with
-	podVol := k8sutil.SPCVolume(pod, spc.Name)
+	podVol := k8sutil.SPCVolume(pod, r.driverName, spc.Name)
 	if podVol == nil {
 		return ctrl.Result{}, fmt.Errorf("failed to find secret provider class pod status volume for pod %s/%s", req.Namespace, spcPodStatus.Status.PodName)
 	}

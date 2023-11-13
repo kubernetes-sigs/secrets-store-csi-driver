@@ -159,7 +159,7 @@ func TestSPCVolume(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := SPCVolume(tc.pod, tc.spcName)
+			got := SPCVolume(tc.pod, "secrets-store.csi.k8s.io", tc.spcName)
 			if diff := cmp.Diff(tc.want, got); diff != "" {
 				t.Errorf("SPCVolume() mismatch (-want +got):\n%s", diff)
 			}
