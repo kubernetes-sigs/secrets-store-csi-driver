@@ -80,6 +80,8 @@ type Reconciler struct {
 	// secretStore stores Secret (filtered on secrets-store.csi.k8s.io/used=true)
 	secretStore k8s.Store
 	tokenClient *k8s.TokenClient
+
+	driverName string
 }
 
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
@@ -87,7 +89,8 @@ type Reconciler struct {
 // TODO (aramase) remove this as part of https://github.com/kubernetes-sigs/secrets-store-csi-driver/issues/585
 
 // NewReconciler returns a new reconciler for rotation
-func NewReconciler(client client.Reader,
+func NewReconciler(driverName string,
+	client client.Reader,
 	s *runtime.Scheme,
 	rotationPollInterval time.Duration,
 	providerClients *secretsstore.PluginClientBuilder,
@@ -123,6 +126,8 @@ func NewReconciler(client client.Reader,
 		cache:       client,
 		secretStore: secretStore,
 		tokenClient: tokenClient,
+
+		driverName: driverName,
 	}, nil
 }
 
@@ -295,7 +300,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	}
 
 	// determine which pod volume this is associated with
-	podVol := k8sutil.SPCVolume(pod, spc.Name)
+	podVol := k8sutil.SPCVolume(pod, r.driverName, spc.Name)
 	if podVol == nil {
 		errorReason = internalerrors.PodVolumeNotFound
 		return fmt.Errorf("could not find secret provider class pod status volume for pod %s/%s", pod.Namespace, pod.Name)

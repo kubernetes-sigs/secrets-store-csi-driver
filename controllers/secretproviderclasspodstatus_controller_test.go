@@ -117,6 +117,7 @@ func newReconciler(client client.Client, scheme *runtime.Scheme, nodeID string) 
 		eventRecorder: fakeRecorder,
 		mutex:         &sync.Mutex{},
 		nodeID:        nodeID,
+		driverName:    "secrets-store.csi.k8s.io",
 	}
 }
 
