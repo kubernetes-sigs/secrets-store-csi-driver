@@ -81,6 +81,12 @@ type SecretStoreSyncSpec struct {
 // SecretStoreSyncStatus defines the observed state of the secret synchronization process.
 type SecretStoreSyncStatus struct {
 	// SecretObjectHash contains the hash of the secret object data, used to determine if the data has changed.
+	// 1. If the hash is different, the secret will be updated.
+	// 2. If the hash is the same, and the LastRetrievedTimestamp is older than the current time minus the
+	//    rotationPollInterval, the secret will be updated. This is to ensure that the secret is updated if
+	//    there are collisions in the hash function.
+	// The hash is calculated using the HMAC (Hash-based Message Authentication Code) algorithm with the
+	// Pod's UID as the key. If the Pod is restarted, the hash will change and the secret will be updated.
 	// +optional
 	SecretDataObjectHash string `json:"secretDataObjectHash,omitempty"`
 
