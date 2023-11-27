@@ -3,7 +3,7 @@ Secrets Store Sync Controller for Kubernetes secrets - Synchronizes secrets as K
 ## Getting Started
 1. The controller can be deployed as a deployment.  
 1. The provider must be deployed as a container in the same pod as the controller. 
-1. The controller will watch for changes to the SecretStoreSync objects and will sync the secrets to Kubernetes secrets.
+1. The controller watches for changes to the SecretStoreSync and SecretProviderClass objects and synchronizes the secrets defined in the SecretStoreSync as Kubernetes secrets.
 1. The arguments passed to the controller are: 
     1. provider-volume - The volume name used to communicate with the provider. 
     1. token-request-audience - Token requests audience for the controller. This is similar to the configuration required for the CSI Driver. Refer to [doc](https://kubernetes-csi.github.io/docs/token-requests.html) for more information.
