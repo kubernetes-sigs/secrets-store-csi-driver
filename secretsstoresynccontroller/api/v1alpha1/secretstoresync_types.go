@@ -22,7 +22,7 @@ import (
 
 // SecretObjectData defines the desired state of synchronized data within a Kubernetes secret object.
 type SecretObjectData struct {
-	// SecretDataValueSource is the name (or the alias) of the secret defined in the Secret Provider Class.
+	// SecretDataValueSource is the data source value of the secret defined in the Secret Provider Class.
 	// +kubebuilder:validation:Required
 	SecretDataValueSource string `json:"secretDataValueSource"`
 
@@ -40,8 +40,8 @@ type SecretObject struct {
 	// +kubebuilder:validation:Enum="Opaque";"kubernetes.io/basic-auth";"kubernetes.io/ssh-auth";"kubernetes.io/tls"
 	Type string `json:"type"`
 
-	// Data is a slice of SecretObjectData containing the object name (or alias) and the corresponding data field key
-	// used in the Kubernetes secret object.
+	// Data is a slice of SecretObjectData containing secret data source from the Secret Provider Class and the
+	// corresponding data field key used in the Kubernetes secret object.
 	// +kubebuilder:validation:Required
 	Data []SecretObjectData `json:"data"`
 
