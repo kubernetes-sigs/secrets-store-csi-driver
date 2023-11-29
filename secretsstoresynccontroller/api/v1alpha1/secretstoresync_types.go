@@ -48,7 +48,7 @@ type SecretObject struct {
 	// Labels contains key-value pairs representing labels associated with the Kubernetes secret object.
 	// The labels are used to identify the secret object.
 	// On secret creation, the following label is added: created-by:secrets-store.sync.x-k8s.io.
-	// Creation fails if the label is specified in the SecretsStore object with a different value.
+	// Creation fails if the label is specified in the SecretSync object with a different value.
 	// On secret update, if the validation admission policy is set, the controller will check if the label
 	// created-by:secrets-store.sync.x-k8s.io is present. If the label is not present, controller fails to
 	// update the secret.
