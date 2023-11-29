@@ -80,7 +80,7 @@ type SecretStoreSyncSpec struct {
 	SecretObject SecretObject `json:"secretObject"`
 
 	// ForceSynchronization can be used to force the secret synchronization of the operand by providing a string.
-	// This provides a mechanism to kick a secret synchronization, for example if the secret hash is the same and
+	// This provides a mechanism to trigger a secret synchronization, for example if the secret hash is the same and
 	// the user requires a secret update. The string is not used for any other purpose than to trigger a secret
 	// synchronization.
 	// This field is not used to resolve synchronization conflicts.
