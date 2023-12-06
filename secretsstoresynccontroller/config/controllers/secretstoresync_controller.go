@@ -23,31 +23,31 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	//secretstoresyncv1alpha1 "github.com/secrets-store-sync/api/v1alpha1"
+	//secretsyncsv1alpha1 "github.com/secrets-store-sync/api/v1alpha1"
 )
 
-// SecretStoreSyncReconciler reconciles a SecretStoreSync object
-type SecretStoreSyncReconciler struct {
+// SecretSyncReconciler reconciles a SecretSync object
+type SecretSyncReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=secretstoresync.secret-store-sync.x-k8s.io,resources=secretstoresync,verbs=get;list;watch
-//+kubebuilder:rbac:groups=secretstoresync.secret-store-sync.x-k8s.io,resources=secretstoresync/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=secrets-store.sync.x-k8s.io,resources=secretsyncs,verbs=get;list;watch
+//+kubebuilder:rbac:groups=secrets-store.sync.x-k8s.io,resources=secretsyncs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=create;patch
 //+kubebuilder:rbac:groups="",resources="serviceaccounts/token",verbs=create
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 //+kubebuilder:rbac:groups=secrets-store.csi.x-k8s.io,resources=secretproviderclasses,verbs=get;list;watch
 
-func (r *SecretStoreSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *SecretSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *SecretStoreSyncReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *SecretSyncReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		//For(&secretstoresyncv1alpha1.SecretStoreSync{}).
+		//For(&secretsyncsv1alpha1.SecretSync{}).
 		Complete(r)
 }
