@@ -35,9 +35,9 @@ type SecretObjectData struct {
 // SecretObject defines the desired state of synchronized Kubernetes secret objects.
 type SecretObject struct {
 	// Type specifies the type of the Kubernetes secret object, e.g., Opaque. The controller doesn't have permissions
-	// to create a secret object with other types than the ones specified in the Enum.
+	// to create a secret object with other types than the ones specified in the helm chart:
+	// e.g. "Opaque";"kubernetes.io/basic-auth";"kubernetes.io/ssh-auth";"kubernetes.io/tls"
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum="Opaque";"kubernetes.io/basic-auth";"kubernetes.io/ssh-auth";"kubernetes.io/tls"
 	Type string `json:"type"`
 
 	// Data is a slice of SecretObjectData containing secret data source from the Secret Provider Class and the
@@ -47,25 +47,28 @@ type SecretObject struct {
 
 	// Labels contains key-value pairs representing labels associated with the Kubernetes secret object.
 	// The labels are used to identify the secret object.
-	// On secret creation, the following label is added: created-by:secrets-store.sync.x-k8s.io.
+	// On secret creation, the following label is added: secrets-store.sync.x-k8s.io/secretsync=<secret-sync-name>.
 	// Creation fails if the label is specified in the SecretSync object with a different value.
 	// On secret update, if the validation admission policy is set, the controller will check if the label
-	// created-by:secrets-store.sync.x-k8s.io is present. If the label is not present, controller fails to
-	// update the secret.
+	// secrets-store.sync.x-k8s.io/secretsync=<secret-sync-name> is present. If the label is not present,
+	// controller fails to update the secret.
 	// +optional
-	// +kubebuilder:default:={created-by:secrets-store.sync.x-k8s.io}
 	Labels map[string]string `json:"labels,omitempty"`
 
 	// Annotations contains key-value pairs representing annotations associated with the Kubernetes secret object.
-	// On secret creation, the following annotation is added: created-by:secrets-store.sync.x-k8s.io.
-	// Creation fails if the label is specified in the SecretsStore object with a different value.
+	// The following annotation prefix is reserved: secrets-store.sync.x-k8s.io/.
+	// Creation fails if the annotation is specified in the SecretsStore object by the user.
 	// +optional
-	// +kubebuilder:default:={created-by:secrets-store.sync.x-k8s.io}
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
-// SecretStoreSyncSpec defines the desired state for synchronizing secret.
-type SecretStoreSyncSpec struct {
+// SecretSyncSpec defines the desired state for synchronizing secret.
+type SecretSyncSpec struct {
+	// SecretSyncControllerName specifies the name of the secret sync controller used to synchronize
+	// the secret.
+	// +kubebuilder:default:=""
+	SecretSyncControllerName string `json:"secretSyncControllerName"`
+
 	// SecretProviderClassName specifies the name of the secret provider class used to pass information to
 	// access the secret store.
 	// +kubebuilder:validation:Required
@@ -79,7 +82,7 @@ type SecretStoreSyncSpec struct {
 	// +kubebuilder:validation:Required
 	SecretObject SecretObject `json:"secretObject"`
 
-	// ForceSynchronization can be used to force the secret synchronization of the operand by providing a string.
+	// ForceSynchronization can be used to force the secret synchronization.
 	// This provides a mechanism to trigger a secret synchronization, for example if the secret hash is the same and
 	// the user requires a secret update. The string is not used for any other purpose than to trigger a secret
 	// synchronization.
@@ -90,18 +93,19 @@ type SecretStoreSyncSpec struct {
 	ForceSynchronization string `json:"forceSynchronization,omitempty"`
 }
 
-// SecretStoreSyncStatus defines the observed state of the secret synchronization process.
-type SecretStoreSyncStatus struct {
-	// SecretObjectHash contains the hash of the secret object data, data from the SecretProviderClass, and
-	// data from the SecretStoreSync. This hash is used to determine if the secret changed.
-	// The hash is calculated using the HMAC (Hash-based Message Authentication Code) algorithm with the
-	// SecretsStoreSync's UID as the key.
+// SecretSyncStatus defines the observed state of the secret synchronization process.
+type SecretSyncStatus struct {
+	// SecretObjectHash contains the hash of the secret object data, data from the SecretProviderClass (e.g. UID,
+	// apiversion, name, namespace, parameters), and similar data from the SecretSync. This hash is used to
+	// determine if the secret changed.
+	// The hash is calculated using the HMAC (Hash-based Message Authentication Code) algorithm, using bcrypt
+	// hashing with the SecretsStoreSync's UID as the key.
 	// 1. If the hash is different, the secret is updated.
-	// 2. If the hash is the same:
-	//		1. If the LastRetrievedTimestamp is older than the current time minus the
+	// 2. If the hash is the same, the secret is still updated when:
+	//		1. The LastRetrievedTimestamp is older than the current time minus the
 	//			rotationPollInterval, the secret is updated.
-	// 		2. If the ForceSynchronization is set, the secret is updated.
-	//		3. If the SecretUpdateStatus is 'Failed', the secret is updated.
+	// 		2. The ForceSynchronization is set, the secret is updated.
+	//		3. The SecretUpdateStatus is 'Failed', the secret is updated.
 	// +optional
 	SecretDataObjectHash string `json:"secretDataObjectHash,omitempty"`
 
@@ -121,24 +125,24 @@ type SecretStoreSyncStatus struct {
 //+kubebuilder:storageversion
 //+kubebuilder:subresource:status
 
-// SecretStoreSync represents the desired state and observed state of the secret synchronization process.
-type SecretStoreSync struct {
+// SecretSync represents the desired state and observed state of the secret synchronization process.
+type SecretSync struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   SecretStoreSyncSpec   `json:"spec,omitempty"`
-	Status SecretStoreSyncStatus `json:"status,omitempty"`
+	Spec   SecretSyncSpec   `json:"spec,omitempty"`
+	Status SecretSyncStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// SecretStoreSyncList contains a list of SecretStoreSync resources.
-type SecretStoreSyncList struct {
+// SecretSyncList contains a list of SecretSync resources.
+type SecretSyncList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []SecretStoreSync `json:"items"`
+	Items           []SecretSync `json:"items"`
 }
 
 func init() {
-	// SchemeBuilder.Register(&SecretStoreSync{}, &SecretStoreSyncList{})
+	// SchemeBuilder.Register(&SecretSync{}, &SecretSyncList{})
 }
