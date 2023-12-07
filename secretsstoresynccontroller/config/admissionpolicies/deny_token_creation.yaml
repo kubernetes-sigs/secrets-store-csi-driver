@@ -1,5 +1,4 @@
-# This policy is used to deny the creation or update of secrets of types other than Opaque, 
-# kubernetes.io/basic-auth, kubernetes.io/ssh-auth and kubernetes.io/tls
+# This policy is used to deny the creation or update of secrets of type serviceaccounts/token.
 # TODO: Use parameters to allow the user to specify the name of the SecretSyncController.
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingAdmissionPolicy
@@ -20,7 +19,7 @@ spec:
     expression: "request.userInfo.username.contains('secret-store-sync-controller')"
   validations:
   - expression: "(variables.userIsSecretSyncController == true && variables.typeCheck)"
-    message: "'The SecretSyncController doesn't have access to create or update this type of secret'"
+    message: "'The SecretSyncController doesn't have access to create or update this type of secret.'"
     messageExpression: "'Checking expression: name=' + string(request.name) + ' operation=' + string(request.operation) + ' userInfo.username=' + string(request.userInfo.username) + ' object.type=' + string(object.type) + ' isController=' + string(variables.userIsSecretSyncController)"
 ---
 apiVersion: admissionregistration.k8s.io/v1beta1
