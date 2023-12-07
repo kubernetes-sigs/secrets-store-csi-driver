@@ -68,12 +68,6 @@ type SecretObject struct {
 
 // SecretSyncSpec defines the desired state for synchronizing secret.
 type SecretSyncSpec struct {
-	// SecretSyncControllerName specifies the name of the secret sync controller used to synchronize
-	// the secret.
-	// +optional
-	// +kubebuilder:default:=""
-	SecretSyncControllerName string `json:"secretSyncControllerName"`
-
 	// SecretProviderClassName specifies the name of the secret provider class used to pass information to
 	// access the secret store.
 	// +kubebuilder:validation:Required
