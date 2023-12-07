@@ -23,11 +23,13 @@ import (
 // SecretObjectData defines the desired state of synchronized data within a Kubernetes secret object.
 type SecretObjectData struct {
 	// SecretDataValueSource is the data source value of the secret defined in the Secret Provider Class.
+	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Required
 	SecretDataValueSource string `json:"secretDataValueSource"`
 
 	// SecretDataKey is the key in the Kubernetes secret's data field as described in the Kubernetes API reference:
 	// https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/secret-v1/
+	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Required
 	SecretDataKey string `json:"secretDataKey"`
 }
@@ -37,11 +39,13 @@ type SecretObject struct {
 	// Type specifies the type of the Kubernetes secret object, e.g., Opaque. The controller doesn't have permissions
 	// to create a secret object with other types than the ones specified in the helm chart:
 	// e.g. "Opaque";"kubernetes.io/basic-auth";"kubernetes.io/ssh-auth";"kubernetes.io/tls"
+	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Required
 	Type string `json:"type"`
 
 	// Data is a slice of SecretObjectData containing secret data source from the Secret Provider Class and the
 	// corresponding data field key used in the Kubernetes secret object.
+	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:Required
 	Data []SecretObjectData `json:"data"`
 
@@ -57,7 +61,7 @@ type SecretObject struct {
 
 	// Annotations contains key-value pairs representing annotations associated with the Kubernetes secret object.
 	// The following annotation prefix is reserved: secrets-store.sync.x-k8s.io/.
-	// Creation fails if the annotation is specified in the SecretsStore object by the user.
+	// Creation fails if the annotation is specified in the SecretSync object by the user.
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
@@ -66,6 +70,7 @@ type SecretObject struct {
 type SecretSyncSpec struct {
 	// SecretSyncControllerName specifies the name of the secret sync controller used to synchronize
 	// the secret.
+	// +optional
 	// +kubebuilder:default:=""
 	SecretSyncControllerName string `json:"secretSyncControllerName"`
 
@@ -99,7 +104,7 @@ type SecretSyncStatus struct {
 	// apiversion, name, namespace, parameters), and similar data from the SecretSync. This hash is used to
 	// determine if the secret changed.
 	// The hash is calculated using the HMAC (Hash-based Message Authentication Code) algorithm, using bcrypt
-	// hashing with the SecretsStoreSync's UID as the key.
+	// hashing, with the SecretsSync's UID as the key.
 	// 1. If the hash is different, the secret is updated.
 	// 2. If the hash is the same, the secret is still updated when:
 	//		1. The LastRetrievedTimestamp is older than the current time minus the
