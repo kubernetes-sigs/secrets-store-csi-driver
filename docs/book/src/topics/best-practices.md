@@ -3,7 +3,7 @@
 1. Deploy the driver and providers into the `kube-system` or a separate
   dedicated namespace.
 
-    The driver is installed as a `DaemonSet` with the ability mount kubelet
+    The driver is installed as a `DaemonSet` with the ability to mount kubelet
     `hostPath` volumes and view pod service account tokens. It should be treated
     as privileged and regular cluster users should not have permissions to
     deploy or modify the driver.
