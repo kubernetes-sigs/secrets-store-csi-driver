@@ -16,7 +16,7 @@ spec:
   - name: typeCheck
     expression: "(object.type == 'serviceaccounts/token')"
   - name: userIsSecretSyncController
-    expression: "request.userInfo.username.contains('secret-store-sync-controller')"
+    expression: "request.userInfo.username.contains('secret-sync-controller')"
   validations:
   - expression: "(variables.userIsSecretSyncController == true && variables.typeCheck)"
     message: "'The SecretSyncController doesn't have access to create or update this type of secret.'"

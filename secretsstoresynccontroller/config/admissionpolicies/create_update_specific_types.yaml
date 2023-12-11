@@ -17,7 +17,7 @@ spec:
   - name: typeCheck
     expression: "(object.type == 'Opaque' || object.type == 'kubernetes.io/basic-auth' || object.type == 'kubernetes.io/ssh-auth' || object.type == 'kubernetes.io/tls')"
   - name: userIsSecretSyncController
-    expression: "request.userInfo.username.contains('secret-store-sync-controller')"
+    expression: "request.userInfo.username.contains('secret-sync-controller')"
   validations:
   - expression: "!(variables.userIsSecretSyncController == true && variables.typeCheck == false)"
     message: "'The SecretSyncController doesn't have access to create or update this type of secret'"
