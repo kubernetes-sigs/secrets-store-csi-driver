@@ -14,7 +14,7 @@ spec:
       resources:   ["secrets"]
   variables:
   - name: typeCheck
-    expression: "(object.type == 'serviceaccounts/token')"
+    expression: "(object.type == 'kubernetes.io/service-account-token')"
   - name: userIsSecretSyncController
     expression: "request.userInfo.username.contains('secret-sync-controller')"
   validations:

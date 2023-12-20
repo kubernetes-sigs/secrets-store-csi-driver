@@ -22,23 +22,24 @@ import (
 
 // SecretObjectData defines the desired state of synchronized data within a Kubernetes secret object.
 type SecretObjectData struct {
-	// SecretDataValueSource is the data source value of the secret defined in the Secret Provider Class.
+	// SourcePath is the data source value of the secret defined in the Secret Provider Class.
+	// This matches the path of a file in the MountResponse returned from the provider.
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Required
-	SecretDataValueSource string `json:"secretDataValueSource"`
+	SourcePath string `json:"sourcePath"`
 
-	// SecretDataKey is the key in the Kubernetes secret's data field as described in the Kubernetes API reference:
+	// TargetKey is the key in the Kubernetes secret's data field as described in the Kubernetes API reference:
 	// https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/secret-v1/
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Required
-	SecretDataKey string `json:"secretDataKey"`
+	TargetKey string `json:"targetKey"`
 }
 
 // SecretObject defines the desired state of synchronized Kubernetes secret objects.
 type SecretObject struct {
-	// Type specifies the type of the Kubernetes secret object, e.g., Opaque. The controller doesn't have permissions
-	// to create a secret object with other types than the ones specified in the helm chart:
+	// Type specifies the type of the Kubernetes secret object,
 	// e.g. "Opaque";"kubernetes.io/basic-auth";"kubernetes.io/ssh-auth";"kubernetes.io/tls"
+	// The controller must have permission to create secrets of the specified type
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Required
 	Type string `json:"type"`
@@ -47,10 +48,13 @@ type SecretObject struct {
 	// corresponding data field key used in the Kubernetes secret object.
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:Required
+	// +listType=map
+	// +listMapKey=targetKey
 	Data []SecretObjectData `json:"data"`
 
 	// Labels contains key-value pairs representing labels associated with the Kubernetes secret object.
-	// The labels are used to identify the secret object.
+	// The labels are used to identify the secret object created by the controller.
+	// The following label prefix is reserved: secrets-store.sync.x-k8s.io/.
 	// On secret creation, the following label is added: secrets-store.sync.x-k8s.io/secretsync=<secret-sync-name>.
 	// Creation fails if the label is specified in the SecretSync object with a different value.
 	// On secret update, if the validation admission policy is set, the controller will check if the label
@@ -61,7 +65,7 @@ type SecretObject struct {
 
 	// Annotations contains key-value pairs representing annotations associated with the Kubernetes secret object.
 	// The following annotation prefix is reserved: secrets-store.sync.x-k8s.io/.
-	// Creation fails if the annotation is specified in the SecretSync object by the user.
+	// Creation fails if the annotation key is specified in the SecretSync object by the user.
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
@@ -74,6 +78,9 @@ type SecretSyncSpec struct {
 	SecretProviderClassName string `json:"secretProviderClassName"`
 
 	// ServiceAccountName specifies the name of the service account used to access the secret store.
+	// The audience field in the service account token must be passed as parameter in the controller configuration.
+	// The audience is used when requesting a token from the API server for the service account; the supported
+	// audiences are defined by each provider.
 	// +kubebuilder:validation:Required
 	ServiceAccountName string `json:"serviceAccountName"`
 
@@ -81,10 +88,8 @@ type SecretSyncSpec struct {
 	// +kubebuilder:validation:Required
 	SecretObject SecretObject `json:"secretObject"`
 
-	// ForceSynchronization can be used to force the secret synchronization.
-	// This provides a mechanism to trigger a secret synchronization, for example if the secret hash is the same and
-	// the user requires a secret update. The string is not used for any other purpose than to trigger a secret
-	// synchronization.
+	// ForceSynchronization can be used to force the secret synchronization. The secret synchronization is
+	// triggered, by changing the value in this field.
 	// This field is not used to resolve synchronization conflicts.
 	// It is not related with the force query parameter in the Apply operation.
 	// https://kubernetes.io/docs/reference/using-api/server-side-apply/#conflicts
@@ -94,23 +99,22 @@ type SecretSyncSpec struct {
 
 // SecretSyncStatus defines the observed state of the secret synchronization process.
 type SecretSyncStatus struct {
-	// SecretObjectHash contains the hash of the secret object data, data from the SecretProviderClass (e.g. UID,
-	// apiversion, name, namespace, parameters), and similar data from the SecretSync. This hash is used to
+	// SyncHash contains the hash of the secret object data, data from the SecretProviderClass (e.g. UID,
+	// and metadata.generation), and similar data from the SecretSync. This hash is used to
 	// determine if the secret changed.
 	// The hash is calculated using the HMAC (Hash-based Message Authentication Code) algorithm, using bcrypt
 	// hashing, with the SecretsSync's UID as the key.
-	// 1. If the hash is different, the secret is updated.
-	// 2. If the hash is the same, the secret is still updated when:
-	//		1. The LastRetrievedTimestamp is older than the current time minus the
-	//			rotationPollInterval, the secret is updated.
-	// 		2. The ForceSynchronization is set, the secret is updated.
-	//		3. The SecretUpdateStatus is 'Failed', the secret is updated.
+	// The secret is updated if:
+	//		1. the hash is different
+	//		2. the lastRetrievedTimestamp indicates a rotation is required
+	//			- the rotation poll interval is passed as a parameter in the controller configuration
+	//		3. the SecretUpdateStatus is 'Failed'
 	// +optional
-	SecretDataObjectHash string `json:"secretDataObjectHash,omitempty"`
+	SyncHash string `json:"syncHash,omitempty"`
 
-	// LastRetrievedTimestamp represents the last time the secret was retrieved from the Provider and updated.
+	// LastSuccessfulSyncTime represents the last time the secret was retrieved from the Provider and updated.
 	// +optional
-	LastRetrievedTimestamp *metav1.Time `json:"lastRetrievedTimestamp,omitempty"`
+	LastSuccessfulSyncTime *metav1.Time `json:"lastSuccessfulSyncTime,omitempty"`
 
 	// SecretUpdateStatus represents the status of the secret update process. The status is set to Succeeded
 	// if the secret was created or updated successfully. The status is set to Failed if the secret create
@@ -125,6 +129,7 @@ type SecretSyncStatus struct {
 //+kubebuilder:subresource:status
 
 // SecretSync represents the desired state and observed state of the secret synchronization process.
+// The name of the SecretSync is used as the name of the Kubernetes secret object.
 type SecretSync struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
