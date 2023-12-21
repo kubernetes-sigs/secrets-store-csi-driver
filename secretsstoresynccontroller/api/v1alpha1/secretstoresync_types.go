@@ -25,12 +25,16 @@ type SecretObjectData struct {
 	// SourcePath is the data source value of the secret defined in the Secret Provider Class.
 	// This matches the path of a file in the MountResponse returned from the provider.
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=^([A-Za-z0-9][-A-Za-z0-9\_.]*)?[A-Za-z0-9]$
 	// +kubebuilder:validation:Required
 	SourcePath string `json:"sourcePath"`
 
 	// TargetKey is the key in the Kubernetes secret's data field as described in the Kubernetes API reference:
 	// https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/secret-v1/
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\/([0-9]+))*$
 	// +kubebuilder:validation:Required
 	TargetKey string `json:"targetKey"`
 }
@@ -39,8 +43,9 @@ type SecretObjectData struct {
 type SecretObject struct {
 	// Type specifies the type of the Kubernetes secret object,
 	// e.g. "Opaque";"kubernetes.io/basic-auth";"kubernetes.io/ssh-auth";"kubernetes.io/tls"
-	// The controller must have permission to create secrets of the specified type
+	// The controller must have permission to create secrets of the specified type.
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
 	// +kubebuilder:validation:Required
 	Type string `json:"type"`
 
@@ -53,19 +58,25 @@ type SecretObject struct {
 	Data []SecretObjectData `json:"data"`
 
 	// Labels contains key-value pairs representing labels associated with the Kubernetes secret object.
-	// The labels are used to identify the secret object created by the controller.
 	// The following label prefix is reserved: secrets-store.sync.x-k8s.io/.
+	// The labels are used to identify the secret object created by the controller.
 	// On secret creation, the following label is added: secrets-store.sync.x-k8s.io/secretsync=<secret-sync-name>.
 	// Creation fails if the label is specified in the SecretSync object with a different value.
 	// On secret update, if the validation admission policy is set, the controller will check if the label
 	// secrets-store.sync.x-k8s.io/secretsync=<secret-sync-name> is present. If the label is not present,
 	// controller fails to update the secret.
+	// +kubebuilder:validation:XValidation:message="Labels should have < 63 characters for both keys and values.",rule="(self.all(x, x.size() < 63 && self[x].size() < 63) == true)"
+	// +kubebuilder:validation:XValidation:message="Labels should be valid check: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#rfc-1035-label-names",rule="(self.all(x, x.matches('([a-z0-9][-a-z0-9_.]*)?[a-z0-9]') == true) == true)"
+	// +kubebuilder:validation:XValidation:message="Labels should not contain secrets-store.sync.x-k8s.io. This key is reserved for the controller.",rule="(self.all(x, x.contains('secrets-store.sync.x-k8s.io') == false))"
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
 
 	// Annotations contains key-value pairs representing annotations associated with the Kubernetes secret object.
 	// The following annotation prefix is reserved: secrets-store.sync.x-k8s.io/.
 	// Creation fails if the annotation key is specified in the SecretSync object by the user.
+	// +kubebuilder:validation:XValidation:message="Annotations should have < 253 characters for both keys and values.",rule="(self.all(x, x.size() < 253 && self[x].size() < 253) == true)"
+	// +kubebuilder:validation:XValidation:message="Annotations should be valid check: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-subdomain-names",rule="(self.all(x, x.matches('([a-z0-9][-a-z0-9_.]*)?[a-z0-9]') == true) == true)"
+	// +kubebuilder:validation:XValidation:message="Annotations should not contain secrets-store.sync.x-k8s.io. This key is reserved for the controller.",rule="(self.all(x, x.contains('secrets-store.sync.x-k8s.io') == false))"
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
@@ -74,6 +85,9 @@ type SecretObject struct {
 type SecretSyncSpec struct {
 	// SecretProviderClassName specifies the name of the secret provider class used to pass information to
 	// access the secret store.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
 	// +kubebuilder:validation:Required
 	SecretProviderClassName string `json:"secretProviderClassName"`
 
@@ -81,6 +95,9 @@ type SecretSyncSpec struct {
 	// The audience field in the service account token must be passed as parameter in the controller configuration.
 	// The audience is used when requesting a token from the API server for the service account; the supported
 	// audiences are defined by each provider.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
 	// +kubebuilder:validation:Required
 	ServiceAccountName string `json:"serviceAccountName"`
 
@@ -93,6 +110,8 @@ type SecretSyncSpec struct {
 	// This field is not used to resolve synchronization conflicts.
 	// It is not related with the force query parameter in the Apply operation.
 	// https://kubernetes.io/docs/reference/using-api/server-side-apply/#conflicts
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=^[A-Za-z0-9]([-A-Za-z0-9]*[A-Za-z0-9])?$
 	// +optional
 	ForceSynchronization string `json:"forceSynchronization,omitempty"`
 }
