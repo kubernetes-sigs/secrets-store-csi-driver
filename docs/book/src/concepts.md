@@ -52,6 +52,14 @@ contrasts with Linux where a `tmpfs` is used to try to ensure that secret materi
 material may be persisted to the node's disk. To ensure that secrets are not written to persistent disk ensure
 `failSwapOn` is set to `true` (which is the default).
 
+### Security implications of using Secrets Store CSI driver
+
+Anyone who has access to the namespace or its resources can exec and view the secrets. However, this behavior is expected, as entities with such access are expected to perform these operations. One potential solution is to disable exec if a more stringent security posture is required. Alternatively, using distroless images for applications can mitigate this, as exec won't work. A similar argument can be made for individuals with access to the underlying infrastructure or nodes, who can access the secrets by SSHing into the node. However, typical end users do not have this level of access. If an end user does gain such access, it indicates a compromised infrastructure/cluster, and the recommended solution is to restrict access to the cluster/infrastructure.
+ 
+Encrypting mounted content can be the solution to further protect the secrets. However, this introduces additional operational overhead, such as managing encryption keys and addressing key rotation. Key management becomes a crucial aspect similar to secrets management.
+ 
+When we look from the perspective of an application and what access does it have, for instance, the Ingress Controller application which requires cluster-wide access to Kubernetes Secrets. If a component like Ingress is compromised, it could jeopardize all secrets in the cluster. This is where the Secrets Store CSI driver proves valuable, as it can mount/sync only the necessary TLS certificates on the Ingress Pod, reducing the blast radius.
+
 ## Custom Resource Definitions (CRDs)
 
 ### SecretProviderClass
