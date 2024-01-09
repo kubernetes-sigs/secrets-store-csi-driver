@@ -27,7 +27,7 @@ parse_cred() {
 }
 
 get_random_region() {
-    local REGIONS=("eastus" "eastus2" "southcentralus" "westeurope" "uksouth" "northeurope" "francecentral")
+    local REGIONS=("eastus" "eastus2" "southcentralus" "westeurope" "uksouth")
     echo "${REGIONS[${RANDOM} % ${#REGIONS[@]}]}"
 }
 
