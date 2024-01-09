@@ -34,7 +34,7 @@ type SecretObjectData struct {
 	// https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/secret-v1/
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
-	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\/([0-9]+))*$
+	// +kubebuilder:validation:Pattern=^[a-z0-9.]([-a-z0-9]*[a-z0-9])?(\/([0-9]+))*$ # regex should allow docker-registry keys
 	// +kubebuilder:validation:Required
 	TargetKey string `json:"targetKey"`
 }
@@ -82,6 +82,7 @@ type SecretObject struct {
 }
 
 // SecretSyncSpec defines the desired state for synchronizing secret.
+// The SecretSync name is used as the name of the Kubernetes secret object.
 type SecretSyncSpec struct {
 	// SecretProviderClassName specifies the name of the secret provider class used to pass information to
 	// access the secret store.
@@ -127,7 +128,7 @@ type SecretSyncStatus struct {
 	//		1. the hash is different
 	//		2. the lastRetrievedTimestamp indicates a rotation is required
 	//			- the rotation poll interval is passed as a parameter in the controller configuration
-	//		3. the SecretUpdateStatus is 'Failed'
+	//		3. the UpdateStatus is 'Failed'
 	// +optional
 	SyncHash string `json:"syncHash,omitempty"`
 
@@ -135,12 +136,62 @@ type SecretSyncStatus struct {
 	// +optional
 	LastSuccessfulSyncTime *metav1.Time `json:"lastSuccessfulSyncTime,omitempty"`
 
-	// SecretUpdateStatus represents the status of the secret update process. The status is set to Succeeded
-	// if the secret was created or updated successfully. The status is set to Failed if the secret create
-	// or update failed.
+	// Conditions represent the status of the secret create and update processes.
+	// The status is set to True if the secret was created or updated successfully.
+	// The status is set to False if the secret create or update failed and the reconciliation loop won't retry
+	// the operation until the secret is updated by the user.
+	// The status is set to Unknown if the secret patch failed due to an unknown error and the reconciliation
+	// loop will retry the operation.
+
+	// The following conditions are used:
+	//		- Type: CreateSucceeded
+	//			Status: True
+	//			Reason: CreateSucceeded
+	//			Message: The secret was created successfully.
+	//		- Type: CreateFailedProviderError
+	//			Status: Unknown
+	//			Reason: ProviderError
+	//			Message: The secret create failed due to a provider error, check the logs or the events for more information.
+	//		- Type: CreateFailedInvalidLabel
+	//			Status: False
+	//			Reason: InvalidClusterSecretLabelError
+	//			Message: The secret create failed because a label reserved for the controller is applied on the secret.
+	//		- Type: CreateFailedInvalidAnnotation
+	//			Status: False
+	//			Reason: InvalidClusterSecretAnnotationError
+	//		    Message: The secret create failed because an annotation reserved for the controller is applied on the secret.
+	//		- Type: UpdateNoValueChangeSucceeded
+	//			Status: True
+	//			Reason: NoValueChange
+	//			Message: The secret was updated successfully at the end of the poll interval and no value change was detected.
+	//		- Type: UpdateValueChangeOrForceUpdateSucceeded
+	//			Status: True
+	//			Reason: ValueChangeOrForceUpdateDetected
+	//			Message: The secret was updated successfully:a value change or a force update was detected.
+	//		- Type: UpdateFailedInvalidLabel
+	//			Status: False
+	//			Reason: InvalidClusterSecretLabelError
+	//			Message: The secret update failed because a label reserved for the controller is applied on the secret.
+	//		- Type: UpdateFailedInvalidAnnotation
+	//			Status: False
+	//			Reason: InvalidClusterSecretAnnotationError
+	//		    Message: The secret update failed because an annotation reserved for the controller is applied on the secret.
+	//		- Type: UpdateFailedProviderError
+	//			Status: Unknown
+	//			Reason: ProviderError
+	//			Message: The secret update failed due to a provider error, check the logs or the events for more information.
+	// 		- Type: SecretPatchFailedUnknownError
+	//			Status: Unknown
+	//			Reason: UnknownError
+	//			Message: Secret patch failed due to unknown error, check the logs or the events for more information.
+
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +kubebuilder:validation:MaxItems=5
 	// +optional
-	// +kubebuilder:validation:example={secretUpdateStatus:"Succeeded",secretUpdateStatus:"Failed"}
-	SecretUpdateStatus string `json:"secretUpdateStatus,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
 //+kubebuilder:object:root=true
