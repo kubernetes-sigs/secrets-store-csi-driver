@@ -10,7 +10,7 @@ Depending on how the application consumes the secret data:
 1. **Mount Kubernetes secret as a volume:** Use auto rotation feature + Sync K8s secrets feature in Secrets Store CSI Driver, application will need to watch for changes from the mounted Kubernetes Secret volume. When the Kubernetes Secret is updated by the CSI Driver, the corresponding volume contents are automatically updated.
 2. **Application reads the data from container’s filesystem:** Use rotation feature in Secrets Store CSI Driver, application will need to watch for the file change from the volume mounted by the CSI driver.
 3. **Using Kubernetes secret for environment variable:** The pod needs to be restarted to get the latest secret as environment variable.
-   1. Use something like https://github.com/stakater/Reloader to watch for changes on the synced Kubernetes secret and do rolling upgrades on pods
+   1. Use something like [Reloader](https://github.com/stakater/Reloader) to watch for changes on the synced Kubernetes secret and do rolling upgrades on pods
 
 ## Enable auto rotation
 
