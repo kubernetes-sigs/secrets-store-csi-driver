@@ -7,7 +7,7 @@ replace sigs.k8s.io/secrets-store-csi-driver => ../..
 require (
 	github.com/google/go-cmp v0.5.9
 	google.golang.org/grpc v1.60.1
-	k8s.io/klog/v2 v2.100.1
+	k8s.io/klog/v2 v2.120.1
 	monis.app/mlog v0.0.4
 	sigs.k8s.io/secrets-store-csi-driver v0.0.0-00010101000000-000000000000
 	sigs.k8s.io/yaml v1.4.0
@@ -18,7 +18,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/go-logr/logr v1.2.4 // indirect
+	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-logr/zapr v1.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
