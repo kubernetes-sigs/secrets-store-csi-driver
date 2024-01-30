@@ -65,6 +65,7 @@ type SecretProviderClassPodStatusReconciler struct {
 	writer        client.Writer
 	eventRecorder record.EventRecorder
 	driverName    string
+	reporter      StatsReporter
 }
 
 // New creates a new SecretProviderClassPodStatusReconciler
@@ -73,6 +74,10 @@ func New(driverName string, mgr manager.Manager, nodeID string) (*SecretProvider
 	kubeClient := kubernetes.NewForConfigOrDie(mgr.GetConfig())
 	eventBroadcaster.StartRecordingToSink(&clientcorev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "csi-secrets-store-controller"})
+	sr, err := newStatsReporter()
+	if err != nil {
+		return nil, err
+	}
 
 	return &SecretProviderClassPodStatusReconciler{
 		Client:        mgr.GetClient(),
@@ -83,6 +88,7 @@ func New(driverName string, mgr manager.Manager, nodeID string) (*SecretProvider
 		writer:        mgr.GetClient(),
 		eventRecorder: recorder,
 		driverName:    driverName,
+		reporter:      sr,
 	}, nil
 }
 
@@ -266,6 +272,9 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 		return ctrl.Result{}, nil
 	}
 
+	// if SecretObjects defined in the SPC, record the time to report sync_k8s_secret_duration_sec metric
+	begin := time.Now()
+
 	// determine which pod volume this is associated with
 	podVol := k8sutil.SPCVolume(pod, r.driverName, spc.Name)
 	if podVol == nil {
@@ -364,6 +373,9 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 	if len(errs) > 0 {
 		return ctrl.Result{Requeue: true}, nil
 	}
+
+	r.reporter.ReportSyncSecretCtMetric(ctx, string(spc.Spec.Provider), spcPodStatus.Namespace, spc.Name)
+	r.reporter.ReportSyncSecretDuration(ctx, time.Since(begin).Seconds())
 
 	klog.InfoS("reconcile complete", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "spcps", klog.KObj(spcPodStatus))
 	// requeue the spc pod status again after 5mins to check if secret and ownerRef exists

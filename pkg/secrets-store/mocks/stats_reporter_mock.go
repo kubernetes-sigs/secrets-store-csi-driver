@@ -18,41 +18,55 @@ package mocks // import sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store/m
 
 import "context"
 
+type MetricDetails struct {
+	Provider     string
+	PodName      string
+	PodNamespace string
+	Spc          string
+	ErrorType    string
+}
+
 type FakeReporter struct {
 	reportNodePublishCtMetricInvoked        int
 	reportNodeUnPublishCtMetricInvoked      int
 	reportNodePublishErrorCtMetricInvoked   int
 	reportNodeUnPublishErrorCtMetricInvoked int
-	reportSyncK8SecretCtMetricInvoked       int
-	reportSyncK8SecretDurationInvoked       int
+	metricDetails                           []MetricDetails
 }
 
 func NewFakeReporter() *FakeReporter {
-	return &FakeReporter{}
+	return &FakeReporter{
+		metricDetails: []MetricDetails{},
+	}
 }
 
-func (f *FakeReporter) ReportNodePublishCtMetric(ctx context.Context, provider string) {
+func (f *FakeReporter) ReportNodePublishCtMetric(ctx context.Context, provider, podName, podNamespace, spc string) {
 	f.reportNodePublishCtMetricInvoked++
+	f.metricDetails = append(f.metricDetails, MetricDetails{
+		Provider:     provider,
+		PodName:      podName,
+		PodNamespace: podNamespace,
+		Spc:          spc,
+	})
 }
 
 func (f *FakeReporter) ReportNodeUnPublishCtMetric(ctx context.Context) {
 	f.reportNodeUnPublishCtMetricInvoked++
 }
 
-func (f *FakeReporter) ReportNodePublishErrorCtMetric(ctx context.Context, provider, errType string) {
+func (f *FakeReporter) ReportNodePublishErrorCtMetric(ctx context.Context, provider, podName, podNamespace, spc, errType string) {
 	f.reportNodePublishErrorCtMetricInvoked++
+	f.metricDetails = append(f.metricDetails, MetricDetails{
+		Provider:     provider,
+		PodName:      podName,
+		PodNamespace: podNamespace,
+		Spc:          spc,
+		ErrorType:    errType,
+	})
 }
 
 func (f *FakeReporter) ReportNodeUnPublishErrorCtMetric(ctx context.Context) {
 	f.reportNodeUnPublishErrorCtMetricInvoked++
-}
-
-func (f *FakeReporter) ReportSyncK8SecretCtMetric(ctx context.Context, provider string, count int) {
-	f.reportSyncK8SecretCtMetricInvoked++
-}
-
-func (f *FakeReporter) ReportSyncK8SecretDuration(ctx context.Context, duration float64) {
-	f.reportSyncK8SecretDurationInvoked++
 }
 
 func (f *FakeReporter) ReportNodePublishCtMetricInvoked() int {
@@ -67,9 +81,7 @@ func (f *FakeReporter) ReportNodePublishErrorCtMetricInvoked() int {
 func (f *FakeReporter) ReportNodeUnPublishErrorCtMetricInvoked() int {
 	return f.reportNodeUnPublishErrorCtMetricInvoked
 }
-func (f *FakeReporter) ReportSyncK8SecretCtMetricInvoked() int {
-	return f.reportSyncK8SecretCtMetricInvoked
-}
-func (f *FakeReporter) ReportSyncK8SecretDurationInvoked() int {
-	return f.reportSyncK8SecretDurationInvoked
+
+func (f *FakeReporter) GetMetricDetails() []MetricDetails {
+	return f.metricDetails
 }

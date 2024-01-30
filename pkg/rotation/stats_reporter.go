@@ -30,11 +30,14 @@ const (
 )
 
 var (
-	providerKey = "provider"
-	errorKey    = "error_type"
-	osTypeKey   = "os_type"
-	rotatedKey  = "rotated"
-	runtimeOS   = runtime.GOOS
+	providerKey     = "provider"
+	errorKey        = "error_type"
+	osTypeKey       = "os_type"
+	rotatedKey      = "rotated"
+	runtimeOS       = runtime.GOOS
+	podNameKey      = "pod_name"
+	podNamespaceKey = "pod_namespace"
+	spcKey          = "secret_provider_class"
 )
 
 type reporter struct {
@@ -44,8 +47,8 @@ type reporter struct {
 }
 
 type StatsReporter interface {
-	reportRotationCtMetric(ctx context.Context, provider string, wasRotated bool)
-	reportRotationErrorCtMetric(ctx context.Context, provider, errType string, wasRotated bool)
+	reportRotationCtMetric(ctx context.Context, provider, podName, podNamespace, spc string, wasRotated bool)
+	reportRotationErrorCtMetric(ctx context.Context, provider, podName, podNamespace, spc, errType string, wasRotated bool)
 	reportRotationDuration(ctx context.Context, duration float64)
 }
 
@@ -67,21 +70,27 @@ func newStatsReporter() (StatsReporter, error) {
 	return r, nil
 }
 
-func (r *reporter) reportRotationCtMetric(ctx context.Context, provider string, wasRotated bool) {
+func (r *reporter) reportRotationCtMetric(ctx context.Context, provider, podName, podNamespace, spc string, wasRotated bool) {
 	opt := metric.WithAttributes(
 		attribute.Key(providerKey).String(provider),
 		attribute.Key(osTypeKey).String(runtimeOS),
 		attribute.Key(rotatedKey).Bool(wasRotated),
+		attribute.Key(podNameKey).String(podName),
+		attribute.Key(podNamespaceKey).String(podNamespace),
+		attribute.Key(spcKey).String(spc),
 	)
 	r.rotationReconcileTotal.Add(ctx, 1, opt)
 }
 
-func (r *reporter) reportRotationErrorCtMetric(ctx context.Context, provider, errType string, wasRotated bool) {
+func (r *reporter) reportRotationErrorCtMetric(ctx context.Context, provider, podName, podNamespace, spc, errType string, wasRotated bool) {
 	opt := metric.WithAttributes(
 		attribute.Key(providerKey).String(provider),
 		attribute.Key(errorKey).String(errType),
 		attribute.Key(osTypeKey).String(runtimeOS),
 		attribute.Key(rotatedKey).Bool(wasRotated),
+		attribute.Key(podNameKey).String(podName),
+		attribute.Key(podNamespaceKey).String(podNamespace),
+		attribute.Key(spcKey).String(spc),
 	)
 	r.rotationReconcileErrorTotal.Add(ctx, 1, opt)
 }
