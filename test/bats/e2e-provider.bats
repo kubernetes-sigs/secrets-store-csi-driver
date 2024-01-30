@@ -426,6 +426,7 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
     assert_match "node_publish_total" "${output}"
     assert_match "node_unpublish_total" "${output}"
     assert_match "rotation_reconcile_total" "${output}"
+    assert_match "sync_k8s_secret_total" "${output}"
   done
   # keeping metrics ns in upgrade tests has no relevance
   # the namespace is only to run a curl pod to validate metrics

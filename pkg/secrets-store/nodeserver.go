@@ -73,7 +73,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	startTime := time.Now()
 	var parameters map[string]string
 	var providerName string
-	var podName, podNamespace, podUID, serviceAccountName string
+	var podName, podNamespace, podUID, serviceAccountName, secretProviderClass string
 	var targetPath string
 	var mounted bool
 	errorReason := internalerrors.FailedToMount
@@ -89,10 +89,10 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 					klog.ErrorS(unmountErr, "failed to unmounting target path")
 				}
 			}
-			ns.reporter.ReportNodePublishErrorCtMetric(ctx, providerName, errorReason)
+			ns.reporter.ReportNodePublishErrorCtMetric(ctx, providerName, podName, podNamespace, secretProviderClass, errorReason)
 			return
 		}
-		ns.reporter.ReportNodePublishCtMetric(ctx, providerName)
+		ns.reporter.ReportNodePublishCtMetric(ctx, providerName, podName, podNamespace, secretProviderClass)
 	}()
 
 	// Check arguments
@@ -115,7 +115,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	mountFlags := req.GetVolumeCapability().GetMount().GetMountFlags()
 	secrets := req.GetSecrets()
 
-	secretProviderClass := attrib[secretProviderClassField]
+	secretProviderClass = attrib[secretProviderClassField]
 	providerName = attrib["providerName"]
 	podName = attrib[CSIPodName]
 	podNamespace = attrib[CSIPodNamespace]

@@ -20,10 +20,12 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
+	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store/mocks"
 	providerfake "sigs.k8s.io/secrets-store-csi-driver/provider/fake"
@@ -65,18 +67,21 @@ func TestNodePublishVolume_Errors(t *testing.T) {
 		nodePublishVolReq *csi.NodePublishVolumeRequest
 		initObjects       []client.Object
 		want              codes.Code
+		metricDetails     []mocks.MetricDetails
 	}{
 		{
 			name:              "volume capabilities nil",
 			nodePublishVolReq: &csi.NodePublishVolumeRequest{},
 			want:              codes.InvalidArgument,
+			metricDetails:     []mocks.MetricDetails{{ErrorType: internalerrors.FailedToMount}, {ErrorType: internalerrors.FailedToMount}},
 		},
 		{
 			name: "volume id is empty",
 			nodePublishVolReq: &csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 			},
-			want: codes.InvalidArgument,
+			want:          codes.InvalidArgument,
+			metricDetails: []mocks.MetricDetails{{ErrorType: internalerrors.FailedToMount}, {ErrorType: internalerrors.FailedToMount}},
 		},
 		{
 			name: "target path is empty",
@@ -84,7 +89,8 @@ func TestNodePublishVolume_Errors(t *testing.T) {
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
 			},
-			want: codes.InvalidArgument,
+			want:          codes.InvalidArgument,
+			metricDetails: []mocks.MetricDetails{{ErrorType: internalerrors.FailedToMount}, {ErrorType: internalerrors.FailedToMount}},
 		},
 		{
 			name: "volume context is not set",
@@ -93,7 +99,8 @@ func TestNodePublishVolume_Errors(t *testing.T) {
 				VolumeId:         "testvolid1",
 				TargetPath:       targetPath(t),
 			},
-			want: codes.InvalidArgument,
+			want:          codes.InvalidArgument,
+			metricDetails: []mocks.MetricDetails{{ErrorType: internalerrors.FailedToMount}, {ErrorType: internalerrors.FailedToMount}},
 		},
 		{
 			name: "secret provider class not found",
@@ -103,7 +110,8 @@ func TestNodePublishVolume_Errors(t *testing.T) {
 				TargetPath:       targetPath(t),
 				VolumeContext:    map[string]string{"secretProviderClass": "provider1"},
 			},
-			want: codes.Unknown,
+			want:          codes.Unknown,
+			metricDetails: []mocks.MetricDetails{{Spc: "provider1", ErrorType: internalerrors.SecretProviderClassNotFound}, {Spc: "provider1", ErrorType: internalerrors.SecretProviderClassNotFound}},
 		},
 		{
 			name: "spc missing",
@@ -126,7 +134,8 @@ func TestNodePublishVolume_Errors(t *testing.T) {
 					},
 				},
 			},
-			want: codes.Unknown,
+			want:          codes.Unknown,
+			metricDetails: []mocks.MetricDetails{{Provider: "provider1", PodName: "pod1", PodNamespace: "default", Spc: "provider1", ErrorType: internalerrors.SecretProviderClassNotFound}, {Provider: "provider1", PodName: "pod1", PodNamespace: "default", Spc: "provider1", ErrorType: internalerrors.SecretProviderClassNotFound}},
 		},
 		{
 			name: "provider not set in secret provider class",
@@ -144,7 +153,8 @@ func TestNodePublishVolume_Errors(t *testing.T) {
 					},
 				},
 			},
-			want: codes.Unknown,
+			want:          codes.Unknown,
+			metricDetails: []mocks.MetricDetails{{PodName: "pod1", PodNamespace: "default", Spc: "provider1", ErrorType: internalerrors.FailedToMount}, {PodName: "pod1", PodNamespace: "default", Spc: "provider1", ErrorType: internalerrors.FailedToMount}},
 		},
 		{
 			name: "parameters not set in secret provider class",
@@ -165,7 +175,8 @@ func TestNodePublishVolume_Errors(t *testing.T) {
 					},
 				},
 			},
-			want: codes.Unknown,
+			want:          codes.Unknown,
+			metricDetails: []mocks.MetricDetails{{Provider: "provider1", PodName: "pod1", PodNamespace: "default", Spc: "provider1", ErrorType: internalerrors.FailedToMount}, {Provider: "provider1", PodName: "pod1", PodNamespace: "default", Spc: "provider1", ErrorType: internalerrors.FailedToMount}},
 		},
 		{
 			name: "read only is not set to true",
@@ -187,7 +198,8 @@ func TestNodePublishVolume_Errors(t *testing.T) {
 					},
 				},
 			},
-			want: codes.InvalidArgument,
+			want:          codes.InvalidArgument,
+			metricDetails: []mocks.MetricDetails{{Provider: "provider1", PodName: "pod1", PodNamespace: "default", Spc: "provider1", ErrorType: internalerrors.FailedToMount}, {Provider: "provider1", PodName: "pod1", PodNamespace: "default", Spc: "provider1", ErrorType: internalerrors.FailedToMount}},
 		},
 		{
 			name: "provider not installed",
@@ -215,7 +227,8 @@ func TestNodePublishVolume_Errors(t *testing.T) {
 					},
 				},
 			},
-			want: codes.Unknown,
+			want:          codes.Unknown,
+			metricDetails: []mocks.MetricDetails{{Provider: "provider_not_installed", PodName: "pod1", PodNamespace: "default", Spc: "provider1"}, {Provider: "provider_not_installed", PodName: "pod1", PodNamespace: "default", Spc: "provider1"}},
 		},
 	}
 
@@ -236,7 +249,7 @@ func TestNodePublishVolume_Errors(t *testing.T) {
 			}
 
 			for attempts := 2; attempts > 0; attempts-- {
-				// How many times 'total_node_publish' and 'total_node_publish_error' counters have been incremented so far.
+				// How many times 'node_publish_total' and 'node_publish_total_error' counters have been incremented so far.
 				c, cErr := r.ReportNodePublishCtMetricInvoked(), r.ReportNodePublishErrorCtMetricInvoked()
 
 				_, err = ns.NodePublishVolume(context.TODO(), test.nodePublishVolReq)
@@ -246,10 +259,14 @@ func TestNodePublishVolume_Errors(t *testing.T) {
 
 				// Check that the correct counter has been incremented.
 				if err != nil && r.ReportNodePublishErrorCtMetricInvoked() <= cErr {
-					t.Fatalf("expected 'total_node_publish_error' counter to be incremented, but it was not")
+					t.Fatalf("expected 'node_publish_total_error' counter to be incremented, but it was not")
 				}
 				if err == nil && r.ReportNodePublishCtMetricInvoked() <= c {
-					t.Fatalf("expected 'total_node_publish' counter to be incremented, but it was not")
+					t.Fatalf("expected 'node_publish_total' counter to be incremented, but it was not")
+				}
+				metricDetails := r.GetMetricDetails()
+				if !reflect.DeepEqual(metricDetails[2-attempts], test.metricDetails[2-attempts]) {
+					t.Fatalf("expected publish details to be %+v, but it was %+v", test.metricDetails[2-attempts], metricDetails[2-attempts])
 				}
 
 				// if theres not an error we should check the mount w
@@ -270,6 +287,7 @@ func TestNodePublishVolume(t *testing.T) {
 		name              string
 		nodePublishVolReq *csi.NodePublishVolumeRequest
 		initObjects       []client.Object
+		metricDetails     []mocks.MetricDetails
 	}{
 		{
 			name: "volume mount",
@@ -297,6 +315,7 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				},
 			},
+			metricDetails: []mocks.MetricDetails{{Provider: "provider1", PodName: "pod1", PodNamespace: "default", Spc: "provider1"}, {PodName: "pod1", PodNamespace: "default", Spc: "provider1"}},
 		},
 		{
 			name: "volume mount with refresh token",
@@ -327,6 +346,7 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				},
 			},
+			metricDetails: []mocks.MetricDetails{{Provider: "provider1", PodName: "pod1", PodNamespace: "default", Spc: "provider1"}, {Provider: "provider1", PodName: "pod1", PodNamespace: "default", Spc: "provider1"}},
 		},
 	}
 
@@ -347,20 +367,29 @@ func TestNodePublishVolume(t *testing.T) {
 			}
 
 			for attempts := 2; attempts > 0; attempts-- {
-				// How many times 'total_node_publish' and 'total_node_publish_error' counters have been incremented so far.
+				// How many times 'node_publish_total' and 'node_publish_total_error' counters have been incremented so far.
 				c, cErr := r.ReportNodePublishCtMetricInvoked(), r.ReportNodePublishErrorCtMetricInvoked()
-
 				_, err = ns.NodePublishVolume(context.TODO(), test.nodePublishVolReq)
 				if code := status.Code(err); code != codes.OK {
 					t.Errorf("expected RPC status code: %v, got: %v\n", codes.OK, err)
 				}
 
+				metricDetails := r.GetMetricDetails()
 				// Check that the correct counter has been incremented.
 				if err != nil && r.ReportNodePublishErrorCtMetricInvoked() <= cErr {
-					t.Fatalf("expected 'total_node_publish_error' counter to be incremented, but it was not")
+					t.Fatalf("expected 'node_publish_total_error' counter to be incremented, but it was not")
 				}
 				if err == nil && r.ReportNodePublishCtMetricInvoked() <= c {
-					t.Fatalf("expected 'total_node_publish' counter to be incremented, but it was not")
+					t.Fatalf("expected 'node_publish_total' counter to be incremented, but it was not")
+				}
+				if !reflect.DeepEqual(metricDetails[2-attempts], test.metricDetails[2-attempts]) {
+					t.Fatalf("expected publish details to be %+v, but it was %+v", test.metricDetails[2-attempts], metricDetails[2-attempts])
+				}
+				if !reflect.DeepEqual(metricDetails[2-attempts], test.metricDetails[2-attempts]) {
+					t.Fatalf("expected publish details to be %+v, but it was %+v", test.metricDetails[2-attempts], metricDetails[2-attempts])
+				}
+				if !reflect.DeepEqual(metricDetails[2-attempts], test.metricDetails[2-attempts]) {
+					t.Fatalf("expected publish details to be %+v, but it was %+v", test.metricDetails[2-attempts], metricDetails[2-attempts])
 				}
 
 				// if theres not an error we should check the mount w
@@ -407,7 +436,7 @@ func TestNodeUnpublishVolume(t *testing.T) {
 	// Repeat the request multiple times to ensure it consistently returns OK,
 	// even if it has already been unmounted.
 	for attempts := 2; attempts > 0; attempts-- {
-		// How many times 'total_node_unpublish' and 'total_node_unpublish_error' counters have been incremented so far
+		// How many times 'node_unpublish_total' and 'node_unpublish_total_error' counters have been incremented so far
 		c, cErr := r.ReportNodeUnPublishCtMetricInvoked(), r.ReportNodeUnPublishErrorCtMetricInvoked()
 
 		_, err := ns.NodeUnpublishVolume(context.TODO(), req)
@@ -417,10 +446,10 @@ func TestNodeUnpublishVolume(t *testing.T) {
 
 		// Check that the correct counter has been incremented
 		if err != nil && r.ReportNodeUnPublishErrorCtMetricInvoked() <= cErr {
-			t.Fatalf("expected 'total_node_unpublish_error' counter to be incremented, but it was not")
+			t.Fatalf("expected 'node_unpublish_total_error' counter to be incremented, but it was not")
 		}
 		if err == nil && r.ReportNodeUnPublishCtMetricInvoked() <= c {
-			t.Fatalf("expected 'total_node_unpublish' counter to be incremented, but it was not")
+			t.Fatalf("expected 'node_unpublish_total' counter to be incremented, but it was not")
 		}
 
 		// Ensure that the mounts were unmounted.
@@ -469,7 +498,7 @@ func TestNodeUnpublishVolume_Error(t *testing.T) {
 			}
 
 			for attempts := 2; attempts > 0; attempts-- {
-				// How many times 'total_node_unpublish' and 'total_node_unpublish_error' counters have been incremented so far
+				// How many times 'node_unpublish_total' and 'node_unpublish_total_error' counters have been incremented so far
 				c, cErr := r.ReportNodeUnPublishCtMetricInvoked(), r.ReportNodeUnPublishErrorCtMetricInvoked()
 
 				_, err := ns.NodeUnpublishVolume(context.TODO(), test.nodeUnpublishVolReq)
@@ -479,10 +508,10 @@ func TestNodeUnpublishVolume_Error(t *testing.T) {
 
 				// Check that the correct counter has been incremented
 				if err != nil && r.ReportNodeUnPublishErrorCtMetricInvoked() <= cErr {
-					t.Fatalf("expected 'total_node_unpublish_error' counter to be incremented, but it was not")
+					t.Fatalf("expected 'node_unpublish_total_error' counter to be incremented, but it was not")
 				}
 				if err == nil && r.ReportNodeUnPublishCtMetricInvoked() <= c {
-					t.Fatalf("expected 'total_node_unpublish' counter to be incremented, but it was not")
+					t.Fatalf("expected 'node_unpublish_total' counter to be incremented, but it was not")
 				}
 			}
 		})
