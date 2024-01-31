@@ -15,7 +15,7 @@ spec:
     kind: ConfigMap 
   matchConditions:
     - name: 'userIsController'
-      expression: "request.userInfo.username == 'system:serviceaccount:'+params.data.controllerNamespace+':'+params.data.controllerName" #'system:serviceaccount:'+params.data.controllerNamespace+':'+params.data.controllerName
+      expression: "request.userInfo.username == 'system:serviceaccount:'+params.data.controllerNamespace+':'+params.data.controllerName"
   matchConstraints:
     resourceRules:
     - apiGroups:   [""]
