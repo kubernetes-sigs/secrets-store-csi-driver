@@ -22,7 +22,7 @@ import (
 
 // SecretObjectData defines the desired state of synchronized data within a Kubernetes secret object.
 type SecretObjectData struct {
-	// SourcePath is the data source value of the secret defined in the Secret Provider Class.
+	// sourcePath is the data source value of the secret defined in the Secret Provider Class.
 	// This matches the path of a file in the MountResponse returned from the provider.
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
@@ -30,7 +30,7 @@ type SecretObjectData struct {
 	// +kubebuilder:validation:Required
 	SourcePath string `json:"sourcePath"`
 
-	// TargetKey is the key in the Kubernetes secret's data field as described in the Kubernetes API reference:
+	// targetKey is the key in the Kubernetes secret's data field as described in the Kubernetes API reference:
 	// https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/secret-v1/
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
@@ -41,7 +41,7 @@ type SecretObjectData struct {
 
 // SecretObject defines the desired state of synchronized Kubernetes secret objects.
 type SecretObject struct {
-	// Type specifies the type of the Kubernetes secret object,
+	// type specifies the type of the Kubernetes secret object,
 	// e.g. "Opaque";"kubernetes.io/basic-auth";"kubernetes.io/ssh-auth";"kubernetes.io/tls"
 	// The controller must have permission to create secrets of the specified type.
 	// +kubebuilder:validation:MinLength=1
@@ -49,7 +49,7 @@ type SecretObject struct {
 	// +kubebuilder:validation:Required
 	Type string `json:"type"`
 
-	// Data is a slice of SecretObjectData containing secret data source from the Secret Provider Class and the
+	// data is a slice of SecretObjectData containing secret data source from the Secret Provider Class and the
 	// corresponding data field key used in the Kubernetes secret object.
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:Required
@@ -57,7 +57,7 @@ type SecretObject struct {
 	// +listMapKey=targetKey
 	Data []SecretObjectData `json:"data"`
 
-	// Labels contains key-value pairs representing labels associated with the Kubernetes secret object.
+	// labels contains key-value pairs representing labels associated with the Kubernetes secret object.
 	// The following label prefix is reserved: secrets-store.sync.x-k8s.io/.
 	// The labels are used to identify the secret object created by the controller.
 	// On secret creation, the following label is added: secrets-store.sync.x-k8s.io/secretsync=<secret-sync-name>.
@@ -70,7 +70,7 @@ type SecretObject struct {
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
 
-	// Annotations contains key-value pairs representing annotations associated with the Kubernetes secret object.
+	// annotations contains key-value pairs representing annotations associated with the Kubernetes secret object.
 	// The following annotation prefix is reserved: secrets-store.sync.x-k8s.io/.
 	// Creation fails if the annotation key is specified in the SecretSync object by the user.
 	// +kubebuilder:validation:XValidation:message="Annotations should have < 253 characters for both keys and values.",rule="(self.all(x, x.size() < 253 && self[x].size() < 253) == true)"
@@ -82,7 +82,7 @@ type SecretObject struct {
 // SecretSyncSpec defines the desired state for synchronizing secret.
 // The SecretSync name is used as the name of the Kubernetes secret object.
 type SecretSyncSpec struct {
-	// SecretProviderClassName specifies the name of the secret provider class used to pass information to
+	// secretProviderClassName specifies the name of the secret provider class used to pass information to
 	// access the secret store.
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
@@ -90,7 +90,7 @@ type SecretSyncSpec struct {
 	// +kubebuilder:validation:Required
 	SecretProviderClassName string `json:"secretProviderClassName"`
 
-	// ServiceAccountName specifies the name of the service account used to access the secret store.
+	// serviceAccountName specifies the name of the service account used to access the secret store.
 	// The audience field in the service account token must be passed as parameter in the controller configuration.
 	// The audience is used when requesting a token from the API server for the service account; the supported
 	// audiences are defined by each provider.
@@ -100,11 +100,11 @@ type SecretSyncSpec struct {
 	// +kubebuilder:validation:Required
 	ServiceAccountName string `json:"serviceAccountName"`
 
-	// SecretObject specifies the configuration for the synchronized Kubernetes secret object.
+	// secretObject specifies the configuration for the synchronized Kubernetes secret object.
 	// +kubebuilder:validation:Required
 	SecretObject SecretObject `json:"secretObject"`
 
-	// ForceSynchronization can be used to force the secret synchronization. The secret synchronization is
+	// forceSynchronization can be used to force the secret synchronization. The secret synchronization is
 	// triggered, by changing the value in this field.
 	// This field is not used to resolve synchronization conflicts.
 	// It is not related with the force query parameter in the Apply operation.
@@ -117,7 +117,7 @@ type SecretSyncSpec struct {
 
 // SecretSyncStatus defines the observed state of the secret synchronization process.
 type SecretSyncStatus struct {
-	// SyncHash contains the hash of the secret object data, data from the SecretProviderClass (e.g. UID,
+	// syncHash contains the hash of the secret object data, data from the SecretProviderClass (e.g. UID,
 	// and metadata.generation), and similar data from the SecretSync. This hash is used to
 	// determine if the secret changed.
 	// The hash is calculated using the HMAC (Hash-based Message Authentication Code) algorithm, using bcrypt
@@ -130,11 +130,11 @@ type SecretSyncStatus struct {
 	// +optional
 	SyncHash string `json:"syncHash,omitempty"`
 
-	// LastSuccessfulSyncTime represents the last time the secret was retrieved from the Provider and updated.
+	// lastSuccessfulSyncTime represents the last time the secret was retrieved from the Provider and updated.
 	// +optional
 	LastSuccessfulSyncTime *metav1.Time `json:"lastSuccessfulSyncTime,omitempty"`
 
-	// Conditions represent the status of the secret create and update processes.
+	// conditions represent the status of the secret create and update processes.
 	// The status is set to True if the secret was created or updated successfully.
 	// The status is set to False if the secret create or update failed and the reconciliation loop won't retry
 	// the operation until the an action is performed by the user.
