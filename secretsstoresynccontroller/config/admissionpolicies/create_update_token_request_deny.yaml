@@ -1,0 +1,43 @@
+# This policy is used to check that the controller is not creating or updating secrets with types that are not allowed.
+# It requires the parameter controllerName, controllerNamespace and the list of secret types to denny to be set in the
+# ConfigMap admission-policies-secret-sync-controller-config.
+# The user must configure:
+#   the controllerName and controllerNamespace parameters
+#   the list of secret types to denny
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: "secret-sync-controller-create-update-token-deny-policy"
+spec:
+  failurePolicy: Fail
+  paramKind:
+    apiVersion: v1
+    kind: ConfigMap 
+  matchConditions:
+    - name: 'userIsController'
+      expression: "request.userInfo.username == 'system:serviceaccount:'+params.data.controllerNamespace+':'+params.data.controllerName" #'system:serviceaccount:'+params.data.controllerNamespace+':'+params.data.controllerName
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["secrets"]
+  variables:
+  - name: deniedSecretTypes
+    expression: "params.data.exists_one(x, params.data[x] == object.type) ? true : false"
+  validations:
+  - expression: "variables.deniedSecretTypes == false" # if the expression evaluates to false, the validation check is enforced according to the failurePolicy
+    message: "Only secrets with types defined in the config_allow_secret_types configmap are allowed."
+    messageExpression: "string(params.data.controllerName)  + ' has failed to ' +  string(request.operation) + ' secret with ' + string(object.type) + ' type ' + 'in the ' + string(request.namespace) + ' namespace. The controller is not allowed to create or update secrets with this type.'"
+    reason: "Forbidden"
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: "secret-sync-controller-create-update-token-deny-policy-binding"
+spec:
+  policyName: "secret-sync-controller-create-update-token-deny-policy"
+  validationActions: [Deny]
+  paramRef:
+    name: "admission-policies-secret-sync-controller-deny-config"
+    parameterNotFoundAction: "Deny"
