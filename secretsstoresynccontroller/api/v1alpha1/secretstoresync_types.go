@@ -139,10 +139,9 @@ type SecretSyncStatus struct {
 	// Conditions represent the status of the secret create and update processes.
 	// The status is set to True if the secret was created or updated successfully.
 	// The status is set to False if the secret create or update failed and the reconciliation loop won't retry
-	// the operation until the secret is updated by the user.
-	// The status is set to Unknown if the secret patch failed due to an unknown error and the reconciliation
-	// loop will retry the operation.
-
+	// the operation until the an action is performed by the user.
+	// The status is set to Unknown if for example the secret patch failed due to an unknown error and
+	// the reconciliation loop will retry the operation.
 	// The following conditions are used:
 	//		- Type: CreateSucceeded
 	//			Status: True
@@ -168,6 +167,10 @@ type SecretSyncStatus struct {
 	//			Status: True
 	//			Reason: ValueChangeOrForceUpdateDetected
 	//			Message: The secret was updated successfully:a value change or a force update was detected.
+	//		- Type: ValidatingAdmissionPolicyCheckFailed
+	//			Status: False
+	//			Reason: ValidatingAdmissionPolicyCheckFailed
+	//			Message: The secret update failed because the validating admission policy check failed.
 	//		- Type: UpdateFailedInvalidLabel
 	//			Status: False
 	//			Reason: InvalidClusterSecretLabelError
@@ -180,6 +183,18 @@ type SecretSyncStatus struct {
 	//			Status: Unknown
 	//			Reason: ProviderError
 	//			Message: The secret update failed due to a provider error, check the logs or the events for more information.
+	//		- Type: UserInputValidationFailed
+	//			Status: False
+	//			Reason: UserInputValidationFailed
+	//			Message: The secret update failed because the user input validation failed. (e.g. if a secret type is invalid)
+	//		- Type: ControllerSpcError
+	//			Status: False
+	//			Reason: ControllerSpcError
+	//			Message: The secret update failed because the controller failed to get the secret provider class, or the SPC is misconfigured.
+	//		- Type: ControllerInternalError
+	//			Status: Unknown
+	//			Reason: ControllerInternalError
+	//			Message: The secret update failed due to an internal error, check the logs or the events for more information.
 	// 		- Type: SecretPatchFailedUnknownError
 	//			Status: Unknown
 	//			Reason: UnknownError
