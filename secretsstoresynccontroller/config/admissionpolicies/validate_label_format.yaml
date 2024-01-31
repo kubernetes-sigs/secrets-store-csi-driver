@@ -8,7 +8,7 @@ spec:
     resourceRules:
     - apiGroups:   ["secretsync.secret-sync.x-k8s.io"]
       apiVersions: ["*"]
-      operations:  ["CREATE"]
+      operations:  ["CREATE", "UPDATE"]
       resources:   ["secretsyncs"]
   variables:
   - name: secretHasLabel
