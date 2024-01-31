@@ -31,13 +31,28 @@ spec:
     messageExpression: "string(params.data.controllerName)  + ' has failed to ' +  string(request.operation) + ' secret with ' + string(object.type) + ' type ' + 'in the ' + string(request.namespace) + ' namespace. The controller is not allowed to create or update secrets with this type.'"
     reason: "Forbidden"
 ---
+# Helm version
+#{{- if .Values.validatingAdmissionPolicies.applyPolicies -}}
 apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingAdmissionPolicyBinding
+kind: ValidatingAdmissionPolicy
 metadata:
-  name: "secret-sync-controller-create-update-token-deny-policy-binding"
+  name: "secret-sync-controller-create-update-token-deny-policy"
 spec:
-  policyName: "secret-sync-controller-create-update-token-deny-policy"
-  validationActions: [Deny]
-  paramRef:
-    name: "admission-policies-secret-sync-controller-deny-config"
-    parameterNotFoundAction: "Deny"
+  failurePolicy: Fail
+  matchConditions:
+    - name: 'userIsController'
+      expression: {{ include "chartname.matchConditionExpression" . | quote }}
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["secrets"]
+  variables:
+    - name: deniedSecretTypes
+      expression: {{ include "chartname.secretTypesList" .Values.validatingAdmissionPolicies.deniedSecretTypes | quote }}
+  validations:
+    - expression: "variables.deniedSecretTypes == false"
+      message: "Only secrets with types defined in the config_allow_secret_types configmap are allowed."
+      messageExpression: "'secret-sync-controller has failed to ' +  string(request.operation) + ' secret with ' + string(object.type) + ' type ' + 'in the ' + string(request.namespace) + ' namespace. The controller is not allowed to create or update secrets with this type.'"
+#{{- end -}}

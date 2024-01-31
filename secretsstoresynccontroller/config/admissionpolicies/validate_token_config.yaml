@@ -33,13 +33,3 @@ spec:
     messageExpression: "string(params.data.controllerName)  + ' has failed to ' +  string(request.operation) + ' ' + string(request.name) + ' token in the ' + string(request.namespace) + ' namespace. Check the configuration.'"
     reason: "Forbidden"
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingAdmissionPolicyBinding
-metadata:
-  name: "secret-sync-controller-validate-token-policy-binding"
-spec:
-  policyName: "secret-sync-controller-validate-token-policy"
-  validationActions: [Deny]
-  paramRef:
-    name: "admission-policies-secret-sync-controller-config"
-    parameterNotFoundAction: "Deny"
