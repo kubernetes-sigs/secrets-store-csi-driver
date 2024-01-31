@@ -26,7 +26,7 @@ type SecretObjectData struct {
 	// This matches the path of a file in the MountResponse returned from the provider.
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
-	// +kubebuilder:validation:Pattern=^([A-Za-z0-9][-A-Za-z0-9\_.]*)?[A-Za-z0-9]$
+	// +kubebuilder:validation:Pattern=^[A-Za-z0-9.]([-A-Za-z0-9]+([-._a-zA-Z0-9]?[A-Za-z0-9])*)?(\/([0-9]+))*$
 	// +kubebuilder:validation:Required
 	SourcePath string `json:"sourcePath"`
 
@@ -34,7 +34,7 @@ type SecretObjectData struct {
 	// https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/secret-v1/
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
-	// +kubebuilder:validation:Pattern=^[a-z0-9.]([-a-z0-9]*[a-z0-9])?(\/([0-9]+))*$ # regex should allow docker-registry keys
+	// +kubebuilder:validation:Pattern=^[A-Za-z0-9.]([-A-Za-z0-9]+([-._a-zA-Z0-9]?[A-Za-z0-9])*)?(\/([0-9]+))*$
 	// +kubebuilder:validation:Required
 	TargetKey string `json:"targetKey"`
 }
@@ -66,7 +66,6 @@ type SecretObject struct {
 	// secrets-store.sync.x-k8s.io/secretsync=<secret-sync-name> is present. If the label is not present,
 	// controller fails to update the secret.
 	// +kubebuilder:validation:XValidation:message="Labels should have < 63 characters for both keys and values.",rule="(self.all(x, x.size() < 63 && self[x].size() < 63) == true)"
-	// +kubebuilder:validation:XValidation:message="Labels should be valid check: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#rfc-1035-label-names",rule="(self.all(x, x.matches('([a-z0-9][-a-z0-9_.]*)?[a-z0-9]') == true) == true)"
 	// +kubebuilder:validation:XValidation:message="Labels should not contain secrets-store.sync.x-k8s.io. This key is reserved for the controller.",rule="(self.all(x, x.contains('secrets-store.sync.x-k8s.io') == false))"
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
@@ -75,7 +74,6 @@ type SecretObject struct {
 	// The following annotation prefix is reserved: secrets-store.sync.x-k8s.io/.
 	// Creation fails if the annotation key is specified in the SecretSync object by the user.
 	// +kubebuilder:validation:XValidation:message="Annotations should have < 253 characters for both keys and values.",rule="(self.all(x, x.size() < 253 && self[x].size() < 253) == true)"
-	// +kubebuilder:validation:XValidation:message="Annotations should be valid check: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-subdomain-names",rule="(self.all(x, x.matches('([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') == true) == true)"
 	// +kubebuilder:validation:XValidation:message="Annotations should not contain secrets-store.sync.x-k8s.io. This key is reserved for the controller.",rule="(self.all(x, x.contains('secrets-store.sync.x-k8s.io') == false))"
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
@@ -112,7 +110,7 @@ type SecretSyncSpec struct {
 	// It is not related with the force query parameter in the Apply operation.
 	// https://kubernetes.io/docs/reference/using-api/server-side-apply/#conflicts
 	// +kubebuilder:validation:MaxLength=253
-	// +kubebuilder:validation:Pattern=^[A-Za-z0-9]([-A-Za-z0-9]*[A-Za-z0-9])?$
+	// +kubebuilder:validation:Pattern=^[A-Za-z0-9]([-A-Za-z0-9]+([-._a-zA-Z0-9]?[A-Za-z0-9])*)?
 	// +optional
 	ForceSynchronization string `json:"forceSynchronization,omitempty"`
 }
