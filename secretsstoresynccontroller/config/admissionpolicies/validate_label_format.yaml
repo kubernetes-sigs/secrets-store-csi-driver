@@ -6,7 +6,7 @@ spec:
   failurePolicy: Fail
   matchConstraints:
     resourceRules:
-    - apiGroups:   ["secretsync.secret-sync.x-k8s.io"]
+    - apiGroups:   ["secrets-store.sync.x-k8s.io"]
       apiVersions: ["*"]
       operations:  ["CREATE", "UPDATE"]
       resources:   ["secretsyncs"]
