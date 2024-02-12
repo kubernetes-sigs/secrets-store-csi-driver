@@ -1,10 +1,17 @@
 linux:
   enabled: true
+
+  # Pod security context
+  podSecurityContext: {}
+
   image:
     repository: registry.k8s.io/csi-secrets-store/driver
     tag: v1.4.1
     #digest: sha256:
     pullPolicy: IfNotPresent
+  # The secrets-store container security context
+  securityContext:
+    privileged: true
 
   crds:
     enabled: true
@@ -58,6 +65,8 @@ linux:
         cpu: 10m
         memory: 20Mi
     logVerbosity: 5
+    # The registrar container security context
+    securityContext: {}
 
   livenessProbeImage:
     repository: registry.k8s.io/sig-storage/livenessprobe
@@ -73,6 +82,8 @@ linux:
       requests:
         cpu: 10m
         memory: 20Mi
+    # The livenessProbe container security context
+    securityContext: {}
 
   updateStrategy:
     type: RollingUpdate
