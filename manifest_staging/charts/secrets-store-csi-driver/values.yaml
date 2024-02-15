@@ -10,8 +10,7 @@ linux:
     #digest: sha256:
     pullPolicy: IfNotPresent
   # The secrets-store container security context
-  securityContext:
-    privileged: true
+  securityContext: {}
 
   crds:
     enabled: true
