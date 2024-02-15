@@ -84,6 +84,7 @@ secretproviderclasspodstatuses.secrets-store.csi.x-k8s.io
 
 Now that the Secrets Store CSI Driver has been deployed, select a provider from the supported provider list, then follow the installation steps for the provider:
 
+- [Akeyless Provider](https://github.com/akeylesslabs/akeyless-csi-provider)
 - [AWS Provider](https://github.com/aws/secrets-store-csi-driver-provider-aws)
 - [Azure Provider](https://azure.github.io/secrets-store-csi-driver-provider-azure/)
 - [GCP Provider](https://github.com/GoogleCloudPlatform/secrets-store-csi-driver-provider-gcp)

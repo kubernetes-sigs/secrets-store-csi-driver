@@ -26,6 +26,7 @@ The CSI driver communicates with the provider using gRPC to fetch the mount cont
 
 Currently supported providers:
 
+- [Akeyless Provider](https://github.com/akeylesslabs/akeyless-csi-provider)
 - [AWS Provider](https://github.com/aws/secrets-store-csi-driver-provider-aws)
 - [Azure Provider](https://azure.github.io/secrets-store-csi-driver-provider-azure/)
 - [GCP Provider](https://github.com/GoogleCloudPlatform/secrets-store-csi-driver-provider-gcp)
@@ -74,7 +75,7 @@ kind: SecretProviderClass
 metadata:
   name: my-provider
 spec:
-  provider: vault                             # accepted provider options: azure or vault or gcp
+  provider: vault                             # accepted provider options: akeyless or azure or vault or gcp
   parameters:                                 # provider-specific parameters
 ```
 
