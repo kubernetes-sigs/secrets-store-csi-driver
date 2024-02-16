@@ -1,3 +1,5 @@
+# This policy checks if the secretObject.labels field has the correct format.
+# The label key and value should be valid DNS subdomain names.
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingAdmissionPolicy
 metadata:
@@ -14,7 +16,7 @@ spec:
   - name: secretHasLabel
     expression: "has(object.spec.secretObject.labels) ? true : false"
   - name: secretHasCorrectLabelsFormat
-    expression: "variables.secretHasLabel && object.spec.secretObject.labels.all(x, size(x) < 253 && x.matches('^([A-Za-z0-9][-A-Za-z0-9_]*[A-Za-z0-9])?(/[A-Za-z0-9][-A-Za-z0-9_.]*[A-Za-z0-9])?$') == true)"
+    expression: "variables.secretHasLabel && object.spec.secretObject.labels.all(x, size(x) < 253 && x.matches('^([A-Za-z0-9][-A-Za-z0-9_.]*[A-Za-z0-9])?(/[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])*)?$') == true)"
   - name: secretHasCorrectLabelsValueFormat
     expression: "variables.secretHasLabel && object.spec.secretObject.labels.all(x, size(object.spec.secretObject.labels[x]) < 63 && object.spec.secretObject.labels[x].matches('^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$') == true)"
   validations:

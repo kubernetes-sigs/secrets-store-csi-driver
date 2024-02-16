@@ -136,67 +136,68 @@ type SecretSyncStatus struct {
 
 	// conditions represent the status of the secret create and update processes.
 	// The status is set to True if the secret was created or updated successfully.
-	// The status is set to False if the secret create or update failed and the reconciliation loop won't retry
-	// the operation until the an action is performed by the user.
-	// The status is set to Unknown if for example the secret patch failed due to an unknown error and
-	// the reconciliation loop will retry the operation.
+	// The status is set to False if the secret create or update failed.
+	// The status is set to Unknown if the secret patch failed due to an unknown error.
 	// The following conditions are used:
-	//		- Type: CreateSucceeded
-	//			Status: True
-	//			Reason: CreateSucceeded
-	//			Message: The secret was created successfully.
-	//		- Type: CreateFailedProviderError
-	//			Status: Unknown
-	//			Reason: ProviderError
-	//			Message: The secret create failed due to a provider error, check the logs or the events for more information.
-	//		- Type: CreateFailedInvalidLabel
-	//			Status: False
-	//			Reason: InvalidClusterSecretLabelError
-	//			Message: The secret create failed because a label reserved for the controller is applied on the secret.
-	//		- Type: CreateFailedInvalidAnnotation
-	//			Status: False
-	//			Reason: InvalidClusterSecretAnnotationError
-	//		    Message: The secret create failed because an annotation reserved for the controller is applied on the secret.
-	//		- Type: UpdateNoValueChangeSucceeded
-	//			Status: True
-	//			Reason: NoValueChange
-	//			Message: The secret was updated successfully at the end of the poll interval and no value change was detected.
-	//		- Type: UpdateValueChangeOrForceUpdateSucceeded
-	//			Status: True
-	//			Reason: ValueChangeOrForceUpdateDetected
-	//			Message: The secret was updated successfully:a value change or a force update was detected.
-	//		- Type: ValidatingAdmissionPolicyCheckFailed
-	//			Status: False
-	//			Reason: ValidatingAdmissionPolicyCheckFailed
-	//			Message: The secret update failed because the validating admission policy check failed.
-	//		- Type: UpdateFailedInvalidLabel
-	//			Status: False
-	//			Reason: InvalidClusterSecretLabelError
-	//			Message: The secret update failed because a label reserved for the controller is applied on the secret.
-	//		- Type: UpdateFailedInvalidAnnotation
-	//			Status: False
-	//			Reason: InvalidClusterSecretAnnotationError
-	//		    Message: The secret update failed because an annotation reserved for the controller is applied on the secret.
-	//		- Type: UpdateFailedProviderError
-	//			Status: Unknown
-	//			Reason: ProviderError
-	//			Message: The secret update failed due to a provider error, check the logs or the events for more information.
-	//		- Type: UserInputValidationFailed
-	//			Status: False
-	//			Reason: UserInputValidationFailed
-	//			Message: The secret update failed because the user input validation failed. (e.g. if a secret type is invalid)
-	//		- Type: ControllerSpcError
-	//			Status: False
-	//			Reason: ControllerSpcError
-	//			Message: The secret update failed because the controller failed to get the secret provider class, or the SPC is misconfigured.
-	//		- Type: ControllerInternalError
-	//			Status: Unknown
-	//			Reason: ControllerInternalError
-	//			Message: The secret update failed due to an internal error, check the logs or the events for more information.
-	// 		- Type: SecretPatchFailedUnknownError
-	//			Status: Unknown
-	//			Reason: UnknownError
-	//			Message: Secret patch failed due to unknown error, check the logs or the events for more information.
+	// 		- Type: Create
+	//			- Status: True
+	//			  Reason: CreateSucceeded
+	//			  Message: The secret was created successfully.
+	//			- Status: False
+	//			  Reason: ProviderError
+	//			  Message: The secret create failed due to a provider error: errorCode, check the logs or the events for more information.
+	//			- Status: False
+	//			  Reason: InvalidClusterSecretLabelError
+	//			  Message: The secret create failed because a label reserved for the controller is applied on the secret.
+	//			- Status: False
+	//			  Reason: InvalidClusterSecretAnnotationError
+	//		      Message: The secret create failed because an annotation reserved for the controller is applied on the secret.
+	//			- Status: False
+	//			  Reason: UnknownError
+	//			  Message: Secret patch failed due to unknown error, check the logs or the events for more information.
+	//			- Status: False
+	//			  Reason: ValidatingAdmissionPolicyCheckFailed
+	//			  Message: The secret update failed because the validating admission policy check failed.
+	//			- Status: False
+	//			  Reason: UserInputValidationFailed
+	//			  Message: The secret update failed because the user input validation failed. (e.g. if a secret type is invalid).
+	//			- Status: False
+	//			  Reason: ControllerSpcError
+	//			  Message: The secret update failed because the controller failed to get the secret provider class, or the SPC is misconfigured.
+	//			- Status: False
+	//			  Reason: ControllerInternalError
+	//			  Message: The secret update failed due to an internal error, check the logs or the events for more information.
+	//		- Type: Update
+	//			- Status: True
+	//			  Reason: NoValueChange
+	//			  Message: The secret was updated successfully at the end of the poll interval and no value change was detected.
+	//			- Status: True
+	//			  Reason: ValueChangeOrForceUpdateDetected
+	//			  Message: The secret was updated successfully:a value change or a force update was detected.
+	//			- Status: False
+	//			  Reason: ValidatingAdmissionPolicyCheckFailed
+	//			  Message: The secret update failed because the validating admission policy check failed.
+	//			- Status: False
+	//			  Reason: InvalidClusterSecretLabelError
+	//			  Message: The secret update failed because a label reserved for the controller is applied on the secret.
+	//			- Status: False
+	//			  Reason: InvalidClusterSecretAnnotationError
+	//		      Message: The secret update failed because an annotation reserved for the controller is applied on the secret.
+	//			- Status: False
+	//			  Reason: ProviderError
+	//			  Message: The secret update failed due to a provider error: errorCode, check the logs or the events for more information.
+	//			- Status: False
+	//			  Reason: UserInputValidationFailed
+	//			  Message: The secret update failed because the user input validation failed. (e.g. if a secret type is invalid).
+	//			- Status: False
+	//			  Reason: ControllerSpcError
+	//			  Message: The secret update failed because the controller failed to get the secret provider class, or the SPC is misconfigured.
+	//			- Status: False
+	//			  Reason: ControllerInternalError
+	//			  Message: The secret update failed due to an internal error, check the logs or the events for more information.
+	//			- Status: False
+	//			  Reason: UnknownError
+	//			  Message: Secret patch failed due to unknown error, check the logs or the events for more information.
 
 	// +listType=map
 	// +listMapKey=type

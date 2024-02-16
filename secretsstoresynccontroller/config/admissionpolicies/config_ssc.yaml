@@ -11,9 +11,8 @@ kind: ConfigMap
 metadata:
   name: "admission-policies-secret-sync-controller-config"
 data:
-  labelKey: 'secrets-store.sync.x-k8s.io'
+  labelKey: 'secrets-sync-controller.k8s.io/managed'
   labelValue: ''
-  maxExpirationSeconds: '600'
   controllerName: 'secret-sync-controller'
   controllerServiceAccountName: 'secret-sync-controller-sa'
   controllerNamespace: 'secret-sync-controller'
