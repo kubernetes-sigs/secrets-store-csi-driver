@@ -66,7 +66,7 @@ type SecretObject struct {
 	// secrets-store.sync.x-k8s.io/secretsync=<secret-sync-name> is present. If the label is not present,
 	// controller fails to update the secret.
 	// +kubebuilder:validation:XValidation:message="Labels should have < 63 characters for both keys and values.",rule="(self.all(x, x.size() < 63 && self[x].size() < 63) == true)"
-	// +kubebuilder:validation:XValidation:message="Labels should not contain secrets-store.sync.x-k8s.io. This key is reserved for the controller.",rule="(self.all(x, x.contains('secrets-store.sync.x-k8s.io') == false))"
+	// +kubebuilder:validation:XValidation:message="Labels should not contain secrets-store.sync.x-k8s.io. This key is reserved for the controller.",rule="(self.all(x, x.startsWith('secrets-store.sync.x-k8s.io') == false))"
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
 
@@ -74,7 +74,7 @@ type SecretObject struct {
 	// The following annotation prefix is reserved: secrets-store.sync.x-k8s.io/.
 	// Creation fails if the annotation key is specified in the SecretSync object by the user.
 	// +kubebuilder:validation:XValidation:message="Annotations should have < 253 characters for both keys and values.",rule="(self.all(x, x.size() < 253 && self[x].size() < 253) == true)"
-	// +kubebuilder:validation:XValidation:message="Annotations should not contain secrets-store.sync.x-k8s.io. This key is reserved for the controller.",rule="(self.all(x, x.contains('secrets-store.sync.x-k8s.io') == false))"
+	// +kubebuilder:validation:XValidation:message="Annotations should not contain secrets-store.sync.x-k8s.io. This key is reserved for the controller.",rule="(self.all(x, x.startsWith('secrets-store.sync.x-k8s.io') == false))"
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
