@@ -1,0 +1,140 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    control-plane: controller-manager
+    app.kubernetes.io/name: namespace
+    app.kubernetes.io/instance: system
+    app.kubernetes.io/component: manager
+    app.kubernetes.io/created-by: secret-sync-controller
+    app.kubernetes.io/part-of: secret-sync-controller
+    app.kubernetes.io/managed-by: kustomize
+  name: system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: manager
+  namespace: system
+  labels:
+    control-plane: controller-manager
+    app.kubernetes.io/name: deployment
+    app.kubernetes.io/instance: controller-manager
+    app.kubernetes.io/component: manager
+    app.kubernetes.io/created-by: secret-sync-controller
+    app.kubernetes.io/part-of: secret-sync-controller
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        control-plane: controller-manager
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: type
+                operator: NotIn
+                values:
+                - virtual-kubelet
+      tolerations:
+      - operator: Exists
+      nodeSelector:
+        kubernetes.io/os: linux
+      #securityContext:
+        # runAsNonRoot: true
+      containers:
+      - name: provider-e2e-installer
+        image: aramase/e2e-provider:v0.0.1 # replace this with your provider image, the e2e-provider image is available at aramase/e2e-provider:v0.0.1
+        imagePullPolicy: IfNotPresent
+        args:
+          - --endpoint=unix:///provider/e2e-provider.sock
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
+          limits:
+            cpu: 50m
+            memory: 100Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsUser: 0
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+          - mountPath: "/provider"
+            name: providervol
+      - name: manager
+        image: secret-sync-controller:v0.0.1 # replace this with your acr image, the pre-alpha version of the controller is available at aramase/secrets-sync-controller:v0.0.1
+        ports:
+        - name: metrics
+          containerPort: 8085
+          protocol: TCP
+        imagePullPolicy: IfNotPresent
+        args:
+        - --provider-volume=/provider
+        #- --token-request-audience=token-audience # replace this with your token audience
+        - --health-probe-bind-address=:8081
+        - --metrics-bind-address=:8085
+        - --leader-elect
+        #- --rotation-poll-interval=60s
+        command:
+        - /manager
+        env:
+          - name: SYNC_CONTROLLER_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: SYNC_CONTROLLER_POD_UID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          - name: SYNC_CONTROLLER_POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - "ALL"
+        volumeMounts:
+          - mountPath: "/provider"
+            name: providervol
+      serviceAccountName: ssc-manager
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: providervol
+        hostPath:
+          path: "/var/run/secrets-store-sync-providers"
+          type: DirectoryOrCreate
+

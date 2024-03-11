@@ -1,0 +1,6 @@
+apiVersion: v2
+name: secretsync
+version: 0.0.1
+appVersion: v0.0.1
+kubeVersion: ">=1.27.0"
+description: A Helm chart to install the SecretSync Controller and its associated resources inside a Kubernetes cluster.

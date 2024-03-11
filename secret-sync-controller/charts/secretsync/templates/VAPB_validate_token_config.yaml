@@ -1,0 +1,9 @@
+{{- if .Values.validatingAdmissionPolicies.applyPolicies -}}
+{{ include "secret-sync-controller.admissionApiVersion" . }}
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: "secret-sync-controller-validate-token-policy-binding"
+spec:
+  policyName: "secret-sync-controller-validate-token-policy"
+  validationActions: [Deny]
+{{- end -}}

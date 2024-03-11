@@ -1,0 +1,10 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
