@@ -1,0 +1,19 @@
+
+# Prometheus Monitor Service (Metrics)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: secret-sync-controller
+  labels:
+    release: kube-stack
+spec:
+  namespaceSelector:
+    matchNames:
+      - secret-sync-controller-system
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  endpoints:
+    - port: https
+      path: /metrics
+      scheme: http
