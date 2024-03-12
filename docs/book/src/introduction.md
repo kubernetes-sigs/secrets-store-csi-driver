@@ -45,6 +45,7 @@ These features are not stable. If you use these be sure to consult the
 
 ## Supported Providers
 
+- [Akeyless Provider](https://github.com/akeylesslabs/akeyless-csi-provider)
 - [AWS Provider](https://github.com/aws/secrets-store-csi-driver-provider-aws)
 - [Azure Provider](https://azure.github.io/secrets-store-csi-driver-provider-azure/)
 - [GCP Provider](https://github.com/GoogleCloudPlatform/secrets-store-csi-driver-provider-gcp)

@@ -12,7 +12,7 @@ kind: SecretProviderClass
 metadata:
   name: my-provider
 spec:
-  provider: vault                             # accepted provider options: azure or vault or gcp
+  provider: vault                             # accepted provider options: akeyless or azure or vault or gcp
   parameters:                                 # provider-specific parameters
 ```
 

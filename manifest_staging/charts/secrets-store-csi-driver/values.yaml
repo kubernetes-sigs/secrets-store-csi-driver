@@ -6,7 +6,7 @@ linux:
 
   image:
     repository: registry.k8s.io/csi-secrets-store/driver
-    tag: v1.4.1
+    tag: v1.4.2
     #digest: sha256:
     pullPolicy: IfNotPresent
   # The secrets-store container security context
@@ -16,7 +16,7 @@ linux:
     enabled: true
     image:
       repository: registry.k8s.io/csi-secrets-store/driver-crds
-      tag: v1.4.1
+      tag: v1.4.2
       pullPolicy: IfNotPresent
     ## Optionally override resource limits for crd hooks(jobs)
     resources: {}
@@ -51,7 +51,7 @@ linux:
 
   registrarImage:
     repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
-    tag: v2.8.0
+    tag: v2.10.0
     #digest: sha256:
     pullPolicy: IfNotPresent
 
@@ -69,7 +69,7 @@ linux:
 
   livenessProbeImage:
     repository: registry.k8s.io/sig-storage/livenessprobe
-    tag: v2.10.0
+    tag: v2.12.0
     #digest: sha256:
     pullPolicy: IfNotPresent
 
@@ -120,7 +120,7 @@ windows:
   enabled: false
   image:
     repository: registry.k8s.io/csi-secrets-store/driver
-    tag: v1.4.1
+    tag: v1.4.2
     #digest: sha256:
     pullPolicy: IfNotPresent
 
@@ -146,7 +146,7 @@ windows:
 
   registrarImage:
     repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
-    tag: v2.8.0
+    tag: v2.10.0
     #digest: sha256:
     pullPolicy: IfNotPresent
 
@@ -162,7 +162,7 @@ windows:
 
   livenessProbeImage:
     repository: registry.k8s.io/sig-storage/livenessprobe
-    tag: v2.10.0
+    tag: v2.12.0
     #digest: sha256:
     pullPolicy: IfNotPresent
 
