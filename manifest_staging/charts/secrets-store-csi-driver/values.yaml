@@ -242,3 +242,7 @@ tokenRequests: []
 # -- Labels to apply to all resources
 commonLabels: {}
 # team_name: dev
+
+## manifest_staging Driver securityContext default values
+securityContext:
+  privileged: true
