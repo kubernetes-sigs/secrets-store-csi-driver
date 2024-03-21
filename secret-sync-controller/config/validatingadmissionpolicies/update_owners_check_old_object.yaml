@@ -1,0 +1,50 @@
+# Copyright 2023 The Kubernetes Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This policy is used to restrict the types of secrets that the controller can update. The object which gets updated 
+# must have a single owner reference of type SecretSync. Since only the UPDATE operation has an oldObject, the policy
+# can't be merged into the "CREATE" policy.
+# It requires the parameter controllerName, controllerNamespace and the list of secret types to allow to be set in the
+# ConfigMap admission-policies-secret-sync-controller-config.
+# The user must configure:
+#   the controllerName and controllerNamespace parameters
+#   the list of secret types to allow
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: "secret-sync-controller-update-owners-check-oldobject-policy"
+spec:
+  failurePolicy: Fail
+  paramKind:
+    apiVersion: v1
+    kind: ConfigMap 
+  matchConditions:
+    - name: 'user-is-secret-sync-controller'
+      expression: "request.userInfo.username == 'system:serviceaccount:'+params.data.controllerNamespace+':'+params.data.controllerName" #'system:serviceaccount:'+params.data.controllerNamespace+':'+params.data.controllerName
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["UPDATE"]
+      resources:   ["secrets"]
+  variables:
+  - name: hasOneSecretSyncOwner
+    expression: "has(oldObject.metadata.ownerReferences) && (size(oldObject.metadata.ownerReferences) == 1 && oldObject.metadata.ownerReferences.all(o, o.kind == 'SecretSync' && o.apiVersion.startsWith('secret-sync.x-k8s.io/') && o.name == object.metadata.name))"
+  - name: allowedSecretTypes
+    expression: "params.data.exists_one(x, params.data[x] == oldObject.type) ? true : false"
+  validations:
+  - expression: "variables.allowedSecretTypes == true && variables.hasOneSecretSyncOwner == true"
+    message: "Only secrets with one secret sync owner and with types defined in the config_allow_secret_types configmap are allowed"
+    messageExpression: "string(params.data.controllerName)  + ' has failed to ' +  string(request.operation) + ' old secret with ' + string(object.type) + ' type ' + 'in the ' + string(request.namespace) + ' namespace. The controller can only update secrets in the allowed types list with a single secretsync owner.'"
+    reason: "Forbidden"
