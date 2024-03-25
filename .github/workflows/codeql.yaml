@@ -26,7 +26,7 @@ jobs:
           egress-policy: audit
 
       - name: Checkout repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.0.0
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.0.0
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@05963f47d870e2cb19a537396c1f668a348c7d8f # v3.24.8
