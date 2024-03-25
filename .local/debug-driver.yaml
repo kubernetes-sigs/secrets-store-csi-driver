@@ -17,7 +17,7 @@ spec:
       serviceAccountName: secrets-store-csi-driver
       containers:
         - name: node-driver-registrar
-          image: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.2.0
+          image: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.10.1
           args:
             - --v=5
             - --csi-address=/csi/csi.sock
