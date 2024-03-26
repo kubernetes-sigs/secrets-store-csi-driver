@@ -97,6 +97,7 @@ KUBECTL := kubectl
 ENVSUBST := envsubst
 EKSCTL := eksctl
 YQ := yq
+ALIYUNCLI := aliyun
 
 # Test variables
 KIND_VERSION ?= 0.18.0
@@ -220,6 +221,9 @@ $(PROTOC): ## Install protoc
 
 $(YQ): ## Install yq for running the tests
 	curl -LO https://github.com/mikefarah/yq/releases/download/$(YQ_VERSION)/yq_linux_amd64 && chmod +x ./yq_linux_amd64 && mv yq_linux_amd64 /usr/local/bin/yq
+
+$(ALIYUNCLI): ## Install aliyun for running the tests
+	curl -LO https://github.com/aliyun/aliyun-cli/releases/download/v3.0.161/aliyun-cli-linux-3.0.161-amd64.tgz && tar xzvf aliyun-cli-linux-3.0.161-amd64.tgz && chmod +x ./aliyun && cp aliyun /usr/local/bin
 
 SHELLCHECK := $(TOOLS_BIN_DIR)/shellcheck-$(SHELLCHECK_VER)
 $(SHELLCHECK): OS := $(shell uname | tr '[:upper:]' '[:lower:]')
@@ -489,6 +493,10 @@ e2e-akeyless:
 .PHONY: e2e-gcp
 e2e-gcp:
 	bats -t test/bats/gcp.bats
+
+.PHONY: e2e-alibabacloud
+e2e-alibabacloud: $(ALIYUNCLI)
+	bats -t test/bats/alibabacloud.bats
 
 .PHONY: e2e-aws
 e2e-aws:
