@@ -24,6 +24,6 @@ jobs:
           go-version: "^1.20"
       - name: Run tests
         run: make go-test
-      - uses: codecov/codecov-action@4fe8c5f003fae66aa5ebb77cfd3e7bfbbda0b6b0
+      - uses: codecov/codecov-action@7afa10ed9b269c561c2336fd862446844e0cbf71
         with:
           files: ./cover.out
