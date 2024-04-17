@@ -1,0 +1,30 @@
+name: scan_vulns
+
+on:
+  push:
+    paths-ignore:
+    - "docs/**"
+    - "**.md"
+  pull_request:
+    paths-ignore:
+    - "docs/**"
+    - "**.md"
+
+permissions: read-all
+
+jobs:
+  govulncheck:
+    name: "Run govulncheck"
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@63c24ba6bd7ba022e95695ff85de572c04a18142 # v2.7.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        with:
+          go-version: "1.21"
+          check-latest: true
+      - uses: golang/govulncheck-action@3a32958c2706f7048305d5a2e53633d7e37e97d0 # v1.0.2
