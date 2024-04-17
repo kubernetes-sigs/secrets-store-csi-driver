@@ -94,7 +94,7 @@ spec:
       name: {{ template "sscd.fullname" . }}-keep-crds
       {{- if .Values.linux.crds.annotations }}
       annotations:
-        {{ toYaml .Values.linux.crds.annotations}}
+        {{- toYaml .Values.linux.crds.annotations | nindent 8 }}
       {{- end }}
       {{- if .Values.linux.crds.podLabels }}
       labels:
