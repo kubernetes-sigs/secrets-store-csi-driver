@@ -33,6 +33,10 @@ linux:
                 operator: NotIn
                 values:
                   - virtual-kubelet
+              - key: eks.amazonaws.com/compute-type
+                operator: NotIn
+                values:
+                - fargate
 
   driver:
     resources:
