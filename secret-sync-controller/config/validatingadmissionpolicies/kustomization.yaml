@@ -1,0 +1,15 @@
+resources:
+# All ValidatingAdmissionPolicies will be applied under this service account in
+# the deployment namespace. Be sure to change the config maps if you want to 
+# change the policies.
+# Comment the policies you want to disable.
+- config_ssc.yaml
+- config_allow_secret_types.yaml
+- config_deny_secret_types.yaml
+- create_update_secrets_types.yaml
+- delete_secrets.yaml
+- update_owners_check_old_object.yaml
+- update_secrets_based_on_label.yaml
+- validate_annotation_format.yaml
+- validate_label_format.yaml
+- validate_token_config.yaml

@@ -1,0 +1,15 @@
+apiVersion: v1
+entries:
+  secretsync:
+  - apiVersion: v2
+    appVersion: v0.0.1
+    created: "2024-03-17T22:45:30.413428184Z"
+    description: A Helm chart to install the SecretSync Controller and its associated
+      resources inside a Kubernetes cluster.
+    digest: 3742923c5c58f97ed1ade0bdaae2069cdc1193a95900f93c6acd32f68c742b01
+    kubeVersion: '>=1.27.0'
+    name: secretsync
+    urls:
+    - secretsync-0.0.1.tgz
+    version: 0.0.1
+generated: "2024-03-17T22:45:30.411818527Z"

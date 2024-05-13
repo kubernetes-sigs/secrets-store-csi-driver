@@ -1,0 +1,92 @@
+# Default values for secretsync.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+controllerName: secret-sync-controller-manager
+namespace: secret-sync-controller-system
+
+tokenRequestAudience: 
+  - audience:  # e.g. api://TokenAudienceExample
+
+rotationPollInterval: 21600s
+logVerbosity: 5 
+
+validatingAdmissionPolicies:
+  applyPolicies: true
+  kubernetesReleaseVersion: "1.28.0"
+  allowedSecretTypes:
+    - "Opaque"
+    - "kubernetes.io/basic-auth"
+    - "bootstrap.kubernetes.io/token"
+    - "kubernetes.io/dockerconfigjson"
+    - "kubernetes.io/dockercfg"
+    - "kubernetes.io/ssh-auth"
+    - "kubernetes.io/tls"
+
+  deniedSecretTypes:
+    - "kubernetes.io/service-account-token"
+
+image:
+  repository: aramase/secrets-sync-controller # e.g. my-registry.example.com/my-repo
+  pullPolicy: IfNotPresent
+  tag: "v0.0.1"
+
+securityContext:
+  # Default values, can be overridden or extended
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 128Mi
+  requests:
+    cpu: 10m
+    memory: 64Mi
+
+podAnnotations:
+  kubectl.kubernetes.io/default-container: manager
+
+podLabels: 
+  control-plane: controller-manager
+  secrets-store.io/system: "true"
+
+tolerations: 
+- operator: Exists
+
+affinity: 
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: type
+          operator: NotIn
+          values:
+          - virtual-kubelet
+
+metricsPort: 8085
+
+providerContainer:
+# - name: provider-e2e-installer
+#   image: aramase/e2e-provider:v0.0.1
+#   imagePullPolicy: IfNotPresent
+#   args:
+#     - --endpoint=unix:///provider/e2e-provider.sock
+#   resources:
+#     requests:
+#       cpu: 50m
+#       memory: 100Mi
+#     limits:
+#       cpu: 50m
+#       memory: 100Mi
+#   securityContext:
+#     allowPrivilegeEscalation: false
+#     readOnlyRootFilesystem: true
+#     runAsUser: 0
+#     capabilities:
+#       drop:
+#       - ALL
+#   volumeMounts:
+#     - mountPath: "/provider"
+#       name: providervol

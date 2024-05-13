@@ -1,0 +1,24 @@
+# This policy checks if the secretObject.annotations field has the correct format.
+# The annotation key should be a valid DNS subdomain name.
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: "secret-sync-validate-annotation-policy"
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   ["secrets-store.sync.x-k8s.io"]
+      apiVersions: ["*"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["secretsyncs"]
+  variables:
+  - name: secretHasAnnotation
+    expression: "has(object.spec.secretObject.annotations) ? true : false"
+  - name: secretHasCorrectAnnotationsFormat
+    expression: "variables.secretHasAnnotation && object.spec.secretObject.annotations.all(x, size(x) < 253 && x.matches('^([A-Za-z0-9][-A-Za-z0-9_.]*[A-Za-z0-9])?(/[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])*)?$') == true)"
+  validations:
+  - expression: "variables.secretHasAnnotation == false || variables.secretHasCorrectAnnotationsFormat"
+    message: "One of the annotations applied on the secret has an invalid format. Update the annotation and try again."
+    messageExpression: "string(request.userInfo.username)  + ' has failed to ' +  string(request.operation) + ' secret with ' + string(object.type) + ' type ' + 'in the ' + string(request.namespace) + ' namespace because it does not have the correct annotation. Delete the secret and force the controller to recreate it with the correct annotation.'"
+    reason: "Invalid"

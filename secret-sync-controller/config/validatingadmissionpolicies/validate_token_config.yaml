@@ -1,0 +1,36 @@
+# This policy validates the configuration of the token that is created by the secret-sync-controller.
+# It requires the parameters controllerName, controllerNamespace, token expiration, and token audiences
+# to be set in the ConfigMap admission-policies-secret-sync-controller-config.
+# The user must configure:
+#   the token audiences
+#   the controllerName and controllerNamespace parameters
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: "secret-sync-controller-validate-token-policy"
+spec:
+  failurePolicy: Fail
+  paramKind:
+    apiVersion: v1
+    kind: ConfigMap 
+  matchConditions:
+    - name: 'userIsController'
+      expression: "request.userInfo.username == 'system:serviceaccount:'+params.data.controllerNamespace+':'+params.data.controllerName"
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE"]
+      resources:   ["serviceaccounts/token"]
+  variables:
+  - name: expirationSeconds
+    expression: "string(object.spec.expirationSeconds) == '600'"
+  - name: requestHasOnlyOneAudience
+    expression: "object.spec.audiences.size() == 1"
+  - name: hasCorrectAudience
+    expression: "params.data.exists_one(x, x.startsWith('tokenAudience') && object.spec.audiences.exists(w, w == params.data[x]))" # check any audience exists
+  validations:
+  - expression: "variables.hasCorrectAudience == true && variables.expirationSeconds == true && variables.requestHasOnlyOneAudience == true" # if the expression evaluates to false, the validation check is enforced according to the failurePolicy
+    message: "'Creating a serviceaccount token has failed because the configuration isn't correct.'"
+    messageExpression: "string(params.data.controllerName)  + ' has failed to ' +  string(request.operation) + ' ' + string(request.name) + ' token in the ' + string(request.namespace) + ' namespace. Check the configuration.'"
+    reason: "Forbidden"

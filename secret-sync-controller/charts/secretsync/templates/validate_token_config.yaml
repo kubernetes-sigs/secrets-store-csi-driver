@@ -1,0 +1,29 @@
+{{- if .Values.validatingAdmissionPolicies.applyPolicies -}}
+{{ include "secret-sync-controller.admissionApiVersion" . }}
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: "secret-sync-controller-validate-token-policy"
+spec:
+  failurePolicy: Fail
+  matchConditions:
+    - name: 'user-is-secret-sync-controller'
+      expression: {{ include "chartname.matchConditionExpression" . | quote }}
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE"]
+      resources:   ["serviceaccounts/token"]
+  variables:
+  - name: expirationSeconds
+    expression: "string(object.spec.expirationSeconds) == '600'"
+  - name: hasCorrectAudience
+    expression: {{ include "secret-sync-controller.tokenAudienceComparison" . | quote }}
+  - name: requestHasOnlyOneAudience
+    expression: "object.spec.audiences.size() == 1"
+  validations:
+  - expression: "variables.hasCorrectAudience == true && variables.expirationSeconds == true && variables.requestHasOnlyOneAudience == true"
+    message: "'Creating a serviceaccount token has failed because the configuration isn't correct.'"
+    messageExpression: "'secret-sync-controller has failed to ' +  string(request.operation) + ' ' + string(request.name) + ' token in the ' + string(request.namespace) + ' namespace. Check the configuration.'"
+    reason: "Forbidden"
+{{- end -}}

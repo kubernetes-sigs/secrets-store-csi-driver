@@ -1,0 +1,19 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/name: rolebinding
+    app.kubernetes.io/instance: leader-election-rolebinding
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: secret-sync-controller
+    app.kubernetes.io/part-of: secret-sync-controller
+    app.kubernetes.io/managed-by: kustomize
+    secrets-store.io/system: "true"
+  name: secret-sync-controller-leader-election-rolebinding
+  namespace: {{ .Values.namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: secret-sync-controller-leader-election-role
+subjects:
+  {{- include "secret-sync-controller.subjects" . | nindent 2 }}
