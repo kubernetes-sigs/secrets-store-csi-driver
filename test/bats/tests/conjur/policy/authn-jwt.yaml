@@ -1,0 +1,13 @@
+---
+- !policy
+  id: conjur/authn-jwt/kube
+  body:
+  - !webservice
+
+  - !variable public-keys
+  - !variable issuer
+
+  - !permit
+    role: !host /workload-host
+    privilege: [ read, authenticate ]
+    resource: !webservice
