@@ -1,0 +1,12 @@
+---
+- !policy
+  id: db-credentials
+  body:
+  - &variables
+    - !variable username
+    - !variable password
+  
+  - !permit
+    role: !host /workload-host
+    privileges: [ read, execute ]
+    resource: *variables

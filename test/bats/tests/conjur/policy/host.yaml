@@ -1,0 +1,6 @@
+---
+- !host
+  id: workload-host
+  annotations:
+    authn-jwt/kube/kubernetes.io/namespace: default
+    authn-jwt/kube/kubernetes.io/serviceaccount/name: default

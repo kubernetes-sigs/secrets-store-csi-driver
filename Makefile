@@ -437,7 +437,8 @@ e2e-helm-deploy:
 		--set enableSecretRotation=true \
 		--set rotationPollInterval=30s \
 		--set tokenRequests[0].audience="aud1" \
-		--set tokenRequests[1].audience="aud2"
+		--set tokenRequests[1].audience="aud2" \
+		--set tokenRequests[2].audience="conjur"
 
 .PHONY: e2e-helm-upgrade
 e2e-helm-upgrade:
@@ -493,6 +494,10 @@ e2e-gcp:
 .PHONY: e2e-aws
 e2e-aws:
 	bats -t test/bats/aws.bats
+
+.PHONY: e2e-conjur
+e2e-conjur:
+	bats -t test/bats/conjur.bats
 
 ## --------------------------------------
 ## Generate
