@@ -74,3 +74,13 @@ than 4MiB by specifying the `--max-call-recv-msg-size=<size in bytes>` argument 
 
 Note that this may also increase memory resource consumption of the `secrets-store` container, so you should also
 consider increasing the memory limit as well.
+
+### failed to get CSI client: `driver name secrets-store.csi.k8s.io not found in the list of registered CSI drivers`
+### Volume mount fails with `"GRPC error" err="failed to mount objects, error: failed to write file: no such file or directory`
+Some Kubernetes distros (such as Rancher and Microk8s) use a custom `kubeletRootDir` path. This may cause errors such as
+volume mount failures or failures to register CSI drivers. If the default kubelet directory path of the distro you are
+using is not `/var/lib/kubelet`, it can be configured during installation via Helm chart using
+`--set linux.kubeletRootDir=<desired/kubelet/dir/path>`. For Rancher the kubelet directory path is
+[/opt/rke/var/lib/kubelet](https://github.com/Azure/secrets-store-csi-driver-provider-azure/issues/101#issuecomment-628922356)
+and for Microk8s it is
+[/var/snap/microk8s/common/var/lib/kubelet](https://github.com/Azure/secrets-store-csi-driver-provider-azure/issues/521#issuecomment-855495247).
