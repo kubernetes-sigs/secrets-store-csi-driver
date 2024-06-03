@@ -4,8 +4,8 @@ go 1.21
 
 require (
 	github.com/golangci/golangci-lint v1.53.3
-	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.3.0
-	google.golang.org/protobuf v1.33.0
+	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.4.0
+	google.golang.org/protobuf v1.34.1
 	k8s.io/code-generator v0.27.4
 	sigs.k8s.io/controller-tools v0.12.1
 	sigs.k8s.io/kustomize/kustomize/v4 v4.5.7
