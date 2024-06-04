@@ -9,6 +9,12 @@ SLEEP_TIME=1
 export LABEL_VALUE=${LABEL_VALUE:-"test"}
 export ANNOTATION_VALUE=${ANNOTATION_VALUE:-"app=test"}
 
+export CSI_DRIVER_INSTANNED_NAMESPACE=${CSI_DRIVER_INSTANNED_NAMESPACE:-"kube-system"}
+export LABEL_NAMESPACE={LABEL_NAMESPACE:-"app=secrets-store-csi-driver"}
+export CSI_DRIVER_CONTAINER_NAME=${CSI_DRIVER_CONTAINER_NAME:-"secret-store"}
+
+dockerexpectedvalue="{\"auths\": {\"https://index.docker.io/v1/\": {\"username\": \"tiger\",\"password\": \"pass1234\",\"email\": \"dummy-user@redhat.com\",\"auth\": \"dGlnZXI6cGFzczEyMzQ=\"}}}"
+
 @test "install vault provider" {
   # create the ns vault
   kubectl create ns vault
@@ -29,6 +35,8 @@ export ANNOTATION_VALUE=${ANNOTATION_VALUE:-"app=test"}
   # create the kv pair in vault
   kubectl exec vault-0 --namespace=vault -- vault kv put secret/foo bar=hello
   kubectl exec vault-0 --namespace=vault -- vault kv put secret/foo1 bar1=hello1
+  kubectl exec vault-0 --namespace=vault -- vault kv put secret/db-basicauth username="db-secret-username" password="db-secret-password" 
+  kubectl exec vault-0 --namespace=vault -- vault kv put secret/db-dockerconfigjson .dockerconfigjson="$dockerexpectedvalue"
 
   # enable authentication
   kubectl exec vault-0 --namespace=vault -- vault auth enable kubernetes
@@ -100,7 +108,7 @@ EOF
   # update the secret value
   kubectl exec vault-0 --namespace=vault -- vault kv put secret/rotation foo=rotated
 
-  sleep 60
+  sleep 90
 
   # verify rotated value
   result=$(kubectl exec secrets-store-rotation -- cat /mnt/secrets-store/foo)
@@ -125,7 +133,7 @@ EOF
   # On Windows, the failed unmount calls from: https://github.com/kubernetes-sigs/secrets-store-csi-driver/pull/545
   # do not prevent the pod from being deleted. Search through the driver logs
   # for the error.
-  run bash -c "kubectl logs -l app=secrets-store-csi-driver --tail -1 -c secrets-store -n kube-system | grep '^E.*failed to clean and unmount target path.*$'"
+  run bash -c "kubectl logs -l $LABEL_NAMESPACE --tail -1 -c $CSI_DRIVER_CONTAINER_NAME -n $CSI_DRIVER_INSTANNED_NAMESPACE | grep '^E.*failed to clean and unmount target path.*$'"
   assert_failure
 }
 
@@ -304,6 +312,170 @@ EOF
   [[ "$result" == "hello1" ]]
 
   run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret-1 default 1"
+  assert_success 
+}
+
+@test "Sync,rotate with basicauth K8s secrets - create deployment" {
+  kubectl apply -f $BATS_TESTS_DIR/vault_v1_secretproviderclass_basicauth_sync_rotate.yaml
+  kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
+
+  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/vault-basicauth-sync-rotate -o yaml | grep vault"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  kubectl apply -f $BATS_TESTS_DIR/pod-vault-inline-volume-secretproviderclass-basicauth-sync-rotate.yaml
+  # wait for pod to be running
+  kubectl wait --for=condition=Ready --timeout=60s pod/secrets-store-inline-basicauth-sync-rotate
+
+  run kubectl get pod/secrets-store-inline-basicauth-sync-rotate
+  assert_success
+}
+
+@test "Sync with basicauth K8s secrets - read vault secret from pod and basicauth secret" {
+  username=$(kubectl exec secrets-store-inline-basicauth-sync-rotate -- cat /mnt/secrets-store/db-basicauth-username )
+  [[ "$username" == "db-secret-username" ]]
+
+  password=$(kubectl exec secrets-store-inline-basicauth-sync-rotate -- cat /mnt/secrets-store/db-basicauth-password )
+  [[ "$password" == "db-secret-password" ]]
+
+  username=$(kubectl get secrets/basicauthsecret -o=jsonpath="{.data.username}" | base64 -d)
+  [[ "$username" == "db-secret-username" ]]
+
+  password=$(kubectl get secrets/basicauthsecret -o=jsonpath="{.data.password}" | base64 -d)
+  [[ "$password" == "db-secret-password" ]]
+
+  result=$(kubectl exec secrets-store-inline-basicauth-sync-rotate -- printenv | grep SECRET_BASICAUTH | awk -F"=" '{ print $2 }' | tr -d '\r\n')
+  [[ "$result" == "db-secret-password" ]]
+
+  result=$(kubectl get secret basicauthsecret -o jsonpath="{.metadata.labels.environment}")
+  [[ "${result//$'\r'}" == "${LABEL_VALUE}" ]]
+
+  result=$(kubectl get secret basicauthsecret -o jsonpath="{.metadata.annotations.kubed\.appscode\.com\/sync}")
+  [[ "${result//$'\r'}" == "${ANNOTATION_VALUE}" ]]
+
+  result=$(kubectl get secret basicauthsecret -o jsonpath="{.metadata.labels.secrets-store\.csi\.k8s\.io/managed}")
+  [[ "${result//$'\r'}" == "true" ]]
+
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count basicauthsecret default 1"
+  assert_success
+}
+
+@test "Rotate with basicauth K8s secrets - read vault secret from pod and basicauth secret" {
+  # update the secret value
+  kubectl exec vault-0 --namespace=vault -- vault kv put secret/db-basicauth username="db-secret-username-rotated" password="db-secret-password-rotated"
+  
+  sleep 120
+
+  # verify rotated value
+  username=$(kubectl get secrets/basicauthsecret -o=jsonpath="{.data.username}" | base64 -d)
+  [[ "$username" == "db-secret-username-rotated" ]]
+
+  password=$(kubectl get secrets/basicauthsecret -o=jsonpath="{.data.password}" | base64 -d)
+  [[ "$password" == "db-secret-password-rotated" ]]
+
+  username=$(kubectl exec secrets-store-inline-basicauth-sync-rotate -- cat /mnt/secrets-store/db-basicauth-username )
+  [[ "$username" == "db-secret-username-rotated" ]]
+
+  password=$(kubectl exec secrets-store-inline-basicauth-sync-rotate -- cat /mnt/secrets-store/db-basicauth-password )
+  [[ "$password" == "db-secret-password-rotated" ]]
+}
+
+@test "Sync,rotate with basicauth K8s secrets - unmount succeeds, secret gets deleted" {
+  run kubectl delete pod secrets-store-inline-basicauth-sync-rotate
+  assert_success
+
+  run kubectl wait --for=delete --timeout=${WAIT_TIME}s pod/secrets-store-inline-basicauth-sync-rotate
+  assert_success
+
+  # Sleep to allow time for logs to propagate.
+  sleep 10
+
+  # save debug information to archive in case of failure
+  archive_info
+
+  run bash -c "kubectl logs -l $LABEL_NAMESPACE --tail 50 -c $CSI_DRIVER_CONTAINER_NAME -n $CSI_DRIVER_INSTANNED_NAMESPACE | grep '^E.*failed to clean and unmount target path.*$'"
+  assert_failure
+
+  run kubectl delete -f $BATS_TESTS_DIR/vault_v1_secretproviderclass_basicauth_sync_rotate.yaml
+  assert_success
+
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "check_secret_deleted basicauthsecret"
+  assert_success
+}
+
+@test "Sync,rotate with dockerconfigjson K8s secrets - create deployment" {
+  kubectl apply -f $BATS_TESTS_DIR/vault_v1_secretproviderclass_dockerconfigjson_sync_rotate.yaml
+  kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
+
+  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/vault-dockerconfigjson-sync-rotate -o yaml | grep vault"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+
+  kubectl apply -f $BATS_TESTS_DIR/pod-vault-inline-volume-secretproviderclass-dockerconfigjson-sync-rotate.yaml
+  # wait for pod to be running
+  kubectl wait --for=condition=Ready --timeout=60s pod/secrets-store-inline-dockerconfigjson-sync-rotate
+
+  run kubectl get pod/secrets-store-inline-dockerconfigjson-sync-rotate
+  assert_success
+}
+
+@test "Sync with dockerconfigjson K8s secrets - read vault secret from pod and dockerconfigjson secret" {
+  dockeroutputvalue=$(kubectl exec secrets-store-inline-dockerconfigjson-sync-rotate -- cat /mnt/secrets-store/dockerconfigjson)
+  [[ "$dockeroutputvalue" == "$dockerexpectedvalue" ]]
+
+  dockeroutputvalue=$(kubectl get secrets/dockerconfigjsonsecret -o=jsonpath="{.data.\.dockerconfigjson}" | base64 -d)
+  [[ "$dockeroutputvalue" == "$dockerexpectedvalue" ]]
+
+  result=$(kubectl exec secrets-store-inline-dockerconfigjson-sync-rotate -- printenv | grep SECRET_DOCKERCONFIGJSON | awk -F"=" '{ print $2 }' | grep "username" )
+  [[ "$result" != "" ]]
+
+  result=$(kubectl get secret dockerconfigjsonsecret -o jsonpath="{.metadata.labels.environment}")
+  [[ "${result//$'\r'}" == "${LABEL_VALUE}" ]]
+
+  result=$(kubectl get secret dockerconfigjsonsecret -o jsonpath="{.metadata.annotations.kubed\.appscode\.com\/sync}")
+  [[ "${result//$'\r'}" == "${ANNOTATION_VALUE}" ]]
+
+  result=$(kubectl get secret dockerconfigjsonsecret -o jsonpath="{.metadata.labels.secrets-store\.csi\.k8s\.io/managed}")
+  [[ "${result//$'\r'}" == "true" ]]
+
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count dockerconfigjsonsecret default 1"
+  assert_success
+}
+
+@test "Rotate with dockerconfigjson K8s secrets - read vault secret from pod and dockerconfigjson secret" {
+  dockerrotateexpectedvalue="{\"auths\": {\"https://index.docker.io/v1/\": {\"username\": \"tiger-rotated\",\"password\": \"pass1234-rotated\",\"email\": \"dummy-user-rotated@redhat.com\",\"auth\": \"dGlnZXI6cGFzczEyMzQ=\"}}}"
+
+  # update the secret value
+  kubectl exec vault-0 --namespace=vault -- vault kv put secret/db-dockerconfigjson .dockerconfigjson="{\"auths\": {\"https://index.docker.io/v1/\": {\"username\": \"tiger-rotated\",\"password\": \"pass1234-rotated\",\"email\": \"dummy-user-rotated@redhat.com\",\"auth\": \"dGlnZXI6cGFzczEyMzQ=\"}}}"
+
+  sleep 120
+
+  # verify rotated value
+  dockeroutputvalue=$(kubectl get secrets/dockerconfigjsonsecret -o=jsonpath="{.data.\.dockerconfigjson}" | base64 -d)
+  [[ "$dockeroutputvalue" == "$dockerrotateexpectedvalue" ]]
+
+  dockeroutputvalue=$(kubectl exec secrets-store-inline-dockerconfigjson-sync-rotate -- cat /mnt/secrets-store/dockerconfigjson)
+  [[ "$dockeroutputvalue" == "$dockerrotateexpectedvalue" ]]
+}
+
+@test "Sync,rotate with dockerconfigjson K8s secrets - unmount succeeds, secret gets deleted" {
+  run kubectl delete pod secrets-store-inline-dockerconfigjson-sync-rotate
+  assert_success
+
+  run kubectl wait --for=delete --timeout=${WAIT_TIME}s pod/secrets-store-inline-dockerconfigjson-sync-rotate
+  assert_success
+
+  # Sleep to allow time for logs to propagate.
+  sleep 10
+
+  # save debug information to archive in case of failure
+  archive_info 
+
+  run bash -c "kubectl logs -l $LABEL_NAMESPACE --tail 50 -c $CSI_DRIVER_CONTAINER_NAME -n $CSI_DRIVER_INSTANNED_NAMESPACE | grep '^E.*failed to clean and unmount target path.*$'"
+  assert_failure
+
+  run kubectl delete -f $BATS_TESTS_DIR/vault_v1_secretproviderclass_dockerconfigjson_sync_rotate.yaml
+  assert_success
+
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "check_secret_deleted dockerconfigjsonsecret"
   assert_success
 }
 
