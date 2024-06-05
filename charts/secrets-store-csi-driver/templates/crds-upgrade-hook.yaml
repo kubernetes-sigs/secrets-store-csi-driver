@@ -124,7 +124,7 @@ spec:
 {{- if .Values.linux.nodeSelector }}
 {{- toYaml .Values.linux.nodeSelector | nindent 8 }}
 {{- end }}
-{{- with .Values.linux.tolerations }}
+{{- with .Values.linux.crds.tolerations }}
       tolerations:
 {{ toYaml . | indent 8 }}
 {{- end }}

@@ -5,6 +5,10 @@ linux:
     tag: v1.4.3
     #digest: sha256:
     pullPolicy: IfNotPresent
+  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+  # An empty key with operator Exists matches all keys, values and effects which means this will tolerate everything.
+  tolerations:
+    - operator: "Exists"
 
   crds:
     enabled: true
@@ -22,6 +26,10 @@ linux:
       #   memory: "512Mi"
     annotations: {}
     podLabels: {}
+    # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+    # An empty key with operator Exists matches all keys, values and effects which means this will tolerate everything.
+    tolerations:
+      - operator: "Exists"
 
   ## Prevent the CSI driver from being scheduled on virtual-kubelet nodes
   affinity:
@@ -84,10 +92,6 @@ linux:
   additionalProvidersDirs:
     - /etc/kubernetes/secrets-store-csi-providers
   nodeSelector: {}
-  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
-  # An empty key with operator Exists matches all keys, values and effects which means this will tolerate everything.
-  tolerations:
-    - operator: "Exists"
   metricsAddr: ":8095"
   env: []
   priorityClassName: ""
