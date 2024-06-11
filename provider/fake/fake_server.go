@@ -117,9 +117,6 @@ func (m *MockCSIProviderServer) Mount(ctx context.Context, req *v1alpha1.MountRe
 	if err = json.Unmarshal([]byte(req.GetPermission()), &filePermission); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal file permission, error: %w", err)
 	}
-	if len(req.GetTargetPath()) == 0 {
-		return nil, fmt.Errorf("missing target path")
-	}
 	return &v1alpha1.MountResponse{
 		ObjectVersion: m.objects,
 		Error: &v1alpha1.Error{
