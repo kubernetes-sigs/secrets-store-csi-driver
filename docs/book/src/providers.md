@@ -37,9 +37,9 @@ See [design doc](https://docs.google.com/document/d/10-RHUJGM0oMN88AZNxjOmGz0NsW
 
 ## Features supported by current providers
 
-| Features \ Providers      | Azure | GCP | AWS | Vault | Akeyless |
-| ------------------------- | ----- | --- | --- | ----- | -------- |
-| Sync as Kubernetes secret | Yes   | Yes | Yes | Yes   | Yes      |
-| Rotation                  | Yes   | Yes | Yes | Yes   | No       |
-| Windows                   | Yes   | No  | No  | No    | No       |
-| Helm Chart                | Yes   | No  | Yes | Yes   | Yes      |
+| Features \ Providers      | Azure | GCP | AWS | Vault | Akeyless | Conjur |
+| ------------------------- | ----- | --- | --- | ----- | -------- | ------ |
+| Sync as Kubernetes secret | Yes   | Yes | Yes | Yes   | Yes      | Yes    |
+| Rotation                  | Yes   | Yes | Yes | Yes   | No       | Yes    |
+| Windows                   | Yes   | No  | No  | No    | No       | No     |
+| Helm Chart                | Yes   | No  | Yes | Yes   | Yes      | Yes    |

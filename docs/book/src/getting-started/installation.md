@@ -87,5 +87,6 @@ Now that the Secrets Store CSI Driver has been deployed, select a provider from 
 - [Akeyless Provider](https://github.com/akeylesslabs/akeyless-csi-provider)
 - [AWS Provider](https://github.com/aws/secrets-store-csi-driver-provider-aws)
 - [Azure Provider](https://azure.github.io/secrets-store-csi-driver-provider-azure/)
+- [Conjur Provider](https://github.com/cyberark/conjur-k8s-csi-provider)
 - [GCP Provider](https://github.com/GoogleCloudPlatform/secrets-store-csi-driver-provider-gcp)
 - [Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault)
