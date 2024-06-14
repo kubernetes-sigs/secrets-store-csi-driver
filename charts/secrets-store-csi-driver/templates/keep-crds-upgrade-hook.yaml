@@ -16,7 +16,7 @@ rules:
 {{- if and .Values.rbac.pspEnabled (.Capabilities.APIVersions.Has "policy/v1beta1/PodSecurityPolicy") }}
   - apiGroups: ['policy']
     resources: ['podsecuritypolicies']
-    verbs:     ['use']
+    verbs: ['use']
     resourceNames:
     - allow-keep-crds
 {{- end }}
@@ -127,8 +127,13 @@ spec:
 {{- if .Values.linux.nodeSelector }}
 {{- toYaml .Values.linux.nodeSelector | nindent 8 }}
 {{- end }}
+{{- if .Values.linux.crds.tolerations }}
 {{- with .Values.linux.crds.tolerations }}
       tolerations:
 {{ toYaml . | indent 8 }}
+{{- end }}
+{{- else if .Values.linux.tolerations }}
+      tolerations:
+{{ toYaml .Values.linux.tolerations | indent 8 }}
 {{- end }}
 {{- end }}
