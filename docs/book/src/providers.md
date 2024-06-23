@@ -40,6 +40,6 @@ See [design doc](https://docs.google.com/document/d/10-RHUJGM0oMN88AZNxjOmGz0NsW
 | Features \ Providers      | Azure | GCP | AWS | Vault | Akeyless | Conjur |
 | ------------------------- | ----- | --- | --- | ----- | -------- | ------ |
 | Sync as Kubernetes secret | Yes   | Yes | Yes | Yes   | Yes      | Yes    |
-| Rotation                  | Yes   | Yes | Yes | Yes   | No       | Yes    |
+| Rotation                  | Yes   | Yes | Yes | Yes   | Yes      | Yes    |
 | Windows                   | Yes   | No  | No  | No    | No       | No     |
 | Helm Chart                | Yes   | No  | Yes | Yes   | Yes      | Yes    |
