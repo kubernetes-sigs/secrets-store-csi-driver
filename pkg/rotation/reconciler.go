@@ -251,13 +251,16 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	// after the provider mount request is complete
 	var requiresUpdate bool
 	var providerName string
+	podName := spcps.Status.PodName
+	podNamespace := spcps.Namespace
+	secretProviderClass := spcps.Status.SecretProviderClassName
 
 	defer func() {
 		if err != nil {
-			r.reporter.reportRotationErrorCtMetric(ctx, providerName, errorReason, requiresUpdate)
+			r.reporter.reportRotationErrorCtMetric(ctx, providerName, podName, podNamespace, secretProviderClass, errorReason, requiresUpdate)
 			return
 		}
-		r.reporter.reportRotationCtMetric(ctx, providerName, requiresUpdate)
+		r.reporter.reportRotationCtMetric(ctx, providerName, podName, podNamespace, secretProviderClass, requiresUpdate)
 		r.reporter.reportRotationDuration(ctx, time.Since(begin).Seconds())
 	}()
 
@@ -266,14 +269,14 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	err = r.cache.Get(
 		ctx,
 		client.ObjectKey{
-			Namespace: spcps.Namespace,
-			Name:      spcps.Status.PodName,
+			Namespace: podNamespace,
+			Name:      podName,
 		},
 		pod,
 	)
 	if err != nil {
 		errorReason = internalerrors.PodNotFound
-		return fmt.Errorf("failed to get pod %s/%s, err: %w", spcps.Namespace, spcps.Status.PodName, err)
+		return fmt.Errorf("failed to get pod %s/%s, err: %w", podNamespace, podName, err)
 	}
 	// skip rotation if the pod is being terminated
 	// or the pod is in succeeded state (for jobs that complete aren't gc yet)
@@ -289,14 +292,14 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	err = r.cache.Get(
 		ctx,
 		client.ObjectKey{
-			Namespace: spcps.Namespace,
-			Name:      spcps.Status.SecretProviderClassName,
+			Namespace: podNamespace,
+			Name:      secretProviderClass,
 		},
 		spc,
 	)
 	if err != nil {
 		errorReason = internalerrors.SecretProviderClassNotFound
-		return fmt.Errorf("failed to get secret provider class %s/%s, err: %w", spcps.Namespace, spcps.Status.SecretProviderClassName, err)
+		return fmt.Errorf("failed to get secret provider class %s/%s, err: %w", podNamespace, secretProviderClass, err)
 	}
 
 	// determine which pod volume this is associated with
@@ -359,16 +362,16 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	// This comprises the secret parameter in the MountRequest to the provider
 	if nodePublishSecretRef != nil {
 		// read secret from the informer cache
-		secret, err := r.secretStore.GetNodePublishSecretRefSecret(nodePublishSecretRef.Name, spcps.Namespace)
+		secret, err := r.secretStore.GetNodePublishSecretRefSecret(nodePublishSecretRef.Name, podNamespace)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				klog.ErrorS(err,
-					fmt.Sprintf("nodePublishSecretRef not found. If the secret with name exists in namespace, label the secret by running 'kubectl label secret %s %s=true -n %s", nodePublishSecretRef.Name, controllers.SecretUsedLabel, spcps.Namespace),
-					"name", nodePublishSecretRef.Name, "namespace", spcps.Namespace)
+					fmt.Sprintf("nodePublishSecretRef not found. If the secret with name exists in namespace, label the secret by running 'kubectl label secret %s %s=true -n %s", nodePublishSecretRef.Name, controllers.SecretUsedLabel, podNamespace),
+					"name", nodePublishSecretRef.Name, "namespace", podNamespace)
 			}
 			errorReason = internalerrors.NodePublishSecretRefNotFound
-			r.generateEvent(pod, corev1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to get node publish secret %s/%s, err: %+v", spcps.Namespace, nodePublishSecretRef.Name, err))
-			return fmt.Errorf("failed to get node publish secret %s/%s, err: %w", spcps.Namespace, nodePublishSecretRef.Name, err)
+			r.generateEvent(pod, corev1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to get node publish secret %s/%s, err: %+v", podNamespace, nodePublishSecretRef.Name, err))
+			return fmt.Errorf("failed to get node publish secret %s/%s, err: %w", podNamespace, nodePublishSecretRef.Name, err)
 		}
 
 		for k, v := range secret.Data {
@@ -401,7 +404,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	newObjectVersions, errorReason, err := secretsstore.MountContent(ctx, providerClient, string(paramsJSON), string(secretsJSON), spcps.Status.TargetPath, string(permissionJSON), oldObjectVersions)
 	if err != nil {
 		r.generateEvent(pod, corev1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("provider mount err: %+v", err))
-		return fmt.Errorf("failed to rotate objects for pod %s/%s, err: %w", spcps.Namespace, spcps.Status.PodName, err)
+		return fmt.Errorf("failed to rotate objects for pod %s/%s, err: %w", podNamespace, podName, err)
 	}
 
 	// compare the old object versions and new object versions to check if any of the objects
@@ -488,7 +491,7 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 
 		patchFn := func() (bool, error) {
 			// patch secret data with the new contents
-			if err := r.patchSecret(ctx, secretObj.SecretName, spcps.Namespace, datamap); err != nil {
+			if err := r.patchSecret(ctx, secretObj.SecretName, podNamespace, datamap); err != nil {
 				// syncSecret.enabled is set to false by default in the helm chart for installing the driver in v0.0.23+
 				// that would result in a forbidden error, so generate a warning that can be helpful for debugging
 				if apierrors.IsForbidden(err) {
