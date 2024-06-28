@@ -61,7 +61,7 @@ export GOPATH GOBIN GO111MODULE DOCKER_CLI_EXPERIMENTAL
 
 # Generate all combination of all OS, ARCH, and OSVERSIONS for iteration
 ALL_OS = linux windows
-ALL_ARCH.linux = amd64 arm64
+ALL_ARCH.linux = amd64 arm64 s390x ppc64le
 ALL_OS_ARCH.linux = $(foreach arch, ${ALL_ARCH.linux}, linux-$(arch))
 ALL_ARCH.windows = amd64
 ALL_OSVERSIONS.windows := 1809 ltsc2022
