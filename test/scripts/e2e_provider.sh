@@ -15,4 +15,15 @@
 # limitations under the License.
 
 echo "running e2e provider test"
-make e2e-bootstrap e2e-mock-provider-container e2e-helm-deploy e2e-provider-deploy e2e-provider
+make e2e-bootstrap e2e-mock-provider-container
+
+# if YAML_TEST env var is true, then use e2e-deploy-manifest instead of e2e-helm-deploy
+if [ "$IS_YAML_TEST" = "true" ]; then
+  echo "Deploying driver using manifest"
+  make e2e-deploy-manifest
+else
+  echo "Deploying driver using helm chart"
+  make e2e-helm-deploy
+fi
+
+make e2e-provider-deploy e2e-provider
