@@ -429,6 +429,10 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
     assert_match "node_unpublish_total" "${output}"
     assert_match "rotation_reconcile_total" "${output}"
   done
+  # keeping metrics ns in upgrade tests has no relevance
+  # the namespace is only to run a curl pod to validate metrics
+  # so it should be fine to delete and recreate it during upgrade tests
+  kubectl delete ns metrics
 }
 
 teardown_file() {
@@ -437,7 +441,6 @@ teardown_file() {
     run kubectl delete namespace rotation
     run kubectl delete namespace test-ns
     run kubectl delete namespace test-v1alpha1
-    run kubectl delete namespace metrics
 
     run kubectl delete pods secrets-store-inline-crd secrets-store-inline-multiple-crd --force --grace-period 0
   fi
