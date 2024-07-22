@@ -61,12 +61,12 @@ export GOPATH GOBIN GO111MODULE DOCKER_CLI_EXPERIMENTAL
 
 # Generate all combination of all OS, ARCH, and OSVERSIONS for iteration
 ALL_OS = linux windows
-ALL_ARCH.linux = amd64 arm64
-ALL_OS_ARCH.linux = $(foreach arch, ${ALL_ARCH.linux}, linux-$(arch))
-ALL_ARCH.windows = amd64
-ALL_OSVERSIONS.windows := 1809 ltsc2022
-ALL_OS_ARCH.windows = $(foreach arch, $(ALL_ARCH.windows), $(foreach osversion, ${ALL_OSVERSIONS.windows}, windows-${osversion}-${arch}))
-ALL_OS_ARCH = $(foreach os, $(ALL_OS), ${ALL_OS_ARCH.${os}})
+ALL_ARCH_linux ?= amd64 arm64
+ALL_OS_ARCH_linux = $(foreach arch, ${ALL_ARCH_linux}, linux-$(arch))
+ALL_ARCH_windows = amd64
+ALL_OSVERSIONS_windows := 1809 ltsc2022
+ALL_OS_ARCH_windows = $(foreach arch, $(ALL_ARCH_windows), $(foreach osversion, ${ALL_OSVERSIONS_windows}, windows-${osversion}-${arch}))
+ALL_OS_ARCH = $(foreach os, $(ALL_OS), ${ALL_OS_ARCH_${os}})
 
 # The current context of image building
 # The architecture of the image
@@ -328,24 +328,24 @@ docker-buildx-builder:
 
 .PHONY: container-all
 container-all: docker-buildx-builder
-	for arch in $(ALL_ARCH.linux); do \
+	for arch in $(ALL_ARCH_linux); do \
 		ARCH=$${arch} $(MAKE) container-linux; \
 		ARCH=$${arch} $(MAKE) crd-container-linux; \
 	done
-	for osversion in $(ALL_OSVERSIONS.windows); do \
+	for osversion in $(ALL_OSVERSIONS_windows); do \
   		OSVERSION=$${osversion} $(MAKE) container-windows; \
   	done
 
 .PHONY: push-manifest
 push-manifest:
 	docker manifest create --amend $(IMAGE_TAG) $(foreach osarch, $(ALL_OS_ARCH), $(IMAGE_TAG)-${osarch})
-	docker manifest create --amend $(CRD_IMAGE_TAG) $(foreach osarch, $(ALL_OS_ARCH.linux), $(CRD_IMAGE_TAG)-${osarch})
+	docker manifest create --amend $(CRD_IMAGE_TAG) $(foreach osarch, $(ALL_OS_ARCH_linux), $(CRD_IMAGE_TAG)-${osarch})
 	# add "os.version" field to windows images (based on https://github.com/kubernetes/kubernetes/blob/master/build/pause/Makefile)
 	set -x; \
 	registry_prefix=$(shell (echo ${REGISTRY} | grep -Eq ".*[\/\.].*") && echo "" || echo "docker.io/"); \
 	manifest_image_folder=`echo "$${registry_prefix}${IMAGE_TAG}" | sed "s|/|_|g" | sed "s/:/-/"`; \
-	for arch in $(ALL_ARCH.windows); do \
-		for osversion in $(ALL_OSVERSIONS.windows); do \
+	for arch in $(ALL_ARCH_windows); do \
+		for osversion in $(ALL_OSVERSIONS_windows); do \
 			BASEIMAGE=mcr.microsoft.com/windows/nanoserver:$${osversion}; \
 			full_version=`docker manifest inspect $${BASEIMAGE} | jq -r '.manifests[0].platform["os.version"]'`; \
 			sed -i -r "s/(\"os\"\:\"windows\")/\0,\"os.version\":\"$${full_version}\"/" "${HOME}/.docker/manifests/$${manifest_image_folder}/$${manifest_image_folder}-windows-$${osversion}-$${arch}"; \
@@ -359,11 +359,12 @@ push-manifest:
 ## --------------------------------------
 ## E2E Testing
 ## --------------------------------------
+.PHONY: e2e-install-prerequisites
+e2e-install-prerequisites: $(HELM) $(BATS) $(KIND) $(KUBECTL) $(ENVSUBST) $(YQ)
+
 .PHONY: e2e-bootstrap
-e2e-bootstrap: $(HELM) $(BATS) $(KIND) $(KUBECTL) $(ENVSUBST) $(YQ) #setup all required binaries and kind cluster for testing
-ifndef TEST_WINDOWS
+e2e-bootstrap: e2e-install-prerequisites #setup all required binaries and kind cluster for testing
 	$(MAKE) setup-kind
-endif
 	docker pull $(IMAGE_TAG) || $(MAKE) e2e-container
 
 .PHONY: setup-kind
@@ -378,12 +379,8 @@ setup-eks-cluster: $(HELM) $(EKSCTL) $(BATS) $(ENVSUBST) $(YQ)
 
 .PHONY: e2e-container
 e2e-container:
-ifdef TEST_WINDOWS
-	$(MAKE) container-all push-manifest
-else
 	$(MAKE) container
 	kind load docker-image --name kind $(IMAGE_TAG) $(CRD_IMAGE_TAG)
-endif
 
 .PHONY: e2e-mock-provider-container
 e2e-mock-provider-container:
@@ -438,7 +435,8 @@ e2e-helm-deploy:
 		--set rotationPollInterval=30s \
 		--set tokenRequests[0].audience="aud1" \
 		--set tokenRequests[1].audience="aud2" \
-		--set tokenRequests[2].audience="conjur"
+		--set tokenRequests[2].audience="conjur" \
+		--set tokenRequests[3].audience="api://AzureADTokenExchange"
 
 .PHONY: e2e-helm-upgrade
 e2e-helm-upgrade:

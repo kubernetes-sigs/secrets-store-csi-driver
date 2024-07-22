@@ -39,7 +39,5 @@ spec:
             readOnly: true
             volumeAttributes:
               secretProviderClass: "azure-sync"
-            nodePublishSecretRef:
-              name: secrets-store-creds
       nodeSelector:
         kubernetes.io/os: $NODE_SELECTOR_OS
