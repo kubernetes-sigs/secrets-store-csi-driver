@@ -14,6 +14,13 @@ export RESOURCE_NAME=${RESOURCE_NAME:-"projects/735463103342/secrets/test-secret
 export FILE_NAME=${FILE_NAME:-"secret"}
 export SECRET_VALUE=${SECRET_VALUE:-"aHVudGVyMg=="}
 
+setup() {
+  if [[ -z "${GCP_SA_JSON}" ]]; then
+    echo "Error: GCP Service Account (GCP_SA_JSON) is not provided" >&2
+    return 1
+  fi
+}
+
 @test "install gcp provider" {
   run kubectl apply -f $PROVIDER_YAML --namespace $PROVIDER_NAMESPACE
   assert_success
@@ -23,6 +30,15 @@ export SECRET_VALUE=${SECRET_VALUE:-"aHVudGVyMg=="}
   GCP_PROVIDER_POD=$(kubectl get pod --namespace $PROVIDER_NAMESPACE -l app=csi-secrets-store-provider-gcp -o jsonpath="{.items[0].metadata.name}")
 
   run kubectl get pod/$GCP_PROVIDER_POD --namespace $PROVIDER_NAMESPACE
+  assert_success
+}
+
+@test "create gcp k8s secret for provider auth" {
+  run kubectl create secret generic secrets-store-creds --namespace $NAMESPACE --from-literal=key.json="${GCP_SA_JSON}"
+  assert_success
+
+  # label the node publish secret ref secret
+  run kubectl label secret secrets-store-creds secrets-store.csi.k8s.io/used=true
   assert_success
 }
 
