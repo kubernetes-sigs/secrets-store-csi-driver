@@ -411,10 +411,8 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   result=$(kubectl get secret -n rotation rotationsecret -o jsonpath="{.data.username}" | base64 -d)
   [[ "${result//$'\r'}" == "rotated" ]]
 
-  # reset rotation response in mock server for inplace upgrade test
-  if [[ "${INPLACE_UPGRADE_TEST}" == "true" ]]; then
-    run kubectl exec ${curl_pod_name} -n rotation -- curl http://${pod_ip}:8080/rotation?rotated=false
-  fi
+  # reset rotation response in mock server for all upgrade tests
+  run kubectl exec ${curl_pod_name} -n rotation -- curl http://${pod_ip}:8080/rotation?rotated=false
 }
 
 @test "Validate metrics" {
