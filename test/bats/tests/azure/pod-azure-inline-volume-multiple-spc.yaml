@@ -36,15 +36,11 @@ spec:
         readOnly: true
         volumeAttributes:
           secretProviderClass: "azure-spc-0"
-        nodePublishSecretRef:
-          name: secrets-store-creds
     - name: secrets-store-inline-1
       csi:
         driver: secrets-store.csi.k8s.io
         readOnly: true
         volumeAttributes:
           secretProviderClass: "azure-spc-1"
-        nodePublishSecretRef:
-          name: secrets-store-creds
   nodeSelector:
     kubernetes.io/os: $NODE_SELECTOR_OS

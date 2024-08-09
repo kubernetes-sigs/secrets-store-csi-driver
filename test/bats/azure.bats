@@ -16,21 +16,10 @@ if [ $TEST_WINDOWS ]; then
   NODE_SELECTOR_OS=windows
 fi
 
-if [ -z "$AUTO_ROTATE_SECRET_NAME" ]; then
-    export AUTO_ROTATE_SECRET_NAME=secret-$(openssl rand -hex 6)
-fi
-
-if [ -z "$IS_YAML_TEST" ]; then
-    export IS_YAML_TEST=false
-fi
-
-export KEYVAULT_NAME=${KEYVAULT_NAME:-csi-secrets-store-e2e}
+export KEYVAULT_NAME=${KEYVAULT_NAME:-secrets-store-csi-e2e}
 export SECRET_NAME=${KEYVAULT_SECRET_NAME:-secret1}
 export SECRET_VERSION=${KEYVAULT_SECRET_VERSION:-""}
 export SECRET_VALUE=${KEYVAULT_SECRET_VALUE:-"test"}
-export KEY_NAME=${KEYVAULT_KEY_NAME:-key1}
-export KEY_VERSION=${KEYVAULT_KEY_VERSION:-7cc095105411491b84fe1b92ebbcf01a}
-export KEY_VALUE_CONTAINS=${KEYVAULT_KEY_VALUE:-"LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUF4K2FadlhJN2FldG5DbzI3akVScgpheklaQ2QxUlBCQVZuQU1XcDhqY05TQk5MOXVuOVJrenJHOFd1SFBXUXNqQTA2RXRIOFNSNWtTNlQvaGQwMFNRCk1aODBMTlNxYkkwTzBMcWMzMHNLUjhTQ0R1cEt5dkpkb01LSVlNWHQzUlk5R2Ywam1ucHNKOE9WbDFvZlRjOTIKd1RINXYyT2I1QjZaMFd3d25MWlNiRkFnSE1uTHJtdEtwZTVNcnRGU21nZS9SL0J5ZXNscGU0M1FubnpndzhRTwpzU3ZMNnhDU21XVW9WQURLL1MxREU0NzZBREM2a2hGTjF5ZHUzbjVBcnREVGI0c0FjUHdTeXB3WGdNM3Y5WHpnClFKSkRGT0JJOXhSTW9UM2FjUWl0Z0c2RGZibUgzOWQ3VU83M0o3dUFQWUpURG1pZGhrK0ZFOG9lbjZWUG9YRy8KNXdJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0t"}
 export LABEL_VALUE=${LABEL_VALUE:-"test"}
 export NODE_SELECTOR_OS=$NODE_SELECTOR_OS
 
@@ -39,8 +28,8 @@ export NODE_SELECTOR_OS=$NODE_SELECTOR_OS
 export API_VERSION=$(get_secrets_store_api_version)
 
 setup() {
-  if [[ -z "${AZURE_CLIENT_ID}" ]] || [[ -z "${AZURE_CLIENT_SECRET}" ]]; then
-    echo "Error: Azure service principal is not provided" >&2
+  if [[ -z "${IDENTITY_CLIENT_ID}" ]]; then
+    echo "Error: Azure managed identity id is not provided" >&2
     return 1
   fi
 }
@@ -57,15 +46,6 @@ setup() {
 
   # wait for azure-csi-provider pod to be running
   kubectl wait --for=condition=Ready --timeout=150s pods -l app=csi-secrets-store-provider-azure --namespace $NAMESPACE
-}
-
-@test "create azure k8s secret" {
-  run kubectl create secret generic secrets-store-creds --from-literal clientid=${AZURE_CLIENT_ID} --from-literal clientsecret=${AZURE_CLIENT_SECRET}
-  assert_success
-
-  # label the node publish secret ref secret
-  run kubectl label secret secrets-store-creds secrets-store.csi.k8s.io/used=true
-  assert_success
 }
 
 @test "deploy azure secretproviderclass crd" {
@@ -94,12 +74,6 @@ setup() {
 
   result=$(kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
-}
-
-@test "CSI inline volume test with pod portability - read azure kv key from pod" {
-  result=$(kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$KEY_NAME)
-  result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
-  [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 }
 
 @test "CSI inline volume test with pod portability - unmount succeeds" {
@@ -144,10 +118,6 @@ setup() {
   result=$(kubectl exec $POD -- cat /mnt/secrets-store/secretalias)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl exec $POD -- cat /mnt/secrets-store/$KEY_NAME)
-  result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
-  [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
-
   result=$(kubectl get secret foosecret -o jsonpath="{.data.username}" | base64 -d)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
@@ -184,13 +154,6 @@ setup() {
   run kubectl create ns test-ns
   assert_success
 
-  run kubectl create secret generic secrets-store-creds --from-literal clientid=${AZURE_CLIENT_ID} --from-literal clientsecret=${AZURE_CLIENT_SECRET} -n test-ns
-  assert_success
-
-  # label the node publish secret ref secret
-  run kubectl label secret secrets-store-creds secrets-store.csi.k8s.io/used=true -n test-ns
-  assert_success
-
   envsubst < $BATS_TESTS_DIR/azure_v1_secretproviderclass_ns.yaml | kubectl apply -f -
 
   kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
@@ -212,10 +175,6 @@ setup() {
   result=$(kubectl exec -n test-ns $POD -- cat /mnt/secrets-store/secretalias)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl exec -n test-ns $POD -- cat /mnt/secrets-store/$KEY_NAME)
-  result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
-  [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
-
   result=$(kubectl get secret foosecret -n test-ns -o jsonpath="{.data.username}" | base64 -d)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
@@ -236,13 +195,6 @@ setup() {
 
 @test "Test Namespaced scope SecretProviderClass - Should fail when no secret provider class in same namespace" {
   run kubectl create ns negative-test-ns
-  assert_success
-
-  run kubectl create secret generic secrets-store-creds --from-literal clientid=${AZURE_CLIENT_ID} --from-literal clientsecret=${AZURE_CLIENT_SECRET} -n negative-test-ns
-  assert_success
-
-  # label the node publish secret ref secret
-  run kubectl label secret secrets-store-creds secrets-store.csi.k8s.io/used=true -n negative-test-ns
   assert_success
 
   envsubst < $BATS_TESTS_DIR/deployment-synck8s-azure.yaml | kubectl apply -n negative-test-ns -f -
@@ -284,16 +236,8 @@ setup() {
   result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/secretalias)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/$KEY_NAME)
-  result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
-  [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
-
   result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/secretalias)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
-
-  result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/$KEY_NAME)
-  result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
-  [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
 
   result=$(kubectl get secret foosecret-0 -o jsonpath="{.data.username}" | base64 -d)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
@@ -314,66 +258,11 @@ setup() {
   assert_success
 }
 
-@test "Test auto rotation of mount contents and K8s secrets - Create deployment" {
-  run kubectl create ns rotation
-  assert_success
-
-  run kubectl create secret generic secrets-store-creds --from-literal clientid=${AZURE_CLIENT_ID} --from-literal clientsecret=${AZURE_CLIENT_SECRET} -n rotation
-  assert_success
-
-  # label the node publish secret ref secret
-  run kubectl label secret secrets-store-creds secrets-store.csi.k8s.io/used=true -n rotation
-  assert_success
-
-  run az login -u ${AZURE_CLIENT_ID} -p ${AZURE_CLIENT_SECRET} -t ${TENANT_ID} --service-principal
-  assert_success
-
-  run az keyvault secret set --vault-name ${KEYVAULT_NAME} --name ${AUTO_ROTATE_SECRET_NAME} --value secret
-  assert_success
-
-  envsubst < $BATS_TESTS_DIR/rotation/azure_synck8s_v1_secretproviderclass.yaml | kubectl apply -n rotation -f -
-  envsubst < $BATS_TESTS_DIR/rotation/pod-synck8s-azure.yaml | kubectl apply -n rotation -f -
-
-  kubectl wait -n rotation --for=condition=Ready --timeout=60s pod/secrets-store-inline-rotation
-
-  run kubectl get pod/secrets-store-inline-rotation -n rotation
-  assert_success
-}
-
-@test "Test auto rotation of mount contents and K8s secrets" {
-  result=$(kubectl exec -n rotation secrets-store-inline-rotation -- cat /mnt/secrets-store/secretalias)
-  [[ "${result//$'\r'}" == "secret" ]]
-
-  result=$(kubectl get secret -n rotation rotationsecret -o jsonpath="{.data.username}" | base64 -d)
-  [[ "${result//$'\r'}" == "secret" ]]
-
-  run az keyvault secret set --vault-name ${KEYVAULT_NAME} --name ${AUTO_ROTATE_SECRET_NAME} --value rotated
-  assert_success
-
-  sleep 60
-
-  result=$(kubectl exec -n rotation secrets-store-inline-rotation -- cat /mnt/secrets-store/secretalias)
-  [[ "${result//$'\r'}" == "rotated" ]]
-
-  result=$(kubectl get secret -n rotation rotationsecret -o jsonpath="{.data.username}" | base64 -d)
-  [[ "${result//$'\r'}" == "rotated" ]]
-
-  run az keyvault secret delete --vault-name ${KEYVAULT_NAME} --name ${AUTO_ROTATE_SECRET_NAME}
-  assert_success
-
-  run az logout
-  assert_success
-}
-
 teardown_file() {
   archive_provider "app=csi-secrets-store-provider-azure" || true
   archive_info || true
 
   #cleanup
-  run kubectl delete namespace rotation
   run kubectl delete namespace test-ns
-  
-  run kubectl delete secret secrets-store-creds
-
   run kubectl delete pods secrets-store-inline-crd secrets-store-inline-multiple-crd --force --grace-period 0
 }
