@@ -45,7 +45,7 @@ linux:
 
   registrarImage:
     repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
-    tag: v2.10.0
+    tag: v2.11.1
     #digest: sha256:
     pullPolicy: IfNotPresent
 
@@ -61,7 +61,7 @@ linux:
 
   livenessProbeImage:
     repository: registry.k8s.io/sig-storage/livenessprobe
-    tag: v2.12.0
+    tag: v2.13.1
     #digest: sha256:
     pullPolicy: IfNotPresent
 
@@ -136,7 +136,7 @@ windows:
 
   registrarImage:
     repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
-    tag: v2.10.0
+    tag: v2.11.1
     #digest: sha256:
     pullPolicy: IfNotPresent
 
@@ -152,7 +152,7 @@ windows:
 
   livenessProbeImage:
     repository: registry.k8s.io/sig-storage/livenessprobe
-    tag: v2.12.0
+    tag: v2.13.1
     #digest: sha256:
     pullPolicy: IfNotPresent
 
