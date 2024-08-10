@@ -5,7 +5,8 @@ load helpers
 BATS_TESTS_DIR=test/bats/tests/azure
 WAIT_TIME=60
 SLEEP_TIME=1
-NAMESPACE=kube-system
+NAMESPACE=default
+PROVIDER_NAMESPACE=kube-system
 NODE_SELECTOR_OS=linux
 BASE64_FLAGS="-w 0"
 if [[ "$OSTYPE" == *"darwin"* ]]; then
@@ -38,51 +39,49 @@ setup() {
   # install the azure provider using the helm charts
   helm repo add csi-provider-azure https://azure.github.io/secrets-store-csi-driver-provider-azure/charts
   helm repo update
-  helm upgrade --install csi csi-provider-azure/csi-secrets-store-provider-azure --namespace $NAMESPACE \
+  helm upgrade --install csi csi-provider-azure/csi-secrets-store-provider-azure --namespace $PROVIDER_NAMESPACE \
         --set "secrets-store-csi-driver.install=false" \
         --set "windows.enabled=$TEST_WINDOWS" \
         --set "logVerbosity=5" \
         --set "logFormatJSON=true" \
 
   # wait for azure-csi-provider pod to be running
-  kubectl wait --for=condition=Ready --timeout=150s pods -l app=csi-secrets-store-provider-azure --namespace $NAMESPACE
+  kubectl wait --for=condition=Ready --timeout=150s pods -l app=csi-secrets-store-provider-azure --namespace $PROVIDER_NAMESPACE
 }
 
 @test "deploy azure secretproviderclass crd" {
-  envsubst < $BATS_TESTS_DIR/azure_v1_secretproviderclass.yaml | kubectl apply -f -
+  envsubst < $BATS_TESTS_DIR/azure_v1_secretproviderclass.yaml | kubectl apply -n $NAMESPACE -f -
 
-  kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
-
-  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure -o yaml | grep azure"
+  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure -n $NAMESPACE -o yaml | grep azure"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 }
 
 @test "CSI inline volume test with pod portability" {
-  envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -f -
+  envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -n $NAMESPACE -f -
   
   # The wait timeout is set to 300s only for this first pod in test to accomadate for the node-driver-registrar
   # registration retries on windows nodes. Based on previous tests on windows nodes, the node-driver-registrar was
   # restarted 5 times before succeeding which resulted in a wait timeout of 300s.
-  kubectl wait --for=condition=Ready --timeout=300s pod/secrets-store-inline-crd
+  kubectl wait --for=condition=Ready --timeout=300s -n $NAMESPACE pod/secrets-store-inline-crd
 
-  run kubectl get pod/secrets-store-inline-crd
+  run kubectl get pod/secrets-store-inline-crd -n $NAMESPACE
   assert_success
 }
 
 @test "CSI inline volume test with pod portability - read azure kv secret from pod" {
-  wait_for_process $WAIT_TIME $SLEEP_TIME "kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME | grep '${SECRET_VALUE}'"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "kubectl exec secrets-store-inline-crd -n $NAMESPACE -- cat /mnt/secrets-store/$SECRET_NAME | grep '${SECRET_VALUE}'"
 
-  result=$(kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME)
+  result=$(kubectl exec secrets-store-inline-crd -n $NAMESPACE -- cat /mnt/secrets-store/$SECRET_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 }
 
 @test "CSI inline volume test with pod portability - unmount succeeds" {
   # On Linux a failure to unmount the tmpfs will block the pod from being
   # deleted.
-  run kubectl delete pod secrets-store-inline-crd
+  run kubectl delete pod secrets-store-inline-crd -n $NAMESPACE
   assert_success
 
-  run kubectl wait --for=delete --timeout=${WAIT_TIME}s pod/secrets-store-inline-crd
+  run kubectl wait --for=delete --timeout=${WAIT_TIME}s pod/secrets-store-inline-crd -n $NAMESPACE
   assert_success
 
   # Sleep to allow time for logs to propagate.
@@ -99,35 +98,33 @@ setup() {
 }
 
 @test "Sync with K8s secrets - create deployment" {
-  envsubst < $BATS_TESTS_DIR/azure_synck8s_v1_secretproviderclass.yaml | kubectl apply -f - 
+  envsubst < $BATS_TESTS_DIR/azure_synck8s_v1_secretproviderclass.yaml | kubectl apply -n $NAMESPACE -f - 
 
-  kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
-
-  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure-sync -o yaml | grep azure"
+  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure-sync -n $NAMESPACE -o yaml | grep azure"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 
-  envsubst < $BATS_TESTS_DIR/deployment-synck8s-azure.yaml | kubectl apply -f -
-  envsubst < $BATS_TESTS_DIR/deployment-two-synck8s-azure.yaml | kubectl apply -f -
+  envsubst < $BATS_TESTS_DIR/deployment-synck8s-azure.yaml | kubectl apply -n $NAMESPACE -f -
+  envsubst < $BATS_TESTS_DIR/deployment-two-synck8s-azure.yaml | kubectl apply -n $NAMESPACE -f -
 
-  kubectl wait --for=condition=Ready --timeout=90s pod -l app=busybox
+  kubectl wait --for=condition=Ready --timeout=90s -n $NAMESPACE pod -l app=busybox
 }
 
 @test "Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences with multiple owners" {
-  POD=$(kubectl get pod -l app=busybox -o jsonpath="{.items[0].metadata.name}")
+  POD=$(kubectl get pod -l app=busybox -n $NAMESPACE -o jsonpath="{.items[0].metadata.name}")
 
-  result=$(kubectl exec $POD -- cat /mnt/secrets-store/secretalias)
+  result=$(kubectl exec $POD -n $NAMESPACE -- cat /mnt/secrets-store/secretalias)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl get secret foosecret -o jsonpath="{.data.username}" | base64 -d)
+  result=$(kubectl get secret foosecret -n $NAMESPACE -o jsonpath="{.data.username}" | base64 -d)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl exec $POD -- printenv | grep SECRET_USERNAME) | awk -F"=" '{ print $2}'
+  result=$(kubectl exec $POD -n $NAMESPACE -- printenv | grep SECRET_USERNAME) | awk -F"=" '{ print $2}'
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl get secret foosecret -o jsonpath="{.metadata.labels.environment}")
+  result=$(kubectl get secret foosecret -n $NAMESPACE -o jsonpath="{.metadata.labels.environment}")
   [[ "${result//$'\r'}" == "${LABEL_VALUE}" ]]
 
-  result=$(kubectl get secret foosecret -o jsonpath="{.metadata.labels.secrets-store\.csi\.k8s\.io/managed}")
+  result=$(kubectl get secret foosecret -n $NAMESPACE -o jsonpath="{.metadata.labels.secrets-store\.csi\.k8s\.io/managed}")
   [[ "${result//$'\r'}" == "true" ]]
 
   run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 2"
@@ -135,19 +132,19 @@ setup() {
 }
 
 @test "Sync with K8s secrets - delete deployment, check owner ref updated, check secret deleted" {
-  run kubectl delete -f $BATS_TESTS_DIR/deployment-synck8s-azure.yaml
+  run kubectl delete -n $NAMESPACE -f $BATS_TESTS_DIR/deployment-synck8s-azure.yaml
   assert_success
 
   run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 1"
   assert_success
 
-  run kubectl delete -f $BATS_TESTS_DIR/deployment-two-synck8s-azure.yaml
+  run kubectl delete -n $NAMESPACE -f $BATS_TESTS_DIR/deployment-two-synck8s-azure.yaml
   assert_success
 
   run wait_for_process $WAIT_TIME $SLEEP_TIME "check_secret_deleted foosecret default"
   assert_success
 
-  envsubst < $BATS_TESTS_DIR/azure_synck8s_v1_secretproviderclass.yaml | kubectl delete -f -
+  envsubst < $BATS_TESTS_DIR/azure_synck8s_v1_secretproviderclass.yaml | kubectl delete -n $NAMESPACE -f -
 }
 
 @test "Test Namespaced scope SecretProviderClass - create deployment" {
@@ -156,9 +153,7 @@ setup() {
 
   envsubst < $BATS_TESTS_DIR/azure_v1_secretproviderclass_ns.yaml | kubectl apply -f -
 
-  kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
-
-  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure-sync -o yaml | grep azure"
+  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure-sync -n $NAMESPACE -o yaml | grep azure"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 
   cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure-sync -n test-ns -o yaml | grep azure"
@@ -212,46 +207,44 @@ setup() {
 }
 
 @test "deploy multiple azure secretproviderclass crd" {
-  envsubst < $BATS_TESTS_DIR/azure_v1_multiple_secretproviderclass.yaml | kubectl apply -f -
+  envsubst < $BATS_TESTS_DIR/azure_v1_multiple_secretproviderclass.yaml | kubectl apply -n $NAMESPACE -f -
 
-  kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
-
-  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure-spc-0 -o yaml | grep azure-spc-0"
+  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure-spc-0 -n $NAMESPACE -o yaml | grep azure-spc-0"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 
-  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure-spc-1 -o yaml | grep azure-spc-1"
+  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/azure-spc-1 -n $NAMESPACE -o yaml | grep azure-spc-1"
   wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
 }
 
 @test "deploy pod with multiple secret provider class" {
-  envsubst < $BATS_TESTS_DIR/pod-azure-inline-volume-multiple-spc.yaml | kubectl apply -f -
+  envsubst < $BATS_TESTS_DIR/pod-azure-inline-volume-multiple-spc.yaml | kubectl apply -n $NAMESPACE -f -
   
-  kubectl wait --for=condition=Ready --timeout=60s pod/secrets-store-inline-multiple-crd
+  kubectl wait --for=condition=Ready --timeout=60s pod/secrets-store-inline-multiple-crd -n $NAMESPACE
 
-  run kubectl get pod/secrets-store-inline-multiple-crd
+  run kubectl get pod/secrets-store-inline-multiple-crd -n $NAMESPACE
   assert_success
 }
 
 @test "CSI inline volume test with multiple secret provider class" {
-  result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/secretalias)
+  result=$(kubectl exec secrets-store-inline-multiple-crd -n $NAMESPACE -- cat /mnt/secrets-store-0/secretalias)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-1/secretalias)
+  result=$(kubectl exec secrets-store-inline-multiple-crd -n $NAMESPACE -- cat /mnt/secrets-store-1/secretalias)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl get secret foosecret-0 -o jsonpath="{.data.username}" | base64 -d)
+  result=$(kubectl get secret foosecret-0 -n $NAMESPACE -o jsonpath="{.data.username}" | base64 -d)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl exec secrets-store-inline-multiple-crd -- printenv | grep SECRET_USERNAME_0) | awk -F"=" '{ print $2}'
+  result=$(kubectl exec secrets-store-inline-multiple-crd -n $NAMESPACE -- printenv | grep SECRET_USERNAME_0) | awk -F"=" '{ print $2}'
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret-0 default 1"
   assert_success
 
-  result=$(kubectl get secret foosecret-1 -o jsonpath="{.data.username}" | base64 -d)
+  result=$(kubectl get secret foosecret-1 -n $NAMESPACE -o jsonpath="{.data.username}" | base64 -d)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
-  result=$(kubectl exec secrets-store-inline-multiple-crd -- printenv | grep SECRET_USERNAME_1) | awk -F"=" '{ print $2}'
+  result=$(kubectl exec secrets-store-inline-multiple-crd -n $NAMESPACE -- printenv | grep SECRET_USERNAME_1) | awk -F"=" '{ print $2}'
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
   run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret-1 default 1"
