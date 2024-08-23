@@ -206,10 +206,7 @@ func mainErr() error {
 	// token request client
 	kubeClient := kubernetes.NewForConfigOrDie(cfg)
 	tokenClient := k8s.NewTokenClient(kubeClient, *driverName, 10*time.Minute)
-	if err != nil {
-		klog.ErrorS(err, "failed to create token client")
-		return err
-	}
+
 	if err = tokenClient.Run(ctx.Done()); err != nil {
 		klog.ErrorS(err, "failed to run token client")
 		return err
