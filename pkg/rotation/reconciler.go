@@ -93,8 +93,7 @@ func NewReconciler(driverName string,
 	client client.Reader,
 	s *runtime.Scheme,
 	rotationPollInterval time.Duration,
-	providerClients *secretsstore.PluginClientBuilder,
-	tokenClient *k8s.TokenClient) (*Reconciler, error) {
+	providerClients *secretsstore.PluginClientBuilder) (*Reconciler, error) {
 	config, err := buildConfig()
 	if err != nil {
 		return nil, err
@@ -105,7 +104,7 @@ func NewReconciler(driverName string,
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&clientcorev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(s, corev1.EventSource{Component: "csi-secrets-store-rotation"})
-	secretStore, err := k8s.New(kubeClient, 5*time.Second)
+	secretStore, err := k8s.New(kubeClient, 5*time.Minute)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +124,6 @@ func NewReconciler(driverName string,
 		// cache store Pod,
 		cache:       client,
 		secretStore: secretStore,
-		tokenClient: tokenClient,
 
 		driverName: driverName,
 	}, nil
