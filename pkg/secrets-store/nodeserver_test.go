@@ -21,10 +21,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store/mocks"
 	providerfake "sigs.k8s.io/secrets-store-csi-driver/provider/fake"
 
@@ -33,7 +31,6 @@ import (
 	"google.golang.org/grpc/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	fakeclient "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	mount "k8s.io/mount-utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -56,7 +53,7 @@ func testNodeServer(t *testing.T, client client.Client, reporter StatsReporter) 
 	t.Cleanup(server.Stop)
 
 	providerClients := NewPluginClientBuilder([]string{socketPath})
-	return newNodeServer("testnode", mount.NewFakeMounter([]mount.MountPoint{}), providerClients, client, client, reporter, k8s.NewTokenClient(fakeclient.NewSimpleClientset(), "test-driver", 1*time.Second))
+	return newNodeServer("testnode", mount.NewFakeMounter([]mount.MountPoint{}), providerClients, client, client, reporter)
 }
 
 func TestNodePublishVolume_Errors(t *testing.T) {
