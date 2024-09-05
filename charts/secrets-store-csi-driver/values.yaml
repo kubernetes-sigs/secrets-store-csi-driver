@@ -34,8 +34,6 @@ linux:
                 values:
                   - virtual-kubelet
 
-customAffinity: {}
-
   driver:
     resources:
       limits:
@@ -233,9 +231,6 @@ providerHealthCheck: false
 providerHealthCheckInterval: 2m
 
 imagePullSecrets: []
-
-## CustomAffinity allows to specify additional affinityh/anti-affinity settings
-customAffinity : {}
 
 ## This allows CSI drivers to impersonate the pods that they mount the volumes for.
 # refer to https://kubernetes-csi.github.io/docs/token-requests.html for more details.
