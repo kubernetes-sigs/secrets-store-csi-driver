@@ -77,7 +77,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	rotationEnabled := ns.rotationConfig.enabled
 
 	if ns.rotationConfig.enabled {
-		rotationEnabled = true
 		if ns.rotationConfig.nextRotationTime.After(startTime) {
 			klog.InfoS("Too soon !!!!, will rotate secret after", ns.rotationConfig.nextRotationTime)
 			return &csi.NodePublishVolumeResponse{}, nil
