@@ -19,6 +19,7 @@ package secretsstore
 import (
 	"context"
 	"os"
+	"time"
 
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
@@ -37,10 +38,17 @@ type SecretsStore struct {
 	ids *identityServer
 }
 
+// RotationConfig stores the informarmation required to rotate the secrets.
+type RotationConfig struct {
+	enabled          bool
+	interval         time.Duration
+	nextRotationTime time.Time
+}
+
 func NewSecretsStoreDriver(driverName, nodeID, endpoint string,
 	providerClients *PluginClientBuilder,
 	client client.Client,
-	reader client.Reader) *SecretsStore {
+	reader client.Reader, rotationEnabled bool, interval time.Duration) *SecretsStore {
 	klog.InfoS("Initializing Secrets Store CSI Driver", "driver", driverName, "version", version.BuildVersion, "buildTime", version.BuildTime)
 
 	sr, err := NewStatsReporter()
@@ -48,7 +56,9 @@ func NewSecretsStoreDriver(driverName, nodeID, endpoint string,
 		klog.ErrorS(err, "failed to initialize stats reporter")
 		os.Exit(1)
 	}
-	ns, err := newNodeServer(nodeID, mount.New(""), providerClients, client, reader, sr)
+
+	rc := NewRotationConfig(rotationEnabled, interval)
+	ns, err := newNodeServer(nodeID, mount.New(""), providerClients, client, reader, sr, rc)
 	if err != nil {
 		klog.ErrorS(err, "failed to initialize node server")
 		os.Exit(1)
@@ -67,7 +77,8 @@ func newNodeServer(nodeID string,
 	providerClients *PluginClientBuilder,
 	client client.Client,
 	reader client.Reader,
-	statsReporter StatsReporter) (*nodeServer, error) {
+	statsReporter StatsReporter,
+	rotationConfig *RotationConfig) (*nodeServer, error) {
 	return &nodeServer{
 		mounter:         mounter,
 		reporter:        statsReporter,
@@ -75,7 +86,16 @@ func newNodeServer(nodeID string,
 		client:          client,
 		reader:          reader,
 		providerClients: providerClients,
+		rotationConfig:  rotationConfig,
 	}, nil
+}
+
+func NewRotationConfig(enabled bool, interval time.Duration) *RotationConfig {
+	return &RotationConfig{
+		enabled:          enabled,
+		interval:         interval,
+		nextRotationTime: time.Now(),
+	}
 }
 
 // Run starts the CSI plugin
