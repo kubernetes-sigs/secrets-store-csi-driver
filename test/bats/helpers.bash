@@ -110,6 +110,8 @@ archive_info() {
   # print detailed pod information
   kubectl describe pods --all-namespaces > ${LOGS_DIR}/pods-describe.txt
 
+  kubectl describe csidriver secrets-store.csi.k8s.io >  ${LOGS_DIR}/csidriver-describe.txt
+
   # print logs from the CSI Driver
   #
   # assumes driver is installed with helm into the `kube-system` namespace which

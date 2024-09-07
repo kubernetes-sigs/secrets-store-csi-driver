@@ -38,17 +38,16 @@ type SecretsStore struct {
 	ids *identityServer
 }
 
-// RotationConfig stores the informarmation required to rotate the secrets.
+// RotationConfig stores the information required to rotate the secrets.
 type RotationConfig struct {
-	enabled          bool
-	interval         time.Duration
-	nextRotationTime time.Time
+	enabled              bool
+	rotationPollInterval time.Duration
 }
 
 func NewSecretsStoreDriver(driverName, nodeID, endpoint string,
 	providerClients *PluginClientBuilder,
 	client client.Client,
-	reader client.Reader, rotationEnabled bool, interval time.Duration) *SecretsStore {
+	reader client.Reader, rotationEnabled bool, rotationPollInterval time.Duration) *SecretsStore {
 	klog.InfoS("Initializing Secrets Store CSI Driver", "driver", driverName, "version", version.BuildVersion, "buildTime", version.BuildTime)
 
 	sr, err := NewStatsReporter()
@@ -57,7 +56,7 @@ func NewSecretsStoreDriver(driverName, nodeID, endpoint string,
 		os.Exit(1)
 	}
 
-	rc := NewRotationConfig(rotationEnabled, interval)
+	rc := NewRotationConfig(rotationEnabled, rotationPollInterval)
 	ns, err := newNodeServer(nodeID, mount.New(""), providerClients, client, reader, sr, rc)
 	if err != nil {
 		klog.ErrorS(err, "failed to initialize node server")
@@ -92,9 +91,8 @@ func newNodeServer(nodeID string,
 
 func NewRotationConfig(enabled bool, interval time.Duration) *RotationConfig {
 	return &RotationConfig{
-		enabled:          enabled,
-		interval:         interval,
-		nextRotationTime: time.Now(),
+		enabled:              enabled,
+		rotationPollInterval: interval,
 	}
 }
 
