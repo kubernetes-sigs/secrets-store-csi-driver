@@ -57,8 +57,8 @@ var (
 	// https://github.com/kubernetes-sigs/secrets-store-csi-driver/issues/823.
 	additionalProviderPaths = flag.String("additional-provider-volume-paths", "/etc/kubernetes/secrets-store-csi-providers", "Comma separated list of additional paths to communicate with providers")
 	metricsAddr             = flag.String("metrics-addr", ":8095", "The address the metric endpoint binds to")
-	enableSecretRotation    = flag.Bool("enable-secret-rotation", false, "[Deprecated] 	Enable secret rotation feature [alpha]")
-	_                       = flag.Duration("rotation-poll-interval", 2*time.Minute, "[Deprecated] Secret rotation poll interval duration")
+	enableSecretRotation    = flag.Bool("enable-secret-rotation", false, "Enable secret rotation feature [alpha]")
+	rotationPollInterval    = flag.Duration("rotation-poll-interval", 2*time.Minute, "Secret rotation poll interval duration")
 	enableProfile           = flag.Bool("enable-pprof", false, "enable pprof profiling")
 	profilePort             = flag.Int("pprof-port", 6065, "port for pprof profiling")
 	maxCallRecvMsgSize      = flag.Int("max-call-recv-msg-size", 1024*1024*4, "maximum size in bytes of gRPC response from plugins")
@@ -198,12 +198,7 @@ func mainErr() error {
 		reconciler.RunPatcher(ctx)
 	}()
 
-	// Secret rotation
-	if *enableSecretRotation {
-		klog.Warning("--enable-secret-rotation and --rotation-poll-interval are deprecated, use RequiresRepublish instead.")
-	}
-
-	driver := secretsstore.NewSecretsStoreDriver(*driverName, *nodeID, *endpoint, providerClients, mgr.GetClient(), mgr.GetAPIReader())
+	driver := secretsstore.NewSecretsStoreDriver(*driverName, *nodeID, *endpoint, providerClients, mgr.GetClient(), mgr.GetAPIReader(), *enableSecretRotation, *rotationPollInterval)
 	driver.Run(ctx)
 
 	return nil

@@ -36,7 +36,7 @@ const (
 )
 
 func TestSanity(t *testing.T) {
-	driver := secretsstore.NewSecretsStoreDriver("secrets-store.csi.k8s.io", "somenodeid", endpoint, nil, nil, nil)
+	driver := secretsstore.NewSecretsStoreDriver("secrets-store.csi.k8s.io", "somenodeid", endpoint, nil, nil, nil, false, time.Minute)
 	go func() {
 		driver.Run(context.Background())
 	}()
