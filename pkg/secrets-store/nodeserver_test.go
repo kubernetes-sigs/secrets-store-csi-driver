@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store/mocks"
@@ -267,6 +268,7 @@ func TestNodePublishVolume(t *testing.T) {
 		name              string
 		nodePublishVolReq *csi.NodePublishVolumeRequest
 		initObjects       []client.Object
+		rotationConfig    *RotationConfig
 	}{
 		{
 			name: "volume mount",
@@ -294,9 +296,14 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				},
 			},
+			rotationConfig: &RotationConfig{
+				enabled:          false,
+				nextRotationTime: time.Now(),
+				interval:         time.Minute,
+			},
 		},
 		{
-			name: "volume mount with refresh token",
+			name: "volume mount with refresh token ",
 			nodePublishVolReq: &csi.NodePublishVolumeRequest{
 				VolumeCapability: &csi.VolumeCapability{},
 				VolumeId:         "testvolid1",
@@ -324,6 +331,43 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				},
 			},
+			rotationConfig: &RotationConfig{
+				enabled:          true,
+				nextRotationTime: time.Now().Add(-3 * time.Minute), // so that rotation period is passed and secret will be mounted.
+				interval:         time.Minute,
+			},
+		},
+		{
+			name: "volume mount with rotation but skipped",
+			nodePublishVolReq: &csi.NodePublishVolumeRequest{
+				VolumeCapability: &csi.VolumeCapability{},
+				VolumeId:         "testvolid1",
+				TargetPath:       targetPath(t),
+				VolumeContext: map[string]string{
+					"secretProviderClass": "provider1",
+					CSIPodName:            "pod1",
+					CSIPodNamespace:       "default",
+					CSIPodUID:             "poduid1",
+				},
+				Readonly: true,
+			},
+			initObjects: []client.Object{
+				&secretsstorev1.SecretProviderClass{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "provider1",
+						Namespace: "default",
+					},
+					Spec: secretsstorev1.SecretProviderClassSpec{
+						Provider:   "provider1",
+						Parameters: map[string]string{"parameter1": "value1"},
+					},
+				},
+			},
+			rotationConfig: &RotationConfig{
+				enabled:          true,
+				nextRotationTime: time.Now().Add(2 * time.Minute),
+				interval:         time.Minute,
+			},
 		},
 	}
 
@@ -338,7 +382,7 @@ func TestNodePublishVolume(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			r := mocks.NewFakeReporter()
 
-			ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).WithObjects(test.initObjects...).Build(), r, &RotationConfig{})
+			ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).WithObjects(test.initObjects...).Build(), r, test.rotationConfig)
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
@@ -365,8 +409,13 @@ func TestNodePublishVolume(t *testing.T) {
 				if err != nil {
 					t.Fatalf("expected err to be nil, got: %v", err)
 				}
-				if len(mnts) == 0 {
-					t.Errorf("expected mounts...: %v", mnts)
+				expectedMounts := 1
+				if ns.rotationConfig.enabled && ns.rotationConfig.nextRotationTime.After(time.Now()) {
+					// If rotation time is not reached, there should not be any mounts.
+					expectedMounts = 0
+				}
+				if len(mnts) != expectedMounts {
+					t.Errorf("[Number of mounts] want : %d, got mount: %d", expectedMounts, len(mnts))
 				}
 			}
 		})

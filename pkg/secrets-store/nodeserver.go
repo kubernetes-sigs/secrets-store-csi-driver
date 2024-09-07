@@ -76,14 +76,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	errorReason := internalerrors.FailedToMount
 	rotationEnabled := ns.rotationConfig.enabled
 
-	if ns.rotationConfig.enabled {
-		if ns.rotationConfig.nextRotationTime.After(startTime) {
-			klog.InfoS("Too soon !!!!, will rotate secret after", ns.rotationConfig.nextRotationTime)
-			return &csi.NodePublishVolumeResponse{}, nil
-		}
-		ns.rotationConfig.nextRotationTime = ns.rotationConfig.nextRotationTime.Add(ns.rotationConfig.interval)
-	}
-
 	defer func() {
 		if err != nil {
 			// if there is an error at any stage during node publish volume and if the path
@@ -100,6 +92,15 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		}
 		ns.reporter.ReportNodePublishCtMetric(ctx, providerName)
 	}()
+
+	if ns.rotationConfig.enabled {
+		// Node server retries nodepublish volume continuously, so to rotate secret after every `nextRotationTime`,
+		// nodeserver should skip secret mount till the next `nextRotationTime`
+		if ns.rotationConfig.nextRotationTime.After(startTime) {
+			return &csi.NodePublishVolumeResponse{}, nil
+		}
+		ns.rotationConfig.nextRotationTime = ns.rotationConfig.nextRotationTime.Add(ns.rotationConfig.interval)
+	}
 
 	// Check arguments
 	if req.GetVolumeCapability() == nil {
@@ -140,6 +141,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return nil, status.Errorf(codes.Internal, "failed to check if target path %s is mount point, err: %v", targetPath, err)
 		}
 	}
+	// If rotation is not enabled, don't remount the already mounted secrets.
 	if !rotationEnabled && mounted {
 		klog.InfoS("target path is already mounted", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 		return &csi.NodePublishVolumeResponse{}, nil
