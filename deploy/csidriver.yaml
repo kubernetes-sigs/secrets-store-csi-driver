@@ -7,4 +7,3 @@ spec:
   attachRequired: false
   volumeLifecycleModes:
   - Ephemeral
-  requiresRepublish: true
