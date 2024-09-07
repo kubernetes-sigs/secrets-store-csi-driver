@@ -44,6 +44,7 @@ type nodeServer struct {
 	// This should be used sparingly and only when the client does not fit the use case.
 	reader          client.Reader
 	providerClients *PluginClientBuilder
+	rotationConfig  *RotationConfig
 }
 
 const (
@@ -73,6 +74,16 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	var targetPath string
 	var mounted bool
 	errorReason := internalerrors.FailedToMount
+	rotationEnabled := ns.rotationConfig.enabled
+
+	if ns.rotationConfig.enabled {
+		rotationEnabled = true
+		if ns.rotationConfig.nextRotationTime.After(startTime) {
+			klog.InfoS("Too soon !!!!, will rotate secret after", ns.rotationConfig.nextRotationTime)
+			return &csi.NodePublishVolumeResponse{}, nil
+		}
+		ns.rotationConfig.nextRotationTime = ns.rotationConfig.nextRotationTime.Add(ns.rotationConfig.interval)
+	}
 
 	defer func() {
 		if err != nil {
@@ -130,10 +141,10 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return nil, status.Errorf(codes.Internal, "failed to check if target path %s is mount point, err: %v", targetPath, err)
 		}
 	}
-	// if mounted {
-	// 	klog.InfoS("target path is already mounted", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
-	// 	return &csi.NodePublishVolumeResponse{}, nil
-	// }
+	if !rotationEnabled && mounted {
+		klog.InfoS("target path is already mounted", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
+		return &csi.NodePublishVolumeResponse{}, nil
+	}
 
 	klog.V(2).InfoS("node publish volume", "target", targetPath, "volumeId", volumeID, "mount flags", mountFlags)
 

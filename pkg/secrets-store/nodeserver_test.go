@@ -37,7 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func testNodeServer(t *testing.T, client client.Client, reporter StatsReporter) (*nodeServer, error) {
+func testNodeServer(t *testing.T, client client.Client, reporter StatsReporter, rotationConfig *RotationConfig) (*nodeServer, error) {
 	t.Helper()
 
 	// Create a mock provider named "provider1".
@@ -53,7 +53,7 @@ func testNodeServer(t *testing.T, client client.Client, reporter StatsReporter) 
 	t.Cleanup(server.Stop)
 
 	providerClients := NewPluginClientBuilder([]string{socketPath})
-	return newNodeServer("testnode", mount.NewFakeMounter([]mount.MountPoint{}), providerClients, client, client, reporter)
+	return newNodeServer("testnode", mount.NewFakeMounter([]mount.MountPoint{}), providerClients, client, client, reporter, rotationConfig)
 }
 
 func TestNodePublishVolume_Errors(t *testing.T) {
@@ -227,7 +227,7 @@ func TestNodePublishVolume_Errors(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			r := mocks.NewFakeReporter()
 
-			ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).WithObjects(test.initObjects...).Build(), r)
+			ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).WithObjects(test.initObjects...).Build(), r, &RotationConfig{})
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
@@ -338,7 +338,7 @@ func TestNodePublishVolume(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			r := mocks.NewFakeReporter()
 
-			ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).WithObjects(test.initObjects...).Build(), r)
+			ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).WithObjects(test.initObjects...).Build(), r, &RotationConfig{})
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
@@ -381,7 +381,7 @@ func TestNodeUnpublishVolume(t *testing.T) {
 	)
 
 	r := mocks.NewFakeReporter()
-	ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).Build(), r)
+	ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).Build(), r, &RotationConfig{})
 	if err != nil {
 		t.Fatalf("expected error to be nil, got: %+v", err)
 	}
@@ -460,7 +460,7 @@ func TestNodeUnpublishVolume_Error(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			r := mocks.NewFakeReporter()
-			ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).Build(), r)
+			ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).Build(), r, &RotationConfig{})
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
