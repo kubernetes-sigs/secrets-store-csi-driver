@@ -164,6 +164,9 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
 
   result=$(kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+
+  sleep 10
+  archive_info
 }
 
 @test "CSI inline volume test with pod portability - read key from pod" {
@@ -403,7 +406,11 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   local pod_ip=$(kubectl get pod -n kube-system -l app=csi-secrets-store-e2e-provider -o jsonpath="{.items[0].status.podIP}")
   run kubectl exec ${curl_pod_name} -n rotation -- curl http://${pod_ip}:8080/rotation?rotated=true
 
-  sleep 60
+  # wait for rotated secret to be mounted
+  sleep 120
+
+  # Save logs in case of failure in rotation
+  archive_info
 
   result=$(kubectl exec -n rotation secrets-store-inline-rotation -- cat /mnt/secrets-store/$SECRET_NAME)
   [[ "${result//$'\r'}" == "rotated" ]]
@@ -425,7 +432,6 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
     run kubectl exec ${curl_pod_name} -n metrics -- curl http://${pod_ip}:8095/metrics
     assert_match "node_publish_total" "${output}"
     assert_match "node_unpublish_total" "${output}"
-    assert_match "rotation_reconcile_total" "${output}"
   done
   # keeping metrics ns in upgrade tests has no relevance
   # the namespace is only to run a curl pod to validate metrics

@@ -11,6 +11,7 @@ spec:
   volumeLifecycleModes: 
   - Ephemeral
   {{- if and (semverCompare ">=1.20-0" .Capabilities.KubeVersion.Version) .Values.tokenRequests }}
+  requiresRepublish: true
   tokenRequests:
     {{- toYaml .Values.tokenRequests | nindent 2 }}
   {{- end }}
