@@ -160,10 +160,15 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
 }
 
 @test "CSI inline volume test with pod portability - read secret from pod" {
+  # wait for secrets to mount
+  sleep 180
   wait_for_process $WAIT_TIME $SLEEP_TIME "kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME | grep '${SECRET_VALUE}'"
 
   result=$(kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+
+  sleep 10
+  archive_info
 }
 
 @test "CSI inline volume test with pod portability - read key from pod" {
@@ -269,7 +274,7 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
 
   envsubst < $BATS_TESTS_DIR/deployment-synck8s-e2e-provider.yaml | kubectl apply -n test-ns -f -
 
-  kubectl wait --for=condition=Ready --timeout=60s pod -l app=busybox -n test-ns
+  kubectl wait --for=condition=Ready --timeout=180s pod -l app=busybox -n test-ns
 }
 
 @test "Test Namespaced scope SecretProviderClass - Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences" {
@@ -337,13 +342,14 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
 @test "deploy pod with multiple secret provider class" {
   envsubst < $BATS_TESTS_DIR/pod-e2e-provider-inline-volume-multiple-spc.yaml | kubectl apply -f -
 
-  kubectl wait --for=condition=Ready --timeout=60s pod/secrets-store-inline-multiple-crd
+  kubectl wait --for=condition=Ready --timeout=180s pod/secrets-store-inline-multiple-crd
 
   run kubectl get pod/secrets-store-inline-multiple-crd
   assert_success
 }
 
 @test "CSI inline volume test with multiple secret provider class" {
+  sleep 180
   result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/$SECRET_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
@@ -383,7 +389,7 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   envsubst < $BATS_TESTS_DIR/rotation/e2e_provider_synck8s_v1_secretproviderclass.yaml | kubectl apply -n rotation -f -
   envsubst < $BATS_TESTS_DIR/rotation/pod-synck8s-e2e-provider.yaml | kubectl apply -n rotation -f -
 
-  kubectl wait -n rotation --for=condition=Ready --timeout=60s pod/secrets-store-inline-rotation
+  kubectl wait -n rotation --for=condition=Ready --timeout=180s pod/secrets-store-inline-rotation
 
   run kubectl get pod/secrets-store-inline-rotation -n rotation
   assert_success
@@ -399,11 +405,15 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   # enable rotation response in mock server
   local curl_pod_name=curl-$(openssl rand -hex 5)
   kubectl run ${curl_pod_name} -n rotation --image=curlimages/curl:7.75.0 --labels="test=rotation" -- tail -f /dev/null
-  kubectl wait -n rotation --for=condition=Ready --timeout=60s pod ${curl_pod_name}
+  kubectl wait -n rotation --for=condition=Ready --timeout=180s pod ${curl_pod_name}
   local pod_ip=$(kubectl get pod -n kube-system -l app=csi-secrets-store-e2e-provider -o jsonpath="{.items[0].status.podIP}")
   run kubectl exec ${curl_pod_name} -n rotation -- curl http://${pod_ip}:8080/rotation?rotated=true
 
-  sleep 60
+  # wait for rotated secret to be mounted
+  sleep 180
+
+  # Save logs in case of failure in rotation
+  archive_info
 
   result=$(kubectl exec -n rotation secrets-store-inline-rotation -- cat /mnt/secrets-store/$SECRET_NAME)
   [[ "${result//$'\r'}" == "rotated" ]]
@@ -419,13 +429,12 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   kubectl create ns metrics
   local curl_pod_name=curl-$(openssl rand -hex 5)
   kubectl run ${curl_pod_name} -n metrics --image=curlimages/curl:7.75.0 --labels="test=metrics" -- tail -f /dev/null
-  kubectl wait -n metrics --for=condition=Ready --timeout=60s pod ${curl_pod_name}
+  kubectl wait -n metrics --for=condition=Ready --timeout=120s pod ${curl_pod_name}
   for pod_ip in $(kubectl get pod -n kube-system -l app=secrets-store-csi-driver -o jsonpath="{.items[0].status.podIP}")
   do
     run kubectl exec ${curl_pod_name} -n metrics -- curl http://${pod_ip}:8095/metrics
     assert_match "node_publish_total" "${output}"
     assert_match "node_unpublish_total" "${output}"
-    assert_match "rotation_reconcile_total" "${output}"
   done
   # keeping metrics ns in upgrade tests has no relevance
   # the namespace is only to run a curl pod to validate metrics

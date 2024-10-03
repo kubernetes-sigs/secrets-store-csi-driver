@@ -93,15 +93,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		ns.reporter.ReportNodePublishCtMetric(ctx, providerName)
 	}()
 
-	if ns.rotationConfig.enabled {
-		// Node server retries nodepublish volume continuously, so to rotate secret after every `nextRotationTime`,
-		// nodeserver should skip secret mount till the next `nextRotationTime`
-		if ns.rotationConfig.nextRotationTime.After(startTime) {
-			return &csi.NodePublishVolumeResponse{}, nil
-		}
-		ns.rotationConfig.nextRotationTime = ns.rotationConfig.nextRotationTime.Add(ns.rotationConfig.interval)
-	}
-
 	// Check arguments
 	if req.GetVolumeCapability() == nil {
 		return nil, status.Error(codes.InvalidArgument, "Volume capability missing in request")
@@ -127,6 +118,20 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	podName = attrib[CSIPodName]
 	podNamespace = attrib[CSIPodNamespace]
 	podUID = attrib[CSIPodUID]
+
+	klog.InfoS("Checking object", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
+
+	if ns.rotationConfig.enabled {
+		lastModificationTime, err := ns.getLastUpdateTime(targetPath)
+		if err != nil {
+			klog.Infof("could not find last modification time for %s, error: %v\n", targetPath, err)
+		} else if startTime.Before(lastModificationTime.Add(ns.rotationConfig.interval)) {
+			// if next rotation is not yet, then skip the mount operation
+			return &csi.NodePublishVolumeResponse{}, nil
+		}
+	}
+
+	klog.InfoS("Processing object", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 
 	mounted, err = ns.ensureMountPoint(targetPath)
 	if err != nil {
@@ -198,7 +203,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if parameters[CSIPodServiceAccountTokens] == "" {
 		// Inject pod service account token into volume attributes
 		klog.Error("csi.storage.k8s.io/serviceAccount.tokens is not populated, set RequiresRepublish")
-
 	}
 
 	// ensure it's read-only

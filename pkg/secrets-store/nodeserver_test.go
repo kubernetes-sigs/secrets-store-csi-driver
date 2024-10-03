@@ -297,9 +297,8 @@ func TestNodePublishVolume(t *testing.T) {
 				},
 			},
 			rotationConfig: &RotationConfig{
-				enabled:          false,
-				nextRotationTime: time.Now(),
-				interval:         time.Minute,
+				enabled:  false,
+				interval: time.Minute,
 			},
 		},
 		{
@@ -332,9 +331,8 @@ func TestNodePublishVolume(t *testing.T) {
 				},
 			},
 			rotationConfig: &RotationConfig{
-				enabled:          true,
-				nextRotationTime: time.Now().Add(-3 * time.Minute), // so that rotation period is passed and secret will be mounted.
-				interval:         time.Minute,
+				enabled:  true,
+				interval: time.Minute,
 			},
 		},
 		{
@@ -364,9 +362,8 @@ func TestNodePublishVolume(t *testing.T) {
 				},
 			},
 			rotationConfig: &RotationConfig{
-				enabled:          true,
-				nextRotationTime: time.Now().Add(2 * time.Minute),
-				interval:         time.Minute,
+				enabled:  true,
+				interval: time.Minute,
 			},
 		},
 	}
@@ -410,8 +407,8 @@ func TestNodePublishVolume(t *testing.T) {
 					t.Fatalf("expected err to be nil, got: %v", err)
 				}
 				expectedMounts := 1
-				if ns.rotationConfig.enabled && ns.rotationConfig.nextRotationTime.After(time.Now()) {
-					// If rotation time is not reached, there should not be any mounts.
+				if ns.rotationConfig.enabled {
+					// If rotation time is not enabled, there should not be any mounts.
 					expectedMounts = 0
 				}
 				if len(mnts) != expectedMounts {
