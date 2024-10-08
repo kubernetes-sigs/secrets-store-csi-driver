@@ -93,7 +93,7 @@ EOF
   run kubectl get pod/secrets-store-rotation
   assert_success
 
-  sleep 180
+  sleep 120
   # verify starting value
   result=$(kubectl exec secrets-store-rotation -- cat /mnt/secrets-store/foo)
   [[ "$result" == "start" ]]
@@ -101,7 +101,7 @@ EOF
   # update the secret value
   kubectl exec vault-0 --namespace=vault -- vault kv put secret/rotation foo=rotated
 
-  sleep 180
+  sleep 120
 
   # verify rotated value
   result=$(kubectl exec secrets-store-rotation -- cat /mnt/secrets-store/foo)

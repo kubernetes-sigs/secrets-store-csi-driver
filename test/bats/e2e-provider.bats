@@ -347,7 +347,6 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
 }
 
 @test "CSI inline volume test with multiple secret provider class" {
-  sleep 180
   result=$(kubectl exec secrets-store-inline-multiple-crd -- cat /mnt/secrets-store-0/$SECRET_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
@@ -408,7 +407,7 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   run kubectl exec ${curl_pod_name} -n rotation -- curl http://${pod_ip}:8080/rotation?rotated=true
 
   # wait for rotated secret to be mounted
-  sleep 180
+  sleep 120
 
   # Save logs in case of failure in rotation
   archive_info
