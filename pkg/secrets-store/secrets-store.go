@@ -38,7 +38,7 @@ type SecretsStore struct {
 	ids *identityServer
 }
 
-// RotationConfig stores the informarmation required to rotate the secrets.
+// RotationConfig stores the information required to rotate the secrets.
 type RotationConfig struct {
 	enabled  bool
 	interval time.Duration
