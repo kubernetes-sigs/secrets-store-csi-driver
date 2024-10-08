@@ -297,8 +297,8 @@ func TestNodePublishVolume(t *testing.T) {
 				},
 			},
 			rotationConfig: &RotationConfig{
-				enabled:  false,
-				interval: time.Minute,
+				enabled:              false,
+				rotationPollInterval: time.Minute,
 			},
 		},
 		{
@@ -331,8 +331,8 @@ func TestNodePublishVolume(t *testing.T) {
 				},
 			},
 			rotationConfig: &RotationConfig{
-				enabled:  true,
-				interval: -1 * time.Minute, // Using negative interval to pass the rotation interval check in unit tests
+				enabled:              true,
+				rotationPollInterval: -1 * time.Minute, // Using negative interval to pass the rotation interval check in unit tests
 			},
 		},
 		{
@@ -362,8 +362,8 @@ func TestNodePublishVolume(t *testing.T) {
 				},
 			},
 			rotationConfig: &RotationConfig{
-				enabled:  true,
-				interval: time.Minute,
+				enabled:              true,
+				rotationPollInterval: time.Minute,
 			},
 		},
 	}
@@ -407,7 +407,7 @@ func TestNodePublishVolume(t *testing.T) {
 					t.Fatalf("expected err to be nil, got: %v", err)
 				}
 				expectedMounts := 1
-				if ns.rotationConfig.enabled && ns.rotationConfig.interval > 0 {
+				if ns.rotationConfig.enabled && ns.rotationConfig.rotationPollInterval > 0 {
 					// If due to rotation interval, NodePublishVolume has skipped, there should not be any mount operation
 					expectedMounts = 0
 				}

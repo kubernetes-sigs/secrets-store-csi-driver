@@ -160,8 +160,6 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
 }
 
 @test "CSI inline volume test with pod portability - read secret from pod" {
-  # wait for secrets to mount
-  sleep 180
   wait_for_process $WAIT_TIME $SLEEP_TIME "kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME | grep '${SECRET_VALUE}'"
 
   result=$(kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME)
