@@ -177,7 +177,7 @@ $(GOLANGCI_LINT): ## Build golangci-lint from tools folder.
 
 $(KUSTOMIZE): ## Build kustomize from tools folder.
 	cd $(TOOLS_MOD_DIR) && \
-		GOPROXY=$(GOPROXY) go build -tags=tools -o $(TOOLS_BIN_DIR)/kustomize sigs.k8s.io/kustomize/kustomize/v4
+		GOPROXY=$(GOPROXY) go build -tags=tools -o $(TOOLS_BIN_DIR)/kustomize sigs.k8s.io/kustomize/kustomize/v5
 
 $(PROTOC_GEN_GO): ## Build protoc-gen-go from tools folder.
 	cd $(TOOLS_MOD_DIR) && \
