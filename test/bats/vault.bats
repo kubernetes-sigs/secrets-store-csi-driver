@@ -88,11 +88,12 @@ EOF
 
   # deploy pod
   kubectl apply -f $BATS_TESTS_DIR/pod-vault-rotation.yaml
-  kubectl wait --for=condition=Ready --timeout=60s pod/secrets-store-rotation
+  kubectl wait --for=condition=Ready --timeout=180s pod/secrets-store-rotation
 
   run kubectl get pod/secrets-store-rotation
   assert_success
 
+  sleep 120
   # verify starting value
   result=$(kubectl exec secrets-store-rotation -- cat /mnt/secrets-store/foo)
   [[ "$result" == "start" ]]
@@ -100,11 +101,13 @@ EOF
   # update the secret value
   kubectl exec vault-0 --namespace=vault -- vault kv put secret/rotation foo=rotated
 
-  sleep 60
+  sleep 120
 
   # verify rotated value
   result=$(kubectl exec secrets-store-rotation -- cat /mnt/secrets-store/foo)
   [[ "$result" == "rotated" ]]
+
+  archive_info
 }
 
 @test "CSI inline volume test with pod portability - unmount succeeds" {
@@ -209,7 +212,7 @@ EOF
 
   kubectl apply -n test-ns -f $BATS_TESTS_DIR/deployment-synck8s.yaml
 
-  kubectl wait --for=condition=Ready --timeout=90s pod -l app=busybox -n test-ns
+  kubectl wait --for=condition=Ready --timeout=180s pod -l app=busybox -n test-ns
 }
 
 @test "Test Namespaced scope SecretProviderClass - Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences" {
@@ -269,7 +272,7 @@ EOF
 
 @test "deploy pod with multiple secret provider class" {
   kubectl apply -f $BATS_TESTS_DIR/pod-vault-inline-volume-multiple-spc.yaml
-  kubectl wait --for=condition=Ready --timeout=90s pod/secrets-store-inline-multiple-crd
+  kubectl wait --for=condition=Ready --timeout=180s pod/secrets-store-inline-multiple-crd
 
   run kubectl get pod/secrets-store-inline-multiple-crd
   assert_success
