@@ -27,6 +27,7 @@ $(MDBOOK_TOC):
 MDBOOK_MERMAID := $(TOOLS_BIN_DIR)/mdbook-mermaid
 $(MDBOOK_MERMAID):
 	$(CRATE_INSTALL) --git badboy/mdbook-mermaid --tag v0.8.3 --to $(TOOLS_BIN_DIR) --force
+	$(MDBOOK_MERMAID) install
 
 DEPS := $(MDBOOK) $(MDBOOK_TOC) $(MDBOOK_MERMAID)
 
