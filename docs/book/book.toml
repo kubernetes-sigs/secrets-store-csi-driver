@@ -14,4 +14,4 @@ additional-js = ["mermaid.min.js", "mermaid-init.js"]
 command = "bin/mdbook-toc"
 
 [preprocessor.mermaid]
-command = "mdbook-mermaid"
+command = "bin/mdbook-mermaid"
