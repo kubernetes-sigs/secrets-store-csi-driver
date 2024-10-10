@@ -13,6 +13,7 @@
     - [Sync as Kubernetes Secret](./topics/sync-as-kubernetes-secret.md)
     - [Set as ENV var](./topics/set-as-env-var.md)
     - [Best Practices](./topics/best-practices.md)
+    - [Auto Restart on Rotation](./topics/auto-restart-on-rotation.md)
 - [Providers](./providers.md)
 - [Troubleshooting](./troubleshooting.md)
 - [Load tests](./load-tests.md)
