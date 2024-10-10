@@ -8,6 +8,10 @@ title = "Secrets Store CSI Driver"
 [output.html]
 curly-quotes = true
 git-repository-url = "https://sigs.k8s.io/secrets-store-csi-driver"
+additional-js = ["mermaid.min.js", "mermaid-init.js"]
 
 [preprocessor.toc]
 command = "bin/mdbook-toc"
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
