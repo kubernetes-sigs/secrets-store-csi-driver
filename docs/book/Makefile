@@ -28,7 +28,7 @@ MDBOOK_MERMAID := $(TOOLS_BIN_DIR)/mdbook-mermaid
 $(MDBOOK_MERMAID):
 	$(CRATE_INSTALL) --git badboy/mdbook-mermaid --tag v0.14.0 --to $(TOOLS_BIN_DIR) --force
 
-DEPS := $(MDBOOK) $(MDBOOK_TOC)
+DEPS := $(MDBOOK) $(MDBOOK_TOC) $(MDBOOK_MERMAID)
 
 .PHONY: build
 build: $(DEPS)
