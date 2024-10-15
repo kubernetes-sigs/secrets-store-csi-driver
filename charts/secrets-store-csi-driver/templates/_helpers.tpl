@@ -53,3 +53,20 @@ Return the appropriate apiVersion for CSIDriver.
 {{- print "storage.k8s.io/v1beta1" -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+imagePullSecrets generates pull secrets from either string or map values.
+A map value must be indexable by the key 'name'.
+*/}}
+{{- define "imagePullSecrets" -}}
+{{- with .Values.imagePullSecrets -}}
+imagePullSecrets:
+{{- range . -}}
+{{- if typeIs "string" . }}
+  - name: {{ . }}
+{{- else if index . "name" }}
+  - name: {{ .name }}
+{{- end }}
+{{- end -}}
+{{- end -}}
+{{- end -}}
