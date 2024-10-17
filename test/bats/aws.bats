@@ -81,7 +81,16 @@ teardown_file() {
    [[ "${result//$'\r'}" == "BeforeRotation" ]]
 
    aws ssm put-parameter --name $PM_ROTATION_TEST_NAME --value AfterRotation --type SecureString --overwrite --region $REGION
-   sleep 120
+
+   # Secret rotation is not immediate. So even after 30 seconds, older secret should be there.
+   sleep 30
+
+   result=$(kubectl --namespace $NAMESPACE exec $POD_NAME -- cat /mnt/secrets-store/$PM_ROTATION_TEST_NAME)
+   [[ "${result//$'\r'}" == "BeforeRotation" ]]
+
+   # After a minute, mounted secret should be rotated
+   sleep 60
+
    result=$(kubectl --namespace $NAMESPACE exec $POD_NAME -- cat /mnt/secrets-store/$PM_ROTATION_TEST_NAME)
    [[ "${result//$'\r'}" == "AfterRotation" ]]
 }
