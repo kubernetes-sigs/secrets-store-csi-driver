@@ -65,7 +65,6 @@ func newStatsReporter() (StatsReporter, error) {
 func (r reporter) ReportSyncSecretCtMetric(ctx context.Context, provider, namespace, spc string) {
 	opt := metric.WithAttributes(
 		attribute.Key(providerKey).String(provider),
-		attribute.Key(osTypeKey).String(runtimeOS),
 		attribute.Key(namespaceKey).String(namespace),
 		attribute.Key(spcKey).String(spc),
 	)
@@ -73,8 +72,5 @@ func (r reporter) ReportSyncSecretCtMetric(ctx context.Context, provider, namesp
 }
 
 func (r reporter) ReportSyncSecretDuration(ctx context.Context, duration float64) {
-	opt := metric.WithAttributes(
-		attribute.Key(osTypeKey).String(runtimeOS),
-	)
-	r.syncK8sSecretDuration.Record(ctx, duration, opt)
+	r.syncK8sSecretDuration.Record(ctx, duration)
 }
