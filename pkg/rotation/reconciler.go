@@ -253,14 +253,14 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 	var providerName string
 	podName := spcps.Status.PodName
 	podNamespace := spcps.Namespace
-	secretProviderClass := spcps.Status.SecretProviderClassName
+	secretProviderClassName := spcps.Status.SecretProviderClassName
 
 	defer func() {
 		if err != nil {
-			r.reporter.reportRotationErrorCtMetric(ctx, providerName, podName, podNamespace, secretProviderClass, errorReason, requiresUpdate)
+			r.reporter.reportRotationErrorCtMetric(ctx, providerName, podName, podNamespace, secretProviderClassName, errorReason, requiresUpdate)
 			return
 		}
-		r.reporter.reportRotationCtMetric(ctx, providerName, podName, podNamespace, secretProviderClass, requiresUpdate)
+		r.reporter.reportRotationCtMetric(ctx, providerName, podName, podNamespace, secretProviderClassName, requiresUpdate)
 		r.reporter.reportRotationDuration(ctx, time.Since(begin).Seconds())
 	}()
 
@@ -293,13 +293,13 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 		ctx,
 		client.ObjectKey{
 			Namespace: podNamespace,
-			Name:      secretProviderClass,
+			Name:      secretProviderClassName,
 		},
 		spc,
 	)
 	if err != nil {
 		errorReason = internalerrors.SecretProviderClassNotFound
-		return fmt.Errorf("failed to get secret provider class %s/%s, err: %w", podNamespace, secretProviderClass, err)
+		return fmt.Errorf("failed to get secret provider class %s/%s, err: %w", podNamespace, secretProviderClassName, err)
 	}
 
 	// determine which pod volume this is associated with
