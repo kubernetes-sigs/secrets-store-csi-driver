@@ -1,6 +1,6 @@
 # Auto restart of pods when secret is rotated
 
-_This is a suggested implementation which can be used alongside the Secrets Store CSI Driver._
+> NOTE: This is a suggested implementation which can be used alongside the Secrets Store CSI Driver. The solution is neither supported nor tested by the Secrets Store CSI Driver project.
 
 When [auto rotation of secrets](./secret-auto-rotation.md) is enabled, workloads which depend upon secrets will need to either 
 - watch for updates to secrets and reload these in their runtime, or
