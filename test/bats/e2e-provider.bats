@@ -83,8 +83,6 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   run kubectl get clusterrole/secretproviderclasspodstatuses-viewer-role
   assert_success
 
-  run kubectl get clusterrole/secretproviderrotation-role
-  assert_success
 
   run kubectl get clusterrole/secretprovidersyncing-role
   assert_success
@@ -92,20 +90,8 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   run kubectl get clusterrolebinding/secretproviderclasses-rolebinding
   assert_success
 
-  run kubectl get clusterrolebinding/secretproviderrotation-rolebinding
-  assert_success
-
   run kubectl get clusterrolebinding/secretprovidersyncing-rolebinding
   assert_success
-
-  # validate token request role and rolebinding only when token requests are set
-  if [[ -n "${VALIDATE_TOKENS_AUDIENCE}" ]]; then
-    run kubectl get clusterrole/secretprovidertokenrequest-role
-    assert_success
-
-    run kubectl get clusterrolebinding/secretprovidertokenrequest-rolebinding
-    assert_success
-  fi
 }
 
 @test "[v1alpha1] deploy e2e-provider secretproviderclass crd" {
