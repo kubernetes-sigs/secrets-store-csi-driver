@@ -412,6 +412,16 @@ func TestGenerateSHAFromSecret(t *testing.T) {
 			data2:            map[string][]byte{"key2": []byte("value2"), "key1": []byte("value1")},
 			expectedSHAMatch: true,
 		},
+		{
+			name: "different keys with the same concatenated result but should not match",
+			data1: map[string][]byte{
+				"key1": []byte("=value1"),
+			},
+			data2: map[string][]byte{
+				"key1=": []byte("value1"),
+			},
+			expectedSHAMatch: false,
+		},
 	}
 
 	for _, test := range tests {
