@@ -119,8 +119,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	podNamespace = attrib[CSIPodNamespace]
 	podUID = attrib[CSIPodUID]
 
-	klog.InfoS("Checking object", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
-
 	if ns.rotationConfig.enabled {
 		lastModificationTime, err := ns.getLastUpdateTime(targetPath)
 		if err != nil {
@@ -130,8 +128,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return &csi.NodePublishVolumeResponse{}, nil
 		}
 	}
-
-	klog.InfoS("Processing object", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 
 	mounted, err = ns.ensureMountPoint(targetPath)
 	if err != nil {
