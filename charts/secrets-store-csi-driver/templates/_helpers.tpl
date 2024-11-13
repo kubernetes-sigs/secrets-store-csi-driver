@@ -53,3 +53,13 @@ Return the appropriate apiVersion for CSIDriver.
 {{- print "storage.k8s.io/v1beta1" -}}
 {{- end -}}
 {{- end -}}
+
+{{- define "sscd.imageRepository" -}}
+{{- $globalImageRegistry := index . 0 -}}
+{{- $repository := index . 1 -}}
+{{- if hasPrefix "/" $repository -}}
+{{ $globalImageRegistry }}{{ $repository }}
+{{- else -}}
+{{ $repository }}
+{{- end -}}
+{{- end -}}

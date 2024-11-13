@@ -109,7 +109,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: crds-keep
-        image: "{{ .Values.linux.crds.image.repository }}:{{ .Values.linux.crds.image.tag }}"
+        image: "{{ include "sscd.imageRepository" (list .Values.global.image.registry .Values.linux.crds.image.repository) }}:{{ .Values.linux.crds.image.tag }}"
         args:
         - patch
         - crd
