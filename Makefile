@@ -29,8 +29,8 @@ E2E_PROVIDER_IMAGE_NAME ?= e2e-provider
 
 # Release version is the current supported release for the driver
 # Update this version when the helm chart is being updated for release
-RELEASE_VERSION := v1.4.5
-IMAGE_VERSION ?= v1.4.5
+RELEASE_VERSION := v1.4.6
+IMAGE_VERSION ?= v1.4.6
 
 # Use a custom version for E2E tests if we are testing in CI
 ifdef CI
@@ -177,7 +177,7 @@ $(GOLANGCI_LINT): ## Build golangci-lint from tools folder.
 
 $(KUSTOMIZE): ## Build kustomize from tools folder.
 	cd $(TOOLS_MOD_DIR) && \
-		GOPROXY=$(GOPROXY) go build -tags=tools -o $(TOOLS_BIN_DIR)/kustomize sigs.k8s.io/kustomize/kustomize/v4
+		GOPROXY=$(GOPROXY) go build -tags=tools -o $(TOOLS_BIN_DIR)/kustomize sigs.k8s.io/kustomize/kustomize/v5
 
 $(PROTOC_GEN_GO): ## Build protoc-gen-go from tools folder.
 	cd $(TOOLS_MOD_DIR) && \
