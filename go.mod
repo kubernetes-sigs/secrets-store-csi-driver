@@ -1,6 +1,6 @@
 module sigs.k8s.io/secrets-store-csi-driver
 
-go 1.23.1
+go 1.23.4
 
 require (
 	github.com/container-storage-interface/spec v1.6.0
