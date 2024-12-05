@@ -1,12 +1,12 @@
 module sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider
 
-go 1.23.4
+go 1.23
 
 replace sigs.k8s.io/secrets-store-csi-driver => ../..
 
 require (
 	github.com/google/go-cmp v0.6.0
-	google.golang.org/grpc v1.68.0
+	google.golang.org/grpc v1.68.1
 	k8s.io/klog/v2 v2.130.1
 	monis.app/mlog v0.0.4
 	sigs.k8s.io/secrets-store-csi-driver v1.4.6
@@ -32,7 +32,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.20.5 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
-	github.com/prometheus/common v0.60.1 // indirect
+	github.com/prometheus/common v0.61.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/spf13/cobra v1.8.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
@@ -40,7 +40,7 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
-	golang.org/x/net v0.31.0 // indirect
+	golang.org/x/net v0.32.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241202173237-19429a94021a // indirect
