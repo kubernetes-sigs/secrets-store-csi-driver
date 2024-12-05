@@ -21,9 +21,9 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/onsi/gomega"
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 
-	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -122,10 +122,10 @@ func newReconciler(client client.Client, scheme *runtime.Scheme, nodeID string) 
 }
 
 func TestSecretExists(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	scheme, err := setupScheme()
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	labels := map[string]string{"environment": "test"}
 	annotations := map[string]string{"kubed.appscode.com/sync": "app=test"}
@@ -138,24 +138,24 @@ func TestSecretExists(t *testing.T) {
 	reconciler := newReconciler(client, scheme, "node1")
 
 	exists, err := reconciler.secretExists(context.TODO(), "my-secret", "default")
-	g.Expect(exists).To(Equal(true))
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(exists).To(gomega.Equal(true))
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	exists, err = reconciler.secretExists(context.TODO(), "my-secret2", "default")
-	g.Expect(exists).To(Equal(false))
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(exists).To(gomega.Equal(false))
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 func TestPatchSecretWithOwnerRef(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	scheme, err := setupScheme()
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	spcPodStatus := newSecretProviderClassPodStatus("my-spcps", "default", "node1")
 	// Create a new owner ref.
 	gvk, err := apiutil.GVKForObject(spcPodStatus, scheme)
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	ref := metav1.OwnerReference{
 		APIVersion: gvk.GroupVersion().String(),
@@ -175,19 +175,19 @@ func TestPatchSecretWithOwnerRef(t *testing.T) {
 
 	// adding ref twice to test de-duplication of owner references when being set in the secret
 	err = reconciler.patchSecretWithOwnerRef(context.TODO(), "my-secret", "default", ref, ref)
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	secret := &corev1.Secret{}
 	err = client.Get(context.TODO(), types.NamespacedName{Name: "my-secret", Namespace: "default"}, secret)
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(secret.GetOwnerReferences()).To(HaveLen(1))
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(secret.GetOwnerReferences()).To(gomega.HaveLen(1))
 }
 
 func TestCreateK8sSecret(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	scheme, err := setupScheme()
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	labels := map[string]string{"environment": "test"}
 	annotations := map[string]string{"kubed.appscode.com/sync": "app=test"}
@@ -200,24 +200,24 @@ func TestCreateK8sSecret(t *testing.T) {
 
 	// secret already exists
 	err = reconciler.createK8sSecret(context.TODO(), "my-secret", "default", nil, labels, annotations, corev1.SecretTypeOpaque)
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	err = reconciler.createK8sSecret(context.TODO(), "my-secret2", "default", nil, labels, annotations, corev1.SecretTypeOpaque)
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 	secret := &corev1.Secret{}
 	err = client.Get(context.TODO(), types.NamespacedName{Name: "my-secret2", Namespace: "default"}, secret)
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(secret.Labels).To(Equal(labels))
+	g.Expect(secret.Labels).To(gomega.Equal(labels))
 
-	g.Expect(secret.Name).To(Equal("my-secret2"))
+	g.Expect(secret.Name).To(gomega.Equal("my-secret2"))
 }
 
 func TestGenerateEvent(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	scheme, err := setupScheme()
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	client := fake.NewClientBuilder().WithScheme(scheme).Build()
 	reconciler := newReconciler(client, scheme, "node1")
@@ -232,16 +232,16 @@ func TestGenerateEvent(t *testing.T) {
 	reconciler.generateEvent(obj, corev1.EventTypeWarning, "reason2", "message2")
 
 	event := <-fakeRecorder.Events
-	g.Expect(event).To(Equal("Warning reason message"))
+	g.Expect(event).To(gomega.Equal("Warning reason message"))
 	event = <-fakeRecorder.Events
-	g.Expect(event).To(Equal("Warning reason2 message2"))
+	g.Expect(event).To(gomega.Equal("Warning reason2 message2"))
 }
 
 func TestPatcherForStaticPod(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	scheme, err := setupScheme()
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	initObjects := []client.Object{
 		newSecretProviderClassPodStatus("pod1-default-spc1", "default", "node1"),
@@ -253,24 +253,24 @@ func TestPatcherForStaticPod(t *testing.T) {
 	reconciler := newReconciler(client, scheme, "node1")
 
 	err = reconciler.Patcher(context.TODO())
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// check the spcps has been added as owner to the secret
 	secret := &corev1.Secret{}
 	err = client.Get(context.TODO(), types.NamespacedName{Name: "secret1", Namespace: "default"}, secret)
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(len(secret.OwnerReferences)).To(Equal(1))
-	g.Expect(secret.OwnerReferences[0].APIVersion).To(Equal(secretsstorev1.GroupVersion.String()))
-	g.Expect(secret.OwnerReferences[0].Kind).To(Equal("SecretProviderClassPodStatus"))
-	g.Expect(secret.OwnerReferences[0].Name).To(Equal("pod1-default-spc1"))
+	g.Expect(len(secret.OwnerReferences)).To(gomega.Equal(1))
+	g.Expect(secret.OwnerReferences[0].APIVersion).To(gomega.Equal(secretsstorev1.GroupVersion.String()))
+	g.Expect(secret.OwnerReferences[0].Kind).To(gomega.Equal("SecretProviderClassPodStatus"))
+	g.Expect(secret.OwnerReferences[0].Name).To(gomega.Equal("pod1-default-spc1"))
 }
 
 func TestPatcherForPodWithOwner(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	scheme, err := setupScheme()
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 	tr := true
 
 	initObjects := []client.Object{
@@ -292,16 +292,16 @@ func TestPatcherForPodWithOwner(t *testing.T) {
 	reconciler := newReconciler(client, scheme, "node1")
 
 	err = reconciler.Patcher(context.TODO())
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// check the spcps has been added as owner to the secret
 	secret := &corev1.Secret{}
 	err = client.Get(context.TODO(), types.NamespacedName{Name: "secret1", Namespace: "default"}, secret)
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(len(secret.OwnerReferences)).To(Equal(1))
-	g.Expect(secret.OwnerReferences[0].APIVersion).To(Equal("apps/v1"))
-	g.Expect(secret.OwnerReferences[0].Kind).To(Equal("ReplicaSet"))
-	g.Expect(secret.OwnerReferences[0].Name).To(Equal("pod-6886c65f8f"))
-	g.Expect(secret.OwnerReferences[0].UID).To(Equal(types.UID("f39da13d-7246-4ef5-aed4-a6905f82cbcd")))
+	g.Expect(len(secret.OwnerReferences)).To(gomega.Equal(1))
+	g.Expect(secret.OwnerReferences[0].APIVersion).To(gomega.Equal("apps/v1"))
+	g.Expect(secret.OwnerReferences[0].Kind).To(gomega.Equal("ReplicaSet"))
+	g.Expect(secret.OwnerReferences[0].Name).To(gomega.Equal("pod-6886c65f8f"))
+	g.Expect(secret.OwnerReferences[0].UID).To(gomega.Equal(types.UID("f39da13d-7246-4ef5-aed4-a6905f82cbcd")))
 }

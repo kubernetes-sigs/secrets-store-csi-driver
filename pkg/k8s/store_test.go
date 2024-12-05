@@ -21,9 +21,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onsi/gomega"
 	"sigs.k8s.io/secrets-store-csi-driver/controllers"
 
-	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,19 +32,19 @@ import (
 )
 
 func TestGetNodePublishSecretRefSecret(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	kubeClient := fake.NewSimpleClientset()
 
 	testStore, err := New(kubeClient, 1*time.Millisecond)
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 	err = testStore.Run(wait.NeverStop)
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// Get a secret that's not found
 	_, err = testStore.GetNodePublishSecretRefSecret("secret1", "default")
-	g.Expect(err).To(HaveOccurred())
-	g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+	g.Expect(err).To(gomega.HaveOccurred())
+	g.Expect(apierrors.IsNotFound(err)).To(gomega.BeTrue())
 
 	secretToAdd := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -57,14 +57,14 @@ func TestGetNodePublishSecretRefSecret(t *testing.T) {
 	}
 
 	_, err = kubeClient.CoreV1().Secrets("default").Create(context.TODO(), secretToAdd, metav1.CreateOptions{})
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	waitForInformerCacheSync()
 
 	secret, err := testStore.GetNodePublishSecretRefSecret("secret1", "default")
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(secret).NotTo(BeNil())
-	g.Expect(secret.Name).To(Equal("secret1"))
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(secret).NotTo(gomega.BeNil())
+	g.Expect(secret.Name).To(gomega.Equal("secret1"))
 }
 
 // waitForInformerCacheSync waits for the test informers cache to be synced

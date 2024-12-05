@@ -101,6 +101,8 @@ koN/frqYab5Ek3kauj1iqW7rPkrFCqT2evh0YRqb1bFsCLJrRNxnOZ5wKXV/OYQa
 QX5t0wFGCZ0KlbXDiw==
 -----END CERTIFICATE-----
 `
+
+	// #nosec G101 : Not actual production secret
 	keyPEM = `-----BEGIN RSA PRIVATE KEY-----
 MIIEpAIBAAKCAQEAyS3Zky3n8JlLBxPLzgUpKZYxvzRadeWLmWVbK9byo08S0Ss8
 Jao7Ay1wHtnLbn52rzCX6IX1sAe1TAT755Gk7JtLMkshtj6F8BNeelEyE1gsBE5n

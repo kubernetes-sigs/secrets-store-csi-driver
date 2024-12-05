@@ -32,7 +32,7 @@ import (
 	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
 	providerfake "sigs.k8s.io/secrets-store-csi-driver/provider/fake"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -88,7 +88,7 @@ func newTestReconciler(client client.Reader, kubeClient kubernetes.Interface, cr
 }
 
 func TestReconcileError(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	tests := []struct {
 		name                                  string
@@ -438,7 +438,7 @@ func TestReconcileError(t *testing.T) {
 	}
 
 	scheme, err := setupScheme()
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -454,24 +454,24 @@ func TestReconcileError(t *testing.T) {
 			client := controllerfake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
 
 			testReconciler, err := newTestReconciler(client, kubeClient, crdClient, test.rotationPollInterval, test.socketPath)
-			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(gomega.HaveOccurred())
 
 			err = testReconciler.secretStore.Run(wait.NeverStop)
-			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(gomega.HaveOccurred())
 
 			serverEndpoint := fmt.Sprintf("%s/%s.sock", test.socketPath, "provider1")
 			defer os.Remove(serverEndpoint)
 
 			server, err := providerfake.NewMocKCSIProviderServer(serverEndpoint)
-			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(gomega.HaveOccurred())
 			server.SetObjects(test.expectedObjectVersions)
 			err = server.Start()
-			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(gomega.HaveOccurred())
 
 			err = testReconciler.reconcile(context.TODO(), test.secretProviderClassPodStatusToProcess)
-			g.Expect(err).To(HaveOccurred())
+			g.Expect(err).To(gomega.HaveOccurred())
 			if test.expectedErrorEvents {
-				g.Expect(len(fakeRecorder.Events)).ToNot(BeNumerically("==", 0))
+				g.Expect(len(fakeRecorder.Events)).ToNot(gomega.BeNumerically("==", 0))
 				for len(fakeRecorder.Events) > 0 {
 					fmt.Println(<-fakeRecorder.Events)
 				}
@@ -481,7 +481,7 @@ func TestReconcileError(t *testing.T) {
 }
 
 func TestReconcileNoError(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	tests := []struct {
 		name                            string
@@ -580,7 +580,7 @@ func TestReconcileNoError(t *testing.T) {
 		socketPath := t.TempDir()
 		expectedObjectVersions := map[string]string{"secret/object1": "v2"}
 		scheme, err := setupScheme()
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		kubeClient := fake.NewSimpleClientset(podToAdd, test.nodePublishSecretRefSecretToAdd, secretToBeRotated)
 		crdClient := secretsStoreFakeClient.NewSimpleClientset(secretProviderClassPodStatusToProcess, secretProviderClassToAdd)
@@ -595,38 +595,38 @@ func TestReconcileNoError(t *testing.T) {
 		ctrlClient := controllerfake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
 
 		testReconciler, err := newTestReconciler(ctrlClient, kubeClient, crdClient, 60*time.Second, socketPath)
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 		err = testReconciler.secretStore.Run(wait.NeverStop)
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		serverEndpoint := fmt.Sprintf("%s/%s.sock", socketPath, "provider1")
 		defer os.Remove(serverEndpoint)
 
 		server, err := providerfake.NewMocKCSIProviderServer(serverEndpoint)
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 		server.SetObjects(expectedObjectVersions)
 		err = server.Start()
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		err = os.WriteFile(secretProviderClassPodStatusToProcess.Status.TargetPath+"/object1", []byte("newdata"), secretsstore.FilePermission)
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		err = testReconciler.reconcile(context.TODO(), secretProviderClassPodStatusToProcess)
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		// validate the secret provider class pod status versions have been updated
 		updatedSPCPodStatus, err := crdClient.SecretsstoreV1().SecretProviderClassPodStatuses(corev1.NamespaceDefault).Get(context.TODO(), "pod1-default-spc1", metav1.GetOptions{})
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(updatedSPCPodStatus.Status.Objects).To(Equal([]secretsstorev1.SecretProviderClassObject{{ID: "secret/object1", Version: "v2"}}))
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(updatedSPCPodStatus.Status.Objects).To(gomega.Equal([]secretsstorev1.SecretProviderClassObject{{ID: "secret/object1", Version: "v2"}}))
 
 		// validate the secret data has been updated to the latest value
 		updatedSecret, err := kubeClient.CoreV1().Secrets(corev1.NamespaceDefault).Get(context.TODO(), "foosecret", metav1.GetOptions{})
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(updatedSecret.Data["foo"]).To(Equal([]byte("newdata")))
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(updatedSecret.Data["foo"]).To(gomega.Equal([]byte("newdata")))
 
 		// 2 normal events - one for successfully updating the mounted contents and
 		// second for successfully rotating the K8s secret
-		g.Expect(len(fakeRecorder.Events)).To(BeNumerically("==", 2))
+		g.Expect(len(fakeRecorder.Events)).To(gomega.BeNumerically("==", 2))
 		for len(fakeRecorder.Events) > 0 {
 			<-fakeRecorder.Events
 		}
@@ -640,11 +640,11 @@ func TestReconcileNoError(t *testing.T) {
 		}
 		ctrlClient = controllerfake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
 		testReconciler, err = newTestReconciler(ctrlClient, kubeClient, crdClient, 60*time.Second, socketPath)
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		err = testReconciler.reconcile(context.TODO(), secretProviderClassPodStatusToProcess)
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		// test with pod being in succeeded phase
 		podToAdd.DeletionTimestamp = nil
@@ -656,16 +656,16 @@ func TestReconcileNoError(t *testing.T) {
 		}
 		ctrlClient = controllerfake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
 		testReconciler, err = newTestReconciler(ctrlClient, kubeClient, crdClient, 60*time.Second, socketPath)
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		err = testReconciler.reconcile(context.TODO(), secretProviderClassPodStatusToProcess)
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 	}
 }
 
 func TestPatchSecret(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	tests := []struct {
 		name               string
@@ -736,7 +736,7 @@ func TestPatchSecret(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			scheme, err := setupScheme()
-			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(gomega.HaveOccurred())
 
 			kubeClient := fake.NewSimpleClientset(test.secretToAdd)
 			crdClient := secretsStoreFakeClient.NewSimpleClientset()
@@ -747,42 +747,42 @@ func TestPatchSecret(t *testing.T) {
 			ctrlClient := controllerfake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
 
 			testReconciler, err := newTestReconciler(ctrlClient, kubeClient, crdClient, 60*time.Second, "")
-			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(gomega.HaveOccurred())
 			err = testReconciler.secretStore.Run(wait.NeverStop)
-			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(gomega.HaveOccurred())
 
 			err = testReconciler.patchSecret(context.TODO(), test.secretName, corev1.NamespaceDefault, test.expectedSecretData)
 			if test.expectedErr {
-				g.Expect(err).To(HaveOccurred())
+				g.Expect(err).To(gomega.HaveOccurred())
 			} else {
-				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(err).NotTo(gomega.HaveOccurred())
 			}
 
 			if !test.expectedErr {
 				// check the secret data is what we expect it to
 				secret, err := kubeClient.CoreV1().Secrets(corev1.NamespaceDefault).Get(context.TODO(), test.secretName, metav1.GetOptions{})
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(secret.Data).To(Equal(test.expectedSecretData))
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+				g.Expect(secret.Data).To(gomega.Equal(test.expectedSecretData))
 			}
 		})
 	}
 }
 
 func TestHandleError(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	testReconciler, err := newTestReconciler(nil, nil, nil, 60*time.Second, "")
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	testReconciler.handleError(errors.New("failed error"), "key1", false)
 	// wait for the object to be requeued
 	time.Sleep(11 * time.Second)
-	g.Expect(testReconciler.queue.Len()).To(Equal(1))
+	g.Expect(testReconciler.queue.Len()).To(gomega.Equal(1))
 
 	for i := 0; i < 5; i++ {
 		time.Sleep(1 * time.Second)
 		testReconciler.handleError(errors.New("failed error"), "key1", true)
-		g.Expect(testReconciler.queue.NumRequeues("key1")).To(Equal(i + 1))
+		g.Expect(testReconciler.queue.NumRequeues("key1")).To(gomega.Equal(i + 1))
 
 		testReconciler.queue.Get()
 		testReconciler.queue.Done("key1")
@@ -791,7 +791,7 @@ func TestHandleError(t *testing.T) {
 	// max number of requeues complete for key2, so now it should be removed from queue
 	testReconciler.handleError(errors.New("failed error"), "key1", true)
 	time.Sleep(1 * time.Second)
-	g.Expect(testReconciler.queue.Len()).To(Equal(1))
+	g.Expect(testReconciler.queue.Len()).To(gomega.Equal(1))
 }
 
 func getTestTargetPath(t *testing.T, uid, vol string) string {
