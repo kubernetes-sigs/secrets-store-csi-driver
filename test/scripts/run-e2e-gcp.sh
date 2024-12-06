@@ -72,8 +72,12 @@ main() {
 
     gcloud config set project ${GCP_PROJECT}
 
+    gcloud projects add-iam-policy-binding ${GCP_PROJECT} --member="serviceAccount:prow-build@k8s-infra-prow-build.iam.gserviceaccount.com" --role="roles/container.clusterAdmin"
+
     echo "creating cluster..."
     gcloud container clusters create ${CLUSTER_NAME} --location=us-central1-c --workload-pool=${GCP_PROJECT}.svc.id.goog
+
+    # gcloud container clusters create ${CLUSTER_NAME} --location=us-central1-c
 
     echo "Install pre-requisiste...."
     make e2e-install-prerequisites
