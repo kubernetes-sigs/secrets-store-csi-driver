@@ -73,7 +73,7 @@ main() {
     gcloud config set project ${GCP_PROJECT}
 
     echo "creating cluster..."
-    gcloud container clusters create ${CLUSTER_NAME} --location=us-central1-c --workload-pool=${GCP_PROJECT}svc.id.goog
+    gcloud container clusters create ${CLUSTER_NAME} --location=us-central1-c --workload-pool=${GCP_PROJECT}.svc.id.goog
 
     make e2e-helm-deploy e2e-gcp
 
