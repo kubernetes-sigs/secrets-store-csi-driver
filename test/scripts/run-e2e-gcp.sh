@@ -27,7 +27,12 @@ function boskosctlwrapper() {
 }
 
 cleanup() {
+
     gcloud container clusters delete --location us-central1-c ${CLUSTER_NAME}
+    # stop boskos heartbeat
+    if [ -n "${BOSKOS_HOST:-}" ]; then
+        boskosctlwrapper release --name "${ }" --target-state dirty
+    fi
 
 }
 trap cleanup EXIT
@@ -72,10 +77,7 @@ main() {
 
     make e2e-helm-deploy e2e-gcp
 
-# stop boskos heartbeat
-  if [ -n "${BOSKOS_HOST:-}" ]; then
-    boskosctlwrapper release --name "${ }" --target-state dirty
-  fi
+
 }
 
 main
