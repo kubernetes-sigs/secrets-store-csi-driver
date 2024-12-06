@@ -24,6 +24,12 @@ function boskosctlwrapper() {
   boskosctl --server-url http://"${BOSKOS_HOST}" --owner-name "cluster-api-provider-gcp" "${@}"
 }
 
+cleanup() {
+    gcloud container clusters delete --location us-central1-c ${GCP_PROJECT}
+
+}
+trap cleanup EXIT
+
 main() {
     echo "starting the script"
 
@@ -57,10 +63,17 @@ main() {
 
     gcloud projects describe ${GCP_PROJECT}
 
+    gcloud config set project ${GCP_PROJECT}
+
+    echo "creating cluster..."
+    gcloud container clusters create --location=us-central1-c --workload-pool=${GCP_PROJECT}svc.id.goog
+
     # make e2e-bootstrap e2e-helm-deploy e2e-gcp
 
-# If Boskos is being used then release the GCP project back to Boskos.
-  [ -z "${BOSKOS_HOST:-}" ] || hack/checkin_account.py >> "$ARTIFACTS"/logs/boskos.log 2>&1
+# stop boskos heartbeat
+  if [ -n "${BOSKOS_HOST:-}" ]; then
+    boskosctlwrapper release --name "${ }" --target-state dirty
+  fi
 }
 
 main
