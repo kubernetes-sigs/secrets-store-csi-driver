@@ -21,4 +21,6 @@ set -o pipefail
 main() {
     printenv
 
+    make e2e-bootstrap e2e-helm-deploy e2e-gcp
+
 }
