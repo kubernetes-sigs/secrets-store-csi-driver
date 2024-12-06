@@ -75,6 +75,9 @@ main() {
     echo "creating cluster..."
     gcloud container clusters create ${CLUSTER_NAME} --location=us-central1-c --workload-pool=${GCP_PROJECT}.svc.id.goog
 
+    echo "Install pre-requisiste...."
+    make e2e-install-prerequisites
+
     make e2e-helm-deploy e2e-gcp
 
 
