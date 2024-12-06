@@ -18,8 +18,10 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+: "${REGISTRY:?Environment variable empty or not defined.}"
+
 main() {
-    printenv
+    echo "starting the script"
 
     make e2e-bootstrap e2e-helm-deploy e2e-gcp
 
