@@ -45,6 +45,8 @@ export SECRET_VALUE=${SECRET_VALUE:-"aHVudGVyMg=="}
 @test "CSI inline volume test with pod portability - read gcp kv secret from pod" {
   result=$(kubectl exec secrets-store-inline-crd --namespace=$NAMESPACE -- cat /mnt/secrets-store/$FILE_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+
+archive_info
 }
 
 @test "CSI inline volume test with pod portability - unmount succeeds" {
