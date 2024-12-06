@@ -18,10 +18,20 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+: "${GOOGLE_APPLICATION_CREDENTIALS:?Environment variable empty or not defined.}"
+
 main() {
     echo "starting the script"
 
-    make e2e-bootstrap e2e-helm-deploy e2e-gcp
+    if [[ -z "$GOOGLE_APPLICATION_CREDENTIALS" ]]; then
+        echo "GOOGLE_APPLICATION_CREDENTIALS is not set. Please set this to the path of the service account used to run this script."
+    else
+        gcloud auth activate-service-account --key-file="${GOOGLE_APPLICATION_CREDENTIALS}"
+    fi
+    GCP_PROJECT=$(jq -r .project_id "${GOOGLE_APPLICATION_CREDENTIALS}")
+    echo "Using project ${GCP_PROJECT}"
+
+    # make e2e-bootstrap e2e-helm-deploy e2e-gcp
 
 }
 
