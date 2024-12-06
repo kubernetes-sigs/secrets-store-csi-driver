@@ -78,7 +78,7 @@ main() {
     echo "Install pre-requisiste...."
     make e2e-install-prerequisites
 
-    make e2e-helm-deploy e2e-gcp
+    make e2e-deploy-manifest e2e-gcp
 
 
 }
