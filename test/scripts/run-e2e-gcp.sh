@@ -20,35 +20,31 @@ set -o pipefail
 
 : "${GOOGLE_APPLICATION_CREDENTIALS:?Environment variable empty or not defined.}"
 
+function boskosctlwrapper() {
+  boskosctl --server-url http://"${BOSKOS_HOST}" --owner-name "cluster-api-provider-gcp" "${@}"
+}
+
 main() {
     echo "starting the script"
 
-      if [ -n "${BOSKOS_HOST:-}" ]; then
-        # Check out the account from Boskos and store the produced environment
-        # variables in a temporary file.
-        account_env_var_file="$(mktemp)"
-        python3 hack/checkout_account.py 1>"${account_env_var_file}"
-        checkout_account_status="${?}"
+    if [[ -z "$(command -v boskosctl)" ]]; then
+        echo "installing boskosctl"
+        GO111MODULE=on go install sigs.k8s.io/boskos/cmd/boskosctl@master
+        echo "'boskosctl' has been installed to $GOPATH/bin, make sure this directory is in your \$PATH"
+    fi
 
-        # If the checkout process was a success then load the account's
-        # environment variables into this process.
-        # shellcheck disable=SC1090
-        [ "${checkout_account_status}" = "0" ] && . "${account_env_var_file}"
+    echo "testing boskosctl"
+    boskosctl --help
 
-        # Always remove the account environment variable file. It contains
-        # sensitive information.
-        rm -f "${account_env_var_file}"
+    if [ -n "${BOSKOS_HOST:-}" ]; then
+        echo "Boskos acquire - ${BOSKOS_HOST}"
+        export BOSKOS_RESOURCE="$( boskosctlwrapper acquire --type gce-project --state free --target-state busy --timeout 1h )"
+        export RESOURCE_NAME=$(echo $BOSKOS_RESOURCE | jq  -r ".name")
+        export GCP_PROJECT=$(echo $BOSKOS_RESOURCE | jq  -r ".name")
 
-        if [ ! "${checkout_account_status}" = "0" ]; then
-        echo "error getting account from boskos" 1>&2
-        exit "${checkout_account_status}"
-        fi
-
-        # run the heart beat process to tell boskos that we are still
-        # using the checked out account periodically
-        python3 -u hack/heartbeat_account.py >> "$ARTIFACTS/logs/boskos.log" 2>&1 &
-        # shellcheck disable=SC2116
-        HEART_BEAT_PID=$(echo $!)
+        # send a heartbeat in the background to keep the lease while using the resource
+        echo "Starting Boskos HeartBeat"
+        boskosctlwrapper heartbeat --resource "${BOSKOS_RESOURCE}" &
     fi
 
     if [[ -z "$GOOGLE_APPLICATION_CREDENTIALS" ]]; then
@@ -56,8 +52,10 @@ main() {
     else
         gcloud auth activate-service-account --key-file="${GOOGLE_APPLICATION_CREDENTIALS}"
     fi
-    GCP_PROJECT=$(jq -r .project_id "${GOOGLE_APPLICATION_CREDENTIALS}")
+    # GCP_PROJECT=$(jq -r .project_id "${GOOGLE_APPLICATION_CREDENTIALS}")
     echo "Using project ${GCP_PROJECT}"
+
+    gcloud projects describe ${GCP_PROJECT}
 
     # make e2e-bootstrap e2e-helm-deploy e2e-gcp
 
