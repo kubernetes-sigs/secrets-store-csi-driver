@@ -20,12 +20,14 @@ set -o pipefail
 
 : "${GOOGLE_APPLICATION_CREDENTIALS:?Environment variable empty or not defined.}"
 
+readonly CLUSTER_NAME="secret-provider-cluster-gcp-$(openssl rand -hex 4)"
+
 function boskosctlwrapper() {
   boskosctl --server-url http://"${BOSKOS_HOST}" --owner-name "cluster-api-provider-gcp" "${@}"
 }
 
 cleanup() {
-    gcloud container clusters delete --location us-central1-c ${GCP_PROJECT}
+    gcloud container clusters delete --location us-central1-c ${CLUSTER_NAME}
 
 }
 trap cleanup EXIT
@@ -66,9 +68,9 @@ main() {
     gcloud config set project ${GCP_PROJECT}
 
     echo "creating cluster..."
-    gcloud container clusters create --location=us-central1-c --workload-pool=${GCP_PROJECT}svc.id.goog
+    gcloud container clusters create ${CLUSTER_NAME} --location=us-central1-c --workload-pool=${GCP_PROJECT}svc.id.goog
 
-    # make e2e-bootstrap e2e-helm-deploy e2e-gcp
+    make e2e-helm-deploy e2e-gcp
 
 # stop boskos heartbeat
   if [ -n "${BOSKOS_HOST:-}" ]; then
