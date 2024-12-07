@@ -116,17 +116,22 @@ AWS_REGION := us-west-2
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:crdVersions=v1"
 
-## --------------------------------------
+
 ## Validate golang version
-## --------------------------------------
+
 GO_MAJOR_VERSION = $(shell go version | cut -c 14- | cut -d' ' -f1 | cut -d'.' -f1)
 GO_MINOR_VERSION = $(shell go version | cut -c 14- | cut -d' ' -f1 | cut -d'.' -f2)
 MINIMUM_SUPPORTED_GO_MAJOR_VERSION = 1
 MINIMUM_SUPPORTED_GO_MINOR_VERSION = 16
 GO_VERSION_VALIDATION_ERR_MSG = Golang version is not supported, please update to at least $(MINIMUM_SUPPORTED_GO_MAJOR_VERSION).$(MINIMUM_SUPPORTED_GO_MINOR_VERSION)
 
+
+.PHONY: help
+help: ## Display this help
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+
 .PHONY: validate-go
-validate-go: ## Validates the installed version of go.
+validate-go: ## Validates the installed version of go
 	@if [ $(GO_MAJOR_VERSION) -gt $(MINIMUM_SUPPORTED_GO_MAJOR_VERSION) ]; then \
 		exit 0 ;\
 	elif [ $(GO_MAJOR_VERSION) -lt $(MINIMUM_SUPPORTED_GO_MAJOR_VERSION) ]; then \
@@ -137,25 +142,23 @@ validate-go: ## Validates the installed version of go.
 		exit 1; \
 	fi
 
-## --------------------------------------
-## Testing
-## --------------------------------------
+##@ Testing
 
 .PHONY: test
-test: go-test
+test: go-test ## Run unit tests
 
-.PHONY: go-test # Run unit tests
+.PHONY: go-test
 go-test:
 	go test -count=1 $(GO_FILES) -v -coverprofile cover.out
 	cd test/e2eprovider && go test ./... -tags e2e -count=1 -v
 
 # skipping Controller tests as this driver only implements Node and Identity service.
 .PHONY: sanity-test # Run CSI sanity tests for the driver
-sanity-test:
+sanity-test: ## Run sanity tests
 	go test -v ./test/sanity -ginkgo.skip=Controller\|should.work\|NodeStageVolume
 
 .PHONY: image-scan
-image-scan: $(TRIVY)
+image-scan: $(TRIVY) ## Run image-scan
 	# show all vulnerabilities
 	$(TRIVY) image --severity MEDIUM,HIGH,CRITICAL $(IMAGE_TAG)
 	$(TRIVY) image --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
@@ -163,9 +166,7 @@ image-scan: $(TRIVY)
 	$(TRIVY) image --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(IMAGE_TAG)
 	$(TRIVY) image --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
 
-## --------------------------------------
 ## Tooling Binaries
-## --------------------------------------
 
 $(CONTROLLER_GEN): $(TOOLS_MOD_DIR)/go.mod $(TOOLS_MOD_DIR)/go.sum $(TOOLS_MOD_DIR)/tools.go ## Build controller-gen from tools folder.
 	cd $(TOOLS_MOD_DIR) && \
@@ -187,9 +188,7 @@ $(PROTOC_GEN_GO_GRPC): ## Build protoc-gen-go-grpc from tools folder.
 	cd $(TOOLS_MOD_DIR) && \
 		GOPROXY=$(GOPROXY) go build -tags=tools -o $(TOOLS_BIN_DIR)/protoc-gen-go-grpc google.golang.org/grpc/cmd/protoc-gen-go-grpc
 
-## --------------------------------------
 ## Testing Binaries
-## --------------------------------------
 
 $(HELM): ## Install helm3 if not present
 	helm version --short | grep -q v3 || (curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash)
@@ -234,14 +233,13 @@ $(SHELLCHECK):
 	chmod +x "$(TOOLS_BIN_DIR)/shellcheck" "$(SHELLCHECK)"
 	rm -rf shellcheck*
 
-## --------------------------------------
-## Linting
-## --------------------------------------
+##@ Linting
+
 .PHONY: test-style
 test-style: lint lint-charts shellcheck
 
 .PHONY: lint
-lint: $(GOLANGCI_LINT)
+lint: $(GOLANGCI_LINT) ## Run lint
 	# Setting timeout to 5m as default is 1m
 	$(GOLANGCI_LINT) run --timeout=5m -v
 	cd test/e2eprovider && $(GOLANGCI_LINT) run --build-tags e2e --timeout=5m -v
@@ -249,7 +247,7 @@ lint: $(GOLANGCI_LINT)
 lint-full: $(GOLANGCI_LINT)
 	$(GOLANGCI_LINT) run -v --fast=false
 
-lint-charts: $(HELM) # Run helm lint tests
+lint-charts: $(HELM) ## Run lint on helm charts
 	helm lint charts/secrets-store-csi-driver
 	helm lint manifest_staging/charts/secrets-store-csi-driver
 
@@ -257,11 +255,10 @@ lint-charts: $(HELM) # Run helm lint tests
 shellcheck: $(SHELLCHECK)
 	find . -name '*.sh' -not -path './third_party/*'  | xargs $(SHELLCHECK)
 
-## --------------------------------------
-## Builds
-## --------------------------------------
+##@ Builds
+
 .PHONY: build
-build:
+build: ## Build Secret Store CSI Driver binary
 	GOPROXY=$(GOPROXY) CGO_ENABLED=0 GOOS=linux go build -a -ldflags $(LDFLAGS) -o _output/secrets-store-csi ./cmd/secrets-store-csi-driver
 
 .PHONY: build-e2e-provider
@@ -281,7 +278,7 @@ clean-crds:
 	rm -rf _output/crds/*
 
 .PHONY: build-crds
-build-crds: clean-crds
+build-crds: clean-crds ## Build crds
 	mkdir -p _output/crds
 ifdef CI
 	cp -R manifest_staging/charts/secrets-store-csi-driver/crds/ _output/crds/
@@ -294,7 +291,7 @@ e2e-provider-container:
 	docker buildx build --no-cache -t $(E2E_PROVIDER_IMAGE_TAG) -f test/e2eprovider/Dockerfile --progress=plain .
 
 .PHONY: container
-container: crd-container
+container: crd-container ## Build container image
 	docker buildx build --no-cache --build-arg IMAGE_VERSION=$(IMAGE_VERSION) -t $(IMAGE_TAG) -f docker/Dockerfile --progress=plain .
 
 .PHONY: crd-container
@@ -356,9 +353,8 @@ push-manifest:
 	docker manifest push --purge $(CRD_IMAGE_TAG)
 	docker manifest inspect $(CRD_IMAGE_TAG)
 
-## --------------------------------------
-## E2E Testing
-## --------------------------------------
+##@ E2E Testing
+
 .PHONY: e2e-install-prerequisites
 e2e-install-prerequisites: $(HELM) $(BATS) $(KIND) $(KUBECTL) $(ENVSUBST) $(YQ)
 
@@ -388,7 +384,7 @@ e2e-mock-provider-container:
 	kind load docker-image --name kind $(E2E_PROVIDER_IMAGE_TAG)
 
 .PHONY: e2e-test
-e2e-test: e2e-bootstrap e2e-helm-deploy # run test for windows
+e2e-test: e2e-bootstrap e2e-helm-deploy  ## Run e2e tests for windows
 	$(MAKE) e2e-azure
 
 .PHONY: e2e-teardown
@@ -498,12 +494,10 @@ e2e-aws:
 e2e-conjur:
 	bats -t test/bats/conjur.bats
 
-## --------------------------------------
-## Generate
-## --------------------------------------
-# Generate manifests e.g. CRD, RBAC etc.
+##@ Generate
+
 .PHONY: manifests
-manifests: $(CONTROLLER_GEN) $(KUSTOMIZE)
+manifests: $(CONTROLLER_GEN) $(KUSTOMIZE)  ## Generate manifests e.g. CRD, RBAC etc.
 	# Generate the base CRD/RBAC
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=secretproviderclasses-role object:headerFile=./hack/boilerplate.go.txt paths="./apis/..." \
 		 paths="./apis/..." paths="./controllers" output:crd:artifacts:config=config/crd/bases
@@ -555,9 +549,8 @@ generate-protobuf: $(PROTOC) $(PROTOC_GEN_GO) $(PROTOC_GEN_GO_GRPC) # generates 
 	# Update boilerplate for the generated file.
 	cat hack/boilerplate.go.txt provider/v1alpha1/service_grpc.pb.go > tmpfile && mv tmpfile provider/v1alpha1/service_grpc.pb.go
 
-## --------------------------------------
 ## Release
-## --------------------------------------
+
 .PHONY: release-manifest
 release-manifest:
 	$(MAKE) manifests
@@ -575,9 +568,8 @@ promote-staging-manifest: #promote staging manifests to release dir
 	@rm -rf charts/secrets-store-csi-driver
 	@cp -r manifest_staging/charts/secrets-store-csi-driver ./charts
 
-## --------------------------------------
-## Local
-## --------------------------------------
+##@ Local
+
 .PHONY: redeploy-driver
-redeploy-driver: e2e-container
+redeploy-driver: e2e-container ## Redeploy driver and e2e-container
 	kubectl delete pod $(shell kubectl get pod -n kube-system -l app=secrets-store-csi-driver -o jsonpath="{.items[0].metadata.name}") -n kube-system --force --grace-period 0
