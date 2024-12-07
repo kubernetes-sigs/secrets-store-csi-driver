@@ -6,7 +6,7 @@ require (
 	github.com/golangci/golangci-lint v1.53.3
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.3.0
 	google.golang.org/protobuf v1.34.2
-	k8s.io/code-generator v0.31.0
+	k8s.io/code-generator v0.31.3
 	sigs.k8s.io/controller-tools v0.16.3
 	sigs.k8s.io/kustomize/kustomize/v5 v5.4.3
 )
@@ -210,7 +210,7 @@ require (
 	honnef.co/go/tools v0.4.3 // indirect
 	k8s.io/api v0.31.0 // indirect
 	k8s.io/apiextensions-apiserver v0.31.0 // indirect
-	k8s.io/apimachinery v0.31.0 // indirect
+	k8s.io/apimachinery v0.31.3 // indirect
 	k8s.io/gengo/v2 v2.0.0-20240228010128-51d4e06bde70 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect
