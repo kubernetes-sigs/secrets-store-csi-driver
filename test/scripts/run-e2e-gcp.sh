@@ -72,7 +72,10 @@ main() {
 
     gcloud config set project ${GCP_PROJECT}
 
-    gcloud projects add-iam-policy-binding ${GCP_PROJECT} --member="serviceAccount:prow-build@k8s-infra-prow-build.iam.gserviceaccount.com" --role="roles/container.clusterAdmin"
+    gcloud projects get-iam-policy  ${GCP_PROJECT} \
+    --flatten="bindings[].members" \
+    --format='table(bindings.role)' \
+    --filter="bindings.members:prow-build@k8s-infra-prow-build.iam.gserviceaccount.com"
 
     echo "creating cluster..."
     gcloud container clusters create ${CLUSTER_NAME} --location=us-central1-c --workload-pool=${GCP_PROJECT}.svc.id.goog
