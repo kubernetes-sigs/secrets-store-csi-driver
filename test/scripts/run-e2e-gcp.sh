@@ -136,4 +136,4 @@ use_boskos_setup() {
 
 }
 
-use_boskos_setup
+main
