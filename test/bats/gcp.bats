@@ -10,7 +10,7 @@ PROVIDER_NAMESPACE=kube-system
 PROVIDER_YAML=https://raw.githubusercontent.com/GoogleCloudPlatform/secrets-store-csi-driver-provider-gcp/main/deploy/provider-gcp-plugin.yaml
 BASE64_FLAGS="-w 0"
 
-export RESOURCE_NAME=${SECRET_URI}
+export RESOURCE_NAME=${RESOURCE_NAME:-"projects/701052188881/secrets/testsecret/versions/latest"}
 export FILE_NAME=${FILE_NAME:-"secret"}
 export SECRET_VALUE=${SECRET_VALUE:-"aHVudGVyMg=="}
 

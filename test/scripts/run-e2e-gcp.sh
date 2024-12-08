@@ -50,11 +50,11 @@ main() {
 
     echo "Using project ${GCP_PROJECT}"
 
-    gcloud projects describe ${GCP_PROJECT}
-    export CLUSTER_PROJECT_NUMBER="$(gcloud projects describe $GCP_PROJECT --format='value(projectNumber)')"
+    # gcloud projects describe ${GCP_PROJECT}
+    # export CLUSTER_PROJECT_NUMBER="$(gcloud projects describe $GCP_PROJECT --format='value(projectNumber)')"
 
-    echo "project number"
-    echo $CLUSTER_PROJECT_NUMBER
+    # echo "project number"
+    # echo $CLUSTER_PROJECT_NUMBER
 
 
     # gcloud projects get-iam-policy  ${GCP_PROJECT} \
@@ -62,7 +62,7 @@ main() {
     # --format='table(bindings.role)' \
     # --filter="bindings.members:prow-build@k8s-infra-prow-build.iam.gserviceaccount.com"
 
-    gcloud iam service-accounts create gke-workload
+    # gcloud iam service-accounts create gke-workload
 
     ####### approach 2 #################
     make e2e-bootstrap e2e-helm-deploy e2e-gcp
