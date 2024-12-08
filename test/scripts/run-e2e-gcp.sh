@@ -44,6 +44,7 @@ main() {
         echo "GOOGLE_APPLICATION_CREDENTIALS is not set. Please set this to the path of the service account used to run this script."
     else
         gcloud auth activate-service-account --key-file="${GOOGLE_APPLICATION_CREDENTIALS}"
+    fi
 
     gcloud projects get-iam-policy  ${GCP_PROJECT} \
     --flatten="bindings[].members" \
