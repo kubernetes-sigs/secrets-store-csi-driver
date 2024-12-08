@@ -53,10 +53,7 @@ main() {
     # --format='table(bindings.role)' \
     # --filter="bindings.members:prow-build@k8s-infra-prow-build.iam.gserviceaccount.com"
 
-    gcloud iam service-accounts add-iam-policy-binding \
-    --role roles/iam.workloadIdentityUser \
-    --member "serviceAccount:k8s-infra-prow-build.svc.id.goog[default/mypodserviceaccount]" \
-    prow-build@k8s-infra-prow-build.iam.gserviceaccount.com
+    gcloud iam service-accounts create gke-workload
 
     ####### approach 2 #################
     make e2e-bootstrap e2e-helm-deploy e2e-gcp
@@ -98,6 +95,19 @@ use_boskos_setup() {
 
     gcloud config set project ${GCP_PROJECT}
 
+    gcloud iam service-accounts list
+
+    echo "creating secret"
+
+    export SECRET_ID="test-secret-$(openssl rand -hex 4)"
+
+    echo -n "my super secret string" | gcloud beta secrets create ${SECRET_ID} --data-file=- --ttl=1800s --quiet
+
+    export CLUSTER_PROJECT_ID="$(gcloud config get project)"
+    export CLUSTER_PROJECT_NUMBER="$(gcloud projects describe $CLUSTER_PROJECT_ID --format='value(projectNumber)')"
+
+    export SECRET_URI="projects/${CLUSTER_PROJECT_NUMBER}/secrets/${SECRET_ID}/versions/latest"
+
     gcloud projects get-iam-policy  ${GCP_PROJECT} \
     --flatten="bindings[].members" \
     --format='table(bindings.role)' \
@@ -108,11 +118,11 @@ use_boskos_setup() {
 
 
     echo "Install pre-requisiste...."
-    make e2e-install-prerequisites
+    # make e2e-install-prerequisites
 
-    make e2e-deploy-manifest e2e-gcp
+    make e2e-bootstrap e2e-helm-deploy e2e-gcp
 
 
 }
 
-main
+use_boskos_setup
