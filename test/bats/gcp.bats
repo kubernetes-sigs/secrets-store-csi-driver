@@ -10,7 +10,7 @@ PROVIDER_NAMESPACE=kube-system
 PROVIDER_YAML=https://raw.githubusercontent.com/GoogleCloudPlatform/secrets-store-csi-driver-provider-gcp/main/deploy/provider-gcp-plugin.yaml
 BASE64_FLAGS="-w 0"
 
-export RESOURCE_NAME=${RESOURCE_NAME:-"projects/735463103342/secrets/test-secret-a/versions/latest"}
+export RESOURCE_NAME=${RESOURCE_NAME:-"projects/701052188881/secrets/testsecret/versions/latest"}
 export FILE_NAME=${FILE_NAME:-"secret"}
 export SECRET_VALUE=${SECRET_VALUE:-"aHVudGVyMg=="}
 
@@ -43,8 +43,10 @@ export SECRET_VALUE=${SECRET_VALUE:-"aHVudGVyMg=="}
 }
 
 @test "CSI inline volume test with pod portability - read gcp kv secret from pod" {
+  archive_info
   result=$(kubectl exec secrets-store-inline-crd --namespace=$NAMESPACE -- cat /mnt/secrets-store/$FILE_NAME)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+
 }
 
 @test "CSI inline volume test with pod portability - unmount succeeds" {
