@@ -63,6 +63,8 @@ main() {
 
 
 use_boskos_setup() {
+
+    printenv
     if [[ -z "$(command -v boskosctl)" ]]; then
         echo "installing boskosctl"
         GO111MODULE=on go install sigs.k8s.io/boskos/cmd/boskosctl@master
