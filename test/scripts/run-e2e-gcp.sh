@@ -46,6 +46,8 @@ main() {
         gcloud auth activate-service-account --key-file="${GOOGLE_APPLICATION_CREDENTIALS}"
     fi
 
+    GCP_PROJECT=$(jq -r .project_id "${GOOGLE_APPLICATION_CREDENTIALS}")
+
     gcloud projects get-iam-policy  ${GCP_PROJECT} \
     --flatten="bindings[].members" \
     --format='table(bindings.role)' \
