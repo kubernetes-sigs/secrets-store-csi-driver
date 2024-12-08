@@ -48,6 +48,15 @@ main() {
 
     GCP_PROJECT=$(jq -r .project_id "${GOOGLE_APPLICATION_CREDENTIALS}")
 
+    echo "Using project ${GCP_PROJECT}"
+
+    gcloud projects describe ${GCP_PROJECT}
+    export CLUSTER_PROJECT_NUMBER="$(gcloud projects describe $GCP_PROJECT --format='value(projectNumber)')"
+
+    echo "project number"
+    echo $CLUSTER_PROJECT_NUMBER
+
+
     # gcloud projects get-iam-policy  ${GCP_PROJECT} \
     # --flatten="bindings[].members" \
     # --format='table(bindings.role)' \
