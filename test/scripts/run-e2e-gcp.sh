@@ -40,6 +40,21 @@ trap cleanup EXIT
 main() {
     echo "starting the script"
 
+    if [[ -z "$GOOGLE_APPLICATION_CREDENTIALS" ]]; then
+        echo "GOOGLE_APPLICATION_CREDENTIALS is not set. Please set this to the path of the service account used to run this script."
+    else
+        gcloud auth activate-service-account --key-file="${GOOGLE_APPLICATION_CREDENTIALS}"
+
+    gcloud projects get-iam-policy  ${GCP_PROJECT} \
+    --flatten="bindings[].members" \
+    --format='table(bindings.role)' \
+    --filter="bindings.members:prow-build@k8s-infra-prow-build.iam.gserviceaccount.com"
+
+    gcloud iam service-accounts add-iam-policy-binding \
+    --role roles/iam.workloadIdentityUser \
+    --member "serviceAccount:k8s-infra-prow-build.svc.id.goog[default/mypodserviceaccount]" \
+    prow-build@k8s-infra-prow-build.iam.gserviceaccount.com
+
     ####### approach 2 #################
     make e2e-bootstrap e2e-helm-deploy e2e-gcp
 
