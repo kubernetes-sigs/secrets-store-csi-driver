@@ -48,10 +48,10 @@ main() {
 
     GCP_PROJECT=$(jq -r .project_id "${GOOGLE_APPLICATION_CREDENTIALS}")
 
-    gcloud projects get-iam-policy  ${GCP_PROJECT} \
-    --flatten="bindings[].members" \
-    --format='table(bindings.role)' \
-    --filter="bindings.members:prow-build@k8s-infra-prow-build.iam.gserviceaccount.com"
+    # gcloud projects get-iam-policy  ${GCP_PROJECT} \
+    # --flatten="bindings[].members" \
+    # --format='table(bindings.role)' \
+    # --filter="bindings.members:prow-build@k8s-infra-prow-build.iam.gserviceaccount.com"
 
     gcloud iam service-accounts add-iam-policy-binding \
     --role roles/iam.workloadIdentityUser \
