@@ -28,3 +28,5 @@ main() {
     # 3. Clean up the secret.
     make e2e-bootstrap e2e-helm-deploy e2e-gcp
 }
+
+main
