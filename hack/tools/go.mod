@@ -5,7 +5,7 @@ go 1.23
 require (
 	github.com/golangci/golangci-lint v1.53.3
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.3.0
-	google.golang.org/protobuf v1.34.2
+	google.golang.org/protobuf v1.36.0
 	k8s.io/code-generator v0.31.0
 	sigs.k8s.io/controller-tools v0.16.3
 	sigs.k8s.io/kustomize/kustomize/v5 v5.4.3
