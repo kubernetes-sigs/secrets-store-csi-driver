@@ -24,7 +24,12 @@ MDBOOK_TOC := $(TOOLS_BIN_DIR)/mdbook-toc
 $(MDBOOK_TOC):
 	$(CRATE_INSTALL) --git badboy/mdbook-toc --tag 0.7.0 --to $(TOOLS_BIN_DIR) --force
 
-DEPS := $(MDBOOK) $(MDBOOK_TOC)
+MDBOOK_MERMAID := $(TOOLS_BIN_DIR)/mdbook-mermaid
+$(MDBOOK_MERMAID):
+	$(CRATE_INSTALL) --git badboy/mdbook-mermaid --tag v0.8.3 --to $(TOOLS_BIN_DIR) --force
+	$(MDBOOK_MERMAID) install
+
+DEPS := $(MDBOOK) $(MDBOOK_TOC) $(MDBOOK_MERMAID)
 
 .PHONY: build
 build: $(DEPS)
