@@ -13,7 +13,7 @@
 # limitations under the License.
 
 FROM alpine as builder
-ARG KUBE_VERSION=v1.29.12
+ARG KUBE_VERSION=v1.30.8
 ARG TARGETARCH
 
 RUN apk add --no-cache curl && \
