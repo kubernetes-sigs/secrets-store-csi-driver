@@ -38,7 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func testNodeServer(t *testing.T, client client.Client, reporter StatsReporter, rotationConfig *RotationConfig) (*nodeServer, error) {
+func testNodeServer(t *testing.T, client client.Client, reporter StatsReporter, rotationConfig *rotationConfig) (*nodeServer, error) {
 	t.Helper()
 
 	// Create a mock provider named "provider1".
@@ -228,7 +228,7 @@ func TestNodePublishVolume_Errors(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			r := mocks.NewFakeReporter()
 
-			ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).WithObjects(test.initObjects...).Build(), r, &RotationConfig{})
+			ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).WithObjects(test.initObjects...).Build(), r, &rotationConfig{})
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
@@ -268,7 +268,7 @@ func TestNodePublishVolume(t *testing.T) {
 		name              string
 		nodePublishVolReq *csi.NodePublishVolumeRequest
 		initObjects       []client.Object
-		rotationConfig    *RotationConfig
+		rotationConfig    *rotationConfig
 	}{
 		{
 			name: "volume mount",
@@ -296,7 +296,7 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				},
 			},
-			rotationConfig: &RotationConfig{
+			rotationConfig: &rotationConfig{
 				enabled:              false,
 				rotationPollInterval: time.Minute,
 			},
@@ -330,7 +330,7 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				},
 			},
-			rotationConfig: &RotationConfig{
+			rotationConfig: &rotationConfig{
 				enabled:              true,
 				rotationPollInterval: -1 * time.Minute, // Using negative interval to pass the rotation interval check in unit tests
 			},
@@ -361,7 +361,7 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				},
 			},
-			rotationConfig: &RotationConfig{
+			rotationConfig: &rotationConfig{
 				enabled:              true,
 				rotationPollInterval: time.Minute,
 			},
@@ -427,7 +427,7 @@ func TestNodeUnpublishVolume(t *testing.T) {
 	)
 
 	r := mocks.NewFakeReporter()
-	ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).Build(), r, &RotationConfig{})
+	ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).Build(), r, &rotationConfig{})
 	if err != nil {
 		t.Fatalf("expected error to be nil, got: %+v", err)
 	}
@@ -506,7 +506,7 @@ func TestNodeUnpublishVolume_Error(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			r := mocks.NewFakeReporter()
-			ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).Build(), r, &RotationConfig{})
+			ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).Build(), r, &rotationConfig{})
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}

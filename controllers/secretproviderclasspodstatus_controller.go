@@ -419,7 +419,7 @@ func (r *SecretProviderClassPodStatusReconciler) createOrUpdateK8sSecret(ctx con
 		klog.InfoS("Kubernetes secret is already created", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
 		err := r.writer.Update(ctx, secret)
 		if err != nil {
-			klog.Errorf("Unable to update kubernetes secret", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
+			klog.ErrorS(err, "Unable to update kubernetes secret", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
 			return err
 		}
 		klog.InfoS("successfully updated Kubernetes secret", "secret", klog.ObjectRef{Namespace: namespace, Name: name})

@@ -44,7 +44,7 @@ type nodeServer struct {
 	// This should be used sparingly and only when the client does not fit the use case.
 	reader          client.Reader
 	providerClients *PluginClientBuilder
-	rotationConfig  *RotationConfig
+	rotationConfig  *rotationConfig
 }
 
 const (
@@ -122,7 +122,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if ns.rotationConfig.enabled {
 		lastModificationTime, err := ns.getLastUpdateTime(targetPath)
 		if err != nil {
-			klog.Infof("could not find last modification time for %s, error: %v\n", targetPath, err)
+			klog.InfoS("could not find last modification time for targetpath", targetPath, "error", err)
 		} else if startTime.Before(lastModificationTime.Add(ns.rotationConfig.rotationPollInterval)) {
 			// if next rotation is not yet due, then skip the mount operation
 			return &csi.NodePublishVolumeResponse{}, nil
@@ -153,9 +153,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if isMockProvider(providerName) {
 		// mock provider is used only for running sanity tests against the driver
 
-		// TODO: until requiresRemount (#585) is supported, "mounted" will always be false
-		// and this code will always be called
-		if !mounted {
+		if !rotationEnabled && !mounted {
 			err := ns.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
 
 			if err != nil {
@@ -198,7 +196,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	// and send it to the provider in the parameters.
 	if parameters[CSIPodServiceAccountTokens] == "" {
 		// Inject pod service account token into volume attributes
-		klog.Error("csi.storage.k8s.io/serviceAccount.tokens is not populated, set RequiresRepublish")
+		klog.ErrorS(err, "csi.storage.k8s.io/serviceAccount.tokens is not populated, set RequiresRepublish")
 	}
 
 	// ensure it's read-only
