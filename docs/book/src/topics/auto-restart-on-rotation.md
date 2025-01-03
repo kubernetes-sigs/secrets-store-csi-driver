@@ -12,7 +12,7 @@ Using custom resources created by the Secrets Store CSI Driver, a Kubernetes con
 
 ## SecretProviderClassPodStatus custom resource
 
-The relevant custom resource is [`SecretProviderClassPodStatus`](https://secrets-store-csi-driver.sigs.k8s.io/concepts#secretproviderclasspodstatus).
+The relevant custom resource is [`SecretProviderClassPodStatus`](./concepts#secretproviderclasspodstatus).
 
 Each `SecretProviderClassPodStatus` custom resource (CR) has a one-to-one relationship with a pod that references secrets using the Secrets Store CSI Driver. The CR includes the pod name, namespace and other attributes. The driver manages the lifecycle of `SecretProviderClassPodStatus` which is tied to the lifecycle of the associated pod.
 
