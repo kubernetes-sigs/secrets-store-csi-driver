@@ -1,20 +1,20 @@
 # Auto restart of pods when secret is rotated
 
-> NOTE: This is a suggested implementation which can be used alongside the Secrets Store CSI Driver. The solution is neither supported nor tested by the Secrets Store CSI Driver project.
+> NOTE: This is a suggested implementation that can be used alongside the Secrets Store CSI Driver. This solution is neither supported nor tested by the Secrets Store CSI Driver project.
 
-When [auto rotation of secrets](./secret-auto-rotation.md) is enabled, workloads which depend upon secrets will need to either 
-- watch for updates to secrets and reload these in their runtime, or
+When [auto rotation of secrets](./secret-auto-rotation.md) is enabled, workloads that depend on secrets will need to either:
+- watch for updates to the secrets and reload these in their runtime, or
 - be restarted to pick up the latest secrets when they change
 
-A solution such as [Reloader](https://github.com/stakater/Reloader) could be used to watch for updates to Kubernetes Secrets or ConfigMaps and restart pods when a change is detected. However, if secret values are mounted as volumes in the pods, that solution is not suitable.
+A solution like [Reloader](https://github.com/stakater/Reloader) can watch updates to Kubernetes Secrets or ConfigMaps and restart pods when a change is detected. However, if secret values are mounted as volumes in the pods, that solution is not suitable.
 
-Using custom resources created by the Secrets Store CSI Driver, a Kubernetes Controller can be used to detect when secrets are updated by the driver and to restart affected pods.
+Using custom resources created by the Secrets Store CSI Driver, a Kubernetes controller can detect when secrets are updated by the driver and restart the associated pods.
 
 ## SecretProviderClassPodStatus custom resource
 
 The relevant custom resource is [`SecretProviderClassPodStatus`](https://secrets-store-csi-driver.sigs.k8s.io/concepts#secretproviderclasspodstatus).
 
-Each `SecretProviderClassPodStatus` CR has a one-to-one relationship with a pod which references secrets using the Secrets Store CSI Driver. The CR identifies the pod name, namespace and other attributes. The driver manages the lifecyle of `SecretProviderClassPodStatus` which is linked to the lifecycle of the affected pod.
+Each `SecretProviderClassPodStatus` custom resource (CR) has a one-to-one relationship with a pod that references secrets using the Secrets Store CSI Driver. The CR includes the pod name, namespace and other attributes. The driver manages the lifecycle of `SecretProviderClassPodStatus` which is tied to the lifecycle of the associated pod.
 
 ```mermaid
 stateDiagram-v2
