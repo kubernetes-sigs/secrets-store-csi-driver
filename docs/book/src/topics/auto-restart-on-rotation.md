@@ -10,6 +10,8 @@ A solution like [Reloader](https://github.com/stakater/Reloader) can watch updat
 
 Using custom resources created by the Secrets Store CSI Driver, a Kubernetes controller can detect when secrets are updated by the driver and restart the associated pods.
 
+> NOTE: The suggested implementation will result in an increase in secret store reads and secret writes (k8s mounts) by the Secrets Store CSI Driver. Each time the driver updates a mounted secret and the controller subsequently restarts the associated pod, the driver will then read and mount the secret _again_ for the newly created pod. This undesirable consequence ahould be weighed against the convenience of enabling workloads to be reloaded with updated secrets, without code changes.
+
 ## SecretProviderClassPodStatus custom resource
 
 The relevant custom resource is [`SecretProviderClassPodStatus`](../concepts#secretproviderclasspodstatus).
