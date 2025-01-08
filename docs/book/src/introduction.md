@@ -50,4 +50,5 @@ These features are not stable. If you use these be sure to consult the
 - [Azure Provider](https://azure.github.io/secrets-store-csi-driver-provider-azure/)
 - [Conjur Provider](https://github.com/cyberark/conjur-k8s-csi-provider)
 - [GCP Provider](https://github.com/GoogleCloudPlatform/secrets-store-csi-driver-provider-gcp)
+- [Infisical Provider](https://infisical.com/docs/integrations/platforms/kubernetes-csi#do-i-have-to-list-out-every-infisical-single-secret-that-i-want-to-sync)
 - [Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault)
