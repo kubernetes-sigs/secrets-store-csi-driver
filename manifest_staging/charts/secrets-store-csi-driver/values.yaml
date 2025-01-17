@@ -6,6 +6,9 @@ linux:
     #digest: sha256:
     pullPolicy: IfNotPresent
 
+  # Pod security context
+  podSecurityContext: {}
+
   crds:
     enabled: true
     image:
@@ -22,6 +25,9 @@ linux:
       #   memory: "512Mi"
     annotations: {}
     podLabels: {}
+  # The secrets-store container security context
+  securityContext:
+    privileged: true
 
   ## Prevent the CSI driver from being scheduled on virtual-kubelet nodes
   affinity:
@@ -58,7 +64,7 @@ linux:
         cpu: 10m
         memory: 20Mi
     logVerbosity: 5
-
+    securityContext: {}
   livenessProbeImage:
     repository: registry.k8s.io/sig-storage/livenessprobe
     tag: v2.13.1
@@ -73,6 +79,7 @@ linux:
       requests:
         cpu: 10m
         memory: 20Mi
+    securityContext: {}  
 
   updateStrategy:
     type: RollingUpdate
