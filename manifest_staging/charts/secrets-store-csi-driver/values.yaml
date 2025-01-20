@@ -13,7 +13,8 @@ linux:
       tag: v1.4.7
       pullPolicy: IfNotPresent
     ## Optionally override resource limits for crd hooks(jobs)
-    resources: {}
+    resources:
+      {}
       # requests:
       #   cpu: "100m"
       #   memory: "128Mi"
@@ -242,3 +243,17 @@ tokenRequests: []
 # -- Labels to apply to all resources
 commonLabels: {}
 # team_name: dev
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  privileged: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# podSecurityContext -- [Security context for Pod](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
+podSecurityContext:
+  # fsGroup: 1000

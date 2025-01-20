@@ -41,6 +41,14 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
         - name: liveness-probe
           image: registry.k8s.io/sig-storage/livenessprobe:v2.3.0
           imagePullPolicy: IfNotPresent
@@ -59,6 +67,14 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
       volumes:
         - name: mountpoint-dir
           hostPath:
@@ -118,6 +134,14 @@ spec:
             requests:
               cpu: 250m
               memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
       volumes:
         - name: driver-volume
           persistentVolumeClaim:
