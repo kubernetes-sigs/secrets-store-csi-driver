@@ -50,10 +50,6 @@ kubectl apply -f deploy/rbac-secretprovidersyncing.yaml
 # required to enable this feature
 kubectl apply -f deploy/rbac-secretproviderrotation.yaml
 
-# If using the CSI Driver token requests feature (https://kubernetes-csi.github.io/docs/token-requests.html) to use
-# pod/workload identity to request a token and use with providers
-kubectl apply -f deploy/rbac-secretprovidertokenrequest.yaml
-
 # [OPTIONAL] To deploy driver on windows nodes
 kubectl apply -f deploy/secrets-store-csi-driver-windows.yaml
 ```

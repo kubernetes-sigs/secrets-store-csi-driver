@@ -203,18 +203,16 @@ func mainErr() error {
 		reconciler.RunPatcher(ctx)
 	}()
 
-	// token request client
 	kubeClient := kubernetes.NewForConfigOrDie(cfg)
-	tokenClient := k8s.NewTokenClient(kubeClient, *driverName, 10*time.Minute)
+	driverClient := k8s.NewDriverClient(kubeClient, *driverName, 10*time.Minute)
 
-	if err = tokenClient.Run(ctx.Done()); err != nil {
-		klog.ErrorS(err, "failed to run token client")
+	if err = driverClient.Run(ctx.Done()); err != nil {
+		klog.ErrorS(err, "failed to run driver client")
 		return err
 	}
-
 	// Secret rotation
 	if *enableSecretRotation {
-		rec, err := rotation.NewReconciler(*driverName, mgr.GetCache(), scheme, *rotationPollInterval, providerClients, tokenClient)
+		rec, err := rotation.NewReconciler(*driverName, mgr.GetCache(), scheme, *rotationPollInterval, providerClients)
 		if err != nil {
 			klog.ErrorS(err, "failed to initialize rotation reconciler")
 			return err
@@ -222,7 +220,7 @@ func mainErr() error {
 		go rec.Run(ctx.Done())
 	}
 
-	driver := secretsstore.NewSecretsStoreDriver(*driverName, *nodeID, *endpoint, providerClients, mgr.GetClient(), mgr.GetAPIReader(), tokenClient)
+	driver := secretsstore.NewSecretsStoreDriver(*driverName, *nodeID, *endpoint, providerClients, mgr.GetClient(), mgr.GetAPIReader(), driverClient)
 	driver.Run(ctx)
 
 	return nil
