@@ -35,6 +35,18 @@ The driver uses gRPC to communicate with the provider. To implement a secrets-st
 
 See [design doc](https://docs.google.com/document/d/10-RHUJGM0oMN88AZNxjOmGz0NsWAvOYrWUEV-FbLWyw/edit?usp=sharing) for more details.
 
+The `MountRequest` message structure includes several additional keys in the `Attributes` field that a provider can use when retrieving a secret. Keys beginning with `csi.storage.k8s.io` are [passed through from the Kubelet](https://kubernetes-csi.github.io/docs/pod-info.html?highlight=pod.name#pod-info-on-mount-with-csi-driver-object) if `podInfoOnMount` is `true` on the CSI driver.
+
+| Attribute Key | Description |
+| --- | ---- |
+| `csi.storage.k8s.io/pod-name` | Pod name |
+| `csi.storage.k8s.io/pod.namespace` | Pod namespace  |
+| `csi.storage.k8s.io/pod.uid` | Pod UID |
+| `csi.storage.k8s.io/serviceAccount.name` | The Pod's ServiceAccount name |
+| `csi.storage.k8s.io/serviceAccount.tokens` | A JSON structure serialized to a string containing service account tokens belonging to a pod [when a CSI driver has `tokenRequests` configured](https://kubernetes-csi.github.io/docs/token-requests.html).  |
+| `secrets-store-csi-driver.sigs.k8s.io/volume.id` | The CSI Volume's ID from the `NodePublishVolumeRequest` call. This may be useful as a cache key if using Service Account tokens to fetch secrets. |
+
+
 ## Features supported by current providers
 
 | Features \ Providers      | Azure | GCP | AWS | Vault | Akeyless | Conjur |

@@ -50,7 +50,7 @@ This is mock key
 
 	podUIDAttribute               = "csi.storage.k8s.io/pod.uid"
 	serviceAccountTokensAttribute = "csi.storage.k8s.io/serviceAccount.tokens" //nolint
-
+	secretStoreVolumeID           = "secrets-store-csi-driver.sigs.k8s.io/volume.id"
 	// RWMutex is to safely access podCache
 	m sync.RWMutex
 )
@@ -186,6 +186,10 @@ func (s *Server) Mount(ctx context.Context, req *v1alpha1.MountRequest) (*v1alph
 		}
 	}
 
+	if err := validateVolumeIDAttr(attrib); err != nil {
+		return nil, fmt.Errorf("failed to validate volume ID, error: %w", err)
+	}
+
 	m.Lock()
 	podCache[attrib[podUIDAttribute]] = true
 	m.Unlock()
@@ -263,6 +267,17 @@ func validateTokens(tokenAudiences, saTokens string) error {
 			return fmt.Errorf("service account token for audience %s is not set", a)
 		}
 		klog.InfoS("Validated service account token", "audience", a)
+	}
+	return nil
+}
+
+func validateVolumeIDAttr(attributes map[string]string) error {
+	volumeID, ok := attributes[secretStoreVolumeID]
+	if !ok {
+		return fmt.Errorf("volume ID is not set")
+	}
+	if volumeID == "" {
+		return fmt.Errorf("volume ID is empty")
 	}
 	return nil
 }

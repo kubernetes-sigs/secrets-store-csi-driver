@@ -65,6 +65,8 @@ const (
 	// CSIPodServiceAccountTokens is the service account tokens of the pod that the mount is created for
 	CSIPodServiceAccountTokens = "csi.storage.k8s.io/serviceAccount.tokens" //nolint
 
+	SecretStoreVolumeID = "secrets-store-csi-driver.sigs.k8s.io/volume.id"
+
 	secretProviderClassField = "secretProviderClass"
 )
 
@@ -181,6 +183,8 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	for k, v := range attrib {
 		parameters[k] = v
 	}
+	// Add the volume ID to the parameters
+	parameters[SecretStoreVolumeID] = volumeID
 	// csi.storage.k8s.io/serviceAccount.tokens is empty for Kubernetes version < 1.20.
 	// For 1.20+, if tokenRequests is set in the CSI driver spec, kubelet will generate
 	// a token for the pod and send it to the CSI driver.
