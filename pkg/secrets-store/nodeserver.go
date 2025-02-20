@@ -73,6 +73,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	var podName, podNamespace, podUID string
 	var targetPath string
 	var mounted bool
+	var isRemountRequest bool
 	errorReason := internalerrors.FailedToMount
 	rotationEnabled := ns.rotationConfig.enabled
 
@@ -81,7 +82,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			// if there is an error at any stage during node publish volume and if the path
 			// has already been mounted, unmount the target path so the next time kubelet calls
 			// again for mount, entire node publish volume is retried
-			if targetPath != "" && mounted {
+			if targetPath != "" && mounted && !isRemountRequest {
 				klog.InfoS("unmounting target path as node publish volume failed", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 				if unmountErr := ns.mounter.Unmount(targetPath); unmountErr != nil {
 					klog.ErrorS(unmountErr, "failed to unmounting target path")
@@ -142,6 +143,9 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return nil, status.Errorf(codes.Internal, "failed to check if target path %s is mount point, err: %v", targetPath, err)
 		}
 	}
+	// If it is mounted, it means this is not the first time mount request for this path.
+	isRemountRequest = mounted
+
 	// If rotation is not enabled, don't remount the already mounted secrets.
 	if !rotationEnabled && mounted {
 		klog.InfoS("target path is already mounted", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
@@ -237,7 +241,11 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	mounted = true
 	var objectVersions map[string]string
 	if objectVersions, errorReason, err = ns.mountSecretsStoreObjectContent(ctx, providerName, string(parametersStr), string(secretStr), targetPath, string(permissionStr), podName); err != nil {
-		klog.ErrorS(err, "failed to mount secrets store object content", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
+		klog.ErrorS(err, "failed to mount secrets store object content", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName}, "isRemountRequest", isRemountRequest)
+		if isRemountRequest {
+			// Mask error until fix available for https://github.com/kubernetes/kubernetes/issues/121271
+			return &csi.NodePublishVolumeResponse{}, nil
+		}
 		return nil, fmt.Errorf("failed to mount secrets store objects for pod %s/%s, err: %w", podNamespace, podName, err)
 	}
 
@@ -246,6 +254,11 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	// the pod with same name (pods created by statefulsets) is moved to a different node and the old SPCPS
 	// has not yet been garbage collected.
 	if err = createOrUpdateSecretProviderClassPodStatus(ctx, ns.client, ns.reader, podName, podNamespace, podUID, secretProviderClass, targetPath, ns.nodeID, true, objectVersions); err != nil {
+		klog.ErrorS(err, "failed to create/update spcps", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName}, "isRemountRequest", isRemountRequest)
+		if isRemountRequest {
+			// Mask error until fix available for https://github.com/kubernetes/kubernetes/issues/121271
+			return &csi.NodePublishVolumeResponse{}, nil
+		}
 		return nil, fmt.Errorf("failed to create secret provider class pod status for pod %s/%s, err: %w", podNamespace, podName, err)
 	}
 
