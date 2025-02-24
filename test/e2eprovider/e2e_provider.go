@@ -77,7 +77,6 @@ func mainErr() error {
 		os.Setenv("ROTATION_ENABLED", "false")
 
 		http.HandleFunc("/rotation", server.RotationHandler)
-		http.HandleFunc("/validate-token-requests", server.ValidateTokenAudienceHandler)
 
 		server := &http.Server{
 			Addr:              ":8080",
