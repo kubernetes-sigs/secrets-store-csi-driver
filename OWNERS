@@ -1,10 +1,11 @@
 approvers:
 - aramase
 - ritazh
-- tam7t
 
 reviewers:
 - aramase
 - nilekhc
 - ritazh
+
+emeritus_approvers:
 - tam7t
