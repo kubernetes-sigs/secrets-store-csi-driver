@@ -1,2 +1,3 @@
 windows/amd64/1809=gcr.io/k8s-staging-e2e-test-images/windows-servercore-cache:1.0-linux-amd64-1809
 windows/amd64/ltsc2022=gcr.io/k8s-staging-e2e-test-images/windows-servercore-cache:1.0-linux-amd64-ltsc2022
+windows/amd64/ltsc2025=gcr.io/k8s-staging-e2e-test-images/windows-servercore-cache:1.0-linux-amd64-ltsc2025
