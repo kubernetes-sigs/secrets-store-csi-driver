@@ -5,7 +5,7 @@ go 1.21
 replace sigs.k8s.io/secrets-store-csi-driver => ../..
 
 require (
-	github.com/google/go-cmp v0.6.0
+	github.com/google/go-cmp v0.7.0
 	google.golang.org/grpc v1.62.1
 	k8s.io/klog/v2 v2.120.1
 	monis.app/mlog v0.0.4
