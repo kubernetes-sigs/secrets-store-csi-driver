@@ -64,14 +64,14 @@ ALL_OS = linux windows
 ALL_ARCH_linux ?= amd64 arm64
 ALL_OS_ARCH_linux = $(foreach arch, ${ALL_ARCH_linux}, linux-$(arch))
 ALL_ARCH_windows = amd64
-ALL_OSVERSIONS_windows := 1809 ltsc2022
+ALL_OSVERSIONS_windows := 1809 ltsc2022 ltsc2025
 ALL_OS_ARCH_windows = $(foreach arch, $(ALL_ARCH_windows), $(foreach osversion, ${ALL_OSVERSIONS_windows}, windows-${osversion}-${arch}))
 ALL_OS_ARCH = $(foreach os, $(ALL_OS), ${ALL_OS_ARCH_${os}})
 
 # The current context of image building
 # The architecture of the image
 ARCH ?= amd64
-# OS Version for the Windows images: 1809, ltsc2022
+# OS Version for the Windows images: 1809, ltsc2022, ltsc2025
 OSVERSION ?= 1809
 # Output type of docker buildx build
 OUTPUT_TYPE ?= registry
