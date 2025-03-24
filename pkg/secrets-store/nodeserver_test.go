@@ -21,7 +21,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
@@ -31,16 +30,28 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	fakeclient "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	mount "k8s.io/mount-utils"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func testNodeServer(t *testing.T, client client.Client, reporter StatsReporter) (*nodeServer, error) {
+// the informer doesn't work with the fake client, so we stub out the driver client
+type fakeDriverClient struct {
+	driver *storagev1.CSIDriver
+}
+
+func newFakeDriverClient(driver *storagev1.CSIDriver) k8s.DriverClient {
+	return &fakeDriverClient{driver: driver}
+}
+func (c *fakeDriverClient) Run(stopCh <-chan struct{}) error         { return nil }
+func (c *fakeDriverClient) GetDriver() (*storagev1.CSIDriver, error) { return c.driver, nil }
+
+func testNodeServer(t *testing.T, client client.Client, reporter StatsReporter, driver *storagev1.CSIDriver) (*nodeServer, error) {
 	t.Helper()
 
 	// Create a mock provider named "provider1".
@@ -56,7 +67,8 @@ func testNodeServer(t *testing.T, client client.Client, reporter StatsReporter) 
 	t.Cleanup(server.Stop)
 
 	providerClients := NewPluginClientBuilder([]string{socketPath})
-	return newNodeServer("testnode", mount.NewFakeMounter([]mount.MountPoint{}), providerClients, client, client, reporter, k8s.NewTokenClient(fakeclient.NewSimpleClientset(), "test-driver", 1*time.Second))
+
+	return newNodeServer("testnode", mount.NewFakeMounter([]mount.MountPoint{}), providerClients, client, client, reporter, newFakeDriverClient(driver))
 }
 
 func TestNodePublishVolume_Errors(t *testing.T) {
@@ -203,19 +215,9 @@ func TestNodePublishVolume_Errors(t *testing.T) {
 				},
 				Readonly: true,
 			},
-			initObjects: []client.Object{
-				&secretsstorev1.SecretProviderClass{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "provider1",
-						Namespace: "default",
-					},
-					Spec: secretsstorev1.SecretProviderClassSpec{
-						Provider:   "provider_not_installed",
-						Parameters: map[string]string{"parameter1": "value1"},
-					},
-				},
-			},
-			want: codes.Unknown,
+			// no provider class installed
+			initObjects: []client.Object{},
+			want:        codes.Unknown,
 		},
 	}
 
@@ -225,12 +227,25 @@ func TestNodePublishVolume_Errors(t *testing.T) {
 		&secretsstorev1.SecretProviderClassList{},
 		&secretsstorev1.SecretProviderClassPodStatus{},
 	)
+	s.AddKnownTypes(schema.GroupVersion{Group: storagev1.SchemeGroupVersion.Group, Version: storagev1.SchemeGroupVersion.Version},
+		&storagev1.CSIDriver{},
+		&storagev1.CSIDriverList{},
+	)
+
+	driver := &storagev1.CSIDriver{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "secrets-store.csi.k8s.io",
+		},
+		Spec: storagev1.CSIDriverSpec{
+			RequiresRepublish: pointer.Bool(false),
+		},
+	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			r := mocks.NewFakeReporter()
 
-			ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).WithObjects(test.initObjects...).Build(), r)
+			ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).WithObjects(test.initObjects...).Build(), r, driver)
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
@@ -269,6 +284,7 @@ func TestNodePublishVolume(t *testing.T) {
 	tests := []struct {
 		name              string
 		nodePublishVolReq *csi.NodePublishVolumeRequest
+		driver            *storagev1.CSIDriver
 		initObjects       []client.Object
 	}{
 		{
@@ -285,7 +301,16 @@ func TestNodePublishVolume(t *testing.T) {
 				},
 				Readonly: true,
 			},
+			driver: &storagev1.CSIDriver{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "secrets-store.csi.k8s.io",
+				},
+				Spec: storagev1.CSIDriverSpec{
+					RequiresRepublish: pointer.Bool(false),
+				},
+			},
 			initObjects: []client.Object{
+
 				&secretsstorev1.SecretProviderClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "provider1",
@@ -315,6 +340,20 @@ func TestNodePublishVolume(t *testing.T) {
 				},
 				Readonly: true,
 			},
+			driver: &storagev1.CSIDriver{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "secrets-store.csi.k8s.io",
+				},
+				Spec: storagev1.CSIDriverSpec{
+					RequiresRepublish: pointer.Bool(true),
+					TokenRequests: []storagev1.TokenRequest{
+						{
+							Audience:          "https://kubernetes.default.svc",
+							ExpirationSeconds: pointer.Int64(3600),
+						},
+					},
+				},
+			},
 			initObjects: []client.Object{
 				&secretsstorev1.SecretProviderClass{
 					ObjectMeta: metav1.ObjectMeta{
@@ -336,12 +375,16 @@ func TestNodePublishVolume(t *testing.T) {
 		&secretsstorev1.SecretProviderClassList{},
 		&secretsstorev1.SecretProviderClassPodStatus{},
 	)
+	s.AddKnownTypes(schema.GroupVersion{Group: storagev1.SchemeGroupVersion.Group, Version: storagev1.SchemeGroupVersion.Version},
+		&storagev1.CSIDriver{},
+		&storagev1.CSIDriverList{},
+	)
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			r := mocks.NewFakeReporter()
 
-			ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).WithObjects(test.initObjects...).Build(), r)
+			ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).WithObjects(test.initObjects...).Build(), r, test.driver)
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}
@@ -382,9 +425,8 @@ func TestNodeUnpublishVolume(t *testing.T) {
 		&secretsstorev1.SecretProviderClass{},
 		&secretsstorev1.SecretProviderClassList{},
 	)
-
 	r := mocks.NewFakeReporter()
-	ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).Build(), r)
+	ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).Build(), r, nil)
 	if err != nil {
 		t.Fatalf("expected error to be nil, got: %+v", err)
 	}
@@ -460,10 +502,11 @@ func TestNodeUnpublishVolume_Error(t *testing.T) {
 		&secretsstorev1.SecretProviderClass{},
 		&secretsstorev1.SecretProviderClassList{},
 	)
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			r := mocks.NewFakeReporter()
-			ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).Build(), r)
+			ns, err := testNodeServer(t, fake.NewClientBuilder().WithScheme(s).Build(), r, nil)
 			if err != nil {
 				t.Fatalf("expected error to be nil, got: %+v", err)
 			}

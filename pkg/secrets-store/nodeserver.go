@@ -27,12 +27,10 @@ import (
 
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	mount "k8s.io/mount-utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -47,7 +45,7 @@ type nodeServer struct {
 	// This should be used sparingly and only when the client does not fit the use case.
 	reader          client.Reader
 	providerClients *PluginClientBuilder
-	tokenClient     *k8s.TokenClient
+	driverClient    k8s.DriverClient
 }
 
 const (
@@ -73,7 +71,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	startTime := time.Now()
 	var parameters map[string]string
 	var providerName string
-	var podName, podNamespace, podUID, serviceAccountName string
+	var podName, podNamespace, podUID string
 	var targetPath string
 	var mounted bool
 	errorReason := internalerrors.FailedToMount
@@ -120,7 +118,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	podName = attrib[CSIPodName]
 	podNamespace = attrib[CSIPodNamespace]
 	podUID = attrib[CSIPodUID]
-	serviceAccountName = attrib[CSIPodServiceAccountName]
 
 	mounted, err = ns.ensureMountPoint(targetPath)
 	if err != nil {
@@ -135,7 +132,13 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return nil, status.Errorf(codes.Internal, "failed to check if target path %s is mount point, err: %v", targetPath, err)
 		}
 	}
-	if mounted {
+	driver, err := ns.driverClient.GetDriver()
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get driver, err: %v", err)
+	}
+
+	// If the driver is already mounted and does not require republishing, we can skip remounting
+	if mounted && driver.Spec.RequiresRepublish != nil && !*driver.Spec.RequiresRepublish {
 		klog.InfoS("target path is already mounted", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 		return &csi.NodePublishVolumeResponse{}, nil
 	}
@@ -145,11 +148,8 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if isMockProvider(providerName) {
 		// mock provider is used only for running sanity tests against the driver
 
-		// TODO: until requiresRemount (#585) is supported, "mounted" will always be false
-		// and this code will always be called
-		if !mounted {
+		if !mounted && driver.Spec.RequiresRepublish != nil && !*driver.Spec.RequiresRepublish {
 			err := ns.mounter.Mount("tmpfs", targetPath, "tmpfs", []string{})
-
 			if err != nil {
 				klog.ErrorS(err, "failed to mount", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 				return nil, err
@@ -181,24 +181,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	for k, v := range attrib {
 		parameters[k] = v
 	}
-	// csi.storage.k8s.io/serviceAccount.tokens is empty for Kubernetes version < 1.20.
-	// For 1.20+, if tokenRequests is set in the CSI driver spec, kubelet will generate
-	// a token for the pod and send it to the CSI driver.
-	// This check is done for backward compatibility to support passing token from driver
-	// to provider irrespective of the Kubernetes version. If the token doesn't exist in the
-	// volume request context, the CSI driver will generate the token for the configured audience
-	// and send it to the provider in the parameters.
-	if parameters[CSIPodServiceAccountTokens] == "" {
-		// Inject pod service account token into volume attributes
-		serviceAccountTokenAttrs, err := ns.tokenClient.PodServiceAccountTokenAttrs(podNamespace, podName, serviceAccountName, types.UID(podUID))
-		if err != nil {
-			klog.ErrorS(err, "failed to get service account token attrs", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
-			return nil, err
-		}
-		for k, v := range serviceAccountTokenAttrs {
-			parameters[k] = v
-		}
-	}
 
 	// ensure it's read-only
 	if !req.GetReadonly() {
@@ -221,8 +203,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		return nil, err
 	}
 
-	// TODO: until requiresRemount (#585) is supported, "mounted" will always be false
-	// and this code will always be called
 	if !mounted {
 		// mount before providers can write content to it
 		// In linux Mount tmpfs mounts tmpfs to targetPath
@@ -235,6 +215,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return nil, err
 		}
 	}
+	// Keep for the deferred cleanup
 	mounted = true
 	var objectVersions map[string]string
 	if objectVersions, errorReason, err = ns.mountSecretsStoreObjectContent(ctx, providerName, string(parametersStr), string(secretStr), targetPath, string(permissionStr), podName); err != nil {
@@ -294,13 +275,6 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 	if err != nil && !os.IsNotExist(err) {
 		klog.ErrorS(err, "failed to clean and unmount target path", "targetPath", targetPath, "time", time.Since(startTime))
 		return nil, status.Error(codes.Internal, err.Error())
-	}
-
-	podUID := fileutil.GetPodUIDFromTargetPath(targetPath)
-	if podUID != "" {
-		// delete service account token from cache as the pod is deleted
-		// to ensure the cache isn't growing indefinitely
-		ns.tokenClient.DeleteServiceAccountToken(types.UID(podUID))
 	}
 
 	klog.InfoS("node unpublish volume complete", "targetPath", targetPath, "time", time.Since(startTime))

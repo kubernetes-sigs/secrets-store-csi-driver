@@ -5,5 +5,11 @@ metadata:
 spec:
   podInfoOnMount: true
   attachRequired: false
+  # Set to `true` and populate `tokenRequests` to propagate serviceAccount tokens with the correct
+  # audience for your plugin to refresh secrets
+  requiresRepublish: false
+  # tokenRequests:
+  # - audience: "https://kubernetes.default.svc"
+  #   expirationSeconds: 3600
   volumeLifecycleModes:
   - Ephemeral
