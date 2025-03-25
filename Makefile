@@ -164,7 +164,8 @@ image-scan: $(TRIVY) ## Run image-scan
 	$(TRIVY) image --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
 	# show vulnerabilities that have been fixed
 	$(TRIVY) image --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(IMAGE_TAG)
-	$(TRIVY) image --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
+	# The kubectl binary release is based on Kubernetes release cadence, so only failing for os vuln that we can actively patch
+	$(TRIVY) image --vuln-type os  --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
 
 ## Tooling Binaries
 
