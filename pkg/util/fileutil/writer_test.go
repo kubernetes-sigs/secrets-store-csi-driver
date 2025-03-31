@@ -467,6 +467,7 @@ func TestCleanupProviderFiles(t *testing.T) {
 				t.Errorf("creating subdir: %s", err)
 			}
 		}
+		//nolint:gosec // safe cast in test code
 		if err := os.WriteFile(filepath.Join(dir, f.Path), f.Contents, fs.FileMode(f.Mode)); err != nil {
 			t.Errorf("writing files without AtomicWriter: %s", err)
 		}
@@ -511,10 +512,12 @@ func readPayloads(path string, payloads []*v1alpha1.File) error {
 		if runtimeutil.IsRuntimeWindows() {
 			// on windows only the 0200 bitmask is used by chmod
 			// https://golang.org/src/os/file.go?s=15847:15891#L522
+			//nolint:gosec // safe cast in test code
 			if (info.Mode() & 0200) != (fs.FileMode(p.Mode) & 0200) {
 				return fmt.Errorf("unexpected file mode. got: %v, want: %v", info.Mode(), fs.FileMode(p.Mode))
 			}
 		} else {
+			//nolint:gosec // safe cast in test code
 			if info.Mode() != fs.FileMode(p.Mode) {
 				return fmt.Errorf("unexpected file mode. got: %v, want: %v", info.Mode(), fs.FileMode(p.Mode))
 			}
