@@ -186,8 +186,10 @@ func (s *Server) Mount(ctx context.Context, req *v1alpha1.MountRequest) (*v1alph
 		}
 	}
 
-	if err := validateVolumeIDAttr(attrib); err != nil {
-		return nil, fmt.Errorf("failed to validate volume ID, error: %w", err)
+	if _, ok := os.LookupEnv("VALIDATE_VOLUME_ID"); ok {
+		if err := validateVolumeIDAttr(attrib); err != nil {
+			return nil, fmt.Errorf("failed to validate volume ID, error: %w", err)
+		}
 	}
 
 	m.Lock()
@@ -249,6 +251,12 @@ func ValidateTokenAudienceHandler(w http.ResponseWriter, r *http.Request) {
 	// enable rotation response
 	os.Setenv("VALIDATE_TOKENS_AUDIENCE", r.FormValue("audience"))
 	klog.InfoS("Validation for token requests audience", "audience", os.Getenv("VALIDATE_TOKENS_AUDIENCE"))
+}
+
+// VolumeIDHandler enables volume ID for the mock provider
+func VolumeIDHandler(w http.ResponseWriter, r *http.Request) {
+	os.Setenv("VALIDATE_VOLUME_ID", "true")
+	klog.InfoS("Volume ID validation enabled")
 }
 
 // validateTokens checks there are tokens for distinct audiences in the

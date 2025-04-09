@@ -78,6 +78,7 @@ func mainErr() error {
 
 		http.HandleFunc("/rotation", server.RotationHandler)
 		http.HandleFunc("/validate-token-requests", server.ValidateTokenAudienceHandler)
+		http.HandleFunc("/validate-volume-id", server.VolumeIDHandler)
 
 		server := &http.Server{
 			Addr:              ":8080",
