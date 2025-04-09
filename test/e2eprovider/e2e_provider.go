@@ -34,7 +34,7 @@ import (
 )
 
 var (
-	endpoint = flag.String("endpoint", "unix:///tmp/e2e-provider.sock", "CSI provier gRPC endpoint")
+	endpoint = flag.String("endpoint", "unix:///tmp/e2e-provider.sock", "CSI provider gRPC endpoint")
 )
 
 func main() {

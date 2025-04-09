@@ -29,8 +29,8 @@ E2E_PROVIDER_IMAGE_NAME ?= e2e-provider
 
 # Release version is the current supported release for the driver
 # Update this version when the helm chart is being updated for release
-RELEASE_VERSION := v1.4.7
-IMAGE_VERSION ?= v1.4.7
+RELEASE_VERSION := v1.4.8
+IMAGE_VERSION ?= v1.4.8
 
 # Use a custom version for E2E tests if we are testing in CI
 ifdef CI
@@ -64,14 +64,14 @@ ALL_OS = linux windows
 ALL_ARCH_linux ?= amd64 arm64
 ALL_OS_ARCH_linux = $(foreach arch, ${ALL_ARCH_linux}, linux-$(arch))
 ALL_ARCH_windows = amd64
-ALL_OSVERSIONS_windows := 1809 ltsc2022
+ALL_OSVERSIONS_windows := 1809 ltsc2022 ltsc2025
 ALL_OS_ARCH_windows = $(foreach arch, $(ALL_ARCH_windows), $(foreach osversion, ${ALL_OSVERSIONS_windows}, windows-${osversion}-${arch}))
 ALL_OS_ARCH = $(foreach os, $(ALL_OS), ${ALL_OS_ARCH_${os}})
 
 # The current context of image building
 # The architecture of the image
 ARCH ?= amd64
-# OS Version for the Windows images: 1809, ltsc2022
+# OS Version for the Windows images: 1809, ltsc2022, ltsc2025
 OSVERSION ?= 1809
 # Output type of docker buildx build
 OUTPUT_TYPE ?= registry
@@ -99,7 +99,7 @@ EKSCTL := eksctl
 YQ := yq
 
 # Test variables
-KIND_VERSION ?= 0.23.0
+KIND_VERSION ?= 0.27.0
 KUBERNETES_VERSION ?= 1.30.2
 KUBECTL_VERSION ?= 1.30.2
 BATS_VERSION ?= 1.4.1
@@ -164,7 +164,8 @@ image-scan: $(TRIVY) ## Run image-scan
 	$(TRIVY) image --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
 	# show vulnerabilities that have been fixed
 	$(TRIVY) image --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(IMAGE_TAG)
-	$(TRIVY) image --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
+	# The kubectl binary release is based on Kubernetes release cadence, so only failing for os vuln that we can actively patch
+	$(TRIVY) image --vuln-type os  --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(CRD_IMAGE_TAG)
 
 ## Tooling Binaries
 
