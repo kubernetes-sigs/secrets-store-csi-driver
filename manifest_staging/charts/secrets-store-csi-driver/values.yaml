@@ -1,7 +1,11 @@
+global:
+  image:
+    registry: registry.k8s.io
+
 linux:
   enabled: true
   image:
-    repository: registry.k8s.io/csi-secrets-store/driver
+    repository: /csi-secrets-store/driver
     tag: v1.4.8
     #digest: sha256:
     pullPolicy: IfNotPresent
@@ -9,7 +13,7 @@ linux:
   crds:
     enabled: true
     image:
-      repository: registry.k8s.io/csi-secrets-store/driver-crds
+      repository: /csi-secrets-store/driver-crds
       tag: v1.4.8
       pullPolicy: IfNotPresent
     ## Optionally override resource limits for crd hooks(jobs)
@@ -44,7 +48,7 @@ linux:
         memory: 100Mi
 
   registrarImage:
-    repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
+    repository: /sig-storage/csi-node-driver-registrar
     tag: v2.11.1
     #digest: sha256:
     pullPolicy: IfNotPresent
@@ -60,7 +64,7 @@ linux:
     logVerbosity: 5
 
   livenessProbeImage:
-    repository: registry.k8s.io/sig-storage/livenessprobe
+    repository: /sig-storage/livenessprobe
     tag: v2.13.1
     #digest: sha256:
     pullPolicy: IfNotPresent
@@ -109,7 +113,7 @@ linux:
 windows:
   enabled: false
   image:
-    repository: registry.k8s.io/csi-secrets-store/driver
+    repository: /csi-secrets-store/driver
     tag: v1.4.8
     #digest: sha256:
     pullPolicy: IfNotPresent
@@ -135,7 +139,7 @@ windows:
         memory: 100Mi
 
   registrarImage:
-    repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
+    repository: /sig-storage/csi-node-driver-registrar
     tag: v2.11.1
     #digest: sha256:
     pullPolicy: IfNotPresent
@@ -151,7 +155,7 @@ windows:
     logVerbosity: 5
 
   livenessProbeImage:
-    repository: registry.k8s.io/sig-storage/livenessprobe
+    repository: /sig-storage/livenessprobe
     tag: v2.13.1
     #digest: sha256:
     pullPolicy: IfNotPresent
