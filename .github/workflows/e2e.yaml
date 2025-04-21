@@ -32,7 +32,7 @@ jobs:
         KUBERNETES_VERSION: ["v1.30.10", "v1.31.6", "v1.32.3"]
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@c95a14d0e5bab51a9f56296a4eb0e416910cd350 # v2.10.3
+        uses: step-security/harden-runner@0634a2670c59f64b4a01f0f96f84700a4088b9f0 # v2.12.0
         with:
           egress-policy: audit
       - name: Checkout
