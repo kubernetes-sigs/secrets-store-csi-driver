@@ -45,7 +45,7 @@ jobs:
         with:
           bats-version: 1.4.1
       - name: Setup Kind
-        uses: engineerd/setup-kind@aa272fe2a7309878ffc2a81c56cfe3ef108ae7d0 # v0.5.0
+        uses: engineerd/setup-kind@71e45b960fc8dd50b4aeabf6eb6ef2ca0920b4c1 # v0.6.2
         with:
           version: "v0.27.0"
           image: "kindest/node:${{ matrix.KUBERNETES_VERSION }}"
