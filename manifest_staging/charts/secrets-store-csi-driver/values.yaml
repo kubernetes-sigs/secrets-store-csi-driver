@@ -61,7 +61,7 @@ linux:
 
   livenessProbeImage:
     repository: registry.k8s.io/sig-storage/livenessprobe
-    tag: v2.13.1
+    tag: v2.15.0
     #digest: sha256:
     pullPolicy: IfNotPresent
 
@@ -152,7 +152,7 @@ windows:
 
   livenessProbeImage:
     repository: registry.k8s.io/sig-storage/livenessprobe
-    tag: v2.13.1
+    tag: v2.15.0
     #digest: sha256:
     pullPolicy: IfNotPresent
 
