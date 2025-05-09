@@ -45,7 +45,7 @@ linux:
 
   registrarImage:
     repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
-    tag: v2.11.1
+    tag: v2.13.0
     #digest: sha256:
     pullPolicy: IfNotPresent
 
@@ -136,7 +136,7 @@ windows:
 
   registrarImage:
     repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
-    tag: v2.11.1
+    tag: v2.13.0
     #digest: sha256:
     pullPolicy: IfNotPresent
 
