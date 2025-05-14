@@ -232,16 +232,11 @@ providerHealthCheckInterval: 2m
 
 imagePullSecrets: []
 
-## This allows CSI drivers to impersonate the pods that they mount the volumes for.
-# refer to https://kubernetes-csi.github.io/docs/token-requests.html for more details.
-# Supported only for Kubernetes v1.20+
 tokenRequests: []
 # - audience: aud1
 # - audience: aud2
 
-# To set the requiresRepublish which can be used to refresh the mounted secret periodically
-# refer to https://kubernetes-csi.github.io/docs/token-requests.html for more details.
-# Supported only for Kubernetes v1.20+
+# this will be set to true even if enableSecretRotation is true
 requiresRepublish: true
 # -- Labels to apply to all resources
 commonLabels: {}

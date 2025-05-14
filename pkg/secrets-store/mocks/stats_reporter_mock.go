@@ -16,7 +16,9 @@ limitations under the License.
 
 package mocks // import sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store/mocks
 
-import "context"
+import (
+	"context"
+)
 
 type FakeReporter struct {
 	reportNodePublishCtMetricInvoked        int
@@ -72,4 +74,13 @@ func (f *FakeReporter) ReportSyncK8SecretCtMetricInvoked() int {
 }
 func (f *FakeReporter) ReportSyncK8SecretDurationInvoked() int {
 	return f.reportSyncK8SecretDurationInvoked
+}
+
+func (f *FakeReporter) ReportRotationCtMetric(ctx context.Context, provider string, wasRotated bool) {
+}
+
+func (f *FakeReporter) ReportRotationErrorCtMetric(ctx context.Context, provider, errType string, wasRotated bool) {
+}
+
+func (f *FakeReporter) ReportRotationDuration(ctx context.Context, duration float64) {
 }

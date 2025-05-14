@@ -40,8 +40,8 @@ type SecretsStore struct {
 
 // rotationConfig stores the information required to rotate the secrets.
 type rotationConfig struct {
-	enabled              bool
-	rotationPollInterval time.Duration
+	enabled               bool
+	rotationCacheDuration time.Duration // After this much duration, NodePublishVolume will be acted.
 }
 
 func NewSecretsStoreDriver(driverName, nodeID, endpoint string,
@@ -91,8 +91,8 @@ func newNodeServer(nodeID string,
 
 func newRotationConfig(enabled bool, interval time.Duration) *rotationConfig {
 	return &rotationConfig{
-		enabled:              enabled,
-		rotationPollInterval: interval,
+		enabled:               enabled,
+		rotationCacheDuration: interval,
 	}
 }
 

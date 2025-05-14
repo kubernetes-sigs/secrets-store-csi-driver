@@ -20,6 +20,7 @@ require (
 	k8s.io/client-go v0.30.1
 	k8s.io/klog/v2 v2.120.1
 	k8s.io/mount-utils v0.26.4
+	k8s.io/utils v0.0.0-20221128185143-99ec85e7a448
 	monis.app/mlog v0.0.2
 	sigs.k8s.io/controller-runtime v0.14.6
 )
@@ -27,6 +28,7 @@ require (
 require k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
 
 require (
+	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	k8s.io/kube-openapi v0.0.0-20221012153701-172d655c2280 // indirect
