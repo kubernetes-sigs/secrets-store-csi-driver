@@ -32,11 +32,11 @@ jobs:
         KUBERNETES_VERSION: ["v1.30.10", "v1.31.6", "v1.32.3"]
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@c95a14d0e5bab51a9f56296a4eb0e416910cd350 # v2.10.3
+        uses: step-security/harden-runner@0634a2670c59f64b4a01f0f96f84700a4088b9f0 # v2.12.0
         with:
           egress-policy: audit
       - name: Checkout
-        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.0.0
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.0.0
         with:
           submodules: true
           fetch-depth: 0
@@ -45,7 +45,7 @@ jobs:
         with:
           bats-version: 1.4.1
       - name: Setup Kind
-        uses: engineerd/setup-kind@aa272fe2a7309878ffc2a81c56cfe3ef108ae7d0 # v0.5.0
+        uses: engineerd/setup-kind@71e45b960fc8dd50b4aeabf6eb6ef2ca0920b4c1 # v0.6.2
         with:
           version: "v0.27.0"
           image: "kindest/node:${{ matrix.KUBERNETES_VERSION }}"

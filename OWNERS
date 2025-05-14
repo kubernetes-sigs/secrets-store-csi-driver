@@ -4,8 +4,11 @@ approvers:
 
 reviewers:
 - aramase
-- nilekhc
 - ritazh
 
 emeritus_approvers:
+- tam7t
+
+emeritus_reviewers:
+- nilekhc
 - tam7t

@@ -15,9 +15,9 @@
 ARG BASEIMAGE=mcr.microsoft.com/windows/nanoserver:1809
 ARG BASEIMAGE_CORE=gcr.io/k8s-staging-e2e-test-images/windows-servercore-cache:1.0-linux-amd64-1809
 
-FROM --platform=linux/amd64 ${BASEIMAGE_CORE} as core
+FROM --platform=linux/amd64 ${BASEIMAGE_CORE} AS core
 
-FROM --platform=$BUILDPLATFORM golang:1.23@sha256:cb45cf739cf6bc9eaeacf75d3cd7c157e7d39b757216d813d8115d026ee32e75 as builder
+FROM --platform=$BUILDPLATFORM golang:1.23.8@sha256:87bb94031b23532885cbda15e9a365a5805059648a87ed1b67a1352dd7360fe4 AS builder
 WORKDIR /go/src/sigs.k8s.io/secrets-store-csi-driver
 ADD . .
 ARG TARGETARCH
