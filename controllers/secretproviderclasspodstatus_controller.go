@@ -397,7 +397,7 @@ func (r *SecretProviderClassPodStatusReconciler) processIfBelongsToNode(objMeta 
 }
 
 // createOrUpdateK8sSecret creates K8s secret with data from mounted files
-// If a secret with the same name already exists in the namespace of the pod, the error is nil.
+// If a secret with the same name already exists in the namespace of the pod, it will update that existing secret.
 func (r *SecretProviderClassPodStatusReconciler) createOrUpdateK8sSecret(ctx context.Context, name, namespace string, datamap map[string][]byte, labelsmap map[string]string, annotationsmap map[string]string, secretType corev1.SecretType) error {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -415,17 +415,18 @@ func (r *SecretProviderClassPodStatusReconciler) createOrUpdateK8sSecret(ctx con
 		klog.InfoS("successfully created Kubernetes secret", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
 		return nil
 	}
-	if apierrors.IsAlreadyExists(err) {
-		klog.InfoS("Kubernetes secret is already created", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
-		err := r.writer.Update(ctx, secret)
-		if err != nil {
-			klog.ErrorS(err, "Unable to update kubernetes secret", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
-			return err
-		}
-		klog.InfoS("successfully updated Kubernetes secret", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
-		return nil
+	if !apierrors.IsAlreadyExists(err) {
+		return err
 	}
-	return err
+
+	klog.InfoS("Kubernetes secret is already created", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
+	err = r.writer.Update(ctx, secret)
+	if err != nil {
+		klog.ErrorS(err, "Unable to update kubernetes secret", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
+		return err
+	}
+	klog.InfoS("successfully updated Kubernetes secret", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
+	return nil
 }
 
 // patchSecretWithOwnerRef patches the secret owner reference with the spc pod status
