@@ -90,7 +90,14 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 				}
 			}
 			ns.reporter.ReportNodePublishErrorCtMetric(ctx, providerName, errorReason)
+			if isRemountRequest {
+				ns.reporter.ReportRotationErrorCtMetric(ctx, providerName, errorReason, true)
+			}
 			return
+		}
+		if isRemountRequest {
+			ns.reporter.ReportRotationCtMetric(ctx, providerName, true)
+			ns.reporter.ReportRotationDuration(ctx, time.Since(startTime).Seconds())
 		}
 		ns.reporter.ReportNodePublishCtMetric(ctx, providerName)
 	}()
@@ -121,6 +128,16 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	podNamespace = attrib[CSIPodNamespace]
 	podUID = attrib[CSIPodUID]
 
+	if rotationEnabled {
+		lastModificationTime, err := ns.getLastUpdateTime(targetPath)
+		if err != nil {
+			klog.InfoS("could not find last modification time for targetpath", targetPath, "error", err)
+		} else if startTime.Before(lastModificationTime.Add(ns.rotationConfig.rotationCacheDuration)) {
+			// if next rotation is not yet due, then skip the mount operation
+			return &csi.NodePublishVolumeResponse{}, nil
+		}
+	}
+
 	mounted, err = ns.ensureMountPoint(targetPath)
 	if err != nil {
 		// kubelet will not create the CSI NodePublishVolume target directory in 1.20+, in accordance with the CSI specification.
@@ -141,16 +158,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if !rotationEnabled && mounted {
 		klog.InfoS("target path is already mounted", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 		return &csi.NodePublishVolumeResponse{}, nil
-	}
-
-	if rotationEnabled {
-		lastModificationTime, err := ns.getLastUpdateTime(targetPath)
-		if err != nil {
-			klog.InfoS("could not find last modification time for targetpath", targetPath, "error", err)
-		} else if startTime.Before(lastModificationTime.Add(ns.rotationConfig.rotationPollInterval)) {
-			// if next rotation is not yet due, then skip the mount operation
-			return &csi.NodePublishVolumeResponse{}, nil
-		}
 	}
 
 	klog.V(2).InfoS("node publish volume", "target", targetPath, "volumeId", volumeID, "mount flags", mountFlags)
@@ -192,16 +199,12 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	for k, v := range attrib {
 		parameters[k] = v
 	}
-	// csi.storage.k8s.io/serviceAccount.tokens is empty for Kubernetes version < 1.20.
-	// For 1.20+, if tokenRequests is set in the CSI driver spec, kubelet will generate
-	// a token for the pod and send it to the CSI driver.
-	// This check is done for backward compatibility to support passing token from driver
-	// to provider irrespective of the Kubernetes version. If the token doesn't exist in the
-	// volume request context, the CSI driver will generate the token for the configured audience
-	// and send it to the provider in the parameters.
+	// If the token doesn't exist in the volume request context, the CSI driver
+	// will generate the token for the configured audience and send it to the
+	// provider in the parameters.
 	if parameters[CSIPodServiceAccountTokens] == "" {
 		// Inject pod service account token into volume attributes
-		klog.Info(err, "csi.storage.k8s.io/serviceAccount.tokens is not populated")
+		klog.Warning("csi.storage.k8s.io/serviceAccount.tokens is not populated")
 	}
 
 	// ensure it's read-only
