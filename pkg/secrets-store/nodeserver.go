@@ -121,6 +121,16 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	podNamespace = attrib[CSIPodNamespace]
 	podUID = attrib[CSIPodUID]
 
+	if rotationEnabled {
+		lastModificationTime, err := ns.getLastUpdateTime(targetPath)
+		if err != nil {
+			klog.InfoS("could not find last modification time for targetpath", targetPath, "error", err)
+		} else if startTime.Before(lastModificationTime.Add(ns.rotationConfig.rotationPollInterval)) {
+			// if next rotation is not yet due, then skip the mount operation
+			return &csi.NodePublishVolumeResponse{}, nil
+		}
+	}
+
 	mounted, err = ns.ensureMountPoint(targetPath)
 	if err != nil {
 		// kubelet will not create the CSI NodePublishVolume target directory in 1.20+, in accordance with the CSI specification.
@@ -141,16 +151,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if !rotationEnabled && mounted {
 		klog.InfoS("target path is already mounted", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 		return &csi.NodePublishVolumeResponse{}, nil
-	}
-
-	if rotationEnabled {
-		lastModificationTime, err := ns.getLastUpdateTime(targetPath)
-		if err != nil {
-			klog.InfoS("could not find last modification time for targetpath", targetPath, "error", err)
-		} else if startTime.Before(lastModificationTime.Add(ns.rotationConfig.rotationPollInterval)) {
-			// if next rotation is not yet due, then skip the mount operation
-			return &csi.NodePublishVolumeResponse{}, nil
-		}
 	}
 
 	klog.V(2).InfoS("node publish volume", "target", targetPath, "volumeId", volumeID, "mount flags", mountFlags)
