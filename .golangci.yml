@@ -1,18 +1,9 @@
+version: "2"
 run:
-  timeout: 5m
   go: "1.23"
-
-linters-settings:
-  gocritic:
-    enabled-tags:
-    - performance
-  lll:
-    line-length: 200
-  misspell:
-    locale: US
-
+  timeout: 5m
 linters:
-  disable-all: true
+  default: none
   enable:
     - copyloopvar
     - durationcheck
@@ -22,42 +13,61 @@ linters:
     - goconst
     - gocritic
     - gocyclo
-    - gofmt
-    - goimports
-    - gosimple
-    - govet
     - gosec
+    - govet
     - ineffassign
     - makezero
     - misspell
     - nilerr
     - revive
     - staticcheck
-    - stylecheck
-    - typecheck
     - unused
     - whitespace
-  # Run with --fast=false for more extensive checks (enables all linters)
-  fast: true
-
+  settings:
+    gocritic:
+      enabled-tags:
+        - performance
+    lll:
+      line-length: 200
+    misspell:
+      locale: US
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - revive
+        text: 'unused-parameter: parameter ''.*'' seems to be unused, consider removing or renaming it as _'
+      - linters:
+          - revive
+        text: 'dot-imports: should not use dot imports'
+        source: . "github.com/onsi/(ginkgo/v2|gomega)"
+    paths:
+      - zz_generated.*\.go$
+      - pkg/util/fileutil/atomic_writer.go
+      - pkg/util/fileutil/atomic_writer_test.go
+      - third_party$
+      - builtin$
+      - examples$
 issues:
-  exclude-files:
-    - "zz_generated.*\\.go$"
-    - "pkg/util/fileutil/atomic_writer.go"
-    - "pkg/util/fileutil/atomic_writer_test.go"
   max-issues-per-linter: 0
-  exclude-rules:
-    - text: "unused-parameter: parameter '.*' seems to be unused, consider removing or renaming it as _"
-      linters:
-        - revive
-    - text: "dot-imports: should not use dot imports"
-      linters:
-        - revive
-      source: ". \"github.com/onsi/(ginkgo/v2|gomega)\""
-
-  # default: 3
   max-same-issues: 0
-
 severity:
-  # default: ''
-  default-severity: error
+  default: error
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - zz_generated.*\.go$
+      - pkg/util/fileutil/atomic_writer.go
+      - pkg/util/fileutil/atomic_writer_test.go
+      - third_party$
+      - builtin$
+      - examples$
