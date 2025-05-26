@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/runtimeutil"
@@ -73,6 +74,14 @@ func (ns *nodeServer) ensureMountPoint(target string) (bool, error) {
 	}
 
 	return false, nil
+}
+
+func (ns *nodeServer) getLastUpdateTime(target string) (time.Time, error) {
+	info, err := os.Stat(target)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return info.ModTime(), nil
 }
 
 // getSecretProviderItem returns the secretproviderclass object by name and namespace
