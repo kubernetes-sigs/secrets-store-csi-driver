@@ -97,21 +97,24 @@ main() {
         --identity-name "${user_assigned_identity_name}" \
         --resource-group "${CLUSTER_NAME}" \
         --issuer "${AKS_CLUSTER_OIDC_ISSUER_URL}" \
-        --subject "system:serviceaccount:default:default" > /dev/null
+        --subject "system:serviceaccount:default:default" \
+        --audiences api://AzureADTokenExchange > /dev/null
 
     echo "Creating federated identity credential for test-ns:default"
     az identity federated-credential create --name "kubernetes-federated-credential-test-ns" \
         --identity-name "${user_assigned_identity_name}" \
         --resource-group "${CLUSTER_NAME}" \
         --issuer "${AKS_CLUSTER_OIDC_ISSUER_URL}" \
-        --subject "system:serviceaccount:test-ns:default" > /dev/null
+        --subject "system:serviceaccount:test-ns:default" \
+        --audiences api://AzureADTokenExchange > /dev/null
 
     echo "Creating federated identity credential for negative-test-ns:default"
     az identity federated-credential create --name "kubernetes-federated-credential-negative-test-ns" \
         --identity-name "${user_assigned_identity_name}" \
         --resource-group "${CLUSTER_NAME}" \
         --issuer "${AKS_CLUSTER_OIDC_ISSUER_URL}" \
-        --subject "system:serviceaccount:negative-test-ns:default" > /dev/null
+        --subject "system:serviceaccount:negative-test-ns:default" \
+        --audiences api://AzureADTokenExchange > /dev/null
 
     # Assigning the managed identity the necessary permissions to access the keyvault
     echo "Assigning managed identity permissions to get secrets from keyvault"
