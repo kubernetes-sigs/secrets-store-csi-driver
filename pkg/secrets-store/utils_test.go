@@ -30,6 +30,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/constants"
 )
 
 var (
@@ -137,7 +138,7 @@ func TestCreateOrUpdateSecretProviderClassPodStatus(t *testing.T) {
 			cb := fake.NewClientBuilder().WithScheme(scheme).WithObjects(tt.initObjects...)
 			client := cb.Build()
 
-			err := createOrUpdateSecretProviderClassPodStatus(context.TODO(), client, client, testPodName, testNamespace, testPodUID, testSPCName, testTargetPath, tt.nodeID, true, tt.objects)
+			err := createOrUpdateSecretProviderClassPodStatus(context.TODO(), client, client, testPodName, testNamespace, testPodUID, testSPCName, testTargetPath, tt.nodeID, true, tt.objects, constants.NoGID)
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
