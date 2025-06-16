@@ -1,6 +1,6 @@
 module sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider
 
-go 1.23.9
+go 1.23.10
 
 replace sigs.k8s.io/secrets-store-csi-driver => ../..
 
