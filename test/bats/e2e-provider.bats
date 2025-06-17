@@ -17,6 +17,8 @@ export SECRET_NAME=${SECRET_NAME:-foo}
 export SECRET_VERSION=${SECRET_VERSION:-"v1"}
 # default secret value returned by the mock provider
 export SECRET_VALUE=${SECRET_VALUE:-"secret"}
+# default secret mode returned by the mock provider
+export SECRET_MODE=${SECRET_MODE:-'"0644"'}
 
 # export key vars
 export KEY_NAME=${KEY_NAME:-fookey}
@@ -25,6 +27,8 @@ export KEY_VERSION=${KEY_VERSION:-"v1"}
 # default key value returned by mock provider.
 # base64 encoded content comparision is easier in case of very long multiline string.
 export KEY_VALUE_CONTAINS=${KEY_VALUE:-"LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KVGhpcyBpcyBtb2NrIGtleQotLS0tLUVORCBQVUJMSUMgS0VZLS0tLS0K"}
+# defualt version value returned by mock provider
+export KEY_MODE=${KEY_MODE:-'"0644"'}
 
 # export node selector var
 export NODE_SELECTOR_OS=$NODE_SELECTOR_OS
@@ -33,10 +37,89 @@ export LABEL_VALUE=${LABEL_VALUE:-"test"}
 
 # export the secrets-store API version to be used
 export API_VERSION=$(get_secrets_store_api_version)
+export NAMESPACE=${NAMESPACE:-"default"}
+export SPC_NAME=${SPC_NAME:-"e2e-provider"}
+export POD_NAME=${POD_NAME:-"secrets-store-inline-crd"}
+export POD_SECURITY_CONTEXT=${POD_SECURITY_CONTEXT:-""}
+export CONTAINER_SECURITY_CONTEXT=${CONTAINER_SECURITY_CONTEXT:-""}
 
 # export the token requests audience configured in the CSIDriver
 # refer to https://kubernetes-csi.github.io/docs/token-requests.html for more information
 export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
+
+#########################################################
+# begin: Utility functions to perform common operations #
+#########################################################
+function create_spc() {
+  envsubst < $BATS_TESTS_DIR/e2e_provider_secretproviderclass.yaml | kubectl -n $NAMESPACE apply -f -
+
+  kubectl -n $NAMESPACE wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
+
+  cmd="kubectl -n $NAMESPACE get secretproviderclasses.secrets-store.csi.x-k8s.io/$SPC_NAME -o yaml | grep $SPC_NAME"
+  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+}
+
+function create_pod() {
+  envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl -n $NAMESPACE apply -f -
+  kubectl -n $NAMESPACE wait --for=condition=Ready --timeout=180s pod/$POD_NAME
+  run kubectl -n $NAMESPACE get pod/$POD_NAME
+  assert_success
+}
+
+# POD_NAME could have come as a parameter in the below 3 functions.
+# But keeping the semantics uniform with other functions where envsubst is used
+function read_secret() {
+  wait_for_process $WAIT_TIME $SLEEP_TIME "kubectl -n $NAMESPACE exec $POD_NAME -- ls /mnt/secrets-store/$SECRET_NAME"
+  local result=$(kubectl -n $NAMESPACE exec $POD_NAME -- cat /mnt/secrets-store/$SECRET_NAME)
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+}
+
+function read_key() {
+  result=$(kubectl -n $NAMESPACE exec $POD_NAME -- cat /mnt/secrets-store/$KEY_NAME)
+  result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
+  [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
+}
+
+function delete_pod() {
+  # On Linux a failure to unmount the tmpfs will block the pod from being
+  # deleted.
+  run kubectl -n $NAMESPACE delete pod $POD_NAME
+  assert_success
+
+  kubectl -n $NAMESPACE wait --for=delete --timeout=${WAIT_TIME}s pod/$POD_NAME
+  assert_success
+
+  # Sleep to allow time for logs to propagate.
+  sleep 10
+
+  # save debug information to archive in case of failure
+  archive_info
+
+  # On Windows, the failed unmount calls from: https://github.com/kubernetes-sigs/secrets-store-csi-driver/pull/545
+  # do not prevent the pod from being deleted. Search through the driver logs
+  # for the error.
+  run bash -c "kubectl -n $NAMESPACE logs -l app=$POD_NAME --tail -1 -c secrets-store -n kube-system | grep '^E.*failed to clean and unmount target path.*$'"
+  assert_failure
+}
+
+function enable_secret_rotation() {
+  # enable rotation response in mock server
+  local curl_pod_name=curl-$(openssl rand -hex 5)
+  kubectl run ${curl_pod_name} -n rotation --image=curlimages/curl:7.75.0 --labels="test=rotation" -- tail -f /dev/null
+  kubectl wait -n rotation --for=condition=Ready --timeout=60s pod ${curl_pod_name}
+  local pod_ip=$(kubectl get pod -n kube-system -l app=csi-secrets-store-e2e-provider -o jsonpath="{.items[0].status.podIP}")
+  run kubectl exec ${curl_pod_name} -n rotation -- curl http://${pod_ip}:8080/rotation?rotated=true
+  sleep 35 # 30 is poll interval, 5 second grace should be enough
+}
+
+function disable_secret_rotation() {
+  local curl_pod_name=$1
+  local pod_ip=$(kubectl get pod -n kube-system -l app=csi-secrets-store-e2e-provider -o jsonpath="{.items[0].status.podIP}")  
+  run kubectl exec ${curl_pod_name} -n rotation -- curl http://${pod_ip}:8080/rotation?rotated=false
+}
+#######################################################
+# end: Utility functions to perform common operations #
+#######################################################
 
 @test "setup mock provider validation config" {
   if [[ -n "${VALIDATE_TOKENS_AUDIENCE}" ]]; then
@@ -110,88 +193,79 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
 
 @test "[v1alpha1] deploy e2e-provider secretproviderclass crd" {
   kubectl create namespace test-v1alpha1 --dry-run=client -o yaml | kubectl apply -f -
-
-  envsubst <  $BATS_TESTS_DIR/e2e_provider_v1alpha1_secretproviderclass.yaml | kubectl apply -n test-v1alpha1 -f -
-
-  kubectl wait --for condition=established -n test-v1alpha1 --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
-
-  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/e2e-provider -n test-v1alpha1 -o yaml | grep e2e-provider"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  NAMESPACE="test-v1alpha1" API_VERSION="secrets-store.csi.x-k8s.io/v1alpha1" create_spc
 }
 
 @test "[v1alpha1] CSI inline volume test with pod portability" {
-  envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -n test-v1alpha1 -f -
-
-  kubectl wait --for=condition=Ready -n test-v1alpha1 --timeout=180s pod/secrets-store-inline-crd
-
-  run kubectl get pod/secrets-store-inline-crd -n test-v1alpha1
-  assert_success
+  NAMESPACE="test-v1alpha1" create_pod
 }
 
 @test "[v1alpha1] CSI inline volume test with pod portability - read secret from pod" {
-  wait_for_process $WAIT_TIME $SLEEP_TIME "kubectl exec secrets-store-inline-crd -n test-v1alpha1 -- cat /mnt/secrets-store/$SECRET_NAME | grep '${SECRET_VALUE}'"
-
-  result=$(kubectl exec secrets-store-inline-crd -n test-v1alpha1 -- cat /mnt/secrets-store/$SECRET_NAME)
-  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+  NAMESPACE="test-v1alpha1" read_secret
 }
 
 @test "[v1alpha1] CSI inline volume test with pod portability - read key from pod" {
-  result=$(kubectl exec secrets-store-inline-crd -n test-v1alpha1 -- cat /mnt/secrets-store/$KEY_NAME)
-  result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
-  [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
+  NAMESPACE="test-v1alpha1" read_key  
+}
+
+@test "[v1alpha1] CSI inline volume test with pod portability - unmount succeeds" {
+  NAMESPACE="test-v1alpha1" delete_pod
 }
 
 @test "deploy e2e-provider v1 secretproviderclass crd" {
-  envsubst < $BATS_TESTS_DIR/e2e_provider_v1_secretproviderclass.yaml | kubectl apply -f -
-
-  kubectl wait --for condition=established --timeout=60s crd/secretproviderclasses.secrets-store.csi.x-k8s.io
-
-  cmd="kubectl get secretproviderclasses.secrets-store.csi.x-k8s.io/e2e-provider -o yaml | grep e2e-provider"
-  wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  create_spc
 }
 
 @test "CSI inline volume test with pod portability" {
-  envsubst < $BATS_TESTS_DIR/pod-secrets-store-inline-volume-crd.yaml | kubectl apply -f -
-
-  kubectl wait --for=condition=Ready --timeout=180s pod/secrets-store-inline-crd
-
-  run kubectl get pod/secrets-store-inline-crd
-  assert_success
+  create_pod
 }
 
 @test "CSI inline volume test with pod portability - read secret from pod" {
-  wait_for_process $WAIT_TIME $SLEEP_TIME "kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME | grep '${SECRET_VALUE}'"
-
-  result=$(kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$SECRET_NAME)
-  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+  read_secret
 }
 
 @test "CSI inline volume test with pod portability - read key from pod" {
-  result=$(kubectl exec secrets-store-inline-crd -- cat /mnt/secrets-store/$KEY_NAME)
-  result_base64_encoded=$(echo "${result//$'\r'}" | base64 ${BASE64_FLAGS})
-  [[ "${result_base64_encoded}" == *"${KEY_VALUE_CONTAINS}"* ]]
+  read_key
 }
 
 @test "CSI inline volume test with pod portability - unmount succeeds" {
-  # On Linux a failure to unmount the tmpfs will block the pod from being
-  # deleted.
-  run kubectl delete pod secrets-store-inline-crd
-  assert_success
+  delete_pod
+}
 
-  kubectl wait --for=delete --timeout=${WAIT_TIME}s pod/secrets-store-inline-crd
-  assert_success
+@test "deploy e2e-provider v1 secretproviderclass crd with restricted permissions" {
+  SPC_NAME="e2e-provider-640" SECRET_MODE='"0640"' KEY_MODE='"0640"' create_spc
+}
 
-  # Sleep to allow time for logs to propagate.
-  sleep 10
+@test "Non-root POD with no FSGroup - create" {
+  SPC_NAME="e2e-provider-640" POD_NAME="non-root-with-no-fsgroup" POD_SECURITY_CONTEXT='"runAsNonRoot": true, "runAsUser": 1004, "runAsGroup": 1004' create_pod
+}
 
-  # save debug information to archive in case of failure
-  archive_info
-
-  # On Windows, the failed unmount calls from: https://github.com/kubernetes-sigs/secrets-store-csi-driver/pull/545
-  # do not prevent the pod from being deleted. Search through the driver logs
-  # for the error.
-  run bash -c "kubectl logs -l app=secrets-store-csi-driver --tail -1 -c secrets-store -n kube-system | grep '^E.*failed to clean and unmount target path.*$'"
+@test "Non-root POD with no FSGroup - Should fail to read non world readable secret" {
+  # use run here as read_secret will run into errors and we want to assert_failure
+  POD_NAME="non-root-with-no-fsgroup" run read_secret
   assert_failure
+}
+
+@test "Non-root POD with no FSGroup - unmount succeeds" {
+   POD_NAME="non-root-with-no-fsgroup" delete_pod
+}
+
+@test "Non-root POD with FSGroup - create" {
+  SPC_NAME="e2e-provider-640" POD_NAME="non-root-with-fsgroup" POD_SECURITY_CONTEXT='"runAsNonRoot": true, "runAsUser": 1004, "runAsGroup": 1004, "fsGroup": 1004' create_pod
+}
+
+@test "Non-root POD with FSGroup - should read non world readable secret" {
+  POD_NAME="non-root-with-fsgroup" read_secret
+}
+
+@test "Non-root POD with FSGroup - rotated secret should also be readable" {
+  curl_pod_name=$(enable_secret_rotation)
+  SECRET_VALUE="rotated" POD_NAME="non-root-with-fsgroup" read_secret
+  disable_secret_rotation $curl_pod_name
+}
+
+@test "Non-root POD with FSGroup - unmount succeeds" {
+   POD_NAME="non-root-with-fsgroup" delete_pod
 }
 
 @test "Sync with K8s secrets - create deployment" {
@@ -378,7 +452,6 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
 }
 
 @test "Test auto rotation of mount contents and K8s secrets - Create deployment" {
-  kubectl create namespace rotation --dry-run=client -o yaml | kubectl apply -f -
 
   envsubst < $BATS_TESTS_DIR/rotation/e2e_provider_synck8s_v1_secretproviderclass.yaml | kubectl apply -n rotation -f -
   envsubst < $BATS_TESTS_DIR/rotation/pod-synck8s-e2e-provider.yaml | kubectl apply -n rotation -f -
@@ -396,14 +469,8 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   result=$(kubectl get secret -n rotation rotationsecret -o jsonpath="{.data.username}" | base64 -d)
   [[ "${result//$'\r'}" == "secret" ]]
 
-  # enable rotation response in mock server
-  local curl_pod_name=curl-$(openssl rand -hex 5)
-  kubectl run ${curl_pod_name} -n rotation --image=curlimages/curl:7.75.0 --labels="test=rotation" -- tail -f /dev/null
-  kubectl wait -n rotation --for=condition=Ready --timeout=60s pod ${curl_pod_name}
-  local pod_ip=$(kubectl get pod -n kube-system -l app=csi-secrets-store-e2e-provider -o jsonpath="{.items[0].status.podIP}")
-  run kubectl exec ${curl_pod_name} -n rotation -- curl http://${pod_ip}:8080/rotation?rotated=true
+  curl_pod_name=$(enable_secret_rotation)
 
-  sleep 60
 
   result=$(kubectl exec -n rotation secrets-store-inline-rotation -- cat /mnt/secrets-store/$SECRET_NAME)
   [[ "${result//$'\r'}" == "rotated" ]]
@@ -412,7 +479,8 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   [[ "${result//$'\r'}" == "rotated" ]]
 
   # reset rotation response in mock server for all upgrade tests
-  run kubectl exec ${curl_pod_name} -n rotation -- curl http://${pod_ip}:8080/rotation?rotated=false
+  disable_secret_rotation $curl_pod_name
+
 }
 
 @test "Validate metrics" {
@@ -431,6 +499,10 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   # the namespace is only to run a curl pod to validate metrics
   # so it should be fine to delete and recreate it during upgrade tests
   kubectl delete ns metrics
+}
+
+setup_file() {
+    kubectl create namespace rotation --dry-run=client -o yaml | kubectl apply -f -
 }
 
 teardown_file() {
