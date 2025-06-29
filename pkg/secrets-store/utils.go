@@ -20,9 +20,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/constants"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/runtimeutil"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/spcpsutil"
 
@@ -90,7 +92,7 @@ func getSecretProviderItem(ctx context.Context, c client.Client, name, namespace
 
 // createOrUpdateSecretProviderClassPodStatus creates secret provider class pod status if not exists.
 // if the secret provider class pod status already exists, it'll update the status and owner references.
-func createOrUpdateSecretProviderClassPodStatus(ctx context.Context, c client.Client, reader client.Reader, podname, namespace, podUID, spcName, targetPath, nodeID string, mounted bool, objects map[string]string) error {
+func createOrUpdateSecretProviderClassPodStatus(ctx context.Context, c client.Client, reader client.Reader, podname, namespace, podUID, spcName, targetPath, nodeID string, mounted bool, objects map[string]string, gid int64) error {
 	var o []secretsstorev1.SecretProviderClassObject
 	var err error
 	spcpsName := podname + "-" + namespace + "-" + spcName
@@ -99,7 +101,12 @@ func createOrUpdateSecretProviderClassPodStatus(ctx context.Context, c client.Cl
 		o = append(o, secretsstorev1.SecretProviderClassObject{ID: k, Version: v})
 	}
 	o = spcpsutil.OrderSecretProviderClassObjectByID(o)
-
+	fsGroup := ""
+	klog.V(5).Infof("gid: %v for pod: %v/%v", gid, namespace, podname)
+	if gid != constants.NoGID {
+		fsGroup = strconv.FormatInt(gid, 10)
+	}
+	klog.V(5).Infof("gid string: %v for pod: %v/%v", fsGroup, namespace, podname)
 	spcPodStatus := &secretsstorev1.SecretProviderClassPodStatus{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      spcpsName,
@@ -112,6 +119,7 @@ func createOrUpdateSecretProviderClassPodStatus(ctx context.Context, c client.Cl
 			Mounted:                 mounted,
 			SecretProviderClassName: spcName,
 			Objects:                 o,
+			FSGroup:                 fsGroup,
 		},
 	}
 
@@ -125,7 +133,7 @@ func createOrUpdateSecretProviderClassPodStatus(ctx context.Context, c client.Cl
 			UID:        types.UID(podUID),
 		},
 	})
-
+	klog.V(5).InfoS("creating", "spcPodStatus", spcPodStatus)
 	if err = c.Create(ctx, spcPodStatus); err == nil || !apierrors.IsAlreadyExists(err) {
 		return err
 	}
