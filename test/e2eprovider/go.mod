@@ -10,7 +10,7 @@ require (
 	k8s.io/klog/v2 v2.120.1
 	monis.app/mlog v0.0.4
 	sigs.k8s.io/secrets-store-csi-driver v0.0.0-00010101000000-000000000000
-	sigs.k8s.io/yaml v1.4.0
+	sigs.k8s.io/yaml v1.5.0
 )
 
 require (
@@ -40,6 +40,7 @@ require (
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
+	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/net v0.38.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
