@@ -26,6 +26,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -165,6 +166,15 @@ func (s *Server) Mount(ctx context.Context, req *v1alpha1.MountRequest) (*v1alph
 			return nil, fmt.Errorf("failed to get secret, error: %w", err)
 		}
 
+		klog.InfoS("Secret Object with", "name", mockSecretsStoreObject.ObjectName, "permission", mockSecretsStoreObject.FilePermission)
+		if mockSecretsStoreObject.FilePermission != "" {
+			mode, err := strconv.ParseUint(mockSecretsStoreObject.FilePermission, 8, 32)
+			if err != nil || mode > 511 {
+				return nil, fmt.Errorf("invalid filePermission: %s, error: %w for file: %s", mockSecretsStoreObject.FilePermission, err, mockSecretsStoreObject.ObjectName)
+			}
+			secretFile.Mode = int32(mode)
+			klog.InfoS("Set file mode", "file", secretFile.Path, "mode", os.FileMode(mode))
+		}
 		resp.Files = append(resp.Files, secretFile)
 		resp.ObjectVersion = append(resp.ObjectVersion, version)
 	}
