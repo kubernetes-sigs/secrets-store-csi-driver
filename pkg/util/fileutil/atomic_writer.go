@@ -18,6 +18,8 @@ limitations under the License.
 //  * tag: v1.20.6,
 //  * commit: 8a62859e515889f07e3e3be6a1080413f17cf2c3
 //  * link: https://github.com/kubernetes/kubernetes/blob/8a62859e515889f07e3e3be6a1080413f17cf2c3/pkg/volume/util/atomic_writer.go
+// In addition, FileProjection::FSUser has been changed to FileProjection::FSGroup
+//    to facilitate support for FSGroup csi.NodeServiceCapability_RPC_VOLUME_MOUNT_GROUP
 
 package fileutil
 
@@ -67,9 +69,9 @@ type AtomicWriter struct {
 
 // FileProjection contains file Data and access Mode
 type FileProjection struct {
-	Data   []byte
-	Mode   int32
-	FsUser *int64
+	Data    []byte
+	Mode    int32
+	FsGroup *int64
 }
 
 // NewAtomicWriter creates a new AtomicWriter configured to write to the given
@@ -410,11 +412,11 @@ func (w *AtomicWriter) writePayloadToDir(payload map[string]FileProjection, dir 
 			return err
 		}
 
-		if fileProjection.FsUser == nil {
+		if fileProjection.FsGroup == nil || runtimeutil.IsRuntimeWindows() {
 			continue
 		}
-		if err := os.Chown(fullPath, int(*fileProjection.FsUser), -1); err != nil {
-			klog.ErrorS(err, "unable to change file with owner", "logContext", w.logContext, "fullPath", fullPath, "owner", int(*fileProjection.FsUser))
+		if err := os.Chown(fullPath, -1, int(*fileProjection.FsGroup)); err != nil {
+			klog.ErrorS(err, "unable to change file with owner", "logContext", w.logContext, "fullPath", fullPath, "owner", int(*fileProjection.FsGroup))
 			return err
 		}
 	}

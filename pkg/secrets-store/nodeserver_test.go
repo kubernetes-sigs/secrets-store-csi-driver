@@ -59,6 +59,40 @@ func testNodeServer(t *testing.T, client client.Client, reporter StatsReporter) 
 	return newNodeServer("testnode", mount.NewFakeMounter([]mount.MountPoint{}), providerClients, client, client, reporter, k8s.NewTokenClient(fakeclient.NewSimpleClientset(), "test-driver", 1*time.Second))
 }
 
+func getInitObjects(customize func(*secretsstorev1.SecretProviderClass)) []client.Object {
+	var spc = &secretsstorev1.SecretProviderClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "provider1",
+			Namespace: "default",
+		},
+		Spec: secretsstorev1.SecretProviderClassSpec{
+			Provider:   "provider1",
+			Parameters: map[string]string{"parameter1": "value1"},
+		},
+	}
+	customize(spc)
+	var initObjects = []client.Object{
+		spc,
+	}
+	return initObjects
+}
+
+func getRequest(t *testing.T, customize func(*csi.NodePublishVolumeRequest)) *csi.NodePublishVolumeRequest {
+	var request = &csi.NodePublishVolumeRequest{
+		VolumeCapability: &csi.VolumeCapability{},
+		VolumeId:         "testvolid1",
+		VolumeContext: map[string]string{
+			"secretProviderClass": "provider1",
+			CSIPodName:            "pod1",
+			CSIPodNamespace:       "default",
+			CSIPodUID:             "poduid1",
+		},
+		TargetPath: targetPath(t),
+		Readonly:   true,
+	}
+	customize(request)
+	return request
+}
 func TestNodePublishVolume_Errors(t *testing.T) {
 	tests := []struct {
 		name              string
@@ -106,116 +140,58 @@ func TestNodePublishVolume_Errors(t *testing.T) {
 			want: codes.Unknown,
 		},
 		{
-			name: "spc missing",
-			nodePublishVolReq: &csi.NodePublishVolumeRequest{
-				VolumeCapability: &csi.VolumeCapability{},
-				VolumeId:         "testvolid1",
-				TargetPath:       targetPath(t),
-				VolumeContext:    map[string]string{"secretProviderClass": "provider1", CSIPodName: "pod1", CSIPodNamespace: "default", CSIPodUID: "poduid1", "providerName": "provider1"},
-				Readonly:         true,
-			},
-			initObjects: []client.Object{
-				&secretsstorev1.SecretProviderClass{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "provider1",
-						Namespace: "incorrect_namespace",
-					},
-					Spec: secretsstorev1.SecretProviderClassSpec{
-						Provider:   "provider1",
-						Parameters: map[string]string{"parameter1": "value1"},
-					},
-				},
-			},
+			name:              "spc missing",
+			nodePublishVolReq: getRequest(t, func(*csi.NodePublishVolumeRequest) {}),
+			initObjects: getInitObjects(func(s *secretsstorev1.SecretProviderClass) {
+				s.ObjectMeta.Namespace = "incorrect_namespace"
+			}),
 			want: codes.Unknown,
 		},
 		{
-			name: "provider not set in secret provider class",
-			nodePublishVolReq: &csi.NodePublishVolumeRequest{
-				VolumeCapability: &csi.VolumeCapability{},
-				VolumeId:         "testvolid1",
-				TargetPath:       targetPath(t),
-				VolumeContext:    map[string]string{"secretProviderClass": "provider1", CSIPodName: "pod1", CSIPodNamespace: "default"},
-			},
-			initObjects: []client.Object{
-				&secretsstorev1.SecretProviderClass{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "provider1",
-						Namespace: "default",
-					},
-				},
-			},
+			name:              "provider not set in secret provider class",
+			nodePublishVolReq: getRequest(t, func(*csi.NodePublishVolumeRequest) {}),
+			initObjects: getInitObjects(func(s *secretsstorev1.SecretProviderClass) {
+				s.Spec = secretsstorev1.SecretProviderClassSpec{}
+			}),
 			want: codes.Unknown,
 		},
 		{
-			name: "parameters not set in secret provider class",
-			nodePublishVolReq: &csi.NodePublishVolumeRequest{
-				VolumeCapability: &csi.VolumeCapability{},
-				VolumeId:         "testvolid1",
-				TargetPath:       targetPath(t),
-				VolumeContext:    map[string]string{"secretProviderClass": "provider1", CSIPodName: "pod1", CSIPodNamespace: "default"},
-			},
-			initObjects: []client.Object{
-				&secretsstorev1.SecretProviderClass{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "provider1",
-						Namespace: "default",
-					},
-					Spec: secretsstorev1.SecretProviderClassSpec{
-						Provider: "provider1",
-					},
-				},
-			},
+			name:              "parameters not set in secret provider class",
+			nodePublishVolReq: getRequest(t, func(*csi.NodePublishVolumeRequest) {}),
+			initObjects: getInitObjects(func(s *secretsstorev1.SecretProviderClass) {
+				s.Spec.Parameters = map[string]string{}
+			}),
 			want: codes.Unknown,
 		},
 		{
 			name: "read only is not set to true",
-			nodePublishVolReq: &csi.NodePublishVolumeRequest{
-				VolumeCapability: &csi.VolumeCapability{},
-				VolumeId:         "testvolid1",
-				TargetPath:       targetPath(t),
-				VolumeContext:    map[string]string{"secretProviderClass": "provider1", CSIPodName: "pod1", CSIPodNamespace: "default"},
-			},
-			initObjects: []client.Object{
-				&secretsstorev1.SecretProviderClass{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "provider1",
-						Namespace: "default",
-					},
-					Spec: secretsstorev1.SecretProviderClassSpec{
-						Provider:   "provider1",
-						Parameters: map[string]string{"parameter1": "value1"},
-					},
-				},
-			},
-			want: codes.InvalidArgument,
+			nodePublishVolReq: getRequest(t, func(r *csi.NodePublishVolumeRequest) {
+				r.Readonly = false
+			}),
+			initObjects: getInitObjects(func(*secretsstorev1.SecretProviderClass) {}),
+			want:        codes.InvalidArgument,
 		},
 		{
-			name: "provider not installed",
-			nodePublishVolReq: &csi.NodePublishVolumeRequest{
-				VolumeCapability: &csi.VolumeCapability{},
-				VolumeId:         "testvolid1",
-				TargetPath:       targetPath(t),
-				VolumeContext: map[string]string{
-					"secretProviderClass": "provider1",
-					CSIPodName:            "pod1",
-					CSIPodNamespace:       "default",
-					CSIPodUID:             "poduid1",
-				},
-				Readonly: true,
-			},
-			initObjects: []client.Object{
-				&secretsstorev1.SecretProviderClass{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "provider1",
-						Namespace: "default",
-					},
-					Spec: secretsstorev1.SecretProviderClassSpec{
-						Provider:   "provider_not_installed",
-						Parameters: map[string]string{"parameter1": "value1"},
-					},
-				},
-			},
+			name:              "provider not installed",
+			nodePublishVolReq: getRequest(t, func(*csi.NodePublishVolumeRequest) {}),
+			initObjects: getInitObjects(func(s *secretsstorev1.SecretProviderClass) {
+				s.Spec.Provider = "provider_not_installed"
+			}),
 			want: codes.Unknown,
+		},
+		{
+			name: "Invalid FSGroup",
+			nodePublishVolReq: getRequest(t, func(r *csi.NodePublishVolumeRequest) {
+				r.VolumeCapability = &csi.VolumeCapability{
+					AccessType: &csi.VolumeCapability_Mount{
+						Mount: &csi.VolumeCapability_MountVolume{
+							VolumeMountGroup: "INVALID",
+						},
+					},
+				}
+			}),
+			initObjects: getInitObjects(func(*secretsstorev1.SecretProviderClass) {}),
+			want:        codes.InvalidArgument,
 		},
 	}
 
@@ -272,61 +248,31 @@ func TestNodePublishVolume(t *testing.T) {
 		initObjects       []client.Object
 	}{
 		{
-			name: "volume mount",
-			nodePublishVolReq: &csi.NodePublishVolumeRequest{
-				VolumeCapability: &csi.VolumeCapability{},
-				VolumeId:         "testvolid1",
-				TargetPath:       targetPath(t),
-				VolumeContext: map[string]string{
-					"secretProviderClass": "provider1",
-					CSIPodName:            "pod1",
-					CSIPodNamespace:       "default",
-					CSIPodUID:             "poduid1",
-				},
-				Readonly: true,
-			},
-			initObjects: []client.Object{
-				&secretsstorev1.SecretProviderClass{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "provider1",
-						Namespace: "default",
-					},
-					Spec: secretsstorev1.SecretProviderClassSpec{
-						Provider:   "provider1",
-						Parameters: map[string]string{"parameter1": "value1"},
-					},
-				},
-			},
+			name:              "volume mount",
+			nodePublishVolReq: getRequest(t, func(*csi.NodePublishVolumeRequest) {}),
+			initObjects:       getInitObjects(func(*secretsstorev1.SecretProviderClass) {}),
 		},
 		{
 			name: "volume mount with refresh token",
-			nodePublishVolReq: &csi.NodePublishVolumeRequest{
-				VolumeCapability: &csi.VolumeCapability{},
-				VolumeId:         "testvolid1",
-				TargetPath:       targetPath(t),
-				VolumeContext: map[string]string{
-					"secretProviderClass": "provider1",
-					CSIPodName:            "pod1",
-					CSIPodNamespace:       "default",
-					CSIPodUID:             "poduid1",
-					// not a real token, just for testing
-					CSIPodServiceAccountTokens: `{"https://kubernetes.default.svc":{"token":"eyJhbGciOiJSUzI1NiIsImtpZCI6IjEyMyJ9.eyJhdWQiOlsiaHR0cHM6Ly9rdWJlcm5ldGVzLmRlZmF1bHQuc3ZjIl0sImV4cCI6MTYxMTk1OTM5NiwiaWF0IjoxNjExOTU4Nzk2LCJpc3MiOiJodHRwczovL2t1YmVybmV0ZXMuZGVmYXVsdC5zdmMiLCJrdWJlcm5ldGVzLmlvIjp7Im5hbWVzcGFjZSI6ImRlZmF1bHQiLCJzZXJ2aWNlYWNjb3VudCI6eyJuYW1lIjoiZGVmYXVsdCIsInVpZCI6IjA5MWUyNTU3LWJkODYtNDhhMC1iZmNmLWI1YTI4ZjRjODAyNCJ9fSwibmJmIjoxNjExOTU4Nzk2LCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6ZGVmYXVsdDpkZWZhdWx0In0.YNU2Z_gEE84DGCt8lh9GuE8gmoof-Pk_7emp3fsyj9pq16DRiDaLtOdprH-njpOYqvtT5Uf_QspFc_RwD_pdq9UJWCeLxFkRTsYR5WSjhMFcl767c4Cwp_oZPYhaHd1x7aU1emH-9oarrM__tr1hSmGoAc2I0gUSkAYFueaTUSy5e5d9QKDfjVljDRc7Yrp6qAAfd1OuDdk1XYIjrqTHk1T1oqGGlcd3lRM_dKSsW5I_YqgKMrjwNt8yOKcdKBrgQhgC42GZbFDRVJDJHs_Hq32xo-2s3PJ8UZ_alN4wv8EbuwB987_FHBTc_XAULHPvp0mCv2C5h0V2A7gzccv30A","expirationTimestamp":"2021-01-29T22:29:56Z"}}`,
-					"providerName":             "provider1",
-				},
-				Readonly: true,
-			},
-			initObjects: []client.Object{
-				&secretsstorev1.SecretProviderClass{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "provider1",
-						Namespace: "default",
+			nodePublishVolReq: getRequest(t, func(r *csi.NodePublishVolumeRequest) {
+				// not a real token, just for testing
+				r.VolumeContext[CSIPodServiceAccountTokens] = `{"https://kubernetes.default.svc":{"token":"eyJhbGciOiJSUzI1NiIsImtpZCI6IjEyMyJ9.eyJhdWQiOlsiaHR0cHM6Ly9rdWJlcm5ldGVzLmRlZmF1bHQuc3ZjIl0sImV4cCI6MTYxMTk1OTM5NiwiaWF0IjoxNjExOTU4Nzk2LCJpc3MiOiJodHRwczovL2t1YmVybmV0ZXMuZGVmYXVsdC5zdmMiLCJrdWJlcm5ldGVzLmlvIjp7Im5hbWVzcGFjZSI6ImRlZmF1bHQiLCJzZXJ2aWNlYWNjb3VudCI6eyJuYW1lIjoiZGVmYXVsdCIsInVpZCI6IjA5MWUyNTU3LWJkODYtNDhhMC1iZmNmLWI1YTI4ZjRjODAyNCJ9fSwibmJmIjoxNjExOTU4Nzk2LCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6ZGVmYXVsdDpkZWZhdWx0In0.YNU2Z_gEE84DGCt8lh9GuE8gmoof-Pk_7emp3fsyj9pq16DRiDaLtOdprH-njpOYqvtT5Uf_QspFc_RwD_pdq9UJWCeLxFkRTsYR5WSjhMFcl767c4Cwp_oZPYhaHd1x7aU1emH-9oarrM__tr1hSmGoAc2I0gUSkAYFueaTUSy5e5d9QKDfjVljDRc7Yrp6qAAfd1OuDdk1XYIjrqTHk1T1oqGGlcd3lRM_dKSsW5I_YqgKMrjwNt8yOKcdKBrgQhgC42GZbFDRVJDJHs_Hq32xo-2s3PJ8UZ_alN4wv8EbuwB987_FHBTc_XAULHPvp0mCv2C5h0V2A7gzccv30A","expirationTimestamp":"2021-01-29T22:29:56Z"}}`
+				r.VolumeContext["providerName"] = "provider1"
+			}),
+			initObjects: getInitObjects(func(*secretsstorev1.SecretProviderClass) {}),
+		},
+		{
+			name: "volume mount with valid FSGroup",
+			nodePublishVolReq: getRequest(t, func(r *csi.NodePublishVolumeRequest) {
+				r.VolumeCapability = &csi.VolumeCapability{
+					AccessType: &csi.VolumeCapability_Mount{
+						Mount: &csi.VolumeCapability_MountVolume{
+							VolumeMountGroup: "1004",
+						},
 					},
-					Spec: secretsstorev1.SecretProviderClassSpec{
-						Provider:   "provider1",
-						Parameters: map[string]string{"parameter1": "value1"},
-					},
-				},
-			},
+				}
+			}),
+			initObjects: getInitObjects(func(*secretsstorev1.SecretProviderClass) {}),
 		},
 	}
 
