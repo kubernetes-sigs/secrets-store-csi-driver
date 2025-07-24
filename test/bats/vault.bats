@@ -100,11 +100,13 @@ EOF
   # update the secret value
   kubectl exec vault-0 --namespace=vault -- vault kv put secret/rotation foo=rotated
 
-  sleep 60
+  sleep 120
 
   # verify rotated value
   result=$(kubectl exec secrets-store-rotation -- cat /mnt/secrets-store/foo)
   [[ "$result" == "rotated" ]]
+
+  archive_info
 }
 
 @test "CSI inline volume test with pod portability - unmount succeeds" {
