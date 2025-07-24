@@ -221,15 +221,15 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	klog.InfoS("reconcile started", "spcps", req.NamespacedName.String())
+	klog.InfoS("reconcile started", "spcps", req.String())
 
 	spcPodStatus := &secretsstorev1.SecretProviderClassPodStatus{}
 	if err := r.reader.Get(ctx, req.NamespacedName, spcPodStatus); err != nil {
 		if apierrors.IsNotFound(err) {
-			klog.InfoS("reconcile complete", "spcps", req.NamespacedName.String())
+			klog.InfoS("reconcile complete", "spcps", req.String())
 			return ctrl.Result{}, nil
 		}
-		klog.ErrorS(err, "failed to get spc pod status", "spcps", req.NamespacedName.String())
+		klog.ErrorS(err, "failed to get spc pod status", "spcps", req.String())
 		return ctrl.Result{}, err
 	}
 
@@ -442,7 +442,7 @@ func (r *SecretProviderClassPodStatusReconciler) patchSecretWithOwnerRef(ctx con
 		Namespace: namespace,
 		Name:      name,
 	}
-	if err := r.Client.Get(ctx, secretKey, secret); err != nil {
+	if err := r.Get(ctx, secretKey, secret); err != nil {
 		if apierrors.IsNotFound(err) {
 			klog.V(5).InfoS("secret not found for patching", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
 			return nil
@@ -484,7 +484,7 @@ func (r *SecretProviderClassPodStatusReconciler) secretExists(ctx context.Contex
 		Namespace: namespace,
 		Name:      name,
 	}
-	err := r.Client.Get(ctx, secretKey, o)
+	err := r.Get(ctx, secretKey, o)
 	if err == nil {
 		return true, nil
 	}
