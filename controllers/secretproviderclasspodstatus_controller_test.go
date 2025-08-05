@@ -121,31 +121,6 @@ func newReconciler(client client.Client, scheme *runtime.Scheme, nodeID string) 
 	}
 }
 
-func TestSecretExists(t *testing.T) {
-	g := NewWithT(t)
-
-	scheme, err := setupScheme()
-	g.Expect(err).NotTo(HaveOccurred())
-
-	labels := map[string]string{"environment": "test"}
-	annotations := map[string]string{"kubed.appscode.com/sync": "app=test"}
-
-	initObjects := []client.Object{
-		newSecret("my-secret", "default", labels, annotations),
-	}
-
-	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
-	reconciler := newReconciler(client, scheme, "node1")
-
-	exists, err := reconciler.secretExists(context.TODO(), "my-secret", "default")
-	g.Expect(exists).To(Equal(true))
-	g.Expect(err).NotTo(HaveOccurred())
-
-	exists, err = reconciler.secretExists(context.TODO(), "my-secret2", "default")
-	g.Expect(exists).To(Equal(false))
-	g.Expect(err).NotTo(HaveOccurred())
-}
-
 func TestPatchSecretWithOwnerRef(t *testing.T) {
 	g := NewWithT(t)
 
@@ -183,7 +158,7 @@ func TestPatchSecretWithOwnerRef(t *testing.T) {
 	g.Expect(secret.GetOwnerReferences()).To(HaveLen(1))
 }
 
-func TestCreateK8sSecret(t *testing.T) {
+func TestCreateOrUpdateK8sSecret(t *testing.T) {
 	g := NewWithT(t)
 
 	scheme, err := setupScheme()
@@ -198,11 +173,11 @@ func TestCreateK8sSecret(t *testing.T) {
 	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
 	reconciler := newReconciler(client, scheme, "node1")
 
-	// secret already exists
-	err = reconciler.createK8sSecret(context.TODO(), "my-secret", "default", nil, labels, annotations, corev1.SecretTypeOpaque)
+	// secret already exists, just update it.
+	err = reconciler.createOrUpdateK8sSecret(context.TODO(), "my-secret", "default", nil, labels, annotations, corev1.SecretTypeOpaque)
 	g.Expect(err).NotTo(HaveOccurred())
 
-	err = reconciler.createK8sSecret(context.TODO(), "my-secret2", "default", nil, labels, annotations, corev1.SecretTypeOpaque)
+	err = reconciler.createOrUpdateK8sSecret(context.TODO(), "my-secret2", "default", nil, labels, annotations, corev1.SecretTypeOpaque)
 	g.Expect(err).NotTo(HaveOccurred())
 	secret := &corev1.Secret{}
 	err = client.Get(context.TODO(), types.NamespacedName{Name: "my-secret2", Namespace: "default"}, secret)
