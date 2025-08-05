@@ -224,7 +224,7 @@ func (p *PluginClientBuilder) HealthCheck(ctx context.Context, interval time.Dur
 
 // MountContent calls the client's Mount() RPC with helpers to format the
 // request and interpret the response.
-func MountContent(ctx context.Context, client v1alpha1.CSIDriverProviderClient, attributes, secrets, targetPath, permission string, oldObjectVersions map[string]string) (map[string]string, string, error) {
+func MountContent(ctx context.Context, client v1alpha1.CSIDriverProviderClient, attributes, secrets, targetPath, permission string, oldObjectVersions map[string]string, gid int64) (map[string]string, string, error) {
 	var objVersions []*v1alpha1.ObjectVersion
 	for obj, version := range oldObjectVersions {
 		objVersions = append(objVersions, &v1alpha1.ObjectVersion{Id: obj, Version: version})
@@ -272,7 +272,7 @@ func MountContent(ctx context.Context, client v1alpha1.CSIDriverProviderClient, 
 		return objectVersions, "", nil
 	}
 
-	if err := fileutil.WritePayloads(targetPath, resp.GetFiles()); err != nil {
+	if err := fileutil.WritePayloads(targetPath, resp.GetFiles(), gid); err != nil {
 		return nil, internalerrors.FileWriteError, err
 	}
 	klog.V(5).Info("mount response files written.")

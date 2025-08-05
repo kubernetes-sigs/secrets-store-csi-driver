@@ -44,5 +44,6 @@ const (
 	// PodVolumeNotFound error
 	PodVolumeNotFound = "PodVolumeNotFound"
 	// FileWriteError error
-	FileWriteError = "FileWriteError"
+	FileWriteError       = "FileWriteError"
+	FailedToParseFSGroup = "FailedToParseFSGroup"
 )
