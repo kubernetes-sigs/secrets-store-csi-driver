@@ -1,0 +1,37 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: secrets-store-rotation
+spec:
+  containers:
+    - image: registry.k8s.io/e2e-test-images/busybox:1.29-4
+      name: busybox
+      imagePullPolicy: IfNotPresent
+      command:
+        - "/bin/sleep"
+        - "10000"
+      volumeMounts:
+        - name: secrets-store-rotation
+          mountPath: "/mnt/secrets-store"
+          readOnly: true
+  volumes:
+    - name: secrets-store-rotation
+      csi:
+        driver: secrets-store.csi.k8s.io
+        readOnly: true
+        volumeAttributes:
+          secretProviderClass: "openbao-rotation"
+---
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: openbao-rotation
+spec:
+  provider: openbao
+  parameters:
+    roleName: "csi"
+    baoAddress: "http://openbao.openbao:8200"
+    objects: |
+      - secretPath: "secrets/data/rotation"
+        objectName: "foo"
+        secretKey: "foo"
