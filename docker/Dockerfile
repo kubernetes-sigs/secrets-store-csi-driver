@@ -14,7 +14,7 @@
 
 ARG BASEIMAGE=registry.k8s.io/build-image/debian-base:bookworm-v1.0.5
 
-FROM golang:1.24.6@sha256:e155b5162f701b7ab2e6e7ea51cec1e5f6deffb9ab1b295cf7a697e81069b050 AS builder
+FROM golang:1.24.7@sha256:87916acb3242b6259a26deaa7953bdc6a3a6762a28d340e4f1448e7b5c27c009 AS builder
 WORKDIR /go/src/sigs.k8s.io/secrets-store-csi-driver
 ADD . .
 ARG TARGETARCH
