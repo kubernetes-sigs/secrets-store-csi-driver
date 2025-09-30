@@ -1,0 +1,5 @@
+# CVE-2023-2878: False positive - Trivy misinterprets pseudo-version
+# The vulnerability was fixed in v1.3.3. Current codebase is based on v1.1.0+795 commits
+# which is newer than v1.3.3 and includes the fix.
+# See: https://github.com/kubernetes-sigs/secrets-store-csi-driver/security/advisories/GHSA-g82w-58jf-gcxx
+CVE-2023-2878
