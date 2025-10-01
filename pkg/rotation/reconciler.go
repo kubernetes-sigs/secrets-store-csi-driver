@@ -21,12 +21,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	"sigs.k8s.io/secrets-store-csi-driver/controllers"
 	secretsStoreClient "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/constants"
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
 	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
@@ -398,7 +400,18 @@ func (r *Reconciler) reconcile(ctx context.Context, spcps *secretsstorev1.Secret
 		r.generateEvent(pod, corev1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("failed to lookup provider client: %q", providerName))
 		return fmt.Errorf("failed to lookup provider client: %q", providerName)
 	}
-	newObjectVersions, errorReason, err := secretsstore.MountContent(ctx, providerClient, string(paramsJSON), string(secretsJSON), spcps.Status.TargetPath, string(permissionJSON), oldObjectVersions)
+	gid := constants.NoGID
+	if len(spcps.Status.FSGroup) > 0 {
+		gid, err = strconv.ParseInt(spcps.Status.FSGroup, 10, 64)
+		if err != nil {
+			errorReason = internalerrors.FailedToParseFSGroup
+			errStr := fmt.Sprintf("failed to rotate objects for pod %s/%s, invalid FSGroup:%s", spcps.Namespace, spcps.Status.PodName, spcps.Status.FSGroup)
+			r.generateEvent(pod, corev1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("%s, err: %v", errStr, err))
+			return fmt.Errorf("%s, err: %w", errStr, err)
+		}
+	}
+	klog.V(5).InfoS("updating the secret content", "pod", klog.ObjectRef{Namespace: spcps.Namespace, Name: spcps.Status.PodName}, "FSGroup", gid)
+	newObjectVersions, errorReason, err := secretsstore.MountContent(ctx, providerClient, string(paramsJSON), string(secretsJSON), spcps.Status.TargetPath, string(permissionJSON), oldObjectVersions, gid)
 	if err != nil {
 		r.generateEvent(pod, corev1.EventTypeWarning, mountRotationFailedReason, fmt.Sprintf("provider mount err: %+v", err))
 		return fmt.Errorf("failed to rotate objects for pod %s/%s, err: %w", spcps.Namespace, spcps.Status.PodName, err)

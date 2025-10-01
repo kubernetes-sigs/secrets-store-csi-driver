@@ -32,6 +32,7 @@ type SecretProviderClassPodStatusStatus struct {
 	Mounted                 bool                        `json:"mounted,omitempty"`
 	TargetPath              string                      `json:"targetPath,omitempty"`
 	Objects                 []SecretProviderClassObject `json:"objects,omitempty"`
+	FSGroup                 string                      `json:"fsGroup,omitempty"`
 }
 
 // SecretProviderClassObject defines the object fetched from external secrets store
