@@ -32,9 +32,23 @@ get_random_region() {
 }
 
 cleanup() {
-    echo "Deleting the AKS cluster ${CLUSTER_NAME}"
+    echo "Cleaning up resources"
     az login --service-principal -u "${AZURE_CLIENT_ID}" --t "${AZURE_TENANT_ID}" --federated-token "$(cat "${AZURE_FEDERATED_TOKEN_FILE}")" > /dev/null
     az account set --subscription "${AZURE_SUBSCRIPTION_ID}" > /dev/null
+
+    # Clean up role assignment if IDENTITY_OBJECT_ID is set
+    if [[ -n "${IDENTITY_OBJECT_ID:-}" ]]; then
+        echo "Removing role assignment from Key Vault"
+        KEYVAULT_RESOURCE_ID=$(az keyvault show --name "${KEYVAULT_NAME}" --query "id" -otsv 2>/dev/null || true)
+        if [[ -n "${KEYVAULT_RESOURCE_ID}" ]]; then
+            az role assignment delete \
+                --role "Key Vault Secrets User" \
+                --assignee "${IDENTITY_OBJECT_ID}" \
+                --scope "${KEYVAULT_RESOURCE_ID}" > /dev/null 2>&1 || true
+        fi
+    fi
+
+    echo "Deleting the AKS cluster ${CLUSTER_NAME}"
     az group delete --name "${CLUSTER_NAME}" --yes --no-wait || true
 }
 trap cleanup EXIT
@@ -97,25 +111,32 @@ main() {
         --identity-name "${user_assigned_identity_name}" \
         --resource-group "${CLUSTER_NAME}" \
         --issuer "${AKS_CLUSTER_OIDC_ISSUER_URL}" \
-        --subject "system:serviceaccount:default:default" > /dev/null
+        --subject "system:serviceaccount:default:default" \
+        --audiences api://AzureADTokenExchange > /dev/null
 
     echo "Creating federated identity credential for test-ns:default"
     az identity federated-credential create --name "kubernetes-federated-credential-test-ns" \
         --identity-name "${user_assigned_identity_name}" \
         --resource-group "${CLUSTER_NAME}" \
         --issuer "${AKS_CLUSTER_OIDC_ISSUER_URL}" \
-        --subject "system:serviceaccount:test-ns:default" > /dev/null
+        --subject "system:serviceaccount:test-ns:default" \
+        --audiences api://AzureADTokenExchange > /dev/null
 
     echo "Creating federated identity credential for negative-test-ns:default"
     az identity federated-credential create --name "kubernetes-federated-credential-negative-test-ns" \
         --identity-name "${user_assigned_identity_name}" \
         --resource-group "${CLUSTER_NAME}" \
         --issuer "${AKS_CLUSTER_OIDC_ISSUER_URL}" \
-        --subject "system:serviceaccount:negative-test-ns:default" > /dev/null
+        --subject "system:serviceaccount:negative-test-ns:default" \
+        --audiences api://AzureADTokenExchange > /dev/null
 
-    # Assigning the managed identity the necessary permissions to access the keyvault
-    echo "Assigning managed identity permissions to get secrets from keyvault"
-    az keyvault set-policy --name "${KEYVAULT_NAME}" --secret-permissions get --object-id "${IDENTITY_OBJECT_ID}" > /dev/null
+    # Assigning the managed identity the necessary permissions to access the keyvault using RBAC
+    echo "Assigning managed identity Key Vault Secrets User role on keyvault"
+    KEYVAULT_RESOURCE_ID=$(az keyvault show --name "${KEYVAULT_NAME}" --query "id" -otsv)
+    az role assignment create \
+        --role "Key Vault Secrets User" \
+        --assignee "${IDENTITY_OBJECT_ID}" \
+        --scope "${KEYVAULT_RESOURCE_ID}" > /dev/null
 
     docker pull "${IMAGE_TAG}" || ALL_ARCH_linux=amd64 make container-all push-manifest
     make e2e-install-prerequisites
