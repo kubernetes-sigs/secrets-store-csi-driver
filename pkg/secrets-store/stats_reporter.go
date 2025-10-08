@@ -20,9 +20,9 @@ import (
 	"context"
 	"runtime"
 
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/metric/global"
 )
 
 const (
@@ -58,7 +58,7 @@ func NewStatsReporter() (StatsReporter, error) {
 	var err error
 
 	r := &reporter{}
-	meter := global.Meter(scope)
+	meter := otel.Meter(scope)
 
 	if r.nodePublishTotal, err = meter.Int64Counter("node_publish", metric.WithDescription("Total number of node publish calls")); err != nil {
 		return nil, err

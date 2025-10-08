@@ -633,6 +633,7 @@ func TestReconcileNoError(t *testing.T) {
 
 		// test with pod being terminated
 		podToAdd.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+		podToAdd.Finalizers = []string{"testingFinalizer"}
 		kubeClient = fake.NewSimpleClientset(podToAdd, test.nodePublishSecretRefSecretToAdd)
 		initObjects = []client.Object{
 			podToAdd,

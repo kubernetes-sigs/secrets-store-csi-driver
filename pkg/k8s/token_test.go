@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	fakeclient "k8s.io/client-go/kubernetes/fake"
 	clitesting "k8s.io/client-go/testing"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 var (
@@ -111,7 +111,7 @@ func TestPodServiceAccountTokenAttrs(t *testing.T) {
 					tr.Spec.Audiences = []string{"api"}
 				}
 				if tr.Spec.ExpirationSeconds == nil {
-					tr.Spec.ExpirationSeconds = pointer.Int64(3600)
+					tr.Spec.ExpirationSeconds = ptr.To(int64(3600))
 				}
 				tr.Status.Token = fmt.Sprintf("%v:%v:%d:%v", action.GetNamespace(), testAccount, *tr.Spec.ExpirationSeconds, tr.Spec.Audiences)
 				tr.Status.ExpirationTimestamp = metav1.NewTime(time.Unix(1, 1))
