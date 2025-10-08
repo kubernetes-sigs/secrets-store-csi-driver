@@ -20,9 +20,9 @@ import (
 	"context"
 	"runtime"
 
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/metric/global"
 )
 
 const (
@@ -53,7 +53,7 @@ func newStatsReporter() (StatsReporter, error) {
 	var err error
 
 	r := &reporter{}
-	meter := global.Meter(scope)
+	meter := otel.Meter(scope)
 
 	if r.rotationReconcileTotal, err = meter.Int64Counter("rotation_reconcile", metric.WithDescription("Total number of rotation reconciles")); err != nil {
 		return nil, err
