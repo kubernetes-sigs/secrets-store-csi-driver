@@ -152,9 +152,22 @@ func (p *PluginClientBuilder) Get(ctx context.Context, provider string) (v1alpha
 		return nil, fmt.Errorf("%w: provider %q", errProviderNotFound, provider)
 	}
 
+	// Use "localhost" as the target to ensure the HTTP/2 :authority pseudo-header
+	// is set to "localhost" instead of the Unix socket path when communicating over
+	// Unix Domain Sockets (UDS). Per RFC 9113 §8.3.1 and RFC 3986 §3.2, the :authority
+	// header must contain a valid host[:port], not a filesystem path.
+	//
+	// Some non-Go gRPC implementations (e.g., ASP.NET Core, Java Netty) enforce strict
+	// validation and reject requests with invalid :authority values. Using "localhost"
+	// as the target ensures interoperability with these implementations.
+	//
+	// The actual Unix socket path is provided to the custom dialer via a closure,
+	// overriding the default dialer configured in NewPluginClientBuilder.
 	conn, err := grpc.Dial(
-		socketPath,
-		p.opts...,
+		"localhost",
+		append(p.opts, grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, "unix", socketPath)
+		}))...,
 	)
 	if err != nil {
 		return nil, err
