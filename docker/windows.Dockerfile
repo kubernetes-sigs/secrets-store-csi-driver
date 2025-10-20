@@ -17,7 +17,7 @@ ARG BASEIMAGE_CORE=gcr.io/k8s-staging-e2e-test-images/windows-servercore-cache:1
 
 FROM --platform=linux/amd64 ${BASEIMAGE_CORE} AS core
 
-FROM --platform=$BUILDPLATFORM golang:1.24.7@sha256:87916acb3242b6259a26deaa7953bdc6a3a6762a28d340e4f1448e7b5c27c009 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.25.3@sha256:6ea52a02734dd15e943286b048278da1e04eca196a564578d718c7720433dbbe AS builder
 WORKDIR /go/src/sigs.k8s.io/secrets-store-csi-driver
 ADD . .
 ARG TARGETARCH
