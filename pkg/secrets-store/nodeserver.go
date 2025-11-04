@@ -199,13 +199,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	for k, v := range attrib {
 		parameters[k] = v
 	}
-	// If the token doesn't exist in the volume request context, the CSI driver
-	// will generate the token for the configured audience and send it to the
-	// provider in the parameters.
-	if parameters[CSIPodServiceAccountTokens] == "" {
-		// Inject pod service account token into volume attributes
-		klog.Warning("csi.storage.k8s.io/serviceAccount.tokens is not populated")
-	}
 
 	// ensure it's read-only
 	if !req.GetReadonly() {

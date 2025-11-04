@@ -236,8 +236,6 @@ tokenRequests: []
 # - audience: aud1
 # - audience: aud2
 
-# this will be set to true even if enableSecretRotation is true
-requiresRepublish: true
 # -- Labels to apply to all resources
 commonLabels: {}
 # team_name: dev
