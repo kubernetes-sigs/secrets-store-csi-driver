@@ -18,10 +18,9 @@ package metrics
 
 import (
 	crprometheus "github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/prometheus"
-	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/sdk/metric"
-	"go.opentelemetry.io/otel/sdk/metric/aggregation"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
@@ -38,7 +37,7 @@ func initPrometheusExporter() error {
 		metric.WithView(metric.NewView(
 			metric.Instrument{Kind: metric.InstrumentKindHistogram},
 			metric.Stream{
-				Aggregation: aggregation.ExplicitBucketHistogram{
+				Aggregation: metric.AggregationExplicitBucketHistogram{
 					// Use custom buckets to avoid the default buckets which are too small for our use case.
 					// Start 100ms with last bucket being [~4m, +Inf)
 					Boundaries: crprometheus.ExponentialBucketsRange(0.1, 2, 11),
@@ -46,7 +45,7 @@ func initPrometheusExporter() error {
 		)),
 	)
 
-	global.SetMeterProvider(meterProvider)
+	otel.SetMeterProvider(meterProvider)
 
 	return nil
 }
