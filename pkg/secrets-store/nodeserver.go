@@ -72,8 +72,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	var providerName string
 	var podName, podNamespace, podUID string
 	var targetPath string
-	var mounted bool
-	var isRemountRequest bool
+	var mounted, isRemountRequest, skipped bool
 	errorReason := internalerrors.FailedToMount
 	rotationEnabled := ns.rotationConfig.enabled
 
@@ -90,12 +89,12 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 				}
 			}
 			ns.reporter.ReportNodePublishErrorCtMetric(ctx, providerName, errorReason)
-			if isRemountRequest {
+			if isRemountRequest && !skipped {
 				ns.reporter.ReportRotationErrorCtMetric(ctx, providerName, errorReason, true)
 			}
 			return
 		}
-		if isRemountRequest {
+		if isRemountRequest && !skipped {
 			ns.reporter.ReportRotationCtMetric(ctx, providerName, true)
 			ns.reporter.ReportRotationDuration(ctx, time.Since(startTime).Seconds())
 		}
@@ -134,6 +133,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			klog.InfoS("could not find last modification time for targetpath", targetPath, "error", err)
 		} else if startTime.Before(lastModificationTime.Add(ns.rotationConfig.rotationCacheDuration)) {
 			// if next rotation is not yet due, then skip the mount operation
+			skipped = true
 			return &csi.NodePublishVolumeResponse{}, nil
 		}
 	}
@@ -157,6 +157,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	// If rotation is not enabled, don't remount the already mounted secrets.
 	if !rotationEnabled && mounted {
 		klog.InfoS("target path is already mounted", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
+		skipped = true
 		return &csi.NodePublishVolumeResponse{}, nil
 	}
 
