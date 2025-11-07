@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider/types"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 )
@@ -76,7 +77,17 @@ func NewE2EProviderServer(endpoint string) (*Server, error) {
 		}
 	}
 
-	server := grpc.NewServer()
+	server := grpc.NewServer(
+		grpc.UnaryInterceptor(
+			func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+				if val := metadata.ValueFromIncomingContext(ctx, ":authority"); len(val) != 1 || val[0] != "localhost" {
+					return nil, fmt.Errorf("want authority localhost, got %v", val)
+				}
+				return handler(ctx, req)
+			},
+		),
+	)
+
 	s := &Server{
 		grpcServer: server,
 		socketPath: address,
