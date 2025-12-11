@@ -19,8 +19,8 @@ package secretsstore
 import (
 	"context"
 	"os"
+	"time"
 
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
 	"k8s.io/klog/v2"
@@ -38,11 +38,16 @@ type SecretsStore struct {
 	ids *identityServer
 }
 
+// rotationConfig stores the information required to rotate the secrets.
+type rotationConfig struct {
+	enabled               bool
+	rotationCacheDuration time.Duration // After this much duration, NodePublishVolume will be acted.
+}
+
 func NewSecretsStoreDriver(driverName, nodeID, endpoint string,
 	providerClients *PluginClientBuilder,
 	client client.Client,
-	reader client.Reader,
-	tokenClient *k8s.TokenClient) *SecretsStore {
+	reader client.Reader, rotationEnabled bool, rotationPollInterval time.Duration) *SecretsStore {
 	klog.InfoS("Initializing Secrets Store CSI Driver", "driver", driverName, "version", version.BuildVersion, "buildTime", version.BuildTime)
 
 	sr, err := NewStatsReporter()
@@ -50,7 +55,9 @@ func NewSecretsStoreDriver(driverName, nodeID, endpoint string,
 		klog.ErrorS(err, "failed to initialize stats reporter")
 		os.Exit(1)
 	}
-	ns, err := newNodeServer(nodeID, mount.New(""), providerClients, client, reader, sr, tokenClient)
+
+	rc := newRotationConfig(rotationEnabled, rotationPollInterval)
+	ns, err := newNodeServer(nodeID, mount.New(""), providerClients, client, reader, sr, rc)
 	if err != nil {
 		klog.ErrorS(err, "failed to initialize node server")
 		os.Exit(1)
@@ -70,7 +77,7 @@ func newNodeServer(nodeID string,
 	client client.Client,
 	reader client.Reader,
 	statsReporter StatsReporter,
-	tokenClient *k8s.TokenClient) (*nodeServer, error) {
+	rotationConfig *rotationConfig) (*nodeServer, error) {
 	return &nodeServer{
 		mounter:         mounter,
 		reporter:        statsReporter,
@@ -78,8 +85,15 @@ func newNodeServer(nodeID string,
 		client:          client,
 		reader:          reader,
 		providerClients: providerClients,
-		tokenClient:     tokenClient,
+		rotationConfig:  rotationConfig,
 	}, nil
+}
+
+func newRotationConfig(enabled bool, interval time.Duration) *rotationConfig {
+	return &rotationConfig{
+		enabled:               enabled,
+		rotationCacheDuration: interval,
+	}
 }
 
 // Run starts the CSI plugin

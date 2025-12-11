@@ -29,9 +29,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	"sigs.k8s.io/secrets-store-csi-driver/controllers"
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/k8s"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/metrics"
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/rotation"
 	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
@@ -40,7 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 	"monis.app/mlog"
@@ -201,26 +198,7 @@ func mainErr() error {
 		reconciler.RunPatcher(ctx)
 	}()
 
-	// token request client
-	kubeClient := kubernetes.NewForConfigOrDie(cfg)
-	tokenClient := k8s.NewTokenClient(kubeClient, *driverName, 10*time.Minute)
-
-	if err = tokenClient.Run(ctx.Done()); err != nil {
-		klog.ErrorS(err, "failed to run token client")
-		return err
-	}
-
-	// Secret rotation
-	if *enableSecretRotation {
-		rec, err := rotation.NewReconciler(*driverName, mgr.GetCache(), scheme, *rotationPollInterval, providerClients, tokenClient)
-		if err != nil {
-			klog.ErrorS(err, "failed to initialize rotation reconciler")
-			return err
-		}
-		go rec.Run(ctx.Done())
-	}
-
-	driver := secretsstore.NewSecretsStoreDriver(*driverName, *nodeID, *endpoint, providerClients, mgr.GetClient(), mgr.GetAPIReader(), tokenClient)
+	driver := secretsstore.NewSecretsStoreDriver(*driverName, *nodeID, *endpoint, providerClients, mgr.GetClient(), mgr.GetAPIReader(), *enableSecretRotation, *rotationPollInterval)
 	driver.Run(ctx)
 
 	return nil

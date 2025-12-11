@@ -20,10 +20,11 @@ require (
 	k8s.io/client-go v0.30.1
 	k8s.io/klog/v2 v2.120.1
 	k8s.io/mount-utils v0.26.4
-	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	monis.app/mlog v0.0.2
 	sigs.k8s.io/controller-runtime v0.18.7
 )
+
+require k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect

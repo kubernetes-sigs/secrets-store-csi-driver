@@ -400,9 +400,7 @@ e2e-provider-deploy:
 e2e-deploy-manifest:
 	kubectl apply -f manifest_staging/deploy/csidriver.yaml
 	kubectl apply -f manifest_staging/deploy/rbac-secretproviderclass.yaml
-	kubectl apply -f manifest_staging/deploy/rbac-secretproviderrotation.yaml
 	kubectl apply -f manifest_staging/deploy/rbac-secretprovidersyncing.yaml
-	kubectl apply -f manifest_staging/deploy/rbac-secretprovidertokenrequest.yaml
 	kubectl apply -f manifest_staging/deploy/secrets-store.csi.x-k8s.io_secretproviderclasses.yaml
 	kubectl apply -f manifest_staging/deploy/secrets-store.csi.x-k8s.io_secretproviderclasspodstatuses.yaml
 	kubectl apply -f manifest_staging/deploy/role-secretproviderclasses-admin.yaml
@@ -534,15 +532,6 @@ manifests: $(CONTROLLER_GEN) $(KUSTOMIZE)  ## Generate manifests e.g. CRD, RBAC 
 	@sed -i '1s/^/{{ if .Values.enableSecretRotation }}\n/gm; s/namespace: .*/namespace: {{ .Release.Namespace }}/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-rotation_binding.yaml
 	@sed -i '/^roleRef:/i \ \ labels:\n{{ include \"sscd.labels\" . | indent 4 }}' manifest_staging/charts/secrets-store-csi-driver/templates/role-rotation_binding.yaml
 
-	# Generate token requests specific RBAC
-	$(CONTROLLER_GEN) rbac:roleName=secretprovidertokenrequest-role paths="./controllers/tokenrequest" output:dir=config/rbac-tokenrequest
-	$(KUSTOMIZE) build config/rbac-tokenrequest -o manifest_staging/deploy/rbac-secretprovidertokenrequest.yaml
-	cp config/rbac-tokenrequest/role.yaml manifest_staging/charts/secrets-store-csi-driver/templates/role-tokenrequest.yaml
-	cp config/rbac-tokenrequest/role_binding.yaml manifest_staging/charts/secrets-store-csi-driver/templates/role-tokenrequest_binding.yaml
-	@sed -i '1s/^/{{ if .Values.tokenRequests }}\n/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-tokenrequest.yaml
-	@sed -i '/^rules:/i \ \ labels:\n{{ include \"sscd.labels\" . | indent 4 }}' manifest_staging/charts/secrets-store-csi-driver/templates/role-tokenrequest.yaml
-	@sed -i '1s/^/{{ if .Values.tokenRequests }}\n/gm; s/namespace: .*/namespace: {{ .Release.Namespace }}/gm; $$s/$$/\n{{ end }}/gm' manifest_staging/charts/secrets-store-csi-driver/templates/role-tokenrequest_binding.yaml
-	@sed -i '/^roleRef:/i \ \ labels:\n{{ include \"sscd.labels\" . | indent 4 }}' manifest_staging/charts/secrets-store-csi-driver/templates/role-tokenrequest_binding.yaml
 
 .PHONY: generate-protobuf
 generate-protobuf: $(PROTOC) $(PROTOC_GEN_GO) $(PROTOC_GEN_GO_GRPC) # generates protobuf

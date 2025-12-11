@@ -34,15 +34,19 @@ var (
 	errorKey    = "error_type"
 	osTypeKey   = "os_type"
 	runtimeOS   = runtime.GOOS
+	rotatedKey  = "rotated"
 )
 
 type reporter struct {
-	nodePublishTotal        metric.Int64Counter
-	nodeUnPublishTotal      metric.Int64Counter
-	nodePublishErrorTotal   metric.Int64Counter
-	nodeUnPublishErrorTotal metric.Int64Counter
-	syncK8sSecretTotal      metric.Int64Counter
-	syncK8sSecretDuration   metric.Float64Histogram
+	nodePublishTotal            metric.Int64Counter
+	nodeUnPublishTotal          metric.Int64Counter
+	nodePublishErrorTotal       metric.Int64Counter
+	nodeUnPublishErrorTotal     metric.Int64Counter
+	syncK8sSecretTotal          metric.Int64Counter
+	syncK8sSecretDuration       metric.Float64Histogram
+	rotationReconcileTotal      metric.Int64Counter
+	rotationReconcileErrorTotal metric.Int64Counter
+	rotationReconcileDuration   metric.Float64Histogram
 }
 
 type StatsReporter interface {
@@ -52,6 +56,9 @@ type StatsReporter interface {
 	ReportNodeUnPublishErrorCtMetric(ctx context.Context)
 	ReportSyncK8SecretCtMetric(ctx context.Context, provider string, count int)
 	ReportSyncK8SecretDuration(ctx context.Context, duration float64)
+	ReportRotationCtMetric(ctx context.Context, provider string, wasRotated bool)
+	ReportRotationErrorCtMetric(ctx context.Context, provider, errType string, wasRotated bool)
+	ReportRotationDuration(ctx context.Context, duration float64)
 }
 
 func NewStatsReporter() (StatsReporter, error) {
@@ -78,6 +85,16 @@ func NewStatsReporter() (StatsReporter, error) {
 	if r.syncK8sSecretDuration, err = meter.Float64Histogram("k8s_secret_duration_sec", metric.WithDescription("Distribution of how long it took to sync k8s secret")); err != nil {
 		return nil, err
 	}
+	if r.rotationReconcileTotal, err = meter.Int64Counter("rotation_reconcile", metric.WithDescription("Total number of rotation reconciles")); err != nil {
+		return nil, err
+	}
+	if r.rotationReconcileErrorTotal, err = meter.Int64Counter("rotation_reconcile_error", metric.WithDescription("Total number of rotation reconciles with error")); err != nil {
+		return nil, err
+	}
+	if r.rotationReconcileDuration, err = meter.Float64Histogram("rotation_reconcile_duration_sec", metric.WithDescription("Distribution of how long it took to rotate secrets-store content for pods")); err != nil {
+		return nil, err
+	}
+
 	return r, nil
 }
 
@@ -125,4 +142,30 @@ func (r *reporter) ReportSyncK8SecretDuration(ctx context.Context, duration floa
 		attribute.Key(osTypeKey).String(runtimeOS),
 	)
 	r.syncK8sSecretDuration.Record(ctx, duration, opt)
+}
+
+func (r *reporter) ReportRotationCtMetric(ctx context.Context, provider string, wasRotated bool) {
+	opt := metric.WithAttributes(
+		attribute.Key(providerKey).String(provider),
+		attribute.Key(osTypeKey).String(runtimeOS),
+		attribute.Key(rotatedKey).Bool(wasRotated),
+	)
+	r.rotationReconcileTotal.Add(ctx, 1, opt)
+}
+
+func (r *reporter) ReportRotationErrorCtMetric(ctx context.Context, provider, errType string, wasRotated bool) {
+	opt := metric.WithAttributes(
+		attribute.Key(providerKey).String(provider),
+		attribute.Key(errorKey).String(errType),
+		attribute.Key(osTypeKey).String(runtimeOS),
+		attribute.Key(rotatedKey).Bool(wasRotated),
+	)
+	r.rotationReconcileErrorTotal.Add(ctx, 1, opt)
+}
+
+func (r *reporter) ReportRotationDuration(ctx context.Context, duration float64) {
+	opt := metric.WithAttributes(
+		attribute.Key(osTypeKey).String(runtimeOS),
+	)
+	r.rotationReconcileDuration.Record(ctx, duration, opt)
 }
