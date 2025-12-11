@@ -72,12 +72,12 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	var providerName string
 	var podName, podNamespace, podUID string
 	var targetPath string
-	var mounted, isRemountRequest, skipped bool
+	var mounted, isRemountRequest, skipped, isErrorMasked bool
 	errorReason := internalerrors.FailedToMount
 	rotationEnabled := ns.rotationConfig.enabled
 
 	defer func() {
-		if err != nil {
+		if err != nil || isErrorMasked {
 			// if there is an error at any stage during node publish volume and if the path
 			// has already been mounted if the rotation is disabled, unmount the target path so the next time kubelet calls
 			// again for mount, entire node publish volume is retried
@@ -242,6 +242,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		klog.ErrorS(err, "failed to mount secrets store object content", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName}, "isRemountRequest", isRemountRequest)
 		if isRemountRequest {
 			// Mask error until fix available for https://github.com/kubernetes/kubernetes/issues/121271
+			isErrorMasked = true
 			return &csi.NodePublishVolumeResponse{}, nil
 		}
 		return nil, fmt.Errorf("failed to mount secrets store objects for pod %s/%s, err: %w", podNamespace, podName, err)
@@ -255,6 +256,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		klog.ErrorS(err, "failed to create/update spcps", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName}, "isRemountRequest", isRemountRequest)
 		if isRemountRequest {
 			// Mask error until fix available for https://github.com/kubernetes/kubernetes/issues/121271
+			isErrorMasked = true
 			return &csi.NodePublishVolumeResponse{}, nil
 		}
 		return nil, fmt.Errorf("failed to create secret provider class pod status for pod %s/%s, err: %w", podNamespace, podName, err)
