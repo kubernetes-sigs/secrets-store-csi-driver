@@ -27,6 +27,7 @@ import (
 	"testing"
 	"time"
 
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/constants"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/fake"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
@@ -195,7 +196,7 @@ func TestMountContent(t *testing.T) {
 				t.Fatalf("expected err to be nil, got: %+v", err)
 			}
 
-			objectVersions, _, err := MountContent(context.TODO(), client, "{}", "{}", targetPath, test.permission, nil)
+			objectVersions, _, err := MountContent(context.TODO(), client, "{}", "{}", targetPath, test.permission, nil, constants.NoGID)
 			if err != nil {
 				t.Errorf("expected err to be nil, got: %+v", err)
 			}
@@ -253,7 +254,7 @@ func TestMountContent_TooLarge(t *testing.T) {
 	}
 
 	// rpc error: code = ResourceExhausted desc = grpc: received message larger than max (28 vs. 5)
-	_, errorCode, err := MountContent(context.TODO(), client, "{}", "{}", targetPath, "777", nil)
+	_, errorCode, err := MountContent(context.TODO(), client, "{}", "{}", targetPath, "777", nil, constants.NoGID)
 	if err == nil {
 		t.Errorf("expected err to be not nil")
 	}
@@ -347,7 +348,7 @@ func TestMountContentError(t *testing.T) {
 				t.Fatalf("expected err to be nil, got: %+v", err)
 			}
 
-			objectVersions, errorCode, err := MountContent(context.TODO(), client, test.attributes, test.secrets, test.targetPath, test.permission, nil)
+			objectVersions, errorCode, err := MountContent(context.TODO(), client, test.attributes, test.secrets, test.targetPath, test.permission, nil, constants.NoGID)
 			if err == nil {
 				t.Errorf("expected err to be not nil")
 			}
