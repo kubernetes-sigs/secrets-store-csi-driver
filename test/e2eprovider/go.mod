@@ -1,6 +1,6 @@
 module sigs.k8s.io/secrets-store-csi-driver/test/e2eprovider
 
-go 1.24.9
+go 1.24.11
 
 replace sigs.k8s.io/secrets-store-csi-driver => ../..
 
@@ -41,9 +41,9 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
-	golang.org/x/net v0.40.0 // indirect
-	golang.org/x/sys v0.35.0 // indirect
-	golang.org/x/text v0.25.0 // indirect
+	golang.org/x/net v0.47.0 // indirect
+	golang.org/x/sys v0.39.0 // indirect
+	golang.org/x/text v0.32.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250303144028-a0af3efb3deb // indirect
 	google.golang.org/protobuf v1.36.8 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
