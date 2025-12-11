@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.24.9@sha256:5034fa44b36163a4109b71ed75c67dbdcb52c3cd9750953befe00054315d9fd2 as builder
+FROM golang:1.24.11@sha256:e3fb71a958a346439626e5796d79749c7ed22e61f09f078f434486015285f432 as builder
 WORKDIR /go/src/sigs.k8s.io/secrets-store-csi-driver
 ADD . .
 RUN make build-e2e-provider
