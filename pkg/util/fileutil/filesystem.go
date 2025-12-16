@@ -21,7 +21,10 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
+
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/constants"
 )
 
 var (
@@ -126,4 +129,16 @@ func GetVolumeNameFromTargetPath(targetPath string) string {
 		return ""
 	}
 	return match[2]
+}
+
+// ParseFSGroup parses the FSGroup string and returns the GID as int64.
+// If fsGroupStr is empty, returns constants.NoGID.
+// Returns an error if the fsGroupStr cannot be parsed as a valid non-negative int64.
+func ParseFSGroup(fsGroupStr string) (int64, error) {
+	if len(fsGroupStr) == 0 {
+		return constants.NoGID, nil
+	}
+	// Non-sentinel negative GID is invalid and thus we use ParseUint here.
+	gid, err := strconv.ParseUint(fsGroupStr, 10, 63)
+	return int64(gid), err
 }

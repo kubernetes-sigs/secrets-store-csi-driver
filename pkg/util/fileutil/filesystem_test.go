@@ -24,6 +24,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/constants"
 )
 
 func TestGetMountedFiles(t *testing.T) {
@@ -331,5 +332,75 @@ func TestGetVolumeNameFromTargetPath(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("GetVolumeNameFromTargetPath(%v) = %v, want %v", tc.targetPath, got, tc.want)
 		}
+	}
+}
+
+func TestParseFSGroup(t *testing.T) {
+	cases := []struct {
+		name        string
+		fsGroupStr  string
+		want        int64
+		expectedErr bool
+	}{
+		{
+			name:        "empty string returns NoGID",
+			fsGroupStr:  "",
+			want:        constants.NoGID,
+			expectedErr: false,
+		},
+		{
+			name:        "valid gid",
+			fsGroupStr:  "1000",
+			want:        1000,
+			expectedErr: false,
+		},
+		{
+			name:        "valid gid zero",
+			fsGroupStr:  "0",
+			want:        0,
+			expectedErr: false,
+		},
+		{
+			name:        "valid large gid",
+			fsGroupStr:  "65534",
+			want:        65534,
+			expectedErr: false,
+		},
+		{
+			name:        "invalid gid - non-numeric",
+			fsGroupStr:  "INVALID",
+			expectedErr: true,
+		},
+		{
+			name:        "invalid gid - float",
+			fsGroupStr:  "123.45",
+			expectedErr: true,
+		},
+		{
+			name:        "invalid gid - with spaces",
+			fsGroupStr:  "123 456",
+			expectedErr: true,
+		},
+		{
+			name:        "negative gid",
+			fsGroupStr:  "-23",
+			expectedErr: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ParseFSGroup(tc.fsGroupStr)
+			switch {
+			case tc.expectedErr:
+				if err == nil {
+					t.Errorf("ParseFSGroup(%q) expected error but got none", tc.fsGroupStr)
+				}
+			case err != nil:
+				t.Errorf("ParseFSGroup(%q) unexpected error: %v", tc.fsGroupStr, err)
+			case got != tc.want:
+				t.Errorf("ParseFSGroup(%q) = %v, want %v", tc.fsGroupStr, got, tc.want)
+			}
+		})
 	}
 }
