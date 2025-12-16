@@ -8,10 +8,10 @@ spec:
   podInfoOnMount: true
   attachRequired: false
   # Added in Kubernetes 1.16 with default mode of Persistent. Secrets store csi driver needs Ephermeral to be set.
-  volumeLifecycleModes: 
+  volumeLifecycleModes:
   - Ephemeral
-  {{- if and (semverCompare ">=1.20-0" .Capabilities.KubeVersion.Version) .Values.tokenRequests }}
   requiresRepublish: {{ .Values.enableSecretRotation }}
+  {{- if .Values.tokenRequests }}
   tokenRequests:
     {{- toYaml .Values.tokenRequests | nindent 2 }}
   {{- end }}
