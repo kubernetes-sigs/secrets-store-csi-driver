@@ -236,6 +236,10 @@ tokenRequests: []
 # - audience: aud1
 # - audience: aud2
 
+## automountServiceAccountToken controls whether a service account token
+## should be automatically mounted on the Pod spec
+automountServiceAccountToken: true
+
 # -- Labels to apply to all resources
 commonLabels: {}
 # team_name: dev
