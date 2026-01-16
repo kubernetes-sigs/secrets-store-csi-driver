@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"time"
@@ -195,8 +196,12 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		return nil, err
 	}
 	// send all the volume attributes sent from kubelet to the provider
-	for k, v := range attrib {
-		parameters[k] = v
+	maps.Copy(parameters, attrib)
+
+	serviceAccountTokens := getServiceAccountTokens(req)
+	// serviceAccountTokens can be empty if tokenRequests is not configured in the csidriver object
+	if len(serviceAccountTokens) > 0 {
+		parameters[csiPodServiceAccountTokens] = serviceAccountTokens
 	}
 
 	// ensure it's read-only
@@ -388,4 +393,13 @@ func (ns *nodeServer) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetC
 
 func (ns *nodeServer) NodeGetVolumeStats(ctx context.Context, in *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
+}
+
+func getServiceAccountTokens(req *csi.NodePublishVolumeRequest) string {
+	// Check secrets field first (new behavior when driver opts in)
+	if tokens, ok := req.Secrets[csiPodServiceAccountTokens]; ok {
+		return tokens
+	}
+	// Fall back to volume context (existing behavior)
+	return req.VolumeContext[csiPodServiceAccountTokens]
 }

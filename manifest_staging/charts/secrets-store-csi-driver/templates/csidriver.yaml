@@ -14,4 +14,7 @@ spec:
   {{- if .Values.tokenRequests }}
   tokenRequests:
     {{- toYaml .Values.tokenRequests | nindent 2 }}
+  {{- if semverCompare ">=1.35.0" .Capabilities.KubeVersion.Version }}
+  serviceAccountTokenInSecrets: true
+  {{- end }}
   {{- end }}
