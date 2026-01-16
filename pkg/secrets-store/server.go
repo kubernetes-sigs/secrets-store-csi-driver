@@ -177,8 +177,8 @@ func sanitizeRequest(req interface{}) string {
 	for k, v := range r.VolumeContext {
 		volumeContext[k] = v
 	}
-	if _, ok := volumeContext[CSIPodServiceAccountTokens]; ok {
-		volumeContext[CSIPodServiceAccountTokens] = "***stripped***"
+	if _, ok := volumeContext[csiPodServiceAccountTokens]; ok {
+		volumeContext[csiPodServiceAccountTokens] = "***stripped***"
 	}
 	tmp.VolumeContext = volumeContext
 	return pbSanitizer.StripSecrets(&tmp).String()

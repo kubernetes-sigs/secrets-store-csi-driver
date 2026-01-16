@@ -48,19 +48,17 @@ type nodeServer struct {
 }
 
 const (
-	// FilePermission is the permission to be used for the staging target path
-	FilePermission os.FileMode = 0644
+	// filePermission is the permission to be used for the staging target path
+	filePermission os.FileMode = 0644
 
-	// CSIPodName is the name of the pod that the mount is created for
-	CSIPodName = "csi.storage.k8s.io/pod.name"
-	// CSIPodNamespace is the namespace of the pod that the mount is created for
-	CSIPodNamespace = "csi.storage.k8s.io/pod.namespace"
-	// CSIPodUID is the UID of the pod that the mount is created for
-	CSIPodUID = "csi.storage.k8s.io/pod.uid"
-	// CSIPodServiceAccountName is the name of the pod service account that the mount is created for
-	CSIPodServiceAccountName = "csi.storage.k8s.io/serviceAccount.name"
-	// CSIPodServiceAccountTokens is the service account tokens of the pod that the mount is created for
-	CSIPodServiceAccountTokens = "csi.storage.k8s.io/serviceAccount.tokens" //nolint
+	// csiPodName is the name of the pod that the mount is created for
+	csiPodName = "csi.storage.k8s.io/pod.name"
+	// csiPodNamespace is the namespace of the pod that the mount is created for
+	csiPodNamespace = "csi.storage.k8s.io/pod.namespace"
+	// csiPodUID is the UID of the pod that the mount is created for
+	csiPodUID = "csi.storage.k8s.io/pod.uid"
+	// csiPodServiceAccountTokens is the service account tokens of the pod that the mount is created for
+	csiPodServiceAccountTokens = "csi.storage.k8s.io/serviceAccount.tokens" //nolint
 
 	secretProviderClassField = "secretProviderClass"
 )
@@ -123,9 +121,9 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 	secretProviderClass := attrib[secretProviderClassField]
 	providerName = attrib["providerName"]
-	podName = attrib[CSIPodName]
-	podNamespace = attrib[CSIPodNamespace]
-	podUID = attrib[CSIPodUID]
+	podName = attrib[csiPodName]
+	podNamespace = attrib[csiPodNamespace]
+	podUID = attrib[csiPodUID]
 
 	if rotationEnabled {
 		lastModificationTime, err := ns.getLastUpdateTime(targetPath)
@@ -216,7 +214,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		klog.ErrorS(err, "failed to marshal node publish secrets", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 		return nil, err
 	}
-	permissionStr, err := json.Marshal(FilePermission)
+	permissionStr, err := json.Marshal(filePermission)
 	if err != nil {
 		klog.ErrorS(err, "failed to marshal file permission", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 		return nil, err

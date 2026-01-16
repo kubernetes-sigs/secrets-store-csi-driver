@@ -135,10 +135,10 @@ func TestSanitizeRequest(t *testing.T) {
 					"foo": "bar",
 				},
 				VolumeContext: map[string]string{
-					CSIPodServiceAccountTokens: "token1,token2",
+					csiPodServiceAccountTokens: "token1,token2",
 				},
 			},
-			expected: fmt.Sprintf(`{"secrets":"***stripped***","volume_context":{"%s":"***stripped***"}}`, CSIPodServiceAccountTokens),
+			expected: fmt.Sprintf(`{"secrets":"***stripped***","volume_context":{"%s":"***stripped***"}}`, csiPodServiceAccountTokens),
 		},
 	}
 
