@@ -493,6 +493,10 @@ e2e-aws:
 e2e-conjur:
 	bats -t test/bats/conjur.bats
 
+.PHONY: e2e-openbao
+e2e-openbao:
+	bats -t test/bats/openbao.bats
+
 ##@ Generate
 
 .PHONY: manifests
