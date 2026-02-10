@@ -5,7 +5,7 @@ go 1.25.6
 require (
 	github.com/golangci/golangci-lint v1.64.8
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.3.0
-	google.golang.org/protobuf v1.36.5
+	google.golang.org/protobuf v1.36.11
 	k8s.io/code-generator v0.31.0
 	sigs.k8s.io/controller-tools v0.16.3
 	sigs.k8s.io/kustomize/kustomize/v5 v5.4.3
