@@ -50,4 +50,5 @@ These features are not stable. If you use these be sure to consult the
 - [Azure Provider](https://azure.github.io/secrets-store-csi-driver-provider-azure/)
 - [Conjur Provider](https://github.com/cyberark/conjur-k8s-csi-provider)
 - [GCP Provider](https://github.com/GoogleCloudPlatform/secrets-store-csi-driver-provider-gcp)
+- [OpenBao Provider](https://github.com/openbao/openbao-csi-provider)
 - [Vault Provider](https://github.com/hashicorp/secrets-store-csi-driver-provider-vault)
