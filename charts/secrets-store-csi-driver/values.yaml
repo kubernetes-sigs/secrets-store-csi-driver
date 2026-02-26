@@ -2,7 +2,7 @@ linux:
   enabled: true
   image:
     repository: registry.k8s.io/csi-secrets-store/driver
-    tag: v1.5.5
+    tag: v1.5.6
     #digest: sha256:
     pullPolicy: IfNotPresent
 
@@ -10,7 +10,7 @@ linux:
     enabled: true
     image:
       repository: registry.k8s.io/csi-secrets-store/driver-crds
-      tag: v1.5.5
+      tag: v1.5.6
       pullPolicy: IfNotPresent
     ## Optionally override resource limits for crd hooks(jobs)
     resources: {}
@@ -110,7 +110,7 @@ windows:
   enabled: false
   image:
     repository: registry.k8s.io/csi-secrets-store/driver
-    tag: v1.5.5
+    tag: v1.5.6
     #digest: sha256:
     pullPolicy: IfNotPresent
 
@@ -238,6 +238,10 @@ imagePullSecrets: []
 tokenRequests: []
 # - audience: aud1
 # - audience: aud2
+
+## automountServiceAccountToken controls whether a service account token
+## should be automatically mounted on the Pod spec
+automountServiceAccountToken: true
 
 # -- Labels to apply to all resources
 commonLabels: {}
