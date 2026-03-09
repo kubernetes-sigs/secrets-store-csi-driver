@@ -7,7 +7,7 @@ replace sigs.k8s.io/secrets-store-csi-driver => ../..
 require (
 	github.com/google/go-cmp v0.7.0
 	google.golang.org/grpc v1.72.1
-	k8s.io/klog/v2 v2.130.1
+	k8s.io/klog/v2 v2.140.0
 	monis.app/mlog v0.0.4
 	sigs.k8s.io/secrets-store-csi-driver v0.0.0-00010101000000-000000000000
 	sigs.k8s.io/yaml v1.6.0
