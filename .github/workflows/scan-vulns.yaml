@@ -10,7 +10,8 @@ on:
     - "docs/**"
     - "**.md"
 
-permissions: read-all
+permissions:
+  contents: read
 
 jobs:
   govulncheck:
@@ -25,10 +26,14 @@ jobs:
 
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.0.0
         with:
-          sparse-checkout: "go.mod"
-          sparse-checkout-cone-mode: false
+          persist-credentials: false
       - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
           go-version-file: "go.mod"
           check-latest: true
       - uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee # v1.0.4
+
+      - name: Golang vulncheck - tools
+        uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee # v1.0.4
+        with:
+          work-dir: hack/tools
