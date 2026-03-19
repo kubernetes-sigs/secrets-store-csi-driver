@@ -40,6 +40,7 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
+          persist-credentials: false
       - name: Setup BATS
         uses: mig4/setup-bats@af9a00deb21b5d795cabfeaa8d9060410377686d # v1.2.0
         with:

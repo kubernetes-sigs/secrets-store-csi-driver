@@ -12,7 +12,7 @@ on:
 # List of all permissions: https://docs.github.com/en/actions/reference/authentication-in-a-workflow#permissions-for-the-github_token
 # We need write permission for contents to be able to publish the chart
 permissions:
-  contents: write
+  contents: write # pushes content to gh-pages branch
 
 jobs:
   deploy:
@@ -26,6 +26,7 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
+          persist-credentials: false
       - name: Publish Helm chart
         uses: stefanprodan/helm-gh-pages@0ad2bb377311d61ac04ad9eb6f252fb68e207260 # v1.7.0
         with:

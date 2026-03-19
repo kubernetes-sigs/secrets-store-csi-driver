@@ -3,59 +3,13 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     commit-message:
       prefix: "chore"
-    labels:
-      - "area/dependency"
-      - "ok-to-test"
-
-  - package-ecosystem: "gomod"
-    directory: "/hack/tools"
-    schedule:
-      interval: "weekly"
-    commit-message:
-      prefix: "chore"
-    labels:
-      - "area/dependency"
-      - "ok-to-test"
-
-  - package-ecosystem: docker
-    directory: /.local
-    schedule:
-      interval: "weekly"
-    commit-message:
-      prefix: "chore"
-    labels:
-      - "area/dependency"
-      - "ok-to-test"
-
-  - package-ecosystem: docker
-    directory: /docker
-    schedule:
-      interval: "weekly"
-    commit-message:
-      prefix: "chore"
-    labels:
-      - "area/dependency"
-      - "ok-to-test"
-
-  - package-ecosystem: docker
-    directory: /test/e2eprovider
-    schedule:
-      interval: "weekly"
-    commit-message:
-      prefix: "chore"
-    labels:
-      - "area/dependency"
-      - "ok-to-test"
-
-  - package-ecosystem: gomod
-    directory: /test/e2eprovider
-    schedule:
-      interval: "weekly"
-    commit-message:
-      prefix: "chore"
+    groups:
+      all:
+        patterns:
+          - "*"
     labels:
       - "area/dependency"
       - "ok-to-test"

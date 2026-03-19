@@ -14,8 +14,8 @@ on:
   push:
     branches: ["main"]
 
-# Declare default permissions as read only.
-permissions: read-all
+# Remove all permissions by default, these get overriden in the job spec
+permissions: {}
 
 jobs:
   analysis:
