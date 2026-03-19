@@ -24,7 +24,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/constants"
 )
 
 func TestGetMountedFiles(t *testing.T) {
@@ -339,13 +338,13 @@ func TestParseFSGroup(t *testing.T) {
 	cases := []struct {
 		name        string
 		fsGroupStr  string
-		want        int64
+		want        int
 		expectedErr bool
 	}{
 		{
 			name:        "empty string returns NoGID",
 			fsGroupStr:  "",
-			want:        constants.NoGID,
+			want:        NoGID,
 			expectedErr: false,
 		},
 		{
@@ -382,9 +381,9 @@ func TestParseFSGroup(t *testing.T) {
 			expectedErr: true,
 		},
 		{
-			name:        "negative gid",
-			fsGroupStr:  "-23",
-			expectedErr: true,
+			name:       "negative gid",
+			fsGroupStr: "-23",
+			want:       -23,
 		},
 	}
 

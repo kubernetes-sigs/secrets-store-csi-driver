@@ -350,7 +350,7 @@ func (ns *nodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstag
 	return &csi.NodeUnstageVolumeResponse{}, nil
 }
 
-func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, providerName, attributes, secrets, targetPath, permission, podName string, gid int64) (map[string]string, string, error) {
+func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, providerName, attributes, secrets, targetPath, permission, podName string, gid int) (map[string]string, string, error) {
 	if len(attributes) == 0 {
 		return nil, "", errors.New("missing attributes")
 	}

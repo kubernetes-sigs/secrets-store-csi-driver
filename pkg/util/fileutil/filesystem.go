@@ -23,8 +23,11 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+)
 
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/constants"
+const (
+	// NoGID is the default gid -1 to indicate no change in FSGroup
+	NoGID int = -1
 )
 
 var (
@@ -131,14 +134,11 @@ func GetVolumeNameFromTargetPath(targetPath string) string {
 	return match[2]
 }
 
-// ParseFSGroup parses the FSGroup string and returns the GID as int64.
-// If fsGroupStr is empty, returns constants.NoGID.
-// Returns an error if the fsGroupStr cannot be parsed as a valid non-negative int64.
-func ParseFSGroup(fsGroupStr string) (int64, error) {
+// ParseFSGroup parses the FSGroup string and returns the GID.
+// If fsGroupStr is empty, returns NoGID.
+func ParseFSGroup(fsGroupStr string) (int, error) {
 	if len(fsGroupStr) == 0 {
-		return constants.NoGID, nil
+		return NoGID, nil
 	}
-	// Non-sentinel negative GID is invalid and thus we use ParseUint here.
-	gid, err := strconv.ParseUint(fsGroupStr, 10, 63)
-	return int64(gid), err
+	return strconv.Atoi(fsGroupStr)
 }

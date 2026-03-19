@@ -27,7 +27,6 @@ import (
 	"strings"
 	"testing"
 
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/constants"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/runtimeutil"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 )
@@ -373,7 +372,7 @@ func TestWritePayloads(t *testing.T) {
 			dir := t.TempDir()
 
 			// check that the first write succeeds and the contents match
-			if err := WritePayloads(dir, tc.first, constants.NoGID); err != nil {
+			if err := WritePayloads(dir, tc.first, NoGID); err != nil {
 				t.Errorf("WritePayload(first) got error: %v", err)
 			}
 
@@ -383,7 +382,7 @@ func TestWritePayloads(t *testing.T) {
 
 			// check that the second write succeeds and the contents match,
 			// ensuring that the files have the updated values
-			if err := WritePayloads(dir, tc.second, constants.NoGID); err != nil {
+			if err := WritePayloads(dir, tc.second, NoGID); err != nil {
 				t.Errorf("WritePayload(second) got error: %v", err)
 			}
 
@@ -422,7 +421,7 @@ func TestWritePayloads_BackwardCompatible(t *testing.T) {
 
 	want := []byte("new")
 
-	if err := WritePayloads(dir, payload, constants.NoGID); err != nil {
+	if err := WritePayloads(dir, payload, NoGID); err != nil {
 		t.Fatalf("could not write new file: %s", err)
 	}
 

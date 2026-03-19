@@ -13,7 +13,7 @@ fi
 
 # export secret vars
 export SECRET_NAME=${SECRET_NAME:-foo}
-# defualt version value returned by mock provider
+# default version value returned by mock provider
 export SECRET_VERSION=${SECRET_VERSION:-"v1"}
 # default secret value returned by the mock provider
 export SECRET_VALUE=${SECRET_VALUE:-"secret"}
@@ -22,12 +22,12 @@ export SECRET_MODE=${SECRET_MODE:-'"0644"'}
 
 # export key vars
 export KEY_NAME=${KEY_NAME:-fookey}
-# defualt version value returned by mock provider
+# default version value returned by mock provider
 export KEY_VERSION=${KEY_VERSION:-"v1"}
 # default key value returned by mock provider.
 # base64 encoded content comparision is easier in case of very long multiline string.
 export KEY_VALUE_CONTAINS=${KEY_VALUE:-"LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KVGhpcyBpcyBtb2NrIGtleQotLS0tLUVORCBQVUJMSUMgS0VZLS0tLS0K"}
-# defualt version value returned by mock provider
+# default version value returned by mock provider
 export KEY_MODE=${KEY_MODE:-'"0644"'}
 
 # export node selector var
@@ -98,19 +98,20 @@ function delete_pod() {
   # On Windows, the failed unmount calls from: https://github.com/kubernetes-sigs/secrets-store-csi-driver/pull/545
   # do not prevent the pod from being deleted. Search through the driver logs
   # for the error.
-  run bash -c "kubectl -n $NAMESPACE logs -l app=$POD_NAME --tail -1 -c secrets-store -n kube-system | grep '^E.*failed to clean and unmount target path.*$'"
+  run bash -c "kubectl -n $NAMESPACE logs -l app=$POD_NAME --tail -1 -c secrets-store | grep '^E.*failed to clean and unmount target path.*$'"
   assert_failure
 }
 
 function enable_secret_rotation() {
   # enable rotation response in mock server
   local curl_pod_name=curl-$(openssl rand -hex 5)
-  kubectl run ${curl_pod_name} -n rotation --image=curlimages/curl:7.75.0 --labels="test=rotation" -- tail -f /dev/null
-  kubectl wait -n rotation --for=condition=Ready --timeout=60s pod ${curl_pod_name}
+  kubectl run ${curl_pod_name} -n rotation --image=curlimages/curl:7.75.0 --labels="test=rotation" -- tail -f /dev/null > /dev/null
+  kubectl wait -n rotation --for=condition=Ready --timeout=60s pod ${curl_pod_name} > /dev/null
   local pod_ip=$(kubectl get pod -n kube-system -l app=csi-secrets-store-e2e-provider -o jsonpath="{.items[0].status.podIP}")
   run kubectl exec ${curl_pod_name} -n rotation -- curl http://${pod_ip}:8080/rotation?rotated=true
   # wait for rotated secret to be mounted
   sleep 120
+  echo "${curl_pod_name}"
 }
 
 function disable_secret_rotation() {

@@ -91,6 +91,7 @@ func getRequest(t *testing.T, customize func(*csi.NodePublishVolumeRequest)) *cs
 	customize(request)
 	return request
 }
+
 func TestNodePublishVolume_Errors(t *testing.T) {
 	tests := []struct {
 		name              string
@@ -266,6 +267,15 @@ func TestNodePublishVolume(t *testing.T) {
 			rotationConfig: &rotationConfig{
 				enabled:               true,
 				rotationCacheDuration: -1 * time.Minute, // Using negative interval to pass the rotation interval check in unit tests
+			},
+		},
+		{
+			name:              "volume mount with rotation but skipped",
+			nodePublishVolReq: getRequest(t, func(*csi.NodePublishVolumeRequest) {}),
+			initObjects:       getInitObjects(func(*secretsstorev1.SecretProviderClass) {}),
+			rotationConfig: &rotationConfig{
+				enabled:               true,
+				rotationCacheDuration: time.Minute,
 			},
 		},
 		{
