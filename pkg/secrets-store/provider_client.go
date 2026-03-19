@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -102,9 +101,6 @@ func NewPluginClientBuilder(paths []string, opts ...grpc.DialOption) *PluginClie
 		lock:        sync.RWMutex{},
 		opts: append(opts, []grpc.DialOption{
 			grpc.WithTransportCredentials(insecure.NewCredentials()), // the interface is only secured through filesystem ACLs
-			grpc.WithContextDialer(func(ctx context.Context, target string) (net.Conn, error) {
-				return (&net.Dialer{}).DialContext(ctx, "unix", target)
-			}),
 			grpc.WithDefaultServiceConfig(ServiceConfig),
 		}...,
 		),
@@ -152,8 +148,8 @@ func (p *PluginClientBuilder) Get(ctx context.Context, provider string) (v1alpha
 		return nil, fmt.Errorf("%w: provider %q", errProviderNotFound, provider)
 	}
 
-	conn, err := grpc.Dial(
-		socketPath,
+	conn, err := grpc.NewClient(
+		"unix:"+socketPath,
 		p.opts...,
 	)
 	if err != nil {
