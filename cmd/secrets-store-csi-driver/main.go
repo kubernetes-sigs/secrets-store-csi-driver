@@ -85,6 +85,13 @@ func main() {
 
 func mainErr() error {
 	klog.InitFlags(nil)
+	// Opt into the new klog behavior where -stderrthreshold is honored even
+	// when -logtostderr=true (see kubernetes/klog#212, kubernetes/klog#432).
+	// Set stderrthreshold=INFO to preserve backward-compatible behavior
+	// (all logs still appear on stderr by default). Users can now override
+	// -stderrthreshold to WARNING or ERROR to reduce stderr noise.
+	flag.Set("legacy_stderr_threshold_behavior", "false") //nolint:errcheck
+	flag.Set("stderrthreshold", "INFO")                   //nolint:errcheck
 
 	flag.Parse()
 
