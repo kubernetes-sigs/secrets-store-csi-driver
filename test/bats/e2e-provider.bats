@@ -98,17 +98,17 @@ function delete_pod() {
   # On Windows, the failed unmount calls from: https://github.com/kubernetes-sigs/secrets-store-csi-driver/pull/545
   # do not prevent the pod from being deleted. Search through the driver logs
   # for the error.
-  run bash -c "kubectl -n $NAMESPACE logs -l app=$POD_NAME --tail -1 -c secrets-store | grep '^E.*failed to clean and unmount target path.*$'"
+  run bash -c "kubectl -n $NAMESPACE logs -l app=secrets-store-csi-driver --tail -1 -c secrets-store | grep '^E.*failed to clean and unmount target path.*$'"
   assert_failure
 }
 
 function enable_secret_rotation() {
   # enable rotation response in mock server
   local curl_pod_name=curl-$(openssl rand -hex 5)
-  kubectl run ${curl_pod_name} -n rotation --image=curlimages/curl:7.75.0 --labels="test=rotation" -- tail -f /dev/null > /dev/null
-  kubectl wait -n rotation --for=condition=Ready --timeout=60s pod ${curl_pod_name} > /dev/null
+  kubectl run ${curl_pod_name} -n rotation --image=curlimages/curl:7.75.0 --labels="test=rotation" -- tail -f /dev/null > /dev/null || return 1
+  kubectl wait -n rotation --for=condition=Ready --timeout=60s pod ${curl_pod_name} > /dev/null || return 1
   local pod_ip=$(kubectl get pod -n kube-system -l app=csi-secrets-store-e2e-provider -o jsonpath="{.items[0].status.podIP}")
-  run kubectl exec ${curl_pod_name} -n rotation -- curl http://${pod_ip}:8080/rotation?rotated=true
+  kubectl exec ${curl_pod_name} -n rotation -- curl http://${pod_ip}:8080/rotation?rotated=true > /dev/null || return 1
   # wait for rotated secret to be mounted
   sleep 120
   echo "${curl_pod_name}"

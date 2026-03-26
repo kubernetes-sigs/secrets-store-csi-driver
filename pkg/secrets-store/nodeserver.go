@@ -26,14 +26,15 @@ import (
 	"path/filepath"
 	"time"
 
+	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
+
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
 	mount "k8s.io/mount-utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
 )
 
 type nodeServer struct {

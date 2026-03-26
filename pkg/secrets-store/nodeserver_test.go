@@ -77,8 +77,12 @@ func getInitObjects(customize func(*secretsstorev1.SecretProviderClass)) []clien
 
 func getRequest(t *testing.T, customize func(*csi.NodePublishVolumeRequest)) *csi.NodePublishVolumeRequest {
 	var request = &csi.NodePublishVolumeRequest{
-		VolumeCapability: &csi.VolumeCapability{},
-		VolumeId:         "testvolid1",
+		VolumeCapability: &csi.VolumeCapability{
+			AccessType: &csi.VolumeCapability_Mount{
+				Mount: &csi.VolumeCapability_MountVolume{},
+			},
+		},
+		VolumeId: "testvolid1",
 		VolumeContext: map[string]string{
 			"secretProviderClass": "provider1",
 			csiPodName:            "pod1",

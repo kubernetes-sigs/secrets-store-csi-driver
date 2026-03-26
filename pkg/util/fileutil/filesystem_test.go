@@ -381,9 +381,9 @@ func TestParseFSGroup(t *testing.T) {
 			expectedErr: true,
 		},
 		{
-			name:       "negative gid",
-			fsGroupStr: "-23",
-			want:       -23,
+			name:        "negative gid",
+			fsGroupStr:  "-23",
+			expectedErr: true,
 		},
 	}
 

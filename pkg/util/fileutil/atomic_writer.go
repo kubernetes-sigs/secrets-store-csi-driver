@@ -20,6 +20,7 @@ limitations under the License.
 //  * link: https://github.com/kubernetes/kubernetes/blob/8a62859e515889f07e3e3be6a1080413f17cf2c3/pkg/volume/util/atomic_writer.go
 // In addition, FileProjection::FSUser has been changed to FileProjection::FSGroup
 //    to facilitate support for FSGroup csi.NodeServiceCapability_RPC_VOLUME_MOUNT_GROUP
+//    and the type changed to int to match directly with the os.Chown() function arguments.
 
 package fileutil
 

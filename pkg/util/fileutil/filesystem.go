@@ -18,6 +18,7 @@ limitations under the License.
 package fileutil
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -140,5 +141,12 @@ func ParseFSGroup(fsGroupStr string) (int, error) {
 	if len(fsGroupStr) == 0 {
 		return NoGID, nil
 	}
-	return strconv.Atoi(fsGroupStr)
+	gid, err := strconv.Atoi(fsGroupStr)
+	if err != nil {
+		return NoGID, err
+	}
+	if gid < 0 {
+		return NoGID, fmt.Errorf("invalid FSGroup: %d must be non-negative", gid)
+	}
+	return gid, nil
 }
