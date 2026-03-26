@@ -90,8 +90,12 @@ func mainErr() error {
 	// Set stderrthreshold=INFO to preserve backward-compatible behavior
 	// (all logs still appear on stderr by default). Users can now override
 	// -stderrthreshold to WARNING or ERROR to reduce stderr noise.
-	flag.Set("legacy_stderr_threshold_behavior", "false") //nolint:errcheck
-	flag.Set("stderrthreshold", "INFO")                   //nolint:errcheck
+	if err := flag.Set("legacy_stderr_threshold_behavior", "false"); err != nil {
+		klog.ErrorS(err, "failed to set legacy_stderr_threshold_behavior flag")
+	}
+	if err := flag.Set("stderrthreshold", "INFO"); err != nil {
+		klog.ErrorS(err, "failed to set stderrthreshold flag")
+	}
 
 	flag.Parse()
 
