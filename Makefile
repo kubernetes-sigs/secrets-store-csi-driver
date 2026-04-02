@@ -431,7 +431,8 @@ e2e-helm-deploy:
 		--set tokenRequests[0].audience="aud1" \
 		--set tokenRequests[1].audience="aud2" \
 		--set tokenRequests[2].audience="conjur" \
-		--set tokenRequests[3].audience="api://AzureADTokenExchange"
+		--set tokenRequests[3].audience="api://AzureADTokenExchange" \
+		--set tokenRequests[4].audience="sts.amazonaws.com"
 
 .PHONY: e2e-helm-upgrade
 e2e-helm-upgrade:
