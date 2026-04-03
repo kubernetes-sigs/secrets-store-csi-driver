@@ -27,6 +27,7 @@ import (
 	"time"
 
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
@@ -160,7 +161,14 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		return &csi.NodePublishVolumeResponse{}, nil
 	}
 
-	klog.V(2).InfoS("node publish volume", "target", targetPath, "volumeId", volumeID, "mount flags", mountFlags)
+	// Group ID to Chown the volume contents to
+	mountVol := req.GetVolumeCapability().GetMount()
+	klog.V(2).InfoS("node publish volume", "target", targetPath, "volumeId", volumeID, "mount flags", mountFlags, "volumeMountGroup", mountVol.GetVolumeMountGroup())
+	gid, err := fileutil.ParseFSGroup(mountVol.GetVolumeMountGroup())
+	if err != nil {
+		klog.ErrorS(err, "failed to mount secrets store object content due to invalid FSGroup", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName}, "fsGroup", mountVol.GetVolumeMountGroup())
+		return nil, status.Errorf(codes.InvalidArgument, "error parsing FSGroup: %v", err)
+	}
 
 	if isMockProvider(providerName) {
 		// mock provider is used only for running sanity tests against the driver
@@ -241,7 +249,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	}
 	mounted = true
 	var objectVersions map[string]string
-	if objectVersions, errorReason, err = ns.mountSecretsStoreObjectContent(ctx, providerName, string(parametersStr), string(secretStr), targetPath, string(permissionStr), podName); err != nil {
+	if objectVersions, errorReason, err = ns.mountSecretsStoreObjectContent(ctx, providerName, string(parametersStr), string(secretStr), targetPath, string(permissionStr), podName, gid); err != nil {
 		klog.ErrorS(err, "failed to mount secrets store object content", "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName}, "isRemountRequest", isRemountRequest)
 		if isRemountRequest {
 			// Mask error until fix available for https://github.com/kubernetes/kubernetes/issues/121271
@@ -342,7 +350,7 @@ func (ns *nodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstag
 	return &csi.NodeUnstageVolumeResponse{}, nil
 }
 
-func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, providerName, attributes, secrets, targetPath, permission, podName string) (map[string]string, string, error) {
+func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, providerName, attributes, secrets, targetPath, permission, podName string, gid int) (map[string]string, string, error) {
 	if len(attributes) == 0 {
 		return nil, "", errors.New("missing attributes")
 	}
@@ -360,7 +368,7 @@ func (ns *nodeServer) mountSecretsStoreObjectContent(ctx context.Context, provid
 
 	klog.InfoS("Using gRPC client", "provider", providerName, "pod", podName)
 
-	return MountContent(ctx, client, attributes, secrets, targetPath, permission, nil)
+	return MountContent(ctx, client, attributes, secrets, targetPath, permission, nil, gid)
 }
 
 func (ns *nodeServer) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
@@ -381,6 +389,13 @@ func (ns *nodeServer) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetC
 			Type: &csi.NodeServiceCapability_Rpc{
 				Rpc: &csi.NodeServiceCapability_RPC{
 					Type: csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
+				},
+			},
+		},
+		{
+			Type: &csi.NodeServiceCapability_Rpc{
+				Rpc: &csi.NodeServiceCapability_RPC{
+					Type: csi.NodeServiceCapability_RPC_VOLUME_MOUNT_GROUP,
 				},
 			},
 		},
