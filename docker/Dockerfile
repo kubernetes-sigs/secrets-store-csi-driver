@@ -32,7 +32,6 @@ RUN apt update && \
     apt upgrade -y && \
     clean-install ca-certificates mount
 
-LABEL maintainers="ritazh"
 LABEL description="Secrets Store CSI Driver"
 
 ENTRYPOINT ["/secrets-store-csi"]

@@ -7,6 +7,3 @@ description: A Helm chart to install the SecretsStore CSI Driver inside a Kubern
 icon: https://github.com/kubernetes/kubernetes/blob/master/logo/logo.png
 sources:
   - https://github.com/kubernetes-sigs/secrets-store-csi-driver
-maintainers:
-  - name: Rita Zhang
-    email: ritazh@microsoft.com
