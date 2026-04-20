@@ -1,14 +1,16 @@
 approvers:
 - aramase
-- ritazh
+- enj
 
 reviewers:
 - aramase
-- ritazh
+- enj
 
 emeritus_approvers:
+- ritazh
 - tam7t
 
 emeritus_reviewers:
 - nilekhc
+- ritazh
 - tam7t
