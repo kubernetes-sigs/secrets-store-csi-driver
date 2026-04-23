@@ -100,7 +100,7 @@ build_and_push() {
 
     # NOTE(claudiub): docker buildx works for Windows images as long as it doesn't have to
     # execute RUN commands inside the Windows image.
-    docker buildx build --no-cache --pull --push --platform "${os_name}/${arch}" -t "${IMAGE_TAG}-${suffix}" \
+    docker buildx build --no-cache --pull --push --provenance=false --sbom=false --platform "${os_name}/${arch}" -t "${IMAGE_TAG}-${suffix}" \
       --build-arg BASEIMAGE="${BASEIMAGE}" --build-arg BASEIMAGE_CORE="${BASEIMAGE_CORE}" \
       --build-arg TARGETARCH="${arch}" --build-arg TARGETOS="${os_name}" --build-arg LDFLAGS="${LDFLAGS}" \
       --build-arg IMAGE_VERSION="${IMAGE_VERSION}" \
@@ -111,7 +111,7 @@ build_and_push() {
     # charts to prod dir. So we can use manifest_staging charts for the image build.
     if find ../manifest_staging/charts/secrets-store-csi-driver/crds -mindepth 1 -maxdepth 1 | read -r; then
       if [[ "$os_name" != "windows" ]]; then
-        docker buildx build --no-cache --pull --push --platform "${os_name}/${arch}" -t "${CRD_IMAGE_TAG}-${suffix}" \
+        docker buildx build --no-cache --pull --push --provenance=false --sbom=false --platform "${os_name}/${arch}" -t "${CRD_IMAGE_TAG}-${suffix}" \
         -f crd.Dockerfile ../manifest_staging/charts/secrets-store-csi-driver/crds
       fi
     fi
