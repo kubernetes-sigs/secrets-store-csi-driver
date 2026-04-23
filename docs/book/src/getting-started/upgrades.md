@@ -14,6 +14,42 @@ steps that you should take.
 
 <!-- toc -->
 
+## pre `v1.6.0`
+
+The dedicated secret rotation controller has been removed and replaced with the CSI
+[`RequiresRepublish`](https://kubernetes-csi.github.io/docs/ephemeral-local-volumes.html)
+mechanism. Instead of a separate controller polling for secret updates, kubelet now
+periodically calls `NodePublishVolume`, and the driver re-fetches secrets from the
+provider during these calls when `--enable-secret-rotation=true`.
+
+**What changed:**
+
+- The `--enable-secret-rotation` and `--rotation-poll-interval` flags still work, but
+  the underlying mechanism changed. There is no longer a separate rotation controller;
+  rotation happens during kubelet-triggered `NodePublishVolume` calls.
+- `--rotation-poll-interval` now acts as a minimum cache duration between rotations
+  rather than an exact polling interval. Rotation is skipped if a republish call arrives
+  before this interval has elapsed since the last update.
+- The CSIDriver object now sets `requiresRepublish: true`. This is applied automatically
+  on Helm upgrade. **This does not enable rotation by default** — the driver ignores
+  republish calls for already-mounted volumes unless `--enable-secret-rotation=true` is
+  set. Users who don't use rotation will see no behavior change.
+
+**RBAC changes:**
+
+The rotation-specific RBAC resources `rbac-secretproviderrotation.yaml` and
+`rbac-secretprovidertokenrequest.yaml` have been removed. These granted privileged
+permissions (listing pods, secrets, and creating service account tokens) that were
+required by the old rotation controller. If you are using non-Helm (YAML-based)
+deployments, you can safely delete these resources from your cluster:
+
+```bash
+kubectl delete clusterrole secretproviderrotation
+kubectl delete clusterrolebinding secretproviderrotation
+kubectl delete clusterrole secretprovidertokenrequest
+kubectl delete clusterrolebinding secretprovidertokenrequest
+```
+
 ## pre `v1.0.0`
 
 Versions `v1.0.0-rc.1` and later use the `v1` version of the `SecretProviderClass` and `SecretProviderClassPodStatus`
