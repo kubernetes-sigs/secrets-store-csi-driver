@@ -43,8 +43,19 @@ func (ns *nodeServer) ensureMountPoint(target string) (bool, error) {
 
 	if !notMnt {
 		// testing original mount point, make sure the mount link is valid
-		_, err := os.ReadDir(target)
+		entries, err := os.ReadDir(target)
 		if err == nil {
+			// Empty existing mount means a previous NodePublishVolume was
+			// interrupted before writing files. Unmount so the caller
+			// performs a fresh mount.
+			if len(entries) == 0 {
+				klog.InfoS("mount point exists but is empty; unmounting stale mount so caller can perform a fresh mount", "targetPath", target)
+				if err := ns.mounter.Unmount(target); err != nil {
+					klog.ErrorS(err, "failed to unmount stale empty mount", "targetPath", target)
+					return !notMnt, err
+				}
+				return false, nil
+			}
 			klog.InfoS("already mounted to target", "targetPath", target)
 			// already mounted
 			return !notMnt, nil
