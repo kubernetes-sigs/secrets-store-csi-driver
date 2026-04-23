@@ -19,6 +19,8 @@ package secretsstore
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -28,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	mount "k8s.io/mount-utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -66,6 +69,102 @@ func newSecretProviderClassPodStatus(name, namespace, node string) *secretsstore
 			SecretProviderClassName: "spc1",
 			Mounted:                 true,
 		},
+	}
+}
+
+func TestEnsureMountPoint(t *testing.T) {
+	// newMountedFakeMounter returns a FakeMounter with target pre-registered
+	// as a tmpfs mount point, matching what nodeserver.go creates before the
+	// provider writes content.
+	newMountedFakeMounter := func(target string) *mount.FakeMounter {
+		return mount.NewFakeMounter([]mount.MountPoint{{Device: "tmpfs", Path: target, Type: "tmpfs"}})
+	}
+
+	tests := []struct {
+		name string
+		// setup prepares the target directory (a freshly created tempdir) and
+		// returns the mounter to use for this case.
+		setup func(t *testing.T, target string) mount.Interface
+		// expected return values of ensureMountPoint.
+		wantMounted bool
+		wantErr     bool
+		// wantStillMounted is the expected mount state AFTER ensureMountPoint
+		// runs, asserted via IsLikelyNotMountPoint.
+		wantStillMounted bool
+	}{
+		{
+			name: "target is not mounted",
+			setup: func(t *testing.T, target string) mount.Interface {
+				return mount.NewFakeMounter([]mount.MountPoint{})
+			},
+			wantMounted:      false,
+			wantErr:          false,
+			wantStillMounted: false,
+		},
+		{
+			name: "target is mounted and non-empty",
+			setup: func(t *testing.T, target string) mount.Interface {
+				if err := os.WriteFile(filepath.Join(target, "secret1"), []byte("v"), 0644); err != nil {
+					t.Fatalf("seed: %v", err)
+				}
+				return newMountedFakeMounter(target)
+			},
+			wantMounted:      true,
+			wantErr:          false,
+			wantStillMounted: true,
+		},
+		{
+			// Regression for the #1051 race: a previous NodePublishVolume call
+			// was interrupted between mounting tmpfs and writing content, so
+			// the kernel mount persists but the directory is empty. The fix
+			// unmounts the stale mount and returns mounted=false so the caller
+			// performs a fresh mount instead of short-circuiting to success on
+			// an empty directory.
+			name: "target is mounted but empty — stale mount is unmounted",
+			setup: func(t *testing.T, target string) mount.Interface {
+				return newMountedFakeMounter(target)
+			},
+			wantMounted:      false,
+			wantErr:          false,
+			wantStillMounted: false,
+		},
+		{
+			name: "target is mounted but empty and unmount fails — error is propagated",
+			setup: func(t *testing.T, target string) mount.Interface {
+				m := newMountedFakeMounter(target)
+				m.UnmountFunc = func(path string) error {
+					return fmt.Errorf("simulated unmount failure")
+				}
+				return m
+			},
+			wantMounted:      true,
+			wantErr:          true,
+			wantStillMounted: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			target := t.TempDir()
+			mounter := tt.setup(t, target)
+			ns := &nodeServer{mounter: mounter}
+
+			got, err := ns.ensureMountPoint(target)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ensureMountPoint err = %v, wantErr %v", err, tt.wantErr)
+			}
+			if got != tt.wantMounted {
+				t.Errorf("ensureMountPoint mounted = %v, want %v", got, tt.wantMounted)
+			}
+
+			notMnt, nmErr := mounter.IsLikelyNotMountPoint(target)
+			if nmErr != nil {
+				t.Fatalf("IsLikelyNotMountPoint after: %v", nmErr)
+			}
+			if stillMounted := !notMnt; stillMounted != tt.wantStillMounted {
+				t.Errorf("still mounted after = %v, want %v", stillMounted, tt.wantStillMounted)
+			}
+		})
 	}
 }
 
