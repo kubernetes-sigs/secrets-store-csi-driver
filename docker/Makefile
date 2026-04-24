@@ -15,6 +15,7 @@
 REGISTRY?=gcr.io/k8s-staging-csi-secrets-store
 IMAGE_NAME=driver
 CRD_IMAGE_NAME=driver-crds
+# Image version for the driver and CRDs release
 IMAGE_VERSION?=v1.6.0
 BUILD_TIMESTAMP := $(shell date +%Y-%m-%d-%H:%M)
 BUILD_COMMIT := $(shell git rev-parse --short HEAD)
