@@ -25,11 +25,11 @@ permissions:
 
 jobs:
   e2e-test:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       matrix:
-        KUBERNETES_VERSION: ["v1.30.10", "v1.31.6", "v1.32.3"]
+        KUBERNETES_VERSION: ["v1.33.7", "v1.34.3", "v1.35.1"]
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@fe104658747b27e96e4f7e80cd0a94068e53901d # v2.16.1
@@ -46,10 +46,11 @@ jobs:
         with:
           bats-version: 1.4.1
       - name: Setup Kind
-        uses: engineerd/setup-kind@71e45b960fc8dd50b4aeabf6eb6ef2ca0920b4c1 # v0.6.2
-        with:
-          version: "v0.27.0"
-          image: "kindest/node:${{ matrix.KUBERNETES_VERSION }}"
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.31.0/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+          kind create cluster --image "kindest/node:${{ matrix.KUBERNETES_VERSION }}"
       - name: Test
         run: |
           # GH action sets this var by default. We need to explicitly unset it so that build commit hash is not appended to image tag.
