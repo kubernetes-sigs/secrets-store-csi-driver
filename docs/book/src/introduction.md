@@ -15,14 +15,9 @@ Join us to help define the direction and implementation of this project!
 
 ## Project Status
 
-| Driver                                                                                    | Compatible Kubernetes | `secrets-store.csi.x-k8s.io` Versions |
-| ----------------------------------------------------------------------------------------- | --------------------- | ------------------------------------- |
-| [v1.4.0](https://github.com/kubernetes-sigs/secrets-store-csi-driver/releases/tag/v1.4.0) | 1.19+                 | `v1`, `v1alpha1 [DEPRECATED]`         |
-| [v1.3.4](https://github.com/kubernetes-sigs/secrets-store-csi-driver/releases/tag/v1.3.4) | 1.19+                 | `v1`, `v1alpha1 [DEPRECATED]`         |
-
 See
 [Release Management](./release-management.md)
-for additional details on versioning. We aim to release a new minor version every month and intend to support the latest
+for details on versioning. We aim to release a new patch version every month and intend to support the latest
 2 minor versions of the driver.
 
 ## Features

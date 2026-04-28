@@ -12,13 +12,21 @@ Depending on how the application consumes the secret data:
 3. **Using Kubernetes secret for environment variable:** The pod needs to be restarted to get the latest secret as environment variable.
    1. Use something like [Reloader](https://github.com/stakater/Reloader) to watch for changes on the synced Kubernetes secret and do rolling upgrades on pods
 
+## How rotation works
+
+Starting in v1.6.0, secret rotation uses the CSI [`RequiresRepublish`](https://kubernetes-csi.github.io/docs/ephemeral-local-volumes.html) mechanism. The CSIDriver object sets `requiresRepublish: true`, which causes kubelet to periodically call `NodePublishVolume` for all pods using the driver. When `--enable-secret-rotation=true` is set, the driver re-fetches secrets from the provider during these calls.
+
+> **Note:** Setting `requiresRepublish: true` on the CSIDriver does **not** enable rotation by default. The driver ignores republish calls for already-mounted volumes unless `--enable-secret-rotation=true` is set. Users who don’t use rotation will see no behavior change.
+
+This approach removes the need for the previously required privileged RBAC permissions (listing pods, secrets, and creating service account tokens). The dedicated rotation controller and its associated RBAC resources have been removed.
+
 ## Enable auto rotation
 
 > NOTE: This alpha feature is not enabled by default.
 
-To enable auto rotation, enable the `--enable-secret-rotation` feature gate for the `secrets-store` container in the Secrets Store CSI Driver pods. The rotation poll interval can be configured using `--rotation-poll-interval`. The default rotation poll interval is `2m`. If using helm to install the driver, set `enableSecretRotation: true` and configure the rotation poll interval by setting `rotationPollInterval`. The rotation poll interval can be tuned based on how frequently the mounted contents for all pods and Kubernetes secrets need to be resynced to the latest.
+To enable auto rotation, set the `--enable-secret-rotation` flag to `true` for the `secrets-store` container in the Secrets Store CSI Driver pods. The `--rotation-poll-interval` flag (default `2m`) controls the minimum cache duration between rotations — if kubelet triggers a republish call before this interval has elapsed since the last update, the driver skips the rotation. Rotation happens on the first republish call *after* this duration expires, so exact timing depends on kubelet’s republish cadence. If using Helm to install the driver, set `enableSecretRotation: true` and configure the cache duration by setting `rotationPollInterval`.
 
-- The Secrets Store CSI Driver will update the pod mount and the Kubernetes Secret defined in `secretObjects` of SecretProviderClass periodically based on the rotation poll interval to the latest value.
+- The Secrets Store CSI Driver will update the pod mount and the Kubernetes Secret defined in `secretObjects` of SecretProviderClass when secrets are re-fetched during rotation.
 - If the `SecretProviderClass` is updated after the pod was initially created
   - Adding/deleting objects and updating keys in existing `secretObjects` - the pod mount and Kubernetes secret will be updated with the new objects added to the `SecretProviderClass`.
   - Adding new `secretObject` to the existing `secretObjects` - the Kubernetes secret will be created by the controller.
