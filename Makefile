@@ -456,7 +456,8 @@ e2e-helm-deploy-release:
 		--set syncSecret.enabled=true \
 		--set enableSecretRotation=true \
 		--set rotationPollInterval=30s \
-		--set tokenRequests[0].audience="api://AzureADTokenExchange"
+		--set tokenRequests[0].audience="api://AzureADTokenExchange" \
+		--set tokenRequests[1].audience="sts.amazonaws.com"
 
 .PHONY: e2e-kind-cleanup
 e2e-kind-cleanup:
