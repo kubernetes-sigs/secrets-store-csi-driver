@@ -29,8 +29,8 @@ E2E_PROVIDER_IMAGE_NAME ?= e2e-provider
 
 # Release version is the current supported release for the driver
 # Update this version when the helm chart is being updated for release
-RELEASE_VERSION := v1.5.6
-IMAGE_VERSION ?= v1.5.6
+RELEASE_VERSION := v1.6.0
+IMAGE_VERSION ?= v1.6.0
 
 # Use a custom version for E2E tests if we are testing in CI
 ifdef CI
@@ -456,7 +456,8 @@ e2e-helm-deploy-release:
 		--set syncSecret.enabled=true \
 		--set enableSecretRotation=true \
 		--set rotationPollInterval=30s \
-		--set tokenRequests[0].audience="api://AzureADTokenExchange"
+		--set tokenRequests[0].audience="api://AzureADTokenExchange" \
+		--set tokenRequests[1].audience="sts.amazonaws.com"
 
 .PHONY: e2e-kind-cleanup
 e2e-kind-cleanup:
