@@ -1,5 +1,5 @@
-linux/amd64=registry.k8s.io/build-image/debian-base:bookworm-v1.0.6
-linux/arm64=registry.k8s.io/build-image/debian-base:bookworm-v1.0.6
+linux/amd64=registry.k8s.io/build-image/debian-base:bookworm-v1.0.7@sha256:a35a24b84a4d505fd1cb897c7085988264508c1189a265c8b1b5e2b8f3515829
+linux/arm64=registry.k8s.io/build-image/debian-base:bookworm-v1.0.7@sha256:f9cc7a063bda5212cd373ce8e06e11f824a688cfd3eccd432e6b56a6f8397490
 windows/amd64/1809=mcr.microsoft.com/windows/nanoserver:1809
 windows/amd64/ltsc2022=mcr.microsoft.com/windows/nanoserver:ltsc2022
 windows/amd64/ltsc2025=mcr.microsoft.com/windows/nanoserver:ltsc2025
