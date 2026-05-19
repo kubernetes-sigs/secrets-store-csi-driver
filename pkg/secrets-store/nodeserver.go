@@ -129,7 +129,10 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if rotationEnabled {
 		lastModificationTime, err := ns.getLastUpdateTime(targetPath)
 		if err != nil {
-			klog.InfoS("could not find last modification time for targetpath", targetPath, "error", err)
+			// targetPath not existing is expected on first mount; only log unexpected errors.
+			if !os.IsNotExist(err) {
+				klog.InfoS("could not find last modification time for targetpath", "targetPath", targetPath, "err", err)
+			}
 		} else if startTime.Before(lastModificationTime.Add(ns.rotationConfig.rotationCacheDuration)) {
 			// if next rotation is not yet due, then skip the mount operation
 			skipped = true
