@@ -37,6 +37,7 @@ import (
 )
 
 type nodeServer struct {
+	csi.UnimplementedNodeServer
 	mounter  mount.Interface
 	reporter StatsReporter
 	nodeID   string
