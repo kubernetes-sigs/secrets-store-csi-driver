@@ -26,6 +26,7 @@ import (
 )
 
 type controllerServer struct {
+	csi.UnimplementedControllerServer
 }
 
 func newControllerServer() *controllerServer {

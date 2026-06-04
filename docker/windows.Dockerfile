@@ -17,7 +17,11 @@ ARG BASEIMAGE_CORE=gcr.io/k8s-staging-e2e-test-images/windows-servercore-cache:1
 
 FROM --platform=linux/amd64 ${BASEIMAGE_CORE} AS core
 
+<<<<<<< HEAD
 FROM --platform=$BUILDPLATFORM golang:1.24.13@sha256:d2d2bc1c84f7e60d7d2438a3836ae7d0c847f4888464e7ec9ba3a1339a1ee804 AS builder
+=======
+FROM --platform=$BUILDPLATFORM golang:1.26.4@sha256:68cb6d68bed024785b69195b89af7ac7a444f27791435f98647edff595aa0479 AS builder
+>>>>>>> chore: Bump golang to 1.26 and upgrade dependencies
 WORKDIR /go/src/sigs.k8s.io/secrets-store-csi-driver
 ADD . .
 ARG TARGETARCH
