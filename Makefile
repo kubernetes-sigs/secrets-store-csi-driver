@@ -175,7 +175,7 @@ $(CONTROLLER_GEN): $(TOOLS_MOD_DIR)/go.mod $(TOOLS_MOD_DIR)/go.sum $(TOOLS_MOD_D
 
 $(GOLANGCI_LINT): ## Build golangci-lint from tools folder.
 	cd $(TOOLS_MOD_DIR) && \
-		GOPROXY=$(GOPROXY) go build -o $(TOOLS_BIN_DIR)/golangci-lint github.com/golangci/golangci-lint/cmd/golangci-lint
+		GOPROXY=$(GOPROXY) go build -o $(TOOLS_BIN_DIR)/golangci-lint github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 
 $(KUSTOMIZE): ## Build kustomize from tools folder.
 	cd $(TOOLS_MOD_DIR) && \
@@ -246,7 +246,7 @@ lint: $(GOLANGCI_LINT) ## Run lint
 	cd test/e2eprovider && $(GOLANGCI_LINT) run --build-tags e2e --timeout=5m -v
 
 lint-full: $(GOLANGCI_LINT)
-	$(GOLANGCI_LINT) run -v --fast=false
+	$(GOLANGCI_LINT) run -v
 
 lint-charts: $(HELM) ## Run lint on helm charts
 	helm lint charts/secrets-store-csi-driver
