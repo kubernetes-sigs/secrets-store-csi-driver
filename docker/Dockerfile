@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG BASEIMAGE=registry.k8s.io/build-image/debian-base:bookworm-v1.0.6
+ARG BASEIMAGE=registry.k8s.io/build-image/debian-base:bookworm-v1.0.8@sha256:bb933ac3606ff3f69854a7eba5da1eaef5064ef62d83f3cb0e4be40eb53522e0
 
-FROM golang:1.24.13@sha256:d2d2bc1c84f7e60d7d2438a3836ae7d0c847f4888464e7ec9ba3a1339a1ee804 AS builder
+FROM golang:1.26.4@sha256:68cb6d68bed024785b69195b89af7ac7a444f27791435f98647edff595aa0479 AS builder
 WORKDIR /go/src/sigs.k8s.io/secrets-store-csi-driver
 ADD . .
 ARG TARGETARCH
@@ -32,7 +32,6 @@ RUN apt update && \
     apt upgrade -y && \
     clean-install ca-certificates mount
 
-LABEL maintainers="ritazh"
 LABEL description="Secrets Store CSI Driver"
 
 ENTRYPOINT ["/secrets-store-csi"]
