@@ -73,7 +73,7 @@ var (
 
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
-	_ = secretsstorev1.AddToScheme(scheme)
+	_ = secretsstorev1.Install(scheme)
 	// +kubebuilder:scaffold:scheme
 }
 
