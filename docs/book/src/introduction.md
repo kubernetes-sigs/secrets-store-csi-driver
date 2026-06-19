@@ -43,6 +43,7 @@ These features are not stable. If you use these be sure to consult the
 - [Akeyless Provider](https://github.com/akeylesslabs/akeyless-csi-provider)
 - [AWS Provider](https://github.com/aws/secrets-store-csi-driver-provider-aws)
 - [Azure Provider](https://azure.github.io/secrets-store-csi-driver-provider-azure/)
+- [Bitwarden Provider](https://github.com/kvncrw/bitwarden-csi-provider)
 - [Conjur Provider](https://github.com/cyberark/conjur-k8s-csi-provider)
 - [GCP Provider](https://github.com/GoogleCloudPlatform/secrets-store-csi-driver-provider-gcp)
 - [OpenBao Provider](https://github.com/openbao/openbao-csi-provider)
