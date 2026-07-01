@@ -97,7 +97,7 @@ func TestEnsureMountPoint(t *testing.T) {
 		{
 			name: "target is mounted and populated",
 			setup: func(t *testing.T, target string) mount.Interface {
-				if err := os.WriteFile(filepath.Join(target, "secret1"), []byte("v"), 0644); err != nil {
+				if err := os.WriteFile(filepath.Join(target, "secret1"), []byte("v"), 0600); err != nil {
 					t.Fatalf("seed: %v", err)
 				}
 				return newMountedFakeMounter(target)
