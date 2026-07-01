@@ -81,15 +81,11 @@ func TestEnsureMountPoint(t *testing.T) {
 	}
 
 	tests := []struct {
-		name string
-		// setup prepares the target directory (a freshly created tempdir) and
-		// returns the mounter to use for this case.
-		setup func(t *testing.T, target string) mount.Interface
-		// expected return values of ensureMountPoint.
-		wantMounted bool
-		wantErr     bool
-		// wantStillMounted is the expected mount state AFTER ensureMountPoint
-		// runs, asserted via IsLikelyNotMountPoint.
+		name             string
+		setup            func(t *testing.T, target string) mount.Interface
+		wantMounted      bool
+		wantHasContent   bool
+		wantErr          bool
 		wantStillMounted bool
 	}{
 		{
@@ -97,12 +93,9 @@ func TestEnsureMountPoint(t *testing.T) {
 			setup: func(t *testing.T, target string) mount.Interface {
 				return mount.NewFakeMounter([]mount.MountPoint{})
 			},
-			wantMounted:      false,
-			wantErr:          false,
-			wantStillMounted: false,
 		},
 		{
-			name: "target is mounted and non-empty",
+			name: "target is mounted and populated",
 			setup: func(t *testing.T, target string) mount.Interface {
 				if err := os.WriteFile(filepath.Join(target, "secret1"), []byte("v"), 0644); err != nil {
 					t.Fatalf("seed: %v", err)
@@ -110,32 +103,19 @@ func TestEnsureMountPoint(t *testing.T) {
 				return newMountedFakeMounter(target)
 			},
 			wantMounted:      true,
-			wantErr:          false,
+			wantHasContent:   true,
 			wantStillMounted: true,
 		},
 		{
-			// Previous NodePublishVolume was interrupted before writing
-			// files: the mount persists but the directory is empty. The fix
-			// unmounts and returns mounted=false so the caller re-mounts.
-			name: "target is mounted but empty — stale mount is unmounted",
+			// A previous NodePublishVolume was interrupted before writing
+			// files. The mount is reported as existing but empty; the caller
+			// re-calls the provider to populate it.
+			name: "target is mounted but empty",
 			setup: func(t *testing.T, target string) mount.Interface {
 				return newMountedFakeMounter(target)
 			},
-			wantMounted:      false,
-			wantErr:          false,
-			wantStillMounted: false,
-		},
-		{
-			name: "target is mounted but empty and unmount fails — error is propagated",
-			setup: func(t *testing.T, target string) mount.Interface {
-				m := newMountedFakeMounter(target)
-				m.UnmountFunc = func(path string) error {
-					return fmt.Errorf("simulated unmount failure")
-				}
-				return m
-			},
 			wantMounted:      true,
-			wantErr:          true,
+			wantHasContent:   false,
 			wantStillMounted: true,
 		},
 	}
@@ -146,12 +126,15 @@ func TestEnsureMountPoint(t *testing.T) {
 			mounter := tt.setup(t, target)
 			ns := &nodeServer{mounter: mounter}
 
-			got, err := ns.ensureMountPoint(target)
+			mounted, hasContent, err := ns.ensureMountPoint(target)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("ensureMountPoint err = %v, wantErr %v", err, tt.wantErr)
 			}
-			if got != tt.wantMounted {
-				t.Errorf("ensureMountPoint mounted = %v, want %v", got, tt.wantMounted)
+			if mounted != tt.wantMounted {
+				t.Errorf("mounted = %v, want %v", mounted, tt.wantMounted)
+			}
+			if hasContent != tt.wantHasContent {
+				t.Errorf("hasContent = %v, want %v", hasContent, tt.wantHasContent)
 			}
 
 			notMnt, nmErr := mounter.IsLikelyNotMountPoint(target)
