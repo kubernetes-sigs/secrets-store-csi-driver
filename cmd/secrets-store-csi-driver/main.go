@@ -18,8 +18,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	_ "net/http/pprof" // #nosec
 	"strings"
@@ -160,6 +162,9 @@ func mainErr() error {
 	})
 	if err != nil {
 		klog.ErrorS(err, "failed to start manager")
+		if isNetworkError(err) {
+			klog.ErrorS(err, "the driver is unable to communicate with the kube-apiserver, check network connectivity between the node and the kube-apiserver")
+		}
 		return err
 	}
 
@@ -190,6 +195,9 @@ func mainErr() error {
 		klog.Info("starting manager")
 		if err := mgr.Start(ctx); err != nil {
 			klog.ErrorS(err, "failed to run manager")
+			if isNetworkError(err) {
+				klog.ErrorS(err, "the driver is unable to communicate with the kube-apiserver, check network connectivity between the node and the kube-apiserver")
+			}
 			panic(err)
 		}
 	}()
@@ -228,4 +236,22 @@ func getKlogLevel() klog.Level {
 	}
 
 	return -1
+}
+
+// isNetworkError returns true if err looks like it originates from a failure
+// to reach the kube-apiserver (DNS resolution, connection refused, timeout,
+// etc.), as opposed to some other manager startup failure.
+func isNetworkError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return true
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "connection refused") ||
+		strings.Contains(msg, "no such host") ||
+		strings.Contains(msg, "i/o timeout") ||
+		strings.Contains(msg, "context deadline exceeded")
 }
