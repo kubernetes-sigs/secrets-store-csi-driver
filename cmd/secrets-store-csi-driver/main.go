@@ -65,7 +65,7 @@ var (
 	versionInfo             = flag.Bool("version", false, "Print the version and exit")
 
 	// Enable optional healthcheck for provider clients that exist in memory
-	providerHealthCheck         = flag.Bool("provider-health-check", false, "Enable health check for configured providers")
+	providerHealthCheck         = flag.Bool("provider-health-check", false, "Enable health checks for configured providers and evict failed cached clients")
 	providerHealthCheckInterval = flag.Duration("provider-health-check-interval", 2*time.Minute, "Provider healthcheck interval duration")
 
 	scheme = runtime.NewScheme()
