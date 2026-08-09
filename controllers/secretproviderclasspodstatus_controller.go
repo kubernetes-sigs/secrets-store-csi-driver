@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/secretutil"
 
 	corev1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
@@ -420,12 +421,36 @@ func (r *SecretProviderClassPodStatusReconciler) createOrUpdateK8sSecret(ctx con
 	}
 
 	klog.V(5).InfoS("Kubernetes secret is already created", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
+
+	existing := &corev1.Secret{}
+	if err := r.reader.Get(ctx, types.NamespacedName{Namespace: namespace, Name: name}, existing); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return err
+		}
+	} else if secretUpToDate(existing, secret) {
+		klog.V(5).InfoS("Kubernetes secret already up to date, skipping update", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
+		return nil
+	}
+
 	err = r.writer.Update(ctx, secret)
 	if err != nil {
 		return err
 	}
 	klog.V(5).InfoS("successfully updated Kubernetes secret", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
 	return nil
+}
+
+// secretUpToDate returns true if the existing secret already has the desired
+// type, data, labels and annotations, so writing it again would be a no-op.
+// apiequality.Semantic.DeepEqual is used instead of reflect.DeepEqual so that
+// a nil map (as returned by the API server for an unset field) and an empty
+// map (as built by the caller when no labels/annotations are configured) are
+// treated as equal.
+func secretUpToDate(existing, desired *corev1.Secret) bool {
+	return existing.Type == desired.Type &&
+		apiequality.Semantic.DeepEqual(existing.Data, desired.Data) &&
+		apiequality.Semantic.DeepEqual(existing.Labels, desired.Labels) &&
+		apiequality.Semantic.DeepEqual(existing.Annotations, desired.Annotations)
 }
 
 // patchSecretWithOwnerRef patches the secret owner reference with the spc pod status

@@ -188,6 +188,76 @@ func TestCreateOrUpdateK8sSecret(t *testing.T) {
 	g.Expect(secret.Name).To(Equal("my-secret2"))
 }
 
+func TestCreateOrUpdateK8sSecretNoopWhenUnchanged(t *testing.T) {
+	g := NewWithT(t)
+
+	scheme, err := setupScheme()
+	g.Expect(err).NotTo(HaveOccurred())
+
+	labels := map[string]string{"environment": "test"}
+	annotations := map[string]string{"kubed.appscode.com/sync": "app=test"}
+	datamap := map[string][]byte{"key": []byte("value")}
+
+	existing := newSecret("my-secret", "default", labels, annotations)
+	existing.Type = corev1.SecretTypeOpaque
+	existing.Data = datamap
+
+	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existing).Build()
+	reconciler := newReconciler(client, scheme, "node1")
+
+	before := &corev1.Secret{}
+	g.Expect(client.Get(context.TODO(), types.NamespacedName{Name: "my-secret", Namespace: "default"}, before)).To(Succeed())
+
+	// reconciling with the exact same data/type/labels/annotations should not issue an update.
+	err = reconciler.createOrUpdateK8sSecret(context.TODO(), "my-secret", "default", datamap, labels, annotations, corev1.SecretTypeOpaque)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	after := &corev1.Secret{}
+	g.Expect(client.Get(context.TODO(), types.NamespacedName{Name: "my-secret", Namespace: "default"}, after)).To(Succeed())
+	g.Expect(after.ResourceVersion).To(Equal(before.ResourceVersion))
+
+	// reconciling with different data should still update the secret.
+	err = reconciler.createOrUpdateK8sSecret(context.TODO(), "my-secret", "default", map[string][]byte{"key": []byte("new-value")}, labels, annotations, corev1.SecretTypeOpaque)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	updated := &corev1.Secret{}
+	g.Expect(client.Get(context.TODO(), types.NamespacedName{Name: "my-secret", Namespace: "default"}, updated)).To(Succeed())
+	g.Expect(updated.ResourceVersion).NotTo(Equal(before.ResourceVersion))
+	g.Expect(updated.Data).To(Equal(map[string][]byte{"key": []byte("new-value")}))
+}
+
+// TestCreateOrUpdateK8sSecretNoopWhenAnnotationsUnset mirrors how Reconcile builds
+// annotationsMap when the SecretProviderClass doesn't set explicit annotations: a
+// fresh, empty (non-nil) map on every reconcile. The stored secret comes back from
+// the API/fake client with Annotations == nil, so the no-op comparison must treat
+// nil and empty maps as equal or it will update on every reconcile regardless.
+func TestCreateOrUpdateK8sSecretNoopWhenAnnotationsUnset(t *testing.T) {
+	g := NewWithT(t)
+
+	scheme, err := setupScheme()
+	g.Expect(err).NotTo(HaveOccurred())
+
+	labels := map[string]string{SecretManagedLabel: "true"}
+	datamap := map[string][]byte{"key": []byte("value")}
+
+	existing := newSecret("my-secret", "default", labels, map[string]string{})
+	existing.Type = corev1.SecretTypeOpaque
+	existing.Data = datamap
+
+	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existing).Build()
+	reconciler := newReconciler(client, scheme, "node1")
+
+	before := &corev1.Secret{}
+	g.Expect(client.Get(context.TODO(), types.NamespacedName{Name: "my-secret", Namespace: "default"}, before)).To(Succeed())
+
+	err = reconciler.createOrUpdateK8sSecret(context.TODO(), "my-secret", "default", datamap, labels, map[string]string{}, corev1.SecretTypeOpaque)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	after := &corev1.Secret{}
+	g.Expect(client.Get(context.TODO(), types.NamespacedName{Name: "my-secret", Namespace: "default"}, after)).To(Succeed())
+	g.Expect(after.ResourceVersion).To(Equal(before.ResourceVersion))
+}
+
 func TestGenerateEvent(t *testing.T) {
 	g := NewWithT(t)
 
