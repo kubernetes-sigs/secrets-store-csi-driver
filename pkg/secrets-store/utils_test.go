@@ -30,6 +30,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 var (
@@ -159,5 +160,58 @@ func TestCreateOrUpdateSecretProviderClassPodStatus(t *testing.T) {
 				t.Errorf("Status got: %v, want: %v", got.Status, want.Status)
 			}
 		})
+	}
+}
+
+// TestCreateOrUpdateSecretProviderClassPodStatus_NoOpWhenUpToDate ensures that reconciling a
+// SecretProviderClassPodStatus that already matches the desired node label, status and owner
+// references does not issue a create or update request against the API server.
+func TestCreateOrUpdateSecretProviderClassPodStatus_NoOpWhenUpToDate(t *testing.T) {
+	spcpsName := fmt.Sprintf("%s-%s-%s", testPodName, testNamespace, testSPCName)
+	upToDate := &secretsstorev1.SecretProviderClassPodStatus{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      spcpsName,
+			Namespace: testNamespace,
+			Labels:    map[string]string{secretsstorev1.InternalNodeLabel: "test-node"},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "v1",
+					Kind:       "Pod",
+					Name:       testPodName,
+					UID:        types.UID(testPodUID),
+				},
+			},
+		},
+		Status: secretsstorev1.SecretProviderClassPodStatusStatus{
+			PodName:                 testPodName,
+			TargetPath:              testTargetPath,
+			SecretProviderClassName: testSPCName,
+			Mounted:                 true,
+			Objects: []secretsstorev1.SecretProviderClassObject{
+				{ID: "a", Version: "v2"},
+				{ID: "b", Version: "v1"},
+			},
+		},
+	}
+
+	scheme, err := setupScheme()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	funcs := interceptor.Funcs{
+		Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+			t.Errorf("unexpected Create call for an already up-to-date object")
+			return c.Create(ctx, obj, opts...)
+		},
+		Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+			t.Errorf("unexpected Update call for an already up-to-date object")
+			return c.Update(ctx, obj, opts...)
+		},
+	}
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(upToDate).WithInterceptorFuncs(funcs).Build()
+
+	objects := map[string]string{"b": "v1", "a": "v2"}
+	if err := createOrUpdateSecretProviderClassPodStatus(context.TODO(), c, c, testPodName, testNamespace, testPodUID, testSPCName, testTargetPath, "test-node", true, objects); err != nil {
+		t.Errorf("Unexpected error: %v", err)
 	}
 }

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -98,10 +100,10 @@ func getSecretProviderItem(ctx context.Context, c client.Client, name, namespace
 }
 
 // createOrUpdateSecretProviderClassPodStatus creates secret provider class pod status if not exists.
-// if the secret provider class pod status already exists, it'll update the status and owner references.
+// if the secret provider class pod status already exists but its node label, status or owner references
+// are out of date, it'll be updated. If it already matches the desired state, no write is made.
 func createOrUpdateSecretProviderClassPodStatus(ctx context.Context, c client.Client, reader client.Reader, podname, namespace, podUID, spcName, targetPath, nodeID string, mounted bool, objects map[string]string) error {
 	var o []secretsstorev1.SecretProviderClassObject
-	var err error
 	spcpsName := podname + "-" + namespace + "-" + spcName
 
 	for k, v := range objects {
@@ -109,56 +111,72 @@ func createOrUpdateSecretProviderClassPodStatus(ctx context.Context, c client.Cl
 	}
 	o = spcpsutil.OrderSecretProviderClassObjectByID(o)
 
-	spcPodStatus := &secretsstorev1.SecretProviderClassPodStatus{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      spcpsName,
-			Namespace: namespace,
-			Labels:    map[string]string{secretsstorev1.InternalNodeLabel: nodeID},
-		},
-		Status: secretsstorev1.SecretProviderClassPodStatusStatus{
-			PodName:                 podname,
-			TargetPath:              targetPath,
-			Mounted:                 mounted,
-			SecretProviderClassName: spcName,
-			Objects:                 o,
-		},
+	desiredStatus := secretsstorev1.SecretProviderClassPodStatusStatus{
+		PodName:                 podname,
+		TargetPath:              targetPath,
+		Mounted:                 mounted,
+		SecretProviderClassName: spcName,
+		Objects:                 o,
 	}
-
 	// Set owner reference to the pod as the mapping between secret provider class pod status and
 	// pod is 1 to 1. When pod is deleted, the spc pod status will automatically be garbage collected
-	spcPodStatus.SetOwnerReferences([]metav1.OwnerReference{
+	desiredOwnerReferences := []metav1.OwnerReference{
 		{
 			APIVersion: "v1",
 			Kind:       "Pod",
 			Name:       podname,
 			UID:        types.UID(podUID),
 		},
+	}
+
+	// AlreadyExists can happen if we lose a create race against another writer, Conflict can happen
+	// if we lose an update race. Both are retried with a fresh read of the object.
+	retriable := func(err error) bool {
+		return apierrors.IsAlreadyExists(err) || apierrors.IsConflict(err)
+	}
+
+	return retry.OnError(retry.DefaultBackoff, retriable, func() error {
+		spcps := &secretsstorev1.SecretProviderClassPodStatus{}
+		err := c.Get(ctx, client.ObjectKey{Name: spcpsName, Namespace: namespace}, spcps)
+		if apierrors.IsNotFound(err) {
+			// the secret provider class pod status could be missing from the cache because it was
+			// labeled with a different node label, so check directly against the API server before
+			// concluding that it does not exist
+			err = reader.Get(ctx, client.ObjectKey{Name: spcpsName, Namespace: namespace}, spcps)
+		}
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return err
+			}
+			spcPodStatus := &secretsstorev1.SecretProviderClassPodStatus{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      spcpsName,
+					Namespace: namespace,
+					Labels:    map[string]string{secretsstorev1.InternalNodeLabel: nodeID},
+				},
+				Status: desiredStatus,
+			}
+			spcPodStatus.SetOwnerReferences(desiredOwnerReferences)
+			return c.Create(ctx, spcPodStatus)
+		}
+
+		if spcps.Labels[secretsstorev1.InternalNodeLabel] == nodeID &&
+			reflect.DeepEqual(spcps.Status, desiredStatus) &&
+			reflect.DeepEqual(spcps.OwnerReferences, desiredOwnerReferences) {
+			// already up to date, nothing to write
+			return nil
+		}
+		klog.InfoS("secret provider class pod status already exists, updating it", "spcps", klog.ObjectRef{Name: spcps.Name, Namespace: spcps.Namespace})
+
+		if spcps.Labels == nil {
+			spcps.Labels = map[string]string{}
+		}
+		spcps.Labels[secretsstorev1.InternalNodeLabel] = nodeID
+		spcps.Status = desiredStatus
+		spcps.OwnerReferences = desiredOwnerReferences
+
+		return c.Update(ctx, spcps)
 	})
-
-	if err = c.Create(ctx, spcPodStatus); err == nil || !apierrors.IsAlreadyExists(err) {
-		return err
-	}
-	klog.InfoS("secret provider class pod status already exists, updating it", "spcps", klog.ObjectRef{Name: spcPodStatus.Name, Namespace: spcPodStatus.Namespace})
-
-	spcps := &secretsstorev1.SecretProviderClassPodStatus{}
-	// the secret provider class pod status with the name already exists, update it
-	if err = c.Get(ctx, client.ObjectKey{Name: spcpsName, Namespace: namespace}, spcps); err != nil {
-		if !apierrors.IsNotFound(err) {
-			return err
-		}
-		// the secret provider class pod status could be missing in the cache because it was labeled with a different node
-		// label, so we need to get it from the API server
-		if err = reader.Get(ctx, client.ObjectKey{Name: spcpsName, Namespace: namespace}, spcps); err != nil {
-			return err
-		}
-	}
-
-	// update the labels of the secret provider class pod status to match the node label
-	spcps.Labels[secretsstorev1.InternalNodeLabel] = nodeID
-	spcps.Status = spcPodStatus.Status
-	spcps.OwnerReferences = spcPodStatus.OwnerReferences
-
-	return c.Update(ctx, spcps)
 }
 
 // getProviderFromSPC returns the provider as defined in SecretProviderClass
