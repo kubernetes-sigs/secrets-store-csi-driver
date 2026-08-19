@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -420,12 +421,61 @@ func (r *SecretProviderClassPodStatusReconciler) createOrUpdateK8sSecret(ctx con
 	}
 
 	klog.V(5).InfoS("Kubernetes secret is already created", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
+
+	// Fetch the existing secret so we can (a) skip the Update when the desired
+	// state already matches what is stored, and (b) supply the current
+	// ResourceVersion so the Update goes through with proper optimistic
+	// concurrency instead of an unconditional overwrite.
+	//
+	// With CSIDriver.spec.requiresRepublish enabled, this reconciler runs on
+	// every kubelet-driven republish cycle. Without this short-circuit, each
+	// cycle issues an imperative Update() that causes the API server to record
+	// a new managedFields entry and bump resourceVersion even when the fetched
+	// provider content, labels, annotations, and type are byte-identical to
+	// what is already stored. Downstream watchers see a spurious Secret update
+	// event on every rotation-poll boundary. See kubernetes-sigs/secrets-store-csi-driver#XXXX.
+	existing := &corev1.Secret{}
+	getErr := r.reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, existing)
+	if getErr == nil && secretContentEqual(existing, secret) {
+		klog.V(5).InfoS("Kubernetes secret is up-to-date, skipping update", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
+		return nil
+	}
+	if getErr == nil {
+		// Preserve the current ResourceVersion so the Update uses optimistic
+		// concurrency and does not silently blow away a concurrent write.
+		secret.ResourceVersion = existing.ResourceVersion
+	}
+
 	err = r.writer.Update(ctx, secret)
 	if err != nil {
 		return err
 	}
 	klog.V(5).InfoS("successfully updated Kubernetes secret", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
 	return nil
+}
+
+// secretContentEqual reports whether the desired Secret already matches the
+// stored Secret for all fields this controller manages: data, type, labels, and
+// annotations. Server-populated metadata (managedFields, resourceVersion,
+// ownerReferences, uid, timestamps) is intentionally ignored — ownerReferences
+// are reconciled by patchSecretWithOwnerRef, not by createOrUpdateK8sSecret.
+func secretContentEqual(existing, desired *corev1.Secret) bool {
+	if existing == nil || desired == nil {
+		return false
+	}
+	if existing.Type != desired.Type {
+		return false
+	}
+	if !reflect.DeepEqual(existing.Data, desired.Data) {
+		return false
+	}
+	if !reflect.DeepEqual(existing.Labels, desired.Labels) {
+		return false
+	}
+	if !reflect.DeepEqual(existing.Annotations, desired.Annotations) {
+		return false
+	}
+	return true
 }
 
 // patchSecretWithOwnerRef patches the secret owner reference with the spc pod status

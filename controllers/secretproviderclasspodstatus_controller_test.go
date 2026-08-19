@@ -188,6 +188,144 @@ func TestCreateOrUpdateK8sSecret(t *testing.T) {
 	g.Expect(secret.Name).To(Equal("my-secret2"))
 }
 
+// TestCreateOrUpdateK8sSecret_NoOpSkipsUpdate verifies that when the existing
+// Kubernetes Secret already matches the desired data/labels/annotations/type,
+// createOrUpdateK8sSecret does NOT issue an Update. We assert this by checking
+// that the stored ResourceVersion is unchanged — the fake client tracker only
+// bumps ResourceVersion on real writes. This guards against the v1.6.0
+// regression where every rotation-poll cycle produced a spurious Secret update
+// event even when the provider content was byte-identical.
+func TestCreateOrUpdateK8sSecret_NoOpSkipsUpdate(t *testing.T) {
+	g := NewWithT(t)
+
+	scheme, err := setupScheme()
+	g.Expect(err).NotTo(HaveOccurred())
+
+	labels := map[string]string{"environment": "test"}
+	annotations := map[string]string{"kubed.appscode.com/sync": "app=test"}
+	data := map[string][]byte{"value": []byte("this-is-a-secret")}
+
+	existing := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "my-secret",
+			Namespace:       "default",
+			Labels:          labels,
+			Annotations:     annotations,
+			ResourceVersion: "100",
+		},
+		Type: corev1.SecretTypeOpaque,
+		Data: data,
+	}
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existing).Build()
+	reconciler := newReconciler(c, scheme, "node1")
+
+	err = reconciler.createOrUpdateK8sSecret(context.TODO(), "my-secret", "default", data, labels, annotations, corev1.SecretTypeOpaque)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	got := &corev1.Secret{}
+	err = c.Get(context.TODO(), types.NamespacedName{Name: "my-secret", Namespace: "default"}, got)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(got.ResourceVersion).To(Equal("100"), "expected no Update when content is byte-identical")
+	g.Expect(got.Data).To(Equal(data))
+}
+
+// TestCreateOrUpdateK8sSecret_UpdatesWhenDataChanges verifies that when the
+// provider content actually changes, createOrUpdateK8sSecret still performs
+// the Update.
+func TestCreateOrUpdateK8sSecret_UpdatesWhenDataChanges(t *testing.T) {
+	g := NewWithT(t)
+
+	scheme, err := setupScheme()
+	g.Expect(err).NotTo(HaveOccurred())
+
+	labels := map[string]string{"environment": "test"}
+	annotations := map[string]string{"kubed.appscode.com/sync": "app=test"}
+
+	existing := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "my-secret",
+			Namespace:       "default",
+			Labels:          labels,
+			Annotations:     annotations,
+			ResourceVersion: "100",
+		},
+		Type: corev1.SecretTypeOpaque,
+		Data: map[string][]byte{"value": []byte("old")},
+	}
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existing).Build()
+	reconciler := newReconciler(c, scheme, "node1")
+
+	newData := map[string][]byte{"value": []byte("new")}
+	err = reconciler.createOrUpdateK8sSecret(context.TODO(), "my-secret", "default", newData, labels, annotations, corev1.SecretTypeOpaque)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	got := &corev1.Secret{}
+	err = c.Get(context.TODO(), types.NamespacedName{Name: "my-secret", Namespace: "default"}, got)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(got.Data).To(Equal(newData))
+	g.Expect(got.ResourceVersion).NotTo(Equal("100"), "expected ResourceVersion to change after a real content update")
+}
+
+func TestSecretContentEqual(t *testing.T) {
+	g := NewWithT(t)
+
+	base := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels:      map[string]string{"a": "1"},
+			Annotations: map[string]string{"b": "2"},
+		},
+		Type: corev1.SecretTypeOpaque,
+		Data: map[string][]byte{"k": []byte("v")},
+	}
+
+	cases := []struct {
+		name    string
+		mutate  func(*corev1.Secret)
+		wantEq  bool
+	}{
+		{
+			name:   "identical",
+			mutate: func(s *corev1.Secret) {},
+			wantEq: true,
+		},
+		{
+			name:   "different data",
+			mutate: func(s *corev1.Secret) { s.Data = map[string][]byte{"k": []byte("v2")} },
+			wantEq: false,
+		},
+		{
+			name:   "different type",
+			mutate: func(s *corev1.Secret) { s.Type = corev1.SecretTypeBasicAuth },
+			wantEq: false,
+		},
+		{
+			name:   "different labels",
+			mutate: func(s *corev1.Secret) { s.Labels = map[string]string{"a": "2"} },
+			wantEq: false,
+		},
+		{
+			name:   "different annotations",
+			mutate: func(s *corev1.Secret) { s.Annotations = map[string]string{"b": "3"} },
+			wantEq: false,
+		},
+		{
+			name:   "server-side metadata differs but managed fields equal",
+			mutate: func(s *corev1.Secret) { s.ResourceVersion = "999"; s.UID = "abc" },
+			wantEq: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			desired := base.DeepCopy()
+			tc.mutate(desired)
+			g.Expect(secretContentEqual(base, desired)).To(Equal(tc.wantEq))
+		})
+	}
+
+	g.Expect(secretContentEqual(nil, base)).To(BeFalse())
+	g.Expect(secretContentEqual(base, nil)).To(BeFalse())
+}
+
 func TestGenerateEvent(t *testing.T) {
 	g := NewWithT(t)
 
