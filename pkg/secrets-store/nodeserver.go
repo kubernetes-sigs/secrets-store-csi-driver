@@ -150,12 +150,12 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return nil, status.Errorf(codes.Internal, "failed to check if target path %s is mount point, err: %v", targetPath, err)
 		}
 	}
-	// An empty existing mount is a previous interrupted call, not a remount.
-	isRemountRequest = mounted && hasContent
+	// If it is mounted, it means this is not the first time mount request for this path.
+	isRemountRequest = mounted
 
 	// If rotation is not enabled, don't remount the already mounted secrets.
-	if !rotationEnabled && isRemountRequest {
-		klog.InfoS("target path is already mounted", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
+	if !rotationEnabled && mounted && hasContent {
+		klog.InfoS("target path is already mounted and populated", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 		skipped = true
 		return &csi.NodePublishVolumeResponse{}, nil
 	}

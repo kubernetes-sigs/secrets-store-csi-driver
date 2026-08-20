@@ -35,8 +35,7 @@ import (
 )
 
 // ensureMountPoint reports whether the target is mounted and whether
-// it has any content. The caller decides whether to mount, populate,
-// or short-circuit.
+// it has any content.
 func (ns *nodeServer) ensureMountPoint(target string) (mounted, hasContent bool, err error) {
 	notMnt, err := ns.mounter.IsLikelyNotMountPoint(target)
 	if err != nil {
@@ -46,6 +45,7 @@ func (ns *nodeServer) ensureMountPoint(target string) (mounted, hasContent bool,
 	if !notMnt {
 		entries, readErr := os.ReadDir(target)
 		if readErr == nil {
+			klog.V(4).InfoS("already mounted to target", "targetPath", target)
 			return true, len(entries) > 0, nil
 		}
 		// Mount is in a bad state. Unmount and let the caller perform a
@@ -58,8 +58,10 @@ func (ns *nodeServer) ensureMountPoint(target string) (mounted, hasContent bool,
 	}
 
 	if runtimeutil.IsRuntimeWindows() {
-		// IsLikelyNotMountPoint always returns notMnt=true on Windows;
-		// use directory content as the "is mounted" proxy.
+		// IsLikelyNotMountPoint always returns notMnt=true for windows as the
+		// target path is not a soft link to the global mount
+		// instead check if the dir exists for windows and if it's not empty
+		// If there are contents in the dir, then objects are already mounted
 		entries, err := os.ReadDir(target)
 		if err != nil {
 			return false, false, err
