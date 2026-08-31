@@ -28,9 +28,16 @@ RUN export GOOS=$TARGETOS && \
 
 FROM $BASEIMAGE
 COPY --from=builder /go/src/sigs.k8s.io/secrets-store-csi-driver/_output/secrets-store-csi /secrets-store-csi
+
+# Deliberately not installing ca-certificates: debian-base already ships
+# /etc/ssl/certs/ca-certificates.crt, copied in without the package so that
+# openssl is not pulled in as a dependency. Re-installing the package here would
+# undo that and add openssl + libssl3 back to the image. The driver is built with
+# CGO_ENABLED=0, so it reads the trust bundle as a file via crypto/x509 and never
+# links libssl3 nor execs the openssl CLI.
 RUN apt update && \
     apt upgrade -y && \
-    clean-install ca-certificates mount
+    clean-install mount
 
 LABEL description="Secrets Store CSI Driver"
 
