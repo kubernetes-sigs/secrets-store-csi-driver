@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 var (
@@ -121,6 +122,13 @@ func newReconciler(client client.Client, scheme *runtime.Scheme, nodeID string) 
 	}
 }
 
+// expectOwnerRefs asserts the secret's owner references match want exactly, by
+// full-struct equality and independent of order. ConsistOf uses DeepEqual, so
+// pointer fields (Controller, BlockOwnerDeletion) are compared by their pointees.
+func expectOwnerRefs(g Gomega, secret *corev1.Secret, want ...metav1.OwnerReference) {
+	g.Expect(secret.OwnerReferences).To(ConsistOf(want))
+}
+
 func TestPatchSecretWithOwnerRef(t *testing.T) {
 	g := NewWithT(t)
 
@@ -188,6 +196,257 @@ func TestCreateOrUpdateK8sSecret(t *testing.T) {
 	g.Expect(secret.Name).To(Equal("my-secret2"))
 }
 
+func TestCreateOrUpdateHotloop(t *testing.T) {
+	g := NewWithT(t)
+
+	scheme, err := setupScheme()
+	g.Expect(err).NotTo(HaveOccurred())
+
+	labels := map[string]string{"environment": "test"}
+	annotations := map[string]string{"kubed.appscode.com/sync": "app=test"}
+
+	// secret1 is intentionally NOT pre-seeded so the create path runs.
+	initObjects := []client.Object{
+		newSecretProviderClassPodStatus("pod1-default-spc1", "default", "node1"),
+		newSecretProviderClass("spc1", "default"),
+		newPod("pod1", "default", []metav1.OwnerReference{
+			{
+				APIVersion:         "apps/v1",
+				BlockOwnerDeletion: new(true),
+				Controller:         new(true),
+				Kind:               "ReplicaSet",
+				Name:               "pod-6886c65f8f",
+				UID:                "f39da13d-7246-4ef5-aed4-a6905f82cbcd",
+			},
+		}),
+	}
+
+	var createCount, updateCount, patchCount int
+	client := fake.
+		NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(initObjects...).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Create: func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+				createCount++
+				return client.Create(ctx, obj, opts...)
+			},
+			Update: func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+				updateCount++
+				return client.Update(ctx, obj, opts...)
+			},
+			Patch: func(ctx context.Context, client client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+				patchCount++
+				return client.Patch(ctx, obj, patch, opts...)
+			},
+		}).
+		Build()
+
+	reconciler := newReconciler(client, scheme, "node1")
+
+	// The Patcher copies only APIVersion/Kind/UID/Name from the pod's owner
+	// references; Controller/BlockOwnerDeletion are intentionally left nil.
+	wantRef := metav1.OwnerReference{
+		APIVersion: "apps/v1",
+		Kind:       "ReplicaSet",
+		Name:       "pod-6886c65f8f",
+		UID:        "f39da13d-7246-4ef5-aed4-a6905f82cbcd",
+	}
+
+	secretKey := types.NamespacedName{Name: "secret1", Namespace: "default"}
+	getSecret := func() *corev1.Secret {
+		s := &corev1.Secret{}
+		g.Expect(client.Get(context.TODO(), secretKey, s)).NotTo(HaveOccurred())
+		return s
+	}
+
+	err = reconciler.createOrUpdateK8sSecret(context.TODO(), "secret1", "default", map[string][]byte{"foo": []byte("bar")}, labels, annotations, corev1.SecretTypeOpaque)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(createCount).To(Equal(1))
+	g.Expect(updateCount).To(Equal(0))
+	g.Expect(patchCount).To(Equal(0))
+
+	err = reconciler.Patcher(context.TODO())
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(createCount).To(Equal(1))
+	g.Expect(updateCount).To(Equal(0))
+	g.Expect(patchCount).To(Equal(1))
+
+	s1 := getSecret()
+	expectOwnerRefs(g, s1, wantRef)
+
+	updateDataMap := map[string][]byte{"foo": []byte("baz")}
+	// update the secret with new content
+	err = reconciler.createOrUpdateK8sSecret(context.TODO(), "secret1", "default", updateDataMap, labels, annotations, corev1.SecretTypeOpaque)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(createCount).To(Equal(1))
+	g.Expect(updateCount).To(Equal(0))
+	g.Expect(patchCount).To(Equal(2))
+
+	// owner refs should be preserved
+	s2 := getSecret()
+	expectOwnerRefs(g, s2, wantRef)
+
+	// patching should be a no-op
+	err = reconciler.Patcher(context.TODO())
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(createCount).To(Equal(1))
+	g.Expect(updateCount).To(Equal(0))
+	g.Expect(patchCount).To(Equal(2))
+
+	// attempt to update with unchanged data results in no-op (early return,
+	// i.e. no patch/update)
+	err = reconciler.createOrUpdateK8sSecret(context.TODO(), "secret1", "default", updateDataMap, labels, annotations, corev1.SecretTypeOpaque)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(createCount).To(Equal(1))
+	g.Expect(updateCount).To(Equal(0))
+	g.Expect(patchCount).To(Equal(2))
+
+	s3 := getSecret()
+	expectOwnerRefs(g, s3, wantRef)
+	g.Expect(s3.Name).To(Equal("secret1"))
+	g.Expect(s3.Labels).To(Equal(labels))
+	g.Expect(s3.Annotations).To(Equal(annotations))
+	g.Expect(s3.Data).To(Equal(map[string][]byte{"foo": []byte("baz")}))
+}
+
+func TestDataPatch(t *testing.T) {
+	g := NewWithT(t)
+
+	scheme, err := setupScheme()
+	g.Expect(err).NotTo(HaveOccurred())
+
+	labels := map[string]string{"environment": "test"}
+	annotations := map[string]string{"kubed.appscode.com/sync": "app=test"}
+
+	secretKey := types.NamespacedName{Name: "secret1", Namespace: "default"}
+	initSecret := newSecret(secretKey.Name, secretKey.Namespace, labels, annotations)
+	initSecret.Data = map[string][]byte{
+		"key1": []byte("key1origvalue"),
+		"key2": []byte("key2notdeleted"),
+	}
+
+	updateDataMap := map[string][]byte{
+		"key1": []byte("key1replaced"),
+		"key3": []byte("key3newkey"),
+	}
+
+	initObjects := []client.Object{
+		initSecret,
+	}
+
+	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+	reconciler := newReconciler(client, scheme, "node1")
+
+	err = reconciler.createOrUpdateK8sSecret(context.TODO(), secretKey.Name, secretKey.Namespace, updateDataMap, labels, annotations, corev1.SecretTypeOpaque)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	updated := &corev1.Secret{}
+	err = client.Get(context.TODO(), secretKey, updated)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(updated.Data).To(Equal(updateDataMap))
+}
+
+// TestUpdateOverwritesForeignLabelsAndAnnotations proves that when another controller modifies
+// only labels/annotations and adds its own owner ref, our controller notices
+// (reconcile + patch run) and overwrites the foreign labels and annotations.
+// TODO: we intend to change this in a future release as this behavior
+// is incorrect.
+func TestUpdateDoesNotModifyLabelsOrAnnotations(t *testing.T) {
+	g := NewWithT(t)
+
+	scheme, err := setupScheme()
+	g.Expect(err).NotTo(HaveOccurred())
+
+	// driver* is what our SecretObject declares; the foreign* keys are added by a
+	// different controller and must not be stomped.
+	foreignLabels := map[string]string{
+		"key1": "key1foreignlabel", // value will be merged
+		"key2": "key2foreignlabel",
+	}
+	driverLabels := map[string]string{
+		"key1": "key1driverlabel",
+		"key3": "key3driverlabel",
+	}
+	foreignAnnotations := map[string]string{
+		"key1": "key1foreignannotation",
+		"key2": "key2foreignannotation",
+	}
+	driverAnnotations := map[string]string{
+		"key1": "key1driverannotation",
+		"key3": "key3driverannotation",
+	}
+
+	foreignRef := metav1.OwnerReference{
+		APIVersion: "example.com/v1",
+		Kind:       "ExternalThing",
+		Name:       "external-owner",
+		UID:        "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+	}
+	foreignSecret := newSecret("secret1", "default", foreignLabels, foreignAnnotations)
+	foreignSecret.OwnerReferences = []metav1.OwnerReference{foreignRef}
+
+	initObjects := []client.Object{
+		newSecretProviderClassPodStatus("pod1-default-spc1", "default", "node1"),
+		newSecretProviderClass("spc1", "default"),
+		newPod("pod1", "default", []metav1.OwnerReference{
+			{
+				APIVersion:         "apps/v1",
+				BlockOwnerDeletion: new(true),
+				Controller:         new(true),
+				Kind:               "ReplicaSet",
+				Name:               "pod-6886c65f8f",
+				UID:                "f39da13d-7246-4ef5-aed4-a6905f82cbcd",
+			},
+		}),
+		foreignSecret,
+	}
+
+	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+	reconciler := newReconciler(client, scheme, "node1")
+
+	driverRef := metav1.OwnerReference{
+		APIVersion: "apps/v1",
+		Kind:       "ReplicaSet",
+		Name:       "pod-6886c65f8f",
+		UID:        "f39da13d-7246-4ef5-aed4-a6905f82cbcd",
+	}
+
+	secretKey := types.NamespacedName{Name: "secret1", Namespace: "default"}
+	getSecret := func() *corev1.Secret {
+		s := &corev1.Secret{}
+		g.Expect(client.Get(context.TODO(), secretKey, s)).NotTo(HaveOccurred())
+		return s
+	}
+
+	// annotations should not be modified with real update
+	err = reconciler.createOrUpdateK8sSecret(context.TODO(), "secret1", "default", map[string][]byte{"foo": []byte("bar")}, driverLabels, driverAnnotations, corev1.SecretTypeOpaque)
+	g.Expect(err).NotTo(HaveOccurred())
+	err = reconciler.Patcher(context.TODO())
+	g.Expect(err).NotTo(HaveOccurred())
+
+	s1 := getSecret()
+	expectOwnerRefs(g, s1, foreignRef, driverRef)
+	g.Expect(s1.Labels).To(Equal(foreignLabels))
+	g.Expect(s1.Annotations).To(Equal(foreignAnnotations))
+
+	// no-op update should leave labels and annotations alone
+	err = reconciler.createOrUpdateK8sSecret(context.TODO(), "secret1", "default", map[string][]byte{"foo": []byte("bar")}, driverLabels, driverAnnotations, corev1.SecretTypeOpaque)
+	s2 := getSecret()
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(s2.Labels).To(Equal(foreignLabels))
+	g.Expect(s2.Annotations).To(Equal(foreignAnnotations))
+
+	// patcher should leave labels and annotations alone
+	err = reconciler.Patcher(context.TODO())
+	g.Expect(err).NotTo(HaveOccurred())
+
+	s3 := getSecret()
+	expectOwnerRefs(g, s3, foreignRef, driverRef)
+	g.Expect(s3.Labels).To(Equal(foreignLabels))
+	g.Expect(s3.Annotations).To(Equal(foreignAnnotations))
+}
+
 func TestGenerateEvent(t *testing.T) {
 	g := NewWithT(t)
 
@@ -246,7 +505,6 @@ func TestPatcherForPodWithOwner(t *testing.T) {
 
 	scheme, err := setupScheme()
 	g.Expect(err).NotTo(HaveOccurred())
-	tr := true
 
 	initObjects := []client.Object{
 		newSecretProviderClassPodStatus("pod1-default-spc1", "default", "node1"),
@@ -254,8 +512,8 @@ func TestPatcherForPodWithOwner(t *testing.T) {
 		newPod("pod1", "default", []metav1.OwnerReference{
 			{
 				APIVersion:         "apps/v1",
-				BlockOwnerDeletion: &tr,
-				Controller:         &tr,
+				BlockOwnerDeletion: new(true),
+				Controller:         new(true),
 				Kind:               "ReplicaSet",
 				Name:               "pod-6886c65f8f",
 				UID:                "f39da13d-7246-4ef5-aed4-a6905f82cbcd",
@@ -274,9 +532,12 @@ func TestPatcherForPodWithOwner(t *testing.T) {
 	err = client.Get(context.TODO(), types.NamespacedName{Name: "secret1", Namespace: "default"}, secret)
 	g.Expect(err).NotTo(HaveOccurred())
 
-	g.Expect(len(secret.OwnerReferences)).To(Equal(1))
-	g.Expect(secret.OwnerReferences[0].APIVersion).To(Equal("apps/v1"))
-	g.Expect(secret.OwnerReferences[0].Kind).To(Equal("ReplicaSet"))
-	g.Expect(secret.OwnerReferences[0].Name).To(Equal("pod-6886c65f8f"))
-	g.Expect(secret.OwnerReferences[0].UID).To(Equal(types.UID("f39da13d-7246-4ef5-aed4-a6905f82cbcd")))
+	// Controller/BlockOwnerDeletion are intentionally dropped: the Patcher copies
+	// only APIVersion/Kind/UID/Name from the pod's owner references.
+	expectOwnerRefs(g, secret, metav1.OwnerReference{
+		APIVersion: "apps/v1",
+		Kind:       "ReplicaSet",
+		Name:       "pod-6886c65f8f",
+		UID:        "f39da13d-7246-4ef5-aed4-a6905f82cbcd",
+	})
 }
