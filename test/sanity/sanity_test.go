@@ -27,7 +27,7 @@ import (
 	secretsstore "sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/version"
 
-	"github.com/kubernetes-csi/csi-test/v4/pkg/sanity"
+	"github.com/kubernetes-csi/csi-test/v5/pkg/sanity"
 )
 
 const (
