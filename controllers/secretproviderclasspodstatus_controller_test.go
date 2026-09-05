@@ -42,7 +42,7 @@ var (
 
 func setupScheme() (*runtime.Scheme, error) {
 	scheme := runtime.NewScheme()
-	if err := secretsstorev1.AddToScheme(scheme); err != nil {
+	if err := secretsstorev1.Install(scheme); err != nil {
 		return nil, err
 	}
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
