@@ -18,7 +18,9 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -34,6 +36,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -221,15 +224,15 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	klog.InfoS("reconcile started", "spcps", req.NamespacedName.String())
+	klog.InfoS("reconcile started", "spcps", req.String())
 
 	spcPodStatus := &secretsstorev1.SecretProviderClassPodStatus{}
 	if err := r.reader.Get(ctx, req.NamespacedName, spcPodStatus); err != nil {
 		if apierrors.IsNotFound(err) {
-			klog.InfoS("reconcile complete", "spcps", req.NamespacedName.String())
+			klog.InfoS("reconcile complete", "spcps", req.String())
 			return ctrl.Result{}, nil
 		}
-		klog.ErrorS(err, "failed to get spc pod status", "spcps", req.NamespacedName.String())
+		klog.ErrorS(err, "failed to get spc pod status", "spcps", req.String())
 		return ctrl.Result{}, err
 	}
 
@@ -296,7 +299,6 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 			continue
 		}
 
-		var funcs []func() (bool, error)
 		secretType := secretutil.GetSecretType(strings.TrimSpace(secretObj.Type))
 
 		var datamap map[string][]byte
@@ -320,9 +322,19 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 		// only on secrets created and managed by the driver
 		labelsMap[SecretManagedLabel] = "true"
 
-		createFn := func() (bool, error) {
+		if err := wait.ExponentialBackoff(wait.Backoff{
+			Steps:    5,
+			Duration: 1 * time.Millisecond,
+			Factor:   1.0,
+			Jitter:   0.1,
+		}, func() (done bool, err error) {
 			if err := r.createOrUpdateK8sSecret(ctx, secretName, req.Namespace, datamap, labelsMap, annotationsMap, secretType); err != nil {
 				klog.ErrorS(err, "failed to create Kubernetes secret", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "secret", klog.ObjectRef{Namespace: req.Namespace, Name: secretName}, "spcps", klog.KObj(spcPodStatus))
+				// error out here to break out of the backoff and retry the full Reconcile() early
+				if apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err) {
+					return false, err
+				}
+
 				// syncSecret.enabled is set to false by default in the helm chart for installing the driver in v0.0.23+
 				// that would result in a forbidden error, so generate a warning that can be helpful for debugging
 				if apierrors.IsForbidden(err) {
@@ -331,19 +343,9 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 				return false, nil
 			}
 			return true, nil
-		}
-		funcs = append(funcs, createFn)
-
-		for _, f := range funcs {
-			if err := wait.ExponentialBackoff(wait.Backoff{
-				Steps:    5,
-				Duration: 1 * time.Millisecond,
-				Factor:   1.0,
-				Jitter:   0.1,
-			}, f); err != nil {
-				r.generateEvent(pod, corev1.EventTypeWarning, secretCreationFailedReason, err.Error())
-				return ctrl.Result{RequeueAfter: 5 * time.Second}, err
-			}
+		}); err != nil {
+			r.generateEvent(pod, corev1.EventTypeWarning, secretCreationFailedReason, err.Error())
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 		}
 	}
 
@@ -399,31 +401,63 @@ func (r *SecretProviderClassPodStatusReconciler) processIfBelongsToNode(objMeta 
 // createOrUpdateK8sSecret creates K8s secret with data from mounted files
 // If a secret with the same name already exists in the namespace of the pod, it will update that existing secret.
 func (r *SecretProviderClassPodStatusReconciler) createOrUpdateK8sSecret(ctx context.Context, name, namespace string, datamap map[string][]byte, labelsmap map[string]string, annotationsmap map[string]string, secretType corev1.SecretType) error {
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   namespace,
-			Name:        name,
-			Labels:      labelsmap,
-			Annotations: annotationsmap,
-		},
-		Type: secretType,
-		Data: datamap,
+	secret := &corev1.Secret{}
+	getErr := r.reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, secret)
+
+	// Secret does not exist, create it
+	if apierrors.IsNotFound(getErr) {
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:   namespace,
+				Name:        name,
+				Labels:      labelsmap,
+				Annotations: annotationsmap,
+			},
+			Type: secretType,
+			Data: datamap,
+		}
+
+		err := r.writer.Create(ctx, secret)
+		if err == nil {
+			klog.InfoS("successfully created Kubernetes secret", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
+		}
+
+		return err
 	}
 
-	err := r.writer.Create(ctx, secret)
-	if err == nil {
-		klog.InfoS("successfully created Kubernetes secret", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
+	if getErr != nil {
+		return getErr
+	}
+
+	// Secret exists, update it
+	klog.V(5).InfoS("Kubernetes secret is already created", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
+
+	if reflect.DeepEqual(secret.Data, datamap) {
 		return nil
 	}
-	if !apierrors.IsAlreadyExists(err) {
+
+	oldData, err := json.Marshal(secret)
+	if err != nil {
+		return fmt.Errorf("failed to marshal old secret, err: %w", err)
+	}
+
+	secret.Data = datamap
+
+	newData, err := json.Marshal(secret)
+	if err != nil {
+		return fmt.Errorf("failed to marshal new secret, err: %w", err)
+	}
+
+	// Patching data clobbers existing data
+	patch, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, secret)
+	if err != nil {
+		return fmt.Errorf("failed to create patch, err: %w", err)
+	}
+
+	if err = r.writer.Patch(ctx, secret, client.RawPatch(types.MergePatchType, patch)); err != nil {
 		return err
 	}
 
-	klog.V(5).InfoS("Kubernetes secret is already created", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
-	err = r.writer.Update(ctx, secret)
-	if err != nil {
-		return err
-	}
 	klog.V(5).InfoS("successfully updated Kubernetes secret", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
 	return nil
 }
@@ -435,7 +469,7 @@ func (r *SecretProviderClassPodStatusReconciler) patchSecretWithOwnerRef(ctx con
 		Namespace: namespace,
 		Name:      name,
 	}
-	if err := r.Client.Get(ctx, secretKey, secret); err != nil {
+	if err := r.Get(ctx, secretKey, secret); err != nil {
 		if apierrors.IsNotFound(err) {
 			klog.V(5).InfoS("secret not found for patching", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
 			return nil
@@ -473,6 +507,6 @@ func (r *SecretProviderClassPodStatusReconciler) patchSecretWithOwnerRef(ctx con
 // generateEvent generates an event
 func (r *SecretProviderClassPodStatusReconciler) generateEvent(obj apiruntime.Object, eventType, reason, message string) {
 	if obj != nil {
-		r.eventRecorder.Eventf(obj, eventType, reason, message)
+		r.eventRecorder.Event(obj, eventType, reason, message)
 	}
 }

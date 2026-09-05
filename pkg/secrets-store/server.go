@@ -31,6 +31,7 @@ import (
 	pbSanitizer "github.com/kubernetes-csi/csi-lib-utils/protosanitizer"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"k8s.io/klog/v2"
 	"monis.app/mlog"
 )
@@ -172,7 +173,11 @@ func sanitizeRequest(req interface{}) string {
 		return pbSanitizer.StripSecrets(req).String()
 	}
 
-	tmp := *r
+	tmp, ok := proto.Clone(r).(*csi.NodePublishVolumeRequest)
+	if !ok {
+		return pbSanitizer.StripSecrets(req).String()
+	}
+
 	volumeContext := make(map[string]string)
 	for k, v := range r.VolumeContext {
 		volumeContext[k] = v
@@ -181,5 +186,5 @@ func sanitizeRequest(req interface{}) string {
 		volumeContext[csiPodServiceAccountTokens] = "***stripped***"
 	}
 	tmp.VolumeContext = volumeContext
-	return pbSanitizer.StripSecrets(&tmp).String()
+	return pbSanitizer.StripSecrets(tmp).String()
 }
