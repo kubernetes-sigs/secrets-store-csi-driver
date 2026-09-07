@@ -397,7 +397,7 @@ e2e-teardown: $(HELM)
 
 .PHONY: e2e-provider-deploy
 e2e-provider-deploy:
-	yq e 'select(.kind == "DaemonSet").spec.template.spec.containers[0].image = "$(E2E_PROVIDER_IMAGE_TAG)"' 'test/e2eprovider/e2e-provider-installer.yaml' | kubectl apply -n kube-system -f -
+	yq -e 'select(.kind == "DaemonSet").spec.template.spec.containers[0].image = "$(E2E_PROVIDER_IMAGE_TAG)"' 'test/e2eprovider/e2e-provider-installer.yaml' | kubectl apply -n kube-system -f -
 
 .PHONY: e2e-deploy-manifest
 e2e-deploy-manifest:
