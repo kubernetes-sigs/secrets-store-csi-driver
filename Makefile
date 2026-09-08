@@ -29,8 +29,8 @@ E2E_PROVIDER_IMAGE_NAME ?= e2e-provider
 
 # Release version is the current supported release for the driver
 # Update this version when the helm chart is being updated for release
-RELEASE_VERSION := v1.6.0
-IMAGE_VERSION ?= v1.6.0
+RELEASE_VERSION := v1.6.1
+IMAGE_VERSION ?= v1.6.1
 
 # Use a custom version for E2E tests if we are testing in CI
 ifdef CI
@@ -83,6 +83,7 @@ BUILDKIT_VERSION ?= v0.10.6
 
 # Binaries
 GOLANGCI_LINT := $(TOOLS_BIN_DIR)/golangci-lint
+GOLANGCI_GOTOOLCHAIN := go1.26.0 # TODO: remove me when golangci plugins are compatible with Go 1.27
 CONTROLLER_GEN := $(TOOLS_BIN_DIR)/controller-gen
 KUSTOMIZE := $(TOOLS_BIN_DIR)/kustomize
 PROTOC := $(TOOLS_DIR)/bin/protoc
@@ -245,8 +246,8 @@ test-style: lint lint-charts shellcheck
 .PHONY: lint
 lint: $(GOLANGCI_LINT) ## Run lint
 	# Setting timeout to 5m as default is 1m
-	$(GOLANGCI_LINT) run --timeout=5m -v
-	cd test/e2eprovider && $(GOLANGCI_LINT) run --build-tags e2e --timeout=5m -v
+	GOTOOLCHAIN=$(GOLANGCI_GOTOOLCHAIN) $(GOLANGCI_LINT) run --timeout=5m -v
+	cd test/e2eprovider && GOTOOLCHAIN=$(GOLANGCI_GOTOOLCHAIN) $(GOLANGCI_LINT) run --build-tags e2e --timeout=5m -v
 
 lint-full: $(GOLANGCI_LINT)
 	$(GOLANGCI_LINT) run -v
