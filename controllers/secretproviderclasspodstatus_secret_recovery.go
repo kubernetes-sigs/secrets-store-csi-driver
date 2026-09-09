@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 
@@ -30,6 +31,11 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+)
+
+const (
+	secretRecoveryBatchDelay = 10 * time.Millisecond
+	secretRecoveryBatchSize  = 100
 )
 
 // confirmingReader distinguishes a deleted Secret from one that only stopped
@@ -74,11 +80,11 @@ func (r *SecretProviderClassPodStatusReconciler) runSecretRecoveryWorker(
 	recoveryQueue workqueue.TypedRateLimitingInterface[types.NamespacedName],
 	controllerQueue workqueue.TypedRateLimitingInterface[reconcile.Request],
 ) {
-	for r.processNextSecretRecoveryWork(ctx, recoveryQueue, controllerQueue) {
+	for r.processNextSecretRecoveryBatch(ctx, recoveryQueue, controllerQueue) {
 	}
 }
 
-func (r *SecretProviderClassPodStatusReconciler) processNextSecretRecoveryWork(
+func (r *SecretProviderClassPodStatusReconciler) processNextSecretRecoveryBatch(
 	ctx context.Context,
 	recoveryQueue workqueue.TypedRateLimitingInterface[types.NamespacedName],
 	controllerQueue workqueue.TypedRateLimitingInterface[reconcile.Request],
@@ -91,7 +97,29 @@ func (r *SecretProviderClassPodStatusReconciler) processNextSecretRecoveryWork(
 	if shutdown {
 		return false
 	}
-	defer recoveryQueue.Done(item)
+	batch := []types.NamespacedName{item}
+	defer func() {
+		for _, item := range batch {
+			recoveryQueue.Done(item)
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return false
+	case <-time.After(secretRecoveryBatchDelay):
+	}
+
+	// This worker is the queue's only consumer, so no other goroutine can remove
+	// an item between this snapshot and Get. Concurrent additions remain queued
+	// for this batch or the next one.
+	for range min(recoveryQueue.Len(), secretRecoveryBatchSize-1) {
+		item, shutdown := recoveryQueue.Get()
+		if shutdown {
+			break
+		}
+		batch = append(batch, item)
+	}
 
 	if err := r.informers.AreResourcesSynced(ctx,
 		&corev1.Secret{},
@@ -102,24 +130,28 @@ func (r *SecretProviderClassPodStatusReconciler) processNextSecretRecoveryWork(
 		if ctx.Err() != nil {
 			return false
 		}
-		klog.ErrorS(err, "failed to synchronize caches for managed Kubernetes Secret recovery", "secret", klog.KRef(item.Namespace, item.Name))
-		recoveryQueue.AddRateLimited(item)
-		return true
-	}
-
-	requests, err := r.requestsForDeletedSecretFromSyncedCaches(ctx, item)
-	if err != nil {
-		if ctx.Err() != nil {
-			return false
+		klog.ErrorS(err, "failed to synchronize caches for managed Kubernetes Secret recovery", "secrets", len(batch))
+		for _, item := range batch {
+			recoveryQueue.AddRateLimited(item)
 		}
-		klog.ErrorS(err, "failed to process managed Kubernetes Secret recovery", "secret", klog.KRef(item.Namespace, item.Name))
-		recoveryQueue.AddRateLimited(item)
 		return true
 	}
 
-	recoveryQueue.Forget(item)
-	for _, request := range requests {
-		controllerQueue.Add(request)
+	for _, item := range batch {
+		requests, err := r.requestsForDeletedSecretFromSyncedCaches(ctx, item)
+		if err != nil {
+			if ctx.Err() != nil {
+				return false
+			}
+			klog.ErrorS(err, "failed to process managed Kubernetes Secret recovery", "secret", klog.KRef(item.Namespace, item.Name))
+			recoveryQueue.AddRateLimited(item)
+			continue
+		}
+
+		recoveryQueue.Forget(item)
+		for _, request := range requests {
+			controllerQueue.Add(request)
+		}
 	}
 	return true
 }

@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"sync/atomic"
 	"testing"
@@ -355,20 +356,66 @@ func TestDeletedSecretMappingRetriesTransientErrors(t *testing.T) {
 	defer recoveryQueue.ShutDown()
 	controllerQueue := newTestQueue[reconcile.Request]()
 	defer controllerQueue.ShutDown()
-	item := types.NamespacedName{Namespace: "default", Name: "secret1"}
-	recoveryQueue.Add(item)
+	items := []types.NamespacedName{
+		{Namespace: "default", Name: "secret1"},
+		{Namespace: "default", Name: "other-secret"},
+	}
+	for _, item := range items {
+		recoveryQueue.Add(item)
+	}
 
-	g.Expect(reconciler.processNextSecretRecoveryWork(context.Background(), recoveryQueue, controllerQueue)).To(BeTrue())
-	g.Eventually(recoveryQueue.Len).Should(Equal(1))
-	g.Expect(reconciler.processNextSecretRecoveryWork(context.Background(), recoveryQueue, controllerQueue)).To(BeTrue())
+	g.Expect(reconciler.processNextSecretRecoveryBatch(context.Background(), recoveryQueue, controllerQueue)).To(BeTrue())
+	g.Eventually(recoveryQueue.Len).Should(Equal(len(items)))
+	g.Expect(reconciler.processNextSecretRecoveryBatch(context.Background(), recoveryQueue, controllerQueue)).To(BeTrue())
+	// Every consulted type is probed on both passes, once for the whole batch.
 	g.Expect(probes.Load()).To(Equal(int32(8)))
-	g.Expect(recoveryQueue.NumRequeues(item)).To(BeZero())
+	for _, item := range items {
+		g.Expect(recoveryQueue.NumRequeues(item)).To(BeZero())
+	}
 
 	request, shutdown := controllerQueue.Get()
 	g.Expect(shutdown).To(BeFalse())
 	controllerQueue.Done(request)
 	controllerQueue.Forget(request)
 	g.Expect(request.NamespacedName).To(Equal(types.NamespacedName{Namespace: "default", Name: status.Name}))
+}
+
+func TestDeletedSecretRecoveryBatchesIrrelevantKeys(t *testing.T) {
+	g := NewWithT(t)
+	scheme, err := setupScheme()
+	g.Expect(err).NotTo(HaveOccurred())
+
+	cachedClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	var liveReads atomic.Int32
+	liveClient := interceptor.NewClient(cachedClient, interceptor.Funcs{
+		Get: func(ctx context.Context, api client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			liveReads.Add(1)
+			return api.Get(ctx, key, obj, opts...)
+		},
+	})
+	reconciler := newSecretRecoveryReconciler(t, cachedClient, scheme, "node1")
+	reconciler.secretReader = confirmingReader{Reader: cachedClient, api: liveClient}
+
+	var probes atomic.Int32
+	syncCaches(reconciler.informers, "1000", "1000", fakeLister{calls: &probes})
+
+	recoveryQueue := newTestQueue[types.NamespacedName]()
+	defer recoveryQueue.ShutDown()
+	controllerQueue := newTestQueue[reconcile.Request]()
+	defer controllerQueue.ShutDown()
+	for i := range secretRecoveryBatchSize + 1 {
+		recoveryQueue.Add(types.NamespacedName{Namespace: "default", Name: fmt.Sprintf("secret-%d", i)})
+	}
+
+	g.Expect(reconciler.processNextSecretRecoveryBatch(t.Context(), recoveryQueue, controllerQueue)).To(BeTrue())
+	g.Expect(recoveryQueue.Len()).To(Equal(1))
+	g.Expect(controllerQueue.Len()).To(BeZero())
+	g.Expect(probes.Load()).To(Equal(int32(4)))
+	g.Expect(liveReads.Load()).To(BeZero())
+
+	g.Expect(reconciler.processNextSecretRecoveryBatch(t.Context(), recoveryQueue, controllerQueue)).To(BeTrue())
+	g.Expect(recoveryQueue.Len()).To(BeZero())
+	g.Expect(probes.Load()).To(Equal(int32(8)))
 }
 
 func TestSecretRecoverySourceDrainsRegistryQueue(t *testing.T) {
