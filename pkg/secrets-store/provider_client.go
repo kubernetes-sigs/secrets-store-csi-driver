@@ -83,6 +83,11 @@ type PluginClientBuilder struct {
 	opts        []grpc.DialOption
 }
 
+type cachedProviderClient struct {
+	client v1alpha1.CSIDriverProviderClient
+	conn   *grpc.ClientConn
+}
+
 // NewPluginClientBuilder creates a PluginClientBuilder that will connect to
 // plugins in the provided absolute path to a folder. Plugin servers must listen
 // to the unix domain socket at:
@@ -187,8 +192,76 @@ func (p *PluginClientBuilder) Cleanup() {
 	p.conns = make(map[string]*grpc.ClientConn)
 }
 
+func (p *PluginClientBuilder) evictProvider(provider string, expectedConn *grpc.ClientConn) {
+	p.lock.Lock()
+
+	conn, ok := p.conns[provider]
+	if !ok || conn != expectedConn {
+		p.lock.Unlock()
+		return
+	}
+
+	delete(p.clients, provider)
+	delete(p.conns, provider)
+	p.lock.Unlock()
+
+	if conn == nil {
+		return
+	}
+	if err := conn.Close(); err != nil {
+		klog.ErrorS(
+			err,
+			"error shutting down unhealthy provider connection",
+			"provider",
+			provider,
+		)
+	}
+}
+
+func (p *PluginClientBuilder) healthCheck(ctx context.Context) {
+	p.lock.RLock()
+	clients := make(map[string]cachedProviderClient, len(p.clients))
+	for provider, client := range p.clients {
+		clients[provider] = cachedProviderClient{
+			client: client,
+			conn:   p.conns[provider],
+		}
+	}
+	p.lock.RUnlock()
+
+	for provider, cachedClient := range clients {
+		c, cancel := context.WithTimeout(ctx, 5*time.Second)
+		runtimeVersion, err := Version(c, cachedClient.client)
+		cancel()
+
+		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+
+			klog.V(4).ErrorS(
+				err,
+				"provider healthcheck failed",
+				"provider",
+				provider,
+			)
+			p.evictProvider(provider, cachedClient.conn)
+			continue
+		}
+
+		klog.V(4).InfoS(
+			"provider healthcheck successful",
+			"provider",
+			provider,
+			"runtimeVersion",
+			runtimeVersion,
+		)
+	}
+}
+
 // HealthCheck enables periodic healthcheck for configured provider clients by making
-// a Version() RPC call. If the provider healthcheck fails, we log an error.
+// a Version() RPC call. If a provider healthcheck fails, the cached client and
+// connection are removed so the next Get() call can recreate them.
 //
 // This method blocks until the parent context is canceled during termination.
 func (p *PluginClientBuilder) HealthCheck(ctx context.Context, interval time.Duration) {
@@ -200,21 +273,7 @@ func (p *PluginClientBuilder) HealthCheck(ctx context.Context, interval time.Dur
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			p.lock.RLock()
-
-			for provider, client := range p.clients {
-				c, cancel := context.WithTimeout(ctx, 5*time.Second)
-				defer cancel()
-
-				runtimeVersion, err := Version(c, client)
-				if err != nil {
-					klog.V(4).ErrorS(err, "provider healthcheck failed", "provider", provider)
-					continue
-				}
-				klog.V(4).InfoS("provider healthcheck successful", "provider", provider, "runtimeVersion", runtimeVersion)
-			}
-
-			p.lock.RUnlock()
+			p.healthCheck(ctx)
 		}
 	}
 }
