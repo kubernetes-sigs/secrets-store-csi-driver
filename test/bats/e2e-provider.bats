@@ -52,6 +52,20 @@ count_spcps_reconciles() {
   ' <<<"${logs}"
 }
 
+count_secret_recoveries() {
+  local driver_pod="$1"
+  local secret="$2"
+  local logs
+
+  if ! logs=$(kubectl logs "${driver_pod}" -n kube-system -c secrets-store); then
+    return 1
+  fi
+  awk -v target="\"default/${secret}\"" '
+    index($0, "managed Kubernetes Secret was deleted") && index($0, target) { count++ }
+    END { print count + 0 }
+  ' <<<"${logs}"
+}
+
 # export the secrets-store API version to be used
 export API_VERSION=$(get_secrets_store_api_version)
 
@@ -282,6 +296,41 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   local current_resource_version
   current_resource_version=$(kubectl get secret foosecret -o jsonpath="{.metadata.resourceVersion}")
   assert_equal "${original_resource_version}" "${current_resource_version}"
+}
+
+@test "Sync with K8s secrets - recreate accidentally deleted secret" {
+  if [[ "${INPLACE_UPGRADE_TEST}" == "true" ]]; then
+    skip
+  fi
+
+  local pod
+  pod=$(kubectl get pod -l app=busybox -o jsonpath="{.items[0].metadata.name}")
+  local node
+  node=$(kubectl get pod "${pod}" -o jsonpath="{.spec.nodeName}")
+  local driver_pod
+  driver_pod=$(driver_pod_on_node "${node}")
+  [[ -n "${driver_pod}" ]]
+  local original_recovery_count
+  original_recovery_count=$(count_secret_recoveries "${driver_pod}" foosecret)
+
+  original_uid=$(kubectl get secret foosecret -o jsonpath="{.metadata.uid}")
+
+  run kubectl delete secret foosecret
+  assert_success
+
+  run wait_for_process $WAIT_TIME $SLEEP_TIME \
+    "[[ \$(count_secret_recoveries '${driver_pod}' foosecret) -gt ${original_recovery_count} ]]"
+  assert_success
+
+  cmd="new_uid=\$(kubectl get secret foosecret -o jsonpath='{.metadata.uid}' 2>/dev/null) && [[ -n \"\$new_uid\" && \"\$new_uid\" != \"${original_uid}\" ]]"
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  assert_success
+
+  result=$(kubectl get secret foosecret -o jsonpath="{.data.username}" | base64 -d)
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 2"
+  assert_success
 }
 
 @test "Sync with K8s secrets - delete deployment, check owner ref updated, check secret deleted" {
