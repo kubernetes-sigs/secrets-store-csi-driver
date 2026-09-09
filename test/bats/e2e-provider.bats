@@ -31,6 +31,27 @@ export NODE_SELECTOR_OS=$NODE_SELECTOR_OS
 # default label value of secret synched to k8s
 export LABEL_VALUE=${LABEL_VALUE:-"test"}
 
+driver_pod_on_node() {
+  local node="$1"
+
+  kubectl get pod -n kube-system --field-selector="spec.nodeName=${node}" -o json |
+    jq -r '([.items[] | select(any(.spec.containers[]; .name == "secrets-store"))] | .[0].metadata.name) // empty'
+}
+
+count_spcps_reconciles() {
+  local driver_pod="$1"
+  local spcps="$2"
+  local logs
+
+  if ! logs=$(kubectl logs "${driver_pod}" -n kube-system -c secrets-store); then
+    return 1
+  fi
+  awk -v target="\"default/${spcps}\"" '
+    index($0, "reconcile complete") && index($0, target) { count++ }
+    END { print count + 0 }
+  ' <<<"${logs}"
+}
+
 # export the secrets-store API version to be used
 export API_VERSION=$(get_secrets_store_api_version)
 
@@ -221,6 +242,46 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
 
   run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 2"
   assert_success
+}
+
+@test "Sync with K8s secrets - unchanged data does not update secret" {
+  if [[ "${INPLACE_UPGRADE_TEST}" == "true" ]]; then
+    skip
+  fi
+
+  local pod
+  pod=$(kubectl get pod -l app=busybox -o jsonpath="{.items[0].metadata.name}")
+  local spcps
+  spcps=$(kubectl get secretproviderclasspodstatuses.secrets-store.csi.x-k8s.io -o json |
+    jq -r --arg pod "${pod}" '([.items[] | select(.status.podName == $pod and .status.secretProviderClassName == "e2e-provider-sync")] | .[0].metadata.name) // empty')
+  [[ -n "${spcps}" ]]
+
+  local node
+  node=$(kubectl get pod "${pod}" -o jsonpath="{.spec.nodeName}")
+  local driver_pod
+  cmd="[[ -n \"\$(driver_pod_on_node '${node}')\" ]]"
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "${cmd}"
+  assert_success
+  driver_pod=$(driver_pod_on_node "${node}")
+
+  local original_resource_version
+  original_resource_version=$(kubectl get secret foosecret -o jsonpath="{.metadata.resourceVersion}")
+  local original_reconcile_count
+  original_reconcile_count=$(count_spcps_reconciles "${driver_pod}" "${spcps}")
+
+  local trigger
+  trigger=$(openssl rand -hex 8)
+  run kubectl annotate secretproviderclasspodstatuses.secrets-store.csi.x-k8s.io "${spcps}" \
+    "e2e.secrets-store.csi.k8s.io/noop-reconcile=${trigger}" --overwrite
+  assert_success
+
+  run wait_for_process $WAIT_TIME $SLEEP_TIME \
+    "[[ \$(count_spcps_reconciles '${driver_pod}' '${spcps}') -gt ${original_reconcile_count} ]]"
+  assert_success
+
+  local current_resource_version
+  current_resource_version=$(kubectl get secret foosecret -o jsonpath="{.metadata.resourceVersion}")
+  assert_equal "${original_resource_version}" "${current_resource_version}"
 }
 
 @test "Sync with K8s secrets - delete deployment, check owner ref updated, check secret deleted" {
