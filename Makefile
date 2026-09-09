@@ -76,14 +76,13 @@ OSVERSION ?= 1809
 # Output type of docker buildx build
 OUTPUT_TYPE ?= registry
 BUILDX_BUILDER_NAME ?= img-builder
-QEMU_VERSION ?= 5.2.0-2
+QEMU_VERSION ?= 7.2.0-1
 # pinning buildkit version to v0.10.6 as v0.11.0 is injecting sbom/prov to manifest
 # causing the manifest push to fail
 BUILDKIT_VERSION ?= v0.10.6
 
 # Binaries
 GOLANGCI_LINT := $(TOOLS_BIN_DIR)/golangci-lint
-GOLANGCI_GOTOOLCHAIN := go1.26.0 # TODO: remove me when golangci plugins are compatible with Go 1.27
 CONTROLLER_GEN := $(TOOLS_BIN_DIR)/controller-gen
 KUSTOMIZE := $(TOOLS_BIN_DIR)/kustomize
 PROTOC := $(TOOLS_DIR)/bin/protoc
@@ -174,7 +173,7 @@ $(CONTROLLER_GEN): $(TOOLS_MOD_DIR)/go.mod $(TOOLS_MOD_DIR)/go.sum $(TOOLS_MOD_D
 	cd $(TOOLS_MOD_DIR) && \
 		GOPROXY=$(GOPROXY) go build -tags=tools -o $(TOOLS_BIN_DIR)/controller-gen sigs.k8s.io/controller-tools/cmd/controller-gen
 
-$(GOLANGCI_LINT): ## Build golangci-lint from tools folder.
+$(GOLANGCI_LINT): $(TOOLS_MOD_DIR)/go.mod $(TOOLS_MOD_DIR)/go.sum $(TOOLS_MOD_DIR)/tools.go ## Build golangci-lint from tools folder.
 	cd $(TOOLS_MOD_DIR) && \
 		GOPROXY=$(GOPROXY) go build -o $(TOOLS_BIN_DIR)/golangci-lint github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 
@@ -246,8 +245,8 @@ test-style: lint lint-charts shellcheck
 .PHONY: lint
 lint: $(GOLANGCI_LINT) ## Run lint
 	# Setting timeout to 5m as default is 1m
-	GOTOOLCHAIN=$(GOLANGCI_GOTOOLCHAIN) $(GOLANGCI_LINT) run --timeout=5m -v
-	cd test/e2eprovider && GOTOOLCHAIN=$(GOLANGCI_GOTOOLCHAIN) $(GOLANGCI_LINT) run --build-tags e2e --timeout=5m -v
+	$(GOLANGCI_LINT) run --timeout=5m -v
+	cd test/e2eprovider && $(GOLANGCI_LINT) run --build-tags e2e --timeout=5m -v
 
 lint-full: $(GOLANGCI_LINT)
 	$(GOLANGCI_LINT) run -v
