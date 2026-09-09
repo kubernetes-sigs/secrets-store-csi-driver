@@ -16,7 +16,7 @@ REGISTRY?=gcr.io/k8s-staging-csi-secrets-store
 IMAGE_NAME=driver
 CRD_IMAGE_NAME=driver-crds
 # Image version for the driver and CRDs release
-IMAGE_VERSION?=v1.6.1 # no-op comment to trigger https://github.com/kubernetes/test-infra/blob/master/config/jobs/image-pushing/k8s-staging-csi-secrets-store.yaml
+IMAGE_VERSION?=v1.6.1 # no-op comment #2 to trigger https://github.com/kubernetes/test-infra/blob/master/config/jobs/image-pushing/k8s-staging-csi-secrets-store.yaml
 BUILD_TIMESTAMP := $(shell date +%Y-%m-%d-%H:%M)
 BUILD_COMMIT := $(shell git rev-parse --short HEAD)
 IMAGE_TAG=$(REGISTRY)/$(IMAGE_NAME):$(IMAGE_VERSION)
