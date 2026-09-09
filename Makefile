@@ -173,7 +173,7 @@ $(CONTROLLER_GEN): $(TOOLS_MOD_DIR)/go.mod $(TOOLS_MOD_DIR)/go.sum $(TOOLS_MOD_D
 	cd $(TOOLS_MOD_DIR) && \
 		GOPROXY=$(GOPROXY) go build -tags=tools -o $(TOOLS_BIN_DIR)/controller-gen sigs.k8s.io/controller-tools/cmd/controller-gen
 
-$(GOLANGCI_LINT): ## Build golangci-lint from tools folder.
+$(GOLANGCI_LINT): $(TOOLS_MOD_DIR)/go.mod $(TOOLS_MOD_DIR)/go.sum $(TOOLS_MOD_DIR)/tools.go ## Build golangci-lint from tools folder.
 	cd $(TOOLS_MOD_DIR) && \
 		GOPROXY=$(GOPROXY) go build -o $(TOOLS_BIN_DIR)/golangci-lint github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 
