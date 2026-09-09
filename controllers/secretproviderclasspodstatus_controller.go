@@ -350,7 +350,9 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 	}
 
 	if len(errs) > 0 {
-		return ctrl.Result{Requeue: true}, nil
+		// every error above is already logged and evented, and RequeueAfter cannot
+		// express the rate limited retry this needs
+		return ctrl.Result{Requeue: true}, nil //nolint:staticcheck
 	}
 
 	klog.InfoS("reconcile complete", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "spcps", klog.KObj(spcPodStatus))
