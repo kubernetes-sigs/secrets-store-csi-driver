@@ -76,7 +76,7 @@ OSVERSION ?= 1809
 # Output type of docker buildx build
 OUTPUT_TYPE ?= registry
 BUILDX_BUILDER_NAME ?= img-builder
-QEMU_VERSION ?= 5.2.0-2
+QEMU_VERSION ?= 7.2.0-1
 # pinning buildkit version to v0.10.6 as v0.11.0 is injecting sbom/prov to manifest
 # causing the manifest push to fail
 BUILDKIT_VERSION ?= v0.10.6
