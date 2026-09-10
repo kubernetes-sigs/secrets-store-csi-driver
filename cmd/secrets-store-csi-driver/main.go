@@ -88,6 +88,11 @@ func mainErr() error {
 
 	flag.Parse()
 
+	// controller-runtime logs a warning and drops its internal logs (e.g. from the
+	// priority work queue) if this isn't set before the manager starts. Route those
+	// logs through klog so they show up alongside the rest of the driver's logs.
+	ctrl.SetLogger(klog.NewKlogr())
+
 	ctx := withShutdownSignal(context.Background())
 
 	defer mlog.Setup()()
