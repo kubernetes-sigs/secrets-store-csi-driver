@@ -19,6 +19,8 @@ package secretsstore
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -28,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	mount "k8s.io/mount-utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -66,6 +69,82 @@ func newSecretProviderClassPodStatus(name, namespace, node string) *secretsstore
 			SecretProviderClassName: "spc1",
 			Mounted:                 true,
 		},
+	}
+}
+
+func TestEnsureMountPoint(t *testing.T) {
+	// newMountedFakeMounter returns a FakeMounter with target pre-registered
+	// as a tmpfs mount point, matching what nodeserver.go creates before the
+	// provider writes content.
+	newMountedFakeMounter := func(target string) *mount.FakeMounter {
+		return mount.NewFakeMounter([]mount.MountPoint{{Device: "tmpfs", Path: target, Type: "tmpfs"}})
+	}
+
+	tests := []struct {
+		name             string
+		setup            func(t *testing.T, target string) mount.Interface
+		wantMounted      bool
+		wantHasContent   bool
+		wantErr          bool
+		wantStillMounted bool
+	}{
+		{
+			name: "target is not mounted",
+			setup: func(t *testing.T, target string) mount.Interface {
+				return mount.NewFakeMounter([]mount.MountPoint{})
+			},
+		},
+		{
+			name: "target is mounted and populated",
+			setup: func(t *testing.T, target string) mount.Interface {
+				if err := os.WriteFile(filepath.Join(target, "secret1"), []byte("v"), 0600); err != nil {
+					t.Fatalf("seed: %v", err)
+				}
+				return newMountedFakeMounter(target)
+			},
+			wantMounted:      true,
+			wantHasContent:   true,
+			wantStillMounted: true,
+		},
+		{
+			// A previous NodePublishVolume was interrupted before writing
+			// files. The mount is reported as existing but empty; the caller
+			// re-calls the provider to populate it.
+			name: "target is mounted but empty",
+			setup: func(t *testing.T, target string) mount.Interface {
+				return newMountedFakeMounter(target)
+			},
+			wantMounted:      true,
+			wantHasContent:   false,
+			wantStillMounted: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			target := t.TempDir()
+			mounter := tt.setup(t, target)
+			ns := &nodeServer{mounter: mounter}
+
+			mounted, hasContent, err := ns.ensureMountPoint(target)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ensureMountPoint err = %v, wantErr %v", err, tt.wantErr)
+			}
+			if mounted != tt.wantMounted {
+				t.Errorf("mounted = %v, want %v", mounted, tt.wantMounted)
+			}
+			if hasContent != tt.wantHasContent {
+				t.Errorf("hasContent = %v, want %v", hasContent, tt.wantHasContent)
+			}
+
+			notMnt, nmErr := mounter.IsLikelyNotMountPoint(target)
+			if nmErr != nil {
+				t.Fatalf("IsLikelyNotMountPoint after: %v", nmErr)
+			}
+			if stillMounted := !notMnt; stillMounted != tt.wantStillMounted {
+				t.Errorf("still mounted after = %v, want %v", stillMounted, tt.wantStillMounted)
+			}
+		})
 	}
 }
 

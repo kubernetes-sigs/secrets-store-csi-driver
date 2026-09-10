@@ -34,28 +34,27 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// ensureMountPoint ensures mount point is valid
-func (ns *nodeServer) ensureMountPoint(target string) (bool, error) {
+// ensureMountPoint reports whether the target is mounted and whether
+// it has any content.
+func (ns *nodeServer) ensureMountPoint(target string) (mounted, hasContent bool, err error) {
 	notMnt, err := ns.mounter.IsLikelyNotMountPoint(target)
 	if err != nil {
-		return !notMnt, err
+		return false, false, err
 	}
 
 	if !notMnt {
-		// testing original mount point, make sure the mount link is valid
-		_, err := os.ReadDir(target)
-		if err == nil {
-			klog.InfoS("already mounted to target", "targetPath", target)
-			// already mounted
-			return !notMnt, nil
+		entries, readErr := os.ReadDir(target)
+		if readErr == nil {
+			klog.V(4).InfoS("already mounted to target", "targetPath", target)
+			return true, len(entries) > 0, nil
 		}
-		if err := ns.mounter.Unmount(target); err != nil {
-			klog.ErrorS(err, "failed to unmount directory", "targetPath", target)
-			return !notMnt, err
+		// Mount is in a bad state. Unmount and let the caller perform a
+		// fresh mount.
+		if unmountErr := ns.mounter.Unmount(target); unmountErr != nil {
+			klog.ErrorS(unmountErr, "failed to unmount directory", "targetPath", target)
+			return true, false, unmountErr
 		}
-		notMnt = true
-		// remount it in node publish
-		return !notMnt, err
+		return false, false, nil
 	}
 
 	if runtimeutil.IsRuntimeWindows() {
@@ -63,17 +62,15 @@ func (ns *nodeServer) ensureMountPoint(target string) (bool, error) {
 		// target path is not a soft link to the global mount
 		// instead check if the dir exists for windows and if it's not empty
 		// If there are contents in the dir, then objects are already mounted
-		f, err := os.ReadDir(target)
+		entries, err := os.ReadDir(target)
 		if err != nil {
-			return !notMnt, err
+			return false, false, err
 		}
-		if len(f) > 0 {
-			notMnt = false
-			return !notMnt, err
-		}
+		present := len(entries) > 0
+		return present, present, nil
 	}
 
-	return false, nil
+	return false, false, nil
 }
 
 func (ns *nodeServer) getLastUpdateTime(target string) (time.Time, error) {

@@ -72,7 +72,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	var providerName string
 	var podName, podNamespace, podUID string
 	var targetPath string
-	var mounted, isRemountRequest, skipped, isErrorMasked bool
+	var mounted, hasContent, isRemountRequest, skipped, isErrorMasked bool
 	errorReason := internalerrors.FailedToMount
 	rotationEnabled := ns.rotationConfig.enabled
 
@@ -141,7 +141,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		}
 	}
 
-	mounted, err = ns.ensureMountPoint(targetPath)
+	mounted, hasContent, err = ns.ensureMountPoint(targetPath)
 	if err != nil {
 		// kubelet will not create the CSI NodePublishVolume target directory in 1.20+, in accordance with the CSI specification.
 		// CSI driver needs to properly create and process the target path
@@ -158,8 +158,8 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	isRemountRequest = mounted
 
 	// If rotation is not enabled, don't remount the already mounted secrets.
-	if !rotationEnabled && mounted {
-		klog.InfoS("target path is already mounted", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
+	if !rotationEnabled && mounted && hasContent {
+		klog.InfoS("target path is already mounted and populated", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
 		skipped = true
 		return &csi.NodePublishVolumeResponse{}, nil
 	}
