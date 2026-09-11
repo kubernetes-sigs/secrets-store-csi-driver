@@ -85,7 +85,7 @@ func New(driverName string, mgr manager.Manager, nodeID string, informers *Infor
 		scheme:        mgr.GetScheme(),
 		nodeID:        nodeID,
 		reader:        mgr.GetCache(),
-		secretReader:  confirmingReader{Reader: mgr.GetCache(), api: mgr.GetAPIReader()},
+		secretReader:  secretsConfirmingReader{Reader: mgr.GetCache(), api: mgr.GetAPIReader()},
 		writer:        mgr.GetClient(),
 		eventRecorder: recorder,
 		driverName:    driverName,

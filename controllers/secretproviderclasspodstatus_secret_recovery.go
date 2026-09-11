@@ -38,25 +38,26 @@ const (
 	secretRecoveryBatchSize  = 100
 )
 
-// confirmingReader distinguishes a deleted Secret from one that only stopped
+// secretsConfirmingReader distinguishes a deleted Secret from one that only stopped
 // matching the managed-label cache selector.
-type confirmingReader struct {
-	client.Reader
-	api client.Reader
+type secretsConfirmingReader struct {
+	client.Reader               // this is a cached client
+	api           client.Reader // this is a live client to confirm the real, live state
 }
 
-func (r confirmingReader) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+func (r secretsConfirmingReader) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
 	err := r.Reader.Get(ctx, key, obj, opts...)
 	if !apierrors.IsNotFound(err) {
 		return err
 	}
+	// we're only interested in secrets, don't do live calls for any other object
 	if _, ok := obj.(*corev1.Secret); !ok {
 		return err
 	}
 	return r.api.Get(ctx, key, obj, opts...)
 }
 
-func secretProviderClassSyncsSecret(spc *secretsstorev1.SecretProviderClass, secretName string) bool {
+func isSecretInSPC(spc *secretsstorev1.SecretProviderClass, secretName string) bool {
 	for _, secretObject := range spc.Spec.SecretObjects {
 		if secretObject != nil && strings.TrimSpace(secretObject.SecretName) == secretName {
 			return true
@@ -141,6 +142,7 @@ func (r *SecretProviderClassPodStatusReconciler) processNextSecretRecoveryBatch(
 		requests, err := r.requestsForDeletedSecretFromSyncedCaches(ctx, item)
 		if err != nil {
 			if ctx.Err() != nil {
+				klog.InfoS("context is closed, returning early", "contextError", ctx.Err())
 				return false
 			}
 			klog.ErrorS(err, "failed to process managed Kubernetes Secret recovery", "secret", klog.KRef(item.Namespace, item.Name))
@@ -227,7 +229,7 @@ func (r *SecretProviderClassPodStatusReconciler) getSPCForSecret(ctx context.Con
 		}
 		return nil, fmt.Errorf("failed to get SecretProviderClass %s for deleted Kubernetes Secret %s: %w", spcKey, secretKey, err)
 	}
-	if !secretProviderClassSyncsSecret(spc, secretKey.Name) {
+	if !isSecretInSPC(spc, secretKey.Name) {
 		return nil, nil
 	}
 	return spc, nil
