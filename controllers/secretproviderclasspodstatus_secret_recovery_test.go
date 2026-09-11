@@ -117,7 +117,7 @@ func newSecretRecoveryReconciler(t *testing.T, cachedClient client.Client, schem
 	syncCaches(informers, "1000", "1000", fakeLister{})
 
 	reconciler := newReconciler(cachedClient, scheme, nodeID)
-	reconciler.secretReader = confirmingReader{Reader: cachedClient, api: cachedClient}
+	reconciler.secretReader = secretsConfirmingReader{Reader: cachedClient, api: cachedClient}
 	reconciler.informers = informers
 	return reconciler
 }
@@ -165,7 +165,7 @@ func TestConfirmingReaderOnlyConfirmsSecretMisses(t *testing.T) {
 				},
 			})
 
-			err := (confirmingReader{Reader: cacheReader, api: liveReader}).Get(t.Context(), key, tc.obj)
+			err := (secretsConfirmingReader{Reader: cacheReader, api: liveReader}).Get(t.Context(), key, tc.obj)
 			switch {
 			case tc.wantNotFound && !apierrors.IsNotFound(err):
 				t.Errorf("got error %v, want NotFound", err)
@@ -313,7 +313,7 @@ func TestRequestsForDeletedSecretConfirmsCacheMiss(t *testing.T) {
 	cachedClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(status, spc, pod).Build()
 	liveClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(unlabeled).Build()
 	reconciler := newSecretRecoveryReconciler(t, cachedClient, scheme, "node1")
-	reconciler.secretReader = confirmingReader{Reader: cachedClient, api: liveClient}
+	reconciler.secretReader = secretsConfirmingReader{Reader: cachedClient, api: liveClient}
 
 	requests, err := reconciler.requestsForDeletedSecretFromSyncedCaches(context.Background(), client.ObjectKeyFromObject(unlabeled))
 	g.Expect(err).NotTo(HaveOccurred())
@@ -394,7 +394,7 @@ func TestDeletedSecretRecoveryBatchesIrrelevantKeys(t *testing.T) {
 		},
 	})
 	reconciler := newSecretRecoveryReconciler(t, cachedClient, scheme, "node1")
-	reconciler.secretReader = confirmingReader{Reader: cachedClient, api: liveClient}
+	reconciler.secretReader = secretsConfirmingReader{Reader: cachedClient, api: liveClient}
 
 	var probes atomic.Int32
 	syncCaches(reconciler.informers, "1000", "1000", fakeLister{calls: &probes})
@@ -479,7 +479,7 @@ func TestReconcileWithoutSecretObjectsDoesNotReadSecrets(t *testing.T) {
 		},
 	})
 	reconciler.reader = intercepted
-	reconciler.secretReader = confirmingReader{Reader: intercepted, api: intercepted}
+	reconciler.secretReader = secretsConfirmingReader{Reader: intercepted, api: intercepted}
 
 	result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 		NamespacedName: types.NamespacedName{Namespace: status.Namespace, Name: status.Name},
