@@ -30,5 +30,6 @@ jobs:
 
           while IFS= read -r -d '' gomod; do
             dir="$(dirname "${gomod}")"
+            echo "Downloading Go modules in ${dir}"
             (cd "${dir}" && go mod download)
           done < <(find . -name .git -type d -prune -o -name vendor -type d -prune -o -name go.mod -print0)
