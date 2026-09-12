@@ -31,4 +31,4 @@ jobs:
           while IFS= read -r -d '' gomod; do
             dir="$(dirname "${gomod}")"
             (cd "${dir}" && go mod download)
-          done < <(find . -path ./.git -prune -o -name vendor -type d -prune -o -name go.mod -print0)
+          done < <(find . -name .git -type d -prune -o -name vendor -type d -prune -o -name go.mod -print0)
