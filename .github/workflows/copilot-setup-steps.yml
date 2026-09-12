@@ -26,6 +26,8 @@ jobs:
 
       - name: Download Go module dependencies
         run: |
+          set -euo pipefail
+
           while IFS= read -r -d '' gomod; do
             dir="$(dirname "${gomod}")"
             (cd "${dir}" && go mod download)
