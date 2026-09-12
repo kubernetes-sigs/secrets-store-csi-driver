@@ -165,6 +165,39 @@ func TestPatchSecretWithOwnerRef(t *testing.T) {
 	g.Expect(secret.GetOwnerReferences()).To(HaveLen(1))
 }
 
+func TestPatchSecretWithOwnerRefSameNameNewUID(t *testing.T) {
+	g := NewWithT(t)
+
+	scheme, err := setupScheme()
+	g.Expect(err).NotTo(HaveOccurred())
+
+	// A workload recreated under the same name gets a new UID. Deduplicating by
+	// name would drop the live owner and leave the secret owned only by the dead
+	// one, which is all garbage collection needs to take it.
+	dead := metav1.OwnerReference{
+		APIVersion: "apps/v1",
+		Kind:       "ReplicaSet",
+		Name:       "pod-6886c65f8f",
+		UID:        "f39da13d-7246-4ef5-aed4-a6905f82cbcd",
+	}
+	live := dead
+	live.UID = "8a2b1c4d-0e5f-4a6b-9c8d-7e6f5a4b3c2d"
+
+	secret := newSecret("my-secret", "default", nil, nil)
+	secret.SetOwnerReferences([]metav1.OwnerReference{dead})
+
+	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build()
+	reconciler := newReconciler(client, scheme, "node1")
+
+	err = reconciler.patchSecretWithOwnerRef(context.TODO(), "my-secret", "default", live)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	got := &corev1.Secret{}
+	err = client.Get(context.TODO(), types.NamespacedName{Name: "my-secret", Namespace: "default"}, got)
+	g.Expect(err).NotTo(HaveOccurred())
+	expectOwnerRefs(g, got, dead, live)
+}
+
 func TestCreateOrUpdateK8sSecret(t *testing.T) {
 	g := NewWithT(t)
 
