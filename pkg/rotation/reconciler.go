@@ -69,7 +69,7 @@ const (
 type Reconciler struct {
 	rotationPollInterval time.Duration
 	providerClients      *secretsstore.PluginClientBuilder
-	queue                workqueue.RateLimitingInterface
+	queue                workqueue.TypedRateLimitingInterface[any]
 	reporter             StatsReporter
 	eventRecorder        record.EventRecorder
 	kubeClient           kubernetes.Interface
@@ -118,7 +118,7 @@ func NewReconciler(driverName string,
 		rotationPollInterval: rotationPollInterval,
 		providerClients:      providerClients,
 		reporter:             sr,
-		queue:                workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		queue:                workqueue.NewTypedRateLimitingQueue[any](workqueue.DefaultTypedControllerRateLimiter[any]()),
 		eventRecorder:        recorder,
 		kubeClient:           kubeClient,
 		crdClient:            crdClient,

@@ -75,7 +75,7 @@ func newTestReconciler(client client.Reader, kubeClient kubernetes.Interface, cr
 	return &Reconciler{
 		rotationPollInterval: rotationPollInterval,
 		providerClients:      secretsstore.NewPluginClientBuilder([]string{socketPath}),
-		queue:                workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		queue:                workqueue.NewTypedRateLimitingQueue[any](workqueue.DefaultTypedControllerRateLimiter[any]()),
 		reporter:             sr,
 		eventRecorder:        fakeRecorder,
 		kubeClient:           kubeClient,
