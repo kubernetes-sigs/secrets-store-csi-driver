@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Kubernetes Authors.
+Copyright 2022 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,24 +19,25 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
-	apisv1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
+	secretsstorecsidriverapisv1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	versioned "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned"
 	internalinterfaces "sigs.k8s.io/secrets-store-csi-driver/pkg/client/informers/externalversions/internalinterfaces"
-	v1 "sigs.k8s.io/secrets-store-csi-driver/pkg/client/listers/apis/v1"
+	apisv1 "sigs.k8s.io/secrets-store-csi-driver/pkg/client/listers/apis/v1"
 )
 
 // SecretProviderClassInformer provides access to a shared informer and lister for
 // SecretProviderClasses.
 type SecretProviderClassInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.SecretProviderClassLister
+	Lister() apisv1.SecretProviderClassLister
 }
 
 type secretProviderClassInformer struct {
@@ -49,42 +50,67 @@ type secretProviderClassInformer struct {
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
 func NewSecretProviderClassInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredSecretProviderClassInformer(client, namespace, resyncPeriod, indexers, nil)
+	return NewSecretProviderClassInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
 }
 
 // NewFilteredSecretProviderClassInformer constructs a new informer for SecretProviderClass type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredSecretProviderClassInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
-			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+	return NewSecretProviderClassInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewSecretProviderClassInformerWithOptions constructs a new informer for SecretProviderClass type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewSecretProviderClassInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	gvr := schema.GroupVersionResource{Group: "secrets-store.csi.x-k8s.io", Version: "v1", Resource: "secretproviderclasss"}
+	identifier := options.InformerName.WithResource(gvr)
+	tweakListOptions := options.TweakListOptions
+	return cache.NewSharedIndexInformerWithOptions(
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
-					tweakListOptions(&options)
+					tweakListOptions(&opts)
 				}
-				return client.SecretsstoreV1().SecretProviderClasses(namespace).List(context.TODO(), options)
+				return client.SecretsstoreV1().SecretProviderClasses(namespace).List(context.Background(), opts)
 			},
-			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
-					tweakListOptions(&options)
+					tweakListOptions(&opts)
 				}
-				return client.SecretsstoreV1().SecretProviderClasses(namespace).Watch(context.TODO(), options)
+				return client.SecretsstoreV1().SecretProviderClasses(namespace).Watch(context.Background(), opts)
 			},
+			ListWithContextFunc: func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&opts)
+				}
+				return client.SecretsstoreV1().SecretProviderClasses(namespace).List(ctx, opts)
+			},
+			WatchFuncWithContext: func(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&opts)
+				}
+				return client.SecretsstoreV1().SecretProviderClasses(namespace).Watch(ctx, opts)
+			},
+		}, client),
+		&secretsstorecsidriverapisv1.SecretProviderClass{},
+		cache.SharedIndexInformerOptions{
+			ResyncPeriod: options.ResyncPeriod,
+			Indexers:     options.Indexers,
+			Identifier:   identifier,
 		},
-		&apisv1.SecretProviderClass{},
-		resyncPeriod,
-		indexers,
 	)
 }
 
 func (f *secretProviderClassInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredSecretProviderClassInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+	return NewSecretProviderClassInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *secretProviderClassInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisv1.SecretProviderClass{}, f.defaultInformer)
+	return f.factory.InformerFor(&secretsstorecsidriverapisv1.SecretProviderClass{}, f.defaultInformer)
 }
 
-func (f *secretProviderClassInformer) Lister() v1.SecretProviderClassLister {
-	return v1.NewSecretProviderClassLister(f.Informer().GetIndexer())
+func (f *secretProviderClassInformer) Lister() apisv1.SecretProviderClassLister {
+	return apisv1.NewSecretProviderClassLister(f.Informer().GetIndexer())
 }
