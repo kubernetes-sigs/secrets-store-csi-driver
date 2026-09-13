@@ -1,4 +1,4 @@
-FROM golang:1.21-alpine@sha256:2523a6f68a0f515fe251aad40b18545155135ca6a5b2e61da8254df9153e3648
+FROM golang:1.26.8-alpine@sha256:ce864e7223ac17b1775e6fd0b4c0db580c2eb50e7953a427916379e4b92a1628
 
 ENV CGO_ENABLED=0
 ENV GOROOT=/usr/local/go
@@ -7,7 +7,7 @@ ENV PATH=$PATH:${GOROOT}/bin
 
 RUN apk update && apk add --no-cache \
     git && \
-    go get github.com/go-delve/delve/cmd/dlv
+    go install github.com/go-delve/delve/cmd/dlv@v1.27.2
 
 WORKDIR /secrets-store-csi-driver-codebase
 

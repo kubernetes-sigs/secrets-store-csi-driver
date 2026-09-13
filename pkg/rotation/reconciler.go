@@ -69,7 +69,7 @@ const (
 type Reconciler struct {
 	rotationPollInterval time.Duration
 	providerClients      *secretsstore.PluginClientBuilder
-	queue                workqueue.RateLimitingInterface
+	queue                workqueue.TypedRateLimitingInterface[any]
 	reporter             StatsReporter
 	eventRecorder        record.EventRecorder
 	kubeClient           kubernetes.Interface
@@ -118,7 +118,7 @@ func NewReconciler(driverName string,
 		rotationPollInterval: rotationPollInterval,
 		providerClients:      providerClients,
 		reporter:             sr,
-		queue:                workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		queue:                workqueue.NewTypedRateLimitingQueue[any](workqueue.DefaultTypedControllerRateLimiter[any]()),
 		eventRecorder:        recorder,
 		kubeClient:           kubeClient,
 		crdClient:            crdClient,
@@ -612,7 +612,7 @@ func (r *Reconciler) handleError(err error, key interface{}, rateLimited bool) {
 
 // generateEvent generates an event
 func (r *Reconciler) generateEvent(obj runtime.Object, eventType, reason, message string) {
-	r.eventRecorder.Eventf(obj, eventType, reason, message)
+	r.eventRecorder.Event(obj, eventType, reason, message)
 }
 
 // Create the client config. Use kubeconfig if given, otherwise assume in-cluster.
