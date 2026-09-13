@@ -26,7 +26,7 @@ LDFLAGS="-X sigs.k8s.io/secrets-store-csi-driver/pkg/version.BuildVersion=${IMAG
  -X sigs.k8s.io/secrets-store-csi-driver/pkg/version.Vcs=${BUILD_COMMIT} \
  -X sigs.k8s.io/secrets-store-csi-driver/pkg/version.BuildTime=${BUILD_TIMESTAMP} -extldflags '-static'"
 
-QEMUVERSION=5.2.0-2
+QEMUVERSION=7.2.0-1
 
 # Returns list of all supported architectures from the BASEIMAGE file
 listOsArchs() {
