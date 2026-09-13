@@ -54,6 +54,12 @@ jobs:
           go-version-file: ${{ matrix.module }}/go.mod
           cache-dependency-path: ${{ matrix.module }}/go.sum
           check-latest: true
+      - name: Verify module dependencies
+        working-directory: ${{ matrix.module }}
+        run: |
+          go mod download
+          go mod verify
+          go mod tidy -diff
       - uses: golang/govulncheck-action@31f7c5463448f83528bd771c2d978d940080c9fd # v1.0.4
         with:
           repo-checkout: false
