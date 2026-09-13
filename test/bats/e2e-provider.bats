@@ -31,6 +31,41 @@ export NODE_SELECTOR_OS=$NODE_SELECTOR_OS
 # default label value of secret synched to k8s
 export LABEL_VALUE=${LABEL_VALUE:-"test"}
 
+driver_pod_on_node() {
+  local node="$1"
+
+  kubectl get pod -n kube-system --field-selector="spec.nodeName=${node}" -o json |
+    jq -r '([.items[] | select(any(.spec.containers[]; .name == "secrets-store"))] | .[0].metadata.name) // empty'
+}
+
+count_spcps_reconciles() {
+  local driver_pod="$1"
+  local spcps="$2"
+  local logs
+
+  if ! logs=$(kubectl logs "${driver_pod}" -n kube-system -c secrets-store); then
+    return 1
+  fi
+  awk -v target="\"default/${spcps}\"" '
+    index($0, "reconcile complete") && index($0, target) { count++ }
+    END { print count + 0 }
+  ' <<<"${logs}"
+}
+
+count_secret_recoveries() {
+  local driver_pod="$1"
+  local secret="$2"
+  local logs
+
+  if ! logs=$(kubectl logs "${driver_pod}" -n kube-system -c secrets-store); then
+    return 1
+  fi
+  awk -v target="\"default/${secret}\"" '
+    index($0, "managed Kubernetes Secret was deleted") && index($0, target) { count++ }
+    END { print count + 0 }
+  ' <<<"${logs}"
+}
+
 # export the secrets-store API version to be used
 export API_VERSION=$(get_secrets_store_api_version)
 
@@ -223,6 +258,172 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   assert_success
 }
 
+@test "Sync with K8s secrets - unchanged data does not update secret" {
+  if [[ "${INPLACE_UPGRADE_TEST}" == "true" ]]; then
+    skip
+  fi
+
+  local pod
+  pod=$(kubectl get pod -l app=busybox -o jsonpath="{.items[0].metadata.name}")
+  local spcps
+  spcps=$(kubectl get secretproviderclasspodstatuses.secrets-store.csi.x-k8s.io -o json |
+    jq -r --arg pod "${pod}" '([.items[] | select(.status.podName == $pod and .status.secretProviderClassName == "e2e-provider-sync")] | .[0].metadata.name) // empty')
+  [[ -n "${spcps}" ]]
+
+  local node
+  node=$(kubectl get pod "${pod}" -o jsonpath="{.spec.nodeName}")
+  local driver_pod
+  cmd="[[ -n \"\$(driver_pod_on_node '${node}')\" ]]"
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "${cmd}"
+  assert_success
+  driver_pod=$(driver_pod_on_node "${node}")
+
+  local original_resource_version
+  original_resource_version=$(kubectl get secret foosecret -o jsonpath="{.metadata.resourceVersion}")
+  local original_reconcile_count
+  original_reconcile_count=$(count_spcps_reconciles "${driver_pod}" "${spcps}")
+
+  local trigger
+  trigger=$(openssl rand -hex 8)
+  run kubectl annotate secretproviderclasspodstatuses.secrets-store.csi.x-k8s.io "${spcps}" \
+    "e2e.secrets-store.csi.k8s.io/noop-reconcile=${trigger}" --overwrite
+  assert_success
+
+  run wait_for_process $WAIT_TIME $SLEEP_TIME \
+    "[[ \$(count_spcps_reconciles '${driver_pod}' '${spcps}') -gt ${original_reconcile_count} ]]"
+  assert_success
+
+  local current_resource_version
+  current_resource_version=$(kubectl get secret foosecret -o jsonpath="{.metadata.resourceVersion}")
+  assert_equal "${original_resource_version}" "${current_resource_version}"
+}
+
+@test "Sync with K8s secrets - recreate accidentally deleted secret" {
+  if [[ "${INPLACE_UPGRADE_TEST}" == "true" ]]; then
+    skip
+  fi
+
+  local pod
+  pod=$(kubectl get pod -l app=busybox -o jsonpath="{.items[0].metadata.name}")
+  local node
+  node=$(kubectl get pod "${pod}" -o jsonpath="{.spec.nodeName}")
+  local driver_pod
+  driver_pod=$(driver_pod_on_node "${node}")
+  [[ -n "${driver_pod}" ]]
+  local original_recovery_count
+  original_recovery_count=$(count_secret_recoveries "${driver_pod}" foosecret)
+
+  original_uid=$(kubectl get secret foosecret -o jsonpath="{.metadata.uid}")
+
+  run kubectl delete secret foosecret
+  assert_success
+
+  run wait_for_process $WAIT_TIME $SLEEP_TIME \
+    "[[ \$(count_secret_recoveries '${driver_pod}' foosecret) -gt ${original_recovery_count} ]]"
+  assert_success
+
+  cmd="new_uid=\$(kubectl get secret foosecret -o jsonpath='{.metadata.uid}' 2>/dev/null) && [[ -n \"\$new_uid\" && \"\$new_uid\" != \"${original_uid}\" ]]"
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  assert_success
+
+  result=$(kubectl get secret foosecret -o jsonpath="{.data.username}" | base64 -d)
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 2"
+  assert_success
+}
+
+@test "Sync with K8s secrets - drain and restore a consumer, check secret preserved" {
+  if [[ "${INPLACE_UPGRADE_TEST}" == "true" ]]; then
+    skip
+  fi
+
+  # The Secret is owned by the workload's ReplicaSet, which outlives its pods, so
+  # losing every mounting pod must leave the owner references live. Owning the
+  # pods instead would let garbage collection take the secret here.
+  local original_uid
+  original_uid=$(kubectl get secret foosecret -o jsonpath="{.metadata.uid}")
+  local rs_uid
+  rs_uid=$(kubectl get replicaset -o json |
+    jq -r '([.items[] | select(any(.metadata.ownerReferences[]?; .name == "busybox-deployment"))] | .[0].metadata.uid) // empty')
+  [[ -n "${rs_uid}" ]]
+
+  run kubectl scale deployment busybox-deployment --replicas=0
+  assert_success
+
+  # a terminating pod is already excluded from the replica counts a rollout waits
+  # on, so wait for the pods themselves to go away
+  cmd="pods=\$(kubectl get pod -o json) && jq -e --arg uid '${rs_uid}' '([.items[] | select(any(.metadata.ownerReferences[]?; .uid == \$uid))] | length) == 0' <<<\"\$pods\" > /dev/null"
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  assert_success
+
+  run compare_owner_count foosecret default 2
+  assert_success
+  assert_equal "${original_uid}" "$(kubectl get secret foosecret -o jsonpath='{.metadata.uid}')"
+
+  run kubectl scale deployment busybox-deployment --replicas=2
+  assert_success
+  run kubectl rollout status deployment busybox-deployment --timeout=90s
+  assert_success
+
+  assert_equal "${original_uid}" "$(kubectl get secret foosecret -o jsonpath='{.metadata.uid}')"
+  result=$(kubectl get secret foosecret -o jsonpath="{.data.username}" | base64 -d)
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 2"
+  assert_success
+}
+
+@test "Sync with K8s secrets - replace a ReplicaSet, check owner ref tracks the new UID" {
+  if [[ "${INPLACE_UPGRADE_TEST}" == "true" ]]; then
+    skip
+  fi
+
+  # A ReplicaSet recreated by its Deployment keeps its name but gets a new UID.
+  # Deduplicating owner references by name keeps only the dead UID, which leaves
+  # nothing live to own the secret, so the merge has to key on UID.
+  local rs_name
+  rs_name=$(kubectl get replicaset -o json |
+    jq -r '([.items[] | select(any(.metadata.ownerReferences[]?; .name == "busybox-deployment"))] | .[0].metadata.name) // empty')
+  [[ -n "${rs_name}" ]]
+  local old_rs_uid
+  old_rs_uid=$(kubectl get replicaset "${rs_name}" -o jsonpath="{.metadata.uid}")
+
+  # without these the test would silently pass on a freshly created secret
+  local original_uid
+  original_uid=$(kubectl get secret foosecret -o jsonpath="{.metadata.uid}")
+  [[ -n "${original_uid}" ]]
+  kubectl get secret foosecret -o json |
+    jq -e --arg uid "${old_rs_uid}" 'any(.metadata.ownerReferences[]; .uid == $uid)' > /dev/null
+
+  run kubectl delete replicaset "${rs_name}"
+  assert_success
+
+  cmd="uid=\$(kubectl get replicaset '${rs_name}' -o jsonpath='{.metadata.uid}' 2>/dev/null) && [[ -n \"\$uid\" && \"\$uid\" != '${old_rs_uid}' ]]"
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  assert_success
+  local new_rs_uid
+  new_rs_uid=$(kubectl get replicaset "${rs_name}" -o jsonpath="{.metadata.uid}")
+
+  cmd="kubectl get secret foosecret -o json | jq -e --arg uid '${new_rs_uid}' 'any(.metadata.ownerReferences[]; .uid == \$uid)' > /dev/null"
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  assert_success
+
+  # garbage collection drops the dead reference once a live one is back
+  cmd="kubectl get secret foosecret -o json | jq -e --arg uid '${old_rs_uid}' 'all(.metadata.ownerReferences[]; .uid != \$uid)' > /dev/null"
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+  assert_success
+
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret default 2"
+  assert_success
+
+  # the other consumer stayed live throughout, so the secret was never orphaned
+  assert_equal "${original_uid}" "$(kubectl get secret foosecret -o jsonpath='{.metadata.uid}')"
+
+  result=$(kubectl get secret foosecret -o jsonpath="{.data.username}" | base64 -d)
+  [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+}
+
 @test "Sync with K8s secrets - delete deployment, check owner ref updated, check secret deleted" {
   if [[ "${INPLACE_UPGRADE_TEST}" == "true" ]]; then
     skip
@@ -241,6 +442,57 @@ export VALIDATE_TOKENS_AUDIENCE=$(get_token_requests_audience)
   assert_success
 
   envsubst < $BATS_TESTS_DIR/e2e_provider_synck8s_v1_secretproviderclass.yaml | kubectl delete -f -
+}
+
+@test "Sync with K8s secrets - hand ownership between consumers repeatedly" {
+  if [[ "${INPLACE_UPGRADE_TEST}" == "true" ]]; then
+    skip
+  fi
+
+  local namespace=sync-handoff
+  kubectl create namespace "${namespace}" --dry-run=client -o yaml | kubectl apply -f -
+  envsubst < $BATS_TESTS_DIR/e2e_provider_synck8s_v1_secretproviderclass.yaml | kubectl apply -n "${namespace}" -f -
+
+  local manifests=("$BATS_TESTS_DIR/deployment-synck8s-e2e-provider.yaml" "$BATS_TESTS_DIR/deployment-two-synck8s-e2e-provider.yaml")
+  local deployments=(busybox-deployment busybox-deployment-two)
+
+  envsubst < "${manifests[0]}" | kubectl apply -n "${namespace}" -f -
+  run kubectl rollout status deployment "${deployments[0]}" -n "${namespace}" --timeout=90s
+  assert_success
+  run wait_for_process $WAIT_TIME $SLEEP_TIME "compare_owner_count foosecret ${namespace} 1"
+  assert_success
+
+  # Handing a secret from one consumer to the next only keeps it alive if the
+  # incoming owner reference lands before the outgoing owner disappears. That
+  # window is short, so repeat the handoff instead of looking for it in the logs.
+  local i incoming outgoing incoming_uid
+  for i in $(seq 1 5); do
+    incoming=$((i % 2))
+    outgoing=$(((i + 1) % 2))
+
+    envsubst < "${manifests[$incoming]}" | kubectl apply -n "${namespace}" -f -
+    run kubectl rollout status deployment "${deployments[$incoming]}" -n "${namespace}" --timeout=90s
+    assert_success
+
+    incoming_uid=$(kubectl get replicaset -n "${namespace}" -o json |
+      jq -r --arg owner "${deployments[$incoming]}" '([.items[] | select(any(.metadata.ownerReferences[]?; .name == $owner))] | .[0].metadata.uid) // empty')
+    [[ -n "${incoming_uid}" ]]
+
+    run kubectl delete deployment "${deployments[$outgoing]}" -n "${namespace}" --wait=false
+    assert_success
+
+    # the surviving consumer has to be the only owner, otherwise the secret is
+    # one garbage collection pass away from being dropped
+    cmd="kubectl get secret foosecret -n ${namespace} -o json | jq -e --arg uid '${incoming_uid}' '[.metadata.ownerReferences[].uid] == [\$uid]' > /dev/null"
+    run wait_for_process $WAIT_TIME $SLEEP_TIME "$cmd"
+    assert_success
+
+    result=$(kubectl get secret foosecret -n "${namespace}" -o jsonpath="{.data.username}" | base64 -d)
+    [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
+  done
+
+  run kubectl delete namespace "${namespace}" --wait=false
+  assert_success
 }
 
 @test "Test Namespaced scope SecretProviderClass - create deployment" {
@@ -432,6 +684,7 @@ teardown_file() {
     run kubectl delete namespace rotation
     run kubectl delete namespace test-ns
     run kubectl delete namespace test-v1alpha1
+    run kubectl delete namespace sync-handoff
 
     run kubectl delete pods secrets-store-inline-crd secrets-store-inline-multiple-crd --force --grace-period 0
   fi
