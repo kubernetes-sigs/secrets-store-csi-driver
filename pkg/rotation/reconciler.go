@@ -612,7 +612,7 @@ func (r *Reconciler) handleError(err error, key interface{}, rateLimited bool) {
 
 // generateEvent generates an event
 func (r *Reconciler) generateEvent(obj runtime.Object, eventType, reason, message string) {
-	r.eventRecorder.Eventf(obj, eventType, reason, message)
+	r.eventRecorder.Event(obj, eventType, reason, message)
 }
 
 // Create the client config. Use kubeconfig if given, otherwise assume in-cluster.

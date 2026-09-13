@@ -1,6 +1,6 @@
 module sigs.k8s.io/secrets-store-csi-driver/hack/tools
 
-go 1.26.0
+go 1.26.8
 
 require (
 	github.com/golangci/golangci-lint/v2 v2.13.2
