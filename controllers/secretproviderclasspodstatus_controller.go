@@ -486,7 +486,7 @@ func (r *SecretProviderClassPodStatusReconciler) secretExists(ctx context.Contex
 		Namespace: namespace,
 		Name:      name,
 	}
-	err := r.Client.Get(ctx, secretKey, o)
+	err := r.Get(ctx, secretKey, o)
 	if err == nil {
 		return true, nil
 	}
