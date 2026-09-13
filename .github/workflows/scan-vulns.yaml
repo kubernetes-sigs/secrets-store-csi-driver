@@ -10,21 +10,58 @@ on:
     - "docs/**"
     - "**.md"
 
-permissions: read-all
+permissions:
+  contents: read
 
 jobs:
   govulncheck:
-    name: "Run govulncheck"
+    name: "Run govulncheck (${{ matrix.module }})"
     runs-on: ubuntu-22.04
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - module: .
+            packages: ./...
+            go-flags: ""
+          - module: hack/tools
+            packages: >-
+              github.com/golangci/golangci-lint/v2/cmd/golangci-lint
+              google.golang.org/grpc/cmd/protoc-gen-go-grpc
+              google.golang.org/protobuf/cmd/protoc-gen-go
+              k8s.io/code-generator/cmd/client-gen
+              k8s.io/code-generator/cmd/lister-gen
+              k8s.io/code-generator/cmd/informer-gen
+              k8s.io/code-generator/cmd/register-gen
+              sigs.k8s.io/controller-tools/cmd/controller-gen
+              sigs.k8s.io/kustomize/kustomize/v5
+            go-flags: ""
+          - module: test/e2eprovider
+            packages: ./...
+            go-flags: -tags=e2e
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@c95a14d0e5bab51a9f56296a4eb0e416910cd350 # v2.10.3
+        uses: step-security/harden-runner@fe104658747b27e96e4f7e80cd0a94068e53901d # v2.16.1
         with:
           egress-policy: audit
 
-      - uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          go-version: "1.21"
+          persist-credentials: false
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: ${{ matrix.module }}/go.mod
+          cache-dependency-path: ${{ matrix.module }}/go.sum
           check-latest: true
-      - uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee # v1.0.4
+      - uses: golang/govulncheck-action@31f7c5463448f83528bd771c2d978d940080c9fd # v1.0.4
+        with:
+          repo-checkout: false
+          # The action's default "stable" would override go-version-file.
+          go-version-input: ""
+          go-version-file: ${{ matrix.module }}/go.mod
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+          work-dir: ${{ matrix.module }}
+          go-package: ${{ matrix.packages }}
+        env:
+          GOFLAGS: ${{ matrix.go-flags }}
