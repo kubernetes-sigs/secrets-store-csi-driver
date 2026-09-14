@@ -75,7 +75,7 @@ func newTestReconciler(client client.Reader, kubeClient kubernetes.Interface, cr
 	return &Reconciler{
 		rotationPollInterval: rotationPollInterval,
 		providerClients:      secretsstore.NewPluginClientBuilder([]string{socketPath}),
-		queue:                workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		queue:                workqueue.NewTypedRateLimitingQueue[any](workqueue.DefaultTypedControllerRateLimiter[any]()),
 		reporter:             sr,
 		eventRecorder:        fakeRecorder,
 		kubeClient:           kubeClient,
@@ -633,6 +633,7 @@ func TestReconcileNoError(t *testing.T) {
 
 		// test with pod being terminated
 		podToAdd.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+		podToAdd.Finalizers = []string{"testingFinalizer"}
 		kubeClient = fake.NewSimpleClientset(podToAdd, test.nodePublishSecretRefSecretToAdd)
 		initObjects = []client.Object{
 			podToAdd,

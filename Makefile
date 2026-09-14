@@ -76,7 +76,7 @@ OSVERSION ?= 1809
 # Output type of docker buildx build
 OUTPUT_TYPE ?= registry
 BUILDX_BUILDER_NAME ?= img-builder
-QEMU_VERSION ?= 5.2.0-2
+QEMU_VERSION ?= 7.2.0-1
 # pinning buildkit version to v0.10.6 as v0.11.0 is injecting sbom/prov to manifest
 # causing the manifest push to fail
 BUILDKIT_VERSION ?= v0.10.6
@@ -103,7 +103,7 @@ KIND_VERSION ?= 0.27.0
 KUBERNETES_VERSION ?= 1.30.2
 KUBECTL_VERSION ?= 1.30.2
 BATS_VERSION ?= 1.4.1
-TRIVY_VERSION ?= 0.57.1
+TRIVY_VERSION ?= 0.69.3
 PROTOC_VERSION ?= 3.20.1
 SHELLCHECK_VER ?= v0.8.0
 YQ_VERSION ?= v4.11.2
@@ -173,9 +173,9 @@ $(CONTROLLER_GEN): $(TOOLS_MOD_DIR)/go.mod $(TOOLS_MOD_DIR)/go.sum $(TOOLS_MOD_D
 	cd $(TOOLS_MOD_DIR) && \
 		GOPROXY=$(GOPROXY) go build -tags=tools -o $(TOOLS_BIN_DIR)/controller-gen sigs.k8s.io/controller-tools/cmd/controller-gen
 
-$(GOLANGCI_LINT): ## Build golangci-lint from tools folder.
+$(GOLANGCI_LINT): $(TOOLS_MOD_DIR)/go.mod $(TOOLS_MOD_DIR)/go.sum $(TOOLS_MOD_DIR)/tools.go ## Build golangci-lint from tools folder.
 	cd $(TOOLS_MOD_DIR) && \
-		GOPROXY=$(GOPROXY) go build -o $(TOOLS_BIN_DIR)/golangci-lint github.com/golangci/golangci-lint/cmd/golangci-lint
+		GOPROXY=$(GOPROXY) go build -o $(TOOLS_BIN_DIR)/golangci-lint github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 
 $(KUSTOMIZE): ## Build kustomize from tools folder.
 	cd $(TOOLS_MOD_DIR) && \
@@ -246,7 +246,7 @@ lint: $(GOLANGCI_LINT) ## Run lint
 	cd test/e2eprovider && $(GOLANGCI_LINT) run --build-tags e2e --timeout=5m -v
 
 lint-full: $(GOLANGCI_LINT)
-	$(GOLANGCI_LINT) run -v --fast=false
+	$(GOLANGCI_LINT) run -v
 
 lint-charts: $(HELM) ## Run lint on helm charts
 	helm lint charts/secrets-store-csi-driver
@@ -433,7 +433,8 @@ e2e-helm-deploy:
 		--set tokenRequests[0].audience="aud1" \
 		--set tokenRequests[1].audience="aud2" \
 		--set tokenRequests[2].audience="conjur" \
-		--set tokenRequests[3].audience="api://AzureADTokenExchange"
+		--set tokenRequests[3].audience="api://AzureADTokenExchange" \
+		--set tokenRequests[4].audience="sts.amazonaws.com"
 
 .PHONY: e2e-helm-upgrade
 e2e-helm-upgrade:
