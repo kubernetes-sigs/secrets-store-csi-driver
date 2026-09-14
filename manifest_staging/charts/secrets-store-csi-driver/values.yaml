@@ -202,6 +202,12 @@ logVerbosity: 0
 # logging format JSON
 logFormatJSON: false
 
+# stderrthreshold controls the minimum severity of log messages written to
+# stderr when -logtostderr=true (the default). Requires klog v2.140.0+ with
+# -legacy_stderr_threshold_behavior=false which is set by the driver.
+# Valid values: INFO, WARNING, ERROR, FATAL (default: INFO).
+# stderrThreshold: ""
+
 livenessProbe:
   port: 9808
   logLevel: 2
