@@ -198,6 +198,11 @@ func mainErr() error {
 		reconciler.RunPatcher(ctx)
 	}()
 
+	// Remove the node startup taint (if present) so workload pods can schedule
+	// onto this node now that the driver is starting. Runs in the background and
+	// no-ops on clusters that do not apply the taint.
+	secretsstore.RemoveNotReadyTaintInBackground()
+
 	driver := secretsstore.NewSecretsStoreDriver(*driverName, *nodeID, *endpoint, providerClients, mgr.GetClient(), mgr.GetAPIReader(), *enableSecretRotation, *rotationPollInterval)
 	driver.Run(ctx)
 

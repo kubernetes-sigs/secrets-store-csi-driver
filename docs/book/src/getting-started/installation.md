@@ -33,6 +33,14 @@ Notably the following feature must be explicitly enabled:
 
 For a list of customizable values that can be injected when invoking helm install, please see the [Helm chart configurations](https://github.com/kubernetes-sigs/secrets-store-csi-driver/tree/main/charts/secrets-store-csi-driver#configuration).
 
+### Configure node startup taint
+
+There are potential race conditions on node startup (especially when a node is first joining the cluster) where pods that rely on the Secrets Store CSI Driver can be scheduled onto a node and attempt to mount a `SecretProviderClass` volume before the driver has started up and become fully ready on that node. To close this race, the driver automatically removes a taint from its node on startup. Cluster administrators can taint their nodes when they join the cluster (and/or on startup) to prevent workload pods from being scheduled before the driver is ready.
+
+This behavior is always on and requires no configuration on the driver side. To use it, taint your nodes with `secrets-store.csi.k8s.io/agent-not-ready` (any effect works, but `NoExecute` is recommended, e.g. `secrets-store.csi.k8s.io/agent-not-ready:NoExecute`). The driver's node `DaemonSet` already tolerates all taints, so its own pod still schedules and, once running, removes the taint so other pods can be scheduled. For example, EKS Managed Node Groups [support automatically tainting nodes](https://docs.aws.amazon.com/eks/latest/userguide/node-taints-managed-node-groups.html).
+
+On clusters that never apply this taint the feature is a no-op. Removing the taint requires the driver's `ServiceAccount` to have `get` and `patch` on the `nodes` resource; the bundled RBAC grants this.
+
 ### [Alternatively] Deployment using yamls
 
 ```bash
