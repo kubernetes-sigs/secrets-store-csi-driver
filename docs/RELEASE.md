@@ -28,19 +28,37 @@ The scripts also require the `gh` tool, available from <https://github.com/cli/c
 
 ## Versioning
 
-1. Make sure that the `docs` include all necessary information included in the release (example [tag compare](https://github.com/kubernetes-sigs/secrets-store-csi-driver/compare/v0.3.0...main)).
-1. Create a new release branch `release-X.X` using the UI (to avoid `git push`'ing directly to the repo).
+There are two possible branches to take here:
+
+1. [New Minor Release](#new-minor-release-branch-pre-steps)
+2. [Backport Fixes to a Previous Minor Release](#backport-to-previous-release-pre-steps)
+
+### New Minor Release Branch Pre-Steps
+
+1. Compare the previous release tag with the proposed release tag and update `docs/book/src` if the [published documentation](https://secrets-store-csi-driver.sigs.k8s.io/) would otherwise be stale (for example, [Compare tags v1.6.1 to v1.6.0](https://github.com/kubernetes-sigs/secrets-store-csi-driver/compare/v1.6.0...v1.6.1)).
+1. Create a new release branch `release-X.X` using the ["new branch" button in the UI](https://github.com/kubernetes-sigs/secrets-store-csi-driver/branches) (to avoid `git push`'ing directly to the repo).  Write access to the repository is required in order to have access to the button.
 1. Wait for the [new branch](https://github.com/kubernetes-sigs/secrets-store-csi-driver/branches) to receive [branch protection](https://docs.github.com/en/github/administering-a-repository/defining-the-mergeability-of-pull-requests/about-protected-branches).
-1. Update the version to the semantic version of the new release (`Makefile` and `docker/Makefile`) similar to [this](https://github.com/kubernetes-sigs/secrets-store-csi-driver/pull/767).
-1. Commit the changes and push to remote repository to create a pull request to the `release-X.X` branch
+1. On your own fork, update the version to the semantic version of the new release in the `Makefile` and `docker/Makefile` similar to [this](https://github.com/kubernetes-sigs/secrets-store-csi-driver/pull/767).
+1. Commit the changes and push to remote repository and create a pull request from your forks to the newly created `release-X.X` branch
 
-    ```bash
-    git checkout <RELEASE_BRANCH>
-    git checkout -b bump-version-<NEW_VERSION>
-    git commit -m "release: bump version to <NEW_VERSION> in <RELEASE_BRANCH>"
-    git push <YOUR FORK>
-    ```
+```bash
+git checkout <RELEASE_BRANCH>
+git checkout -b bump-version-<NEW_VERSION>
+git commit -m "release: bump version to <NEW_VERSION> in <RELEASE_BRANCH>"
+git push <YOUR FORK>
+```
 
+Now continue with the [`Shared Release Steps`](#shared-release-steps) section below.
+
+
+### Backport to Previous Release Pre-Steps
+
+For a backport, comment [`/cherry-pick release-X.X`](https://prow.k8s.io/command-help) on the original open or merged PR, using the actual branch (for example, `release-1.6`); this requires membership in the repository's trusted organization. Alternatively, use `hack/cherry_pick_pull.sh` as described below.
+
+Now continue with the [`Shared Release Steps`](#shared-release-steps) section below.
+
+### Shared Release Steps (New Release or Backport Patch to a Previous Release)
+s
 1. Once the PR is merged to `release-X.X`, the [prow job](https://testgrid.k8s.io/sig-auth-secrets-store-csi-driver#secrets-store-csi-driver-push-image) is triggered to build and push the new version to staging repo (`gcr.io/k8s-staging-csi-secrets-store/driver`)
 1. After images are available in staging registry, head over to github [actions](https://github.com/kubernetes-sigs/secrets-store-csi-driver/actions) and select `e2e_mock_provider_tests` workflow. Click `Run workflow` and provide required inputs. This will run e2e tests against the staging images. Make sure this job is successful before proceeding to the next step.
 
@@ -94,7 +112,7 @@ The scripts also require the `gh` tool, available from <https://github.com/cli/c
     git push <YOUR FORK>
     ```
 
-1. Create a cherry pick of the commit to the `release-X.X` branch:
+1. Create a cherry pick of the manifest and Helm chart update commit to the `release-X.X` branch by commenting `/cherry-pick release-X.X` on that PR or running the script below:
 
     ```bash
     export GITHUB_USER=<user name>
