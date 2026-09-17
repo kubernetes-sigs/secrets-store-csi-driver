@@ -24,6 +24,7 @@ jobs:
         run: |
           make generate-protobuf
           make manifests
+          ./hack/update-codegen.sh
       - name: Verify git output
         shell: bash
         run: |
