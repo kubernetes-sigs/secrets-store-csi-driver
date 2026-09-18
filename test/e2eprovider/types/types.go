@@ -25,6 +25,8 @@ type MockSecretsStoreObject struct {
 	ObjectName string `json:"objectName" yaml:"objectName"`
 	// the version of the secret objects
 	ObjectVersion string `json:"objectVersion" yaml:"objectVersion"`
+	// the filePermission of the secret object
+	FilePermission string `json:"filePermission,omitempty" yaml:"filePermission,omitempty"`
 }
 
 // StringArray holds a list of objects
