@@ -46,6 +46,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -89,6 +90,9 @@ func mainErr() error {
 	klog.InitFlags(nil)
 
 	flag.Parse()
+	// controller-runtime refuses to log until a logger is set. Route it
+	// through klog so manager logs use the same flags as the driver.
+	ctrllog.SetLogger(klog.NewKlogr())
 
 	ctx := withShutdownSignal(context.Background())
 
