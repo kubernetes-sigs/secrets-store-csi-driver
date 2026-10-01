@@ -167,6 +167,8 @@ setup() {
 @test "Test Namespaced scope SecretProviderClass - Sync with K8s secrets - read secret from pod, read K8s secret, read env var, check secret ownerReferences" {
   POD=$(kubectl get pod -l app=busybox -n test-ns -o jsonpath="{.items[0].metadata.name}")
 
+  kubectl wait --for=condition=Ready --timeout=60s pod $POD -n test-ns
+
   result=$(kubectl exec -n test-ns $POD -- cat /mnt/secrets-store/secretalias)
   [[ "${result//$'\r'}" == "${SECRET_VALUE}" ]]
 
