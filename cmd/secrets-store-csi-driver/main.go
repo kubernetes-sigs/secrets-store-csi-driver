@@ -101,6 +101,7 @@ func mainErr() error {
 		mlog.Error("failed to validate log level", err)
 		return err
 	}
+	ctrl.SetLogger(klog.Background())
 
 	if *versionInfo {
 		return version.PrintVersion()
