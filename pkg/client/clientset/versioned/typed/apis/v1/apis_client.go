@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Kubernetes Authors.
+Copyright 2022 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,9 +19,11 @@ limitations under the License.
 package v1
 
 import (
+	http "net/http"
+
 	rest "k8s.io/client-go/rest"
-	v1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
-	"sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned/scheme"
+	apisv1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
+	scheme "sigs.k8s.io/secrets-store-csi-driver/pkg/client/clientset/versioned/scheme"
 )
 
 type SecretsstoreV1Interface interface {
@@ -44,12 +46,24 @@ func (c *SecretsstoreV1Client) SecretProviderClassPodStatuses(namespace string) 
 }
 
 // NewForConfig creates a new SecretsstoreV1Client for the given config.
+// NewForConfig is equivalent to NewForConfigAndClient(c, httpClient),
+// where httpClient was generated with rest.HTTPClientFor(c).
 func NewForConfig(c *rest.Config) (*SecretsstoreV1Client, error) {
 	config := *c
-	if err := setConfigDefaults(&config); err != nil {
+	setConfigDefaults(&config)
+	httpClient, err := rest.HTTPClientFor(&config)
+	if err != nil {
 		return nil, err
 	}
-	client, err := rest.RESTClientFor(&config)
+	return NewForConfigAndClient(&config, httpClient)
+}
+
+// NewForConfigAndClient creates a new SecretsstoreV1Client for the given config and http client.
+// Note the http client provided takes precedence over the configured transport values.
+func NewForConfigAndClient(c *rest.Config, h *http.Client) (*SecretsstoreV1Client, error) {
+	config := *c
+	setConfigDefaults(&config)
+	client, err := rest.RESTClientForConfigAndClient(&config, h)
 	if err != nil {
 		return nil, err
 	}
@@ -71,17 +85,15 @@ func New(c rest.Interface) *SecretsstoreV1Client {
 	return &SecretsstoreV1Client{c}
 }
 
-func setConfigDefaults(config *rest.Config) error {
-	gv := v1.SchemeGroupVersion
+func setConfigDefaults(config *rest.Config) {
+	gv := apisv1.SchemeGroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
+	config.NegotiatedSerializer = rest.CodecFactoryForGeneratedClient(scheme.Scheme, scheme.Codecs).WithoutConversion()
 
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()
 	}
-
-	return nil
 }
 
 // RESTClient returns a RESTClient that is used to communicate

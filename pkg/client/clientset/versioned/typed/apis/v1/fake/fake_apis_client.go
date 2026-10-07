@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Kubernetes Authors.
+Copyright 2022 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -29,11 +29,11 @@ type FakeSecretsstoreV1 struct {
 }
 
 func (c *FakeSecretsstoreV1) SecretProviderClasses(namespace string) v1.SecretProviderClassInterface {
-	return &FakeSecretProviderClasses{c, namespace}
+	return newFakeSecretProviderClasses(c, namespace)
 }
 
 func (c *FakeSecretsstoreV1) SecretProviderClassPodStatuses(namespace string) v1.SecretProviderClassPodStatusInterface {
-	return &FakeSecretProviderClassPodStatuses{c, namespace}
+	return newFakeSecretProviderClassPodStatuses(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate
