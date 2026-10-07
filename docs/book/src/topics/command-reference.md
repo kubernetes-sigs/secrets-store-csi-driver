@@ -20,5 +20,9 @@ The `secrets-store` container in the DaemonSet can be configured using the follo
 | `--enable-pprof`                     | Enable pprof profiling                                                 | `false`                                       |
 | `--pprof-port`                       | Port for pprof profiling                                               | `6065`                                        |
 | `--max-call-recv-msg-size`           | Maximum size in bytes of gRPC response from plugins                    | `4194304`                                     |
-| `--provider-health-check`            	| Enable health check for configured providers                           	| `false`                                       	|
-| `--provider-health-check-interval`   	| Provider healthcheck interval duration                                 	|  `2m`                                           	|
+| `--provider-health-check`            | Enable health checks for configured providers and evict failed cached clients | `false` |
+| `--provider-health-check-interval`   | Provider health check interval duration | `2m` |
+
+When provider health checks are enabled, a failed check removes the cached
+provider client and closes its connection. The next provider request searches
+the configured provider socket paths and creates a new client.
