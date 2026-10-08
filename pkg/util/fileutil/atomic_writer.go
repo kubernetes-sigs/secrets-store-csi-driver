@@ -414,7 +414,12 @@ func (w *AtomicWriter) writePayloadToDir(payload map[string]FileProjection, dir 
 			return err
 		}
 
-		if fileProjection.FsGroup == nil || runtimeutil.IsRuntimeWindows() {
+		if fileProjection.FsGroup == nil {
+			continue
+		}
+		// Do not error out if for some reason a non-nil FsGroup comes through for Windows, but error log it.
+		if runtimeutil.IsRuntimeWindows() {
+			klog.ErrorS(nil, "skipping file group ownership change; not supported on Windows", "logContext", w.logContext, "fullPath", fullPath, "group", *fileProjection.FsGroup)
 			continue
 		}
 		if err := os.Chown(fullPath, -1, *fileProjection.FsGroup); err != nil {

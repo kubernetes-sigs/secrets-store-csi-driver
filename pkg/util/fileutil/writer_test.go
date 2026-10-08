@@ -372,7 +372,7 @@ func TestWritePayloads(t *testing.T) {
 			dir := t.TempDir()
 
 			// check that the first write succeeds and the contents match
-			if err := WritePayloads(dir, tc.first, NoGID); err != nil {
+			if err := WritePayloads(dir, tc.first, nil); err != nil {
 				t.Errorf("WritePayload(first) got error: %v", err)
 			}
 
@@ -382,7 +382,7 @@ func TestWritePayloads(t *testing.T) {
 
 			// check that the second write succeeds and the contents match,
 			// ensuring that the files have the updated values
-			if err := WritePayloads(dir, tc.second, NoGID); err != nil {
+			if err := WritePayloads(dir, tc.second, nil); err != nil {
 				t.Errorf("WritePayload(second) got error: %v", err)
 			}
 
@@ -421,7 +421,7 @@ func TestWritePayloads_BackwardCompatible(t *testing.T) {
 
 	want := []byte("new")
 
-	if err := WritePayloads(dir, payload, NoGID); err != nil {
+	if err := WritePayloads(dir, payload, nil); err != nil {
 		t.Fatalf("could not write new file: %s", err)
 	}
 

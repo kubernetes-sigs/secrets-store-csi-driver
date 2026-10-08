@@ -26,11 +26,6 @@ import (
 	"strings"
 )
 
-const (
-	// NoGID is the default gid -1 to indicate no change in FSGroup
-	NoGID int = -1
-)
-
 var (
 	targetPathRe = regexp.MustCompile(`[\\|\/]+pods[\\|\/]+(.+?)[\\|\/]+volumes[\\|\/]+kubernetes\.io~csi[\\|\/]+(.+?)[\\|\/]+mount$`)
 )
@@ -136,17 +131,18 @@ func GetVolumeNameFromTargetPath(targetPath string) string {
 }
 
 // ParseFSGroup parses the FSGroup string and returns the GID.
-// If fsGroupStr is empty, returns NoGID.
-func ParseFSGroup(fsGroupStr string) (int, error) {
+// If fsGroupStr is empty, returns (nil, nil) to indicate no FSGroup / skip chown.
+// Invalid or negative values return (nil, err); callers must not proceed.
+func ParseFSGroup(fsGroupStr string) (*int, error) {
 	if len(fsGroupStr) == 0 {
-		return NoGID, nil
+		return nil, nil
 	}
 	gid, err := strconv.Atoi(fsGroupStr)
 	if err != nil {
-		return NoGID, err
+		return nil, err
 	}
 	if gid < 0 {
-		return NoGID, fmt.Errorf("invalid FSGroup: %d must be non-negative", gid)
+		return nil, fmt.Errorf("invalid FSGroup: %d must be non-negative", gid)
 	}
-	return gid, nil
+	return &gid, nil
 }

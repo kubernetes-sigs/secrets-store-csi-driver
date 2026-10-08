@@ -25,7 +25,9 @@ type MockSecretsStoreObject struct {
 	ObjectName string `json:"objectName" yaml:"objectName"`
 	// the version of the secret objects
 	ObjectVersion string `json:"objectVersion" yaml:"objectVersion"`
-	// the filePermission of the secret object
+	// FilePermission is an optional octal file mode string (e.g. "0640"),
+	// parsed as base-8 with a maximum of 0777. When empty, the default
+	// permission from the Mount request is used.
 	FilePermission string `json:"filePermission,omitempty" yaml:"filePermission,omitempty"`
 }
 

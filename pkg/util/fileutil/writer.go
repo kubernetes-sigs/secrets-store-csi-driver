@@ -42,7 +42,8 @@ func Validate(payloads []*v1alpha1.File) error {
 // WritePayloads writes the files to target directory. This helper builds the
 // atomic writer and converts the v1alpha1.File proto to the FileProjection type
 // used by the atomic writer.
-func WritePayloads(path string, payloads []*v1alpha1.File, gid int) error {
+// owningGroupID is the optional GID to chown files to; nil skips chown.
+func WritePayloads(path string, payloads []*v1alpha1.File, owningGroupID *int) error {
 	if err := Validate(payloads); err != nil {
 		return err
 	}
@@ -58,18 +59,13 @@ func WritePayloads(path string, payloads []*v1alpha1.File, gid int) error {
 		return err
 	}
 
-	var fsGroup *int
-	if gid != NoGID {
-		fsGroup = &gid
-	}
-
 	// convert v1alpha1.File to FileProjection
 	files := make(map[string]FileProjection, len(payloads))
 	for _, payload := range payloads {
 		files[payload.GetPath()] = FileProjection{
 			Data:    payload.GetContents(),
 			Mode:    payload.GetMode(),
-			FsGroup: fsGroup,
+			FsGroup: owningGroupID,
 		}
 	}
 

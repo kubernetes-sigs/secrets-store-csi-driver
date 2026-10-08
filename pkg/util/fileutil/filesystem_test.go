@@ -335,34 +335,37 @@ func TestGetVolumeNameFromTargetPath(t *testing.T) {
 }
 
 func TestParseFSGroup(t *testing.T) {
+	gid1000 := 1000
+	gid0 := 0
+	gid65534 := 65534
 	cases := []struct {
 		name        string
 		fsGroupStr  string
-		want        int
+		want        *int
 		expectedErr bool
 	}{
 		{
-			name:        "empty string returns NoGID",
+			name:        "empty string returns nil",
 			fsGroupStr:  "",
-			want:        NoGID,
+			want:        nil,
 			expectedErr: false,
 		},
 		{
 			name:        "valid gid",
 			fsGroupStr:  "1000",
-			want:        1000,
+			want:        &gid1000,
 			expectedErr: false,
 		},
 		{
 			name:        "valid gid zero",
 			fsGroupStr:  "0",
-			want:        0,
+			want:        &gid0,
 			expectedErr: false,
 		},
 		{
 			name:        "valid large gid",
 			fsGroupStr:  "65534",
-			want:        65534,
+			want:        &gid65534,
 			expectedErr: false,
 		},
 		{
@@ -397,7 +400,11 @@ func TestParseFSGroup(t *testing.T) {
 				}
 			case err != nil:
 				t.Errorf("ParseFSGroup(%q) unexpected error: %v", tc.fsGroupStr, err)
-			case got != tc.want:
+			case tc.want == nil:
+				if got != nil {
+					t.Errorf("ParseFSGroup(%q) = %v, want nil", tc.fsGroupStr, got)
+				}
+			case got == nil || *got != *tc.want:
 				t.Errorf("ParseFSGroup(%q) = %v, want %v", tc.fsGroupStr, got, tc.want)
 			}
 		})
