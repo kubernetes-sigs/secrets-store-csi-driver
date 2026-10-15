@@ -18,6 +18,7 @@ package secretsstore
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,13 +27,16 @@ import (
 
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	mount "k8s.io/mount-utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 var (
@@ -155,11 +159,14 @@ func TestCreateOrUpdateSecretProviderClassPodStatus(t *testing.T) {
 		// initial objects to add to the fake client
 		initObjects []client.Object
 		objects     map[string]string
+		wantCreates int
+		wantUpdates int
 	}{
 		{
 			name:        "create",
 			nodeID:      "test-node",
 			initObjects: []client.Object{},
+			wantCreates: 1,
 			objects: map[string]string{
 				"b": "v1",
 				"a": "v2",
@@ -171,6 +178,7 @@ func TestCreateOrUpdateSecretProviderClassPodStatus(t *testing.T) {
 			initObjects: []client.Object{
 				newSecretProviderClassPodStatus(fmt.Sprintf("%s-%s-%s", testPodName, testNamespace, testSPCName), testNamespace, "old-node"),
 			},
+			wantUpdates: 1,
 			objects: map[string]string{
 				"b": "v1",
 				"a": "v2",
@@ -213,7 +221,20 @@ func TestCreateOrUpdateSecretProviderClassPodStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			scheme, _ := setupScheme()
-			cb := fake.NewClientBuilder().WithScheme(scheme).WithObjects(tt.initObjects...)
+			var createCount, updateCount int
+			cb := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(tt.initObjects...).
+				WithInterceptorFuncs(interceptor.Funcs{
+					Create: func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+						createCount++
+						return client.Create(ctx, obj, opts...)
+					},
+					Update: func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+						updateCount++
+						return client.Update(ctx, obj, opts...)
+					},
+				})
 			client := cb.Build()
 
 			err := createOrUpdateSecretProviderClassPodStatus(context.TODO(), client, client, testPodName, testNamespace, testPodUID, testSPCName, testTargetPath, tt.nodeID, true, tt.objects)
@@ -237,6 +258,222 @@ func TestCreateOrUpdateSecretProviderClassPodStatus(t *testing.T) {
 			if !reflect.DeepEqual(got.Status, want.Status) {
 				t.Errorf("Status got: %v, want: %v", got.Status, want.Status)
 			}
+			if createCount != tt.wantCreates {
+				t.Errorf("Create calls = %d, want %d", createCount, tt.wantCreates)
+			}
+			if updateCount != tt.wantUpdates {
+				t.Errorf("Update calls = %d, want %d", updateCount, tt.wantUpdates)
+			}
 		})
+	}
+}
+
+func TestCreateOrUpdateSecretProviderClassPodStatusSkipsUnchangedObject(t *testing.T) {
+	scheme, err := setupScheme()
+	if err != nil {
+		t.Fatalf("setup scheme: %v", err)
+	}
+
+	name := fmt.Sprintf("%s-%s-%s", testPodName, testNamespace, testSPCName)
+	existing := &secretsstorev1.SecretProviderClassPodStatus{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: testNamespace,
+			Labels: map[string]string{
+				secretsstorev1.InternalNodeLabel: "test-node",
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "v1",
+					Kind:       "Pod",
+					Name:       testPodName,
+					UID:        types.UID(testPodUID),
+				},
+			},
+		},
+		Status: secretsstorev1.SecretProviderClassPodStatusStatus{
+			PodName:                 testPodName,
+			TargetPath:              testTargetPath,
+			SecretProviderClassName: testSPCName,
+			Mounted:                 true,
+			Objects: []secretsstorev1.SecretProviderClassObject{
+				{ID: "a", Version: "v2"},
+				{ID: "b", Version: "v1"},
+			},
+		},
+	}
+
+	var createCount, updateCount int
+	client := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(existing).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Create: func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+				createCount++
+				return client.Create(ctx, obj, opts...)
+			},
+			Update: func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+				updateCount++
+				return client.Update(ctx, obj, opts...)
+			},
+		}).
+		Build()
+
+	err = createOrUpdateSecretProviderClassPodStatus(
+		context.Background(), client, client, testPodName, testNamespace, testPodUID,
+		testSPCName, testTargetPath, "test-node", true,
+		map[string]string{"b": "v1", "a": "v2"},
+	)
+	if err != nil {
+		t.Fatalf("createOrUpdateSecretProviderClassPodStatus: %v", err)
+	}
+	if createCount != 0 {
+		t.Errorf("Create calls = %d, want 0", createCount)
+	}
+	if updateCount != 0 {
+		t.Errorf("Update calls = %d, want 0", updateCount)
+	}
+}
+
+func TestCreateOrUpdateSecretProviderClassPodStatusRecoversFromCreateRace(t *testing.T) {
+	scheme, err := setupScheme()
+	if err != nil {
+		t.Fatalf("setup scheme: %v", err)
+	}
+
+	var createCount, updateCount int
+	client := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Create: func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+				createCount++
+				if err := client.Create(ctx, obj, opts...); err != nil {
+					return err
+				}
+				return apierrors.NewAlreadyExists(schema.GroupResource{
+					Group:    secretsstorev1.GroupVersion.Group,
+					Resource: "secretproviderclasspodstatuses",
+				}, obj.GetName())
+			},
+			Update: func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+				updateCount++
+				return client.Update(ctx, obj, opts...)
+			},
+		}).
+		Build()
+
+	err = createOrUpdateSecretProviderClassPodStatus(
+		context.Background(), client, client, testPodName, testNamespace, testPodUID,
+		testSPCName, testTargetPath, "test-node", true,
+		map[string]string{"b": "v1", "a": "v2"},
+	)
+	if err != nil {
+		t.Fatalf("createOrUpdateSecretProviderClassPodStatus: %v", err)
+	}
+	if createCount != 1 {
+		t.Errorf("Create calls = %d, want 1", createCount)
+	}
+	if updateCount != 0 {
+		t.Errorf("Update calls = %d, want 0", updateCount)
+	}
+}
+
+func TestCreateOrUpdateSecretProviderClassPodStatusRetriesUpdateConflict(t *testing.T) {
+	scheme, err := setupScheme()
+	if err != nil {
+		t.Fatalf("setup scheme: %v", err)
+	}
+
+	existing := newSecretProviderClassPodStatus(
+		fmt.Sprintf("%s-%s-%s", testPodName, testNamespace, testSPCName),
+		testNamespace,
+		"old-node",
+	)
+	existing.Labels = nil
+	var createCount, updateCount int
+	client := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(existing).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Create: func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+				createCount++
+				return client.Create(ctx, obj, opts...)
+			},
+			Update: func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+				updateCount++
+				if updateCount == 1 {
+					return apierrors.NewConflict(schema.GroupResource{
+						Group:    secretsstorev1.GroupVersion.Group,
+						Resource: "secretproviderclasspodstatuses",
+					}, obj.GetName(), errors.New("conflict"))
+				}
+				return client.Update(ctx, obj, opts...)
+			},
+		}).
+		Build()
+
+	err = createOrUpdateSecretProviderClassPodStatus(
+		context.Background(), client, client, testPodName, testNamespace, testPodUID,
+		testSPCName, testTargetPath, "test-node", true,
+		map[string]string{"b": "v1", "a": "v2"},
+	)
+	if err != nil {
+		t.Fatalf("createOrUpdateSecretProviderClassPodStatus: %v", err)
+	}
+	if createCount != 0 {
+		t.Errorf("Create calls = %d, want 0", createCount)
+	}
+	if updateCount != 2 {
+		t.Errorf("Update calls = %d, want 2", updateCount)
+	}
+}
+
+func TestCreateOrUpdateSecretProviderClassPodStatusUsesDirectReaderOnCacheMiss(t *testing.T) {
+	scheme, err := setupScheme()
+	if err != nil {
+		t.Fatalf("setup scheme: %v", err)
+	}
+
+	existing := newSecretProviderClassPodStatus(
+		fmt.Sprintf("%s-%s-%s", testPodName, testNamespace, testSPCName),
+		testNamespace,
+		"old-node",
+	)
+	reader := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existing.DeepCopy()).Build()
+	var createCount, updateCount int
+	cacheClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(existing).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(context.Context, client.WithWatch, client.ObjectKey, client.Object, ...client.GetOption) error {
+				return apierrors.NewNotFound(schema.GroupResource{
+					Group:    secretsstorev1.GroupVersion.Group,
+					Resource: "secretproviderclasspodstatuses",
+				}, existing.Name)
+			},
+			Create: func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+				createCount++
+				return client.Create(ctx, obj, opts...)
+			},
+			Update: func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+				updateCount++
+				return client.Update(ctx, obj, opts...)
+			},
+		}).
+		Build()
+
+	err = createOrUpdateSecretProviderClassPodStatus(
+		context.Background(), cacheClient, reader, testPodName, testNamespace, testPodUID,
+		testSPCName, testTargetPath, "test-node", true,
+		map[string]string{"b": "v1", "a": "v2"},
+	)
+	if err != nil {
+		t.Fatalf("createOrUpdateSecretProviderClassPodStatus: %v", err)
+	}
+	if createCount != 0 {
+		t.Errorf("Create calls = %d, want 0", createCount)
+	}
+	if updateCount != 1 {
+		t.Errorf("Update calls = %d, want 1", updateCount)
 	}
 }
