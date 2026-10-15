@@ -31,16 +31,11 @@ done
 popd
 
 OUTPUT_PKG=sigs.k8s.io/secrets-store-csi-driver/pkg/client
+OUTPUT_DIR=./pkg/client
 FQ_APIS=sigs.k8s.io/secrets-store-csi-driver/apis/v1alpha1,sigs.k8s.io/secrets-store-csi-driver/apis/v1
 APIS_PKG=sigs.k8s.io/secrets-store-csi-driver
 CLIENTSET_NAME=versioned
 CLIENTSET_PKG_NAME=clientset
-
-if [[ "${VERIFY_CODEGEN:-}" == "true" ]]; then
-  echo "Running in verification mode"
-  VERIFY_FLAG="--verify-only"
-fi
-COMMON_FLAGS="${VERIFY_FLAG:-}"
 
 # reference from https://github.com/servicemeshinterface/smi-sdk-go/blob/master/hack/update-codegen.sh
 # the generate-groups.sh script cannot handle group names with dashes, so we use secretsstore.csi.x-k8s.io as the group name
@@ -55,35 +50,30 @@ echo "Generating clientset at ${OUTPUT_PKG}/${CLIENTSET_PKG_NAME}"
     --clientset-name "${CLIENTSET_NAME}" \
     --input-base "" \
     --input "${FQ_APIS}" \
-    --output-package "${OUTPUT_PKG}/${CLIENTSET_PKG_NAME}" \
-    --go-header-file "${SCRIPT_ROOT}/hack/boilerplate.go.txt" \
-    "${COMMON_FLAGS}"
+    --output-dir "${OUTPUT_DIR}/${CLIENTSET_PKG_NAME}" \
+    --output-pkg "${OUTPUT_PKG}/${CLIENTSET_PKG_NAME}" \
+    --go-header-file "${SCRIPT_ROOT}/hack/boilerplate.go.txt"
 
 echo "Generating listers at ${OUTPUT_PKG}/listers"
-"${TOOLS_BIN_DIR}/lister-gen" \
-    --input-dirs "${FQ_APIS}" \
-    --output-package "${OUTPUT_PKG}/listers" \
-    --go-header-file "${SCRIPT_ROOT}/hack/boilerplate.go.txt" \
-    "${COMMON_FLAGS}"
+"${TOOLS_BIN_DIR}/lister-gen" ./apis/... \
+    --output-dir "${OUTPUT_DIR}/listers" \
+    --output-pkg "${OUTPUT_PKG}/listers" \
+    --go-header-file "${SCRIPT_ROOT}/hack/boilerplate.go.txt"
 
 echo "Generating informers at ${OUTPUT_PKG}/informers"
-"${TOOLS_BIN_DIR}/informer-gen" \
-    --input-dirs "${FQ_APIS}" \
+"${TOOLS_BIN_DIR}/informer-gen" ./apis/... \
     --versioned-clientset-package "${OUTPUT_PKG}/${CLIENTSET_PKG_NAME}/${CLIENTSET_NAME}" \
     --listers-package "${OUTPUT_PKG}/listers" \
-    --output-package "${OUTPUT_PKG}/informers" \
-    --go-header-file "${SCRIPT_ROOT}/hack/boilerplate.go.txt" \
-    "${COMMON_FLAGS}"
+    --output-dir "${OUTPUT_DIR}/informers" \
+    --output-pkg "${OUTPUT_PKG}/informers" \
+    --go-header-file "${SCRIPT_ROOT}/hack/boilerplate.go.txt"
 
 for VERSION in v1alpha1 v1
 do
   echo "Generating ${VERSION} register at ${APIS_PKG}/apis/${VERSION}"
-  "${TOOLS_BIN_DIR}/register-gen" \
-      --input-dirs "${FQ_APIS}" \
-      --output-package "${APIS_PKG}/apis/${VERSION}" \
+  "${TOOLS_BIN_DIR}/register-gen" ./apis/$VERSION \
       --go-header-file "${SCRIPT_ROOT}/hack/boilerplate.go.txt" \
-      "${COMMON_FLAGS}"
-
+      --output-file zz_generated.register.go
 done
 
 # reference from https://github.com/servicemeshinterface/smi-sdk-go/blob/master/hack/update-codegen.sh
