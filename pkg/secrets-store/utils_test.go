@@ -18,6 +18,7 @@ package secretsstore
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,16 +27,19 @@ import (
 
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	mount "k8s.io/mount-utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
-var (
+const (
 	testPodName    = "pod-0"
 	testNamespace  = "default"
 	testPodUID     = "d8771ddf-935a-4199-a20b-f35f71c1d9e7"
@@ -149,38 +153,11 @@ func TestEnsureMountPoint(t *testing.T) {
 }
 
 func TestCreateOrUpdateSecretProviderClassPodStatus(t *testing.T) {
-	tests := []struct {
-		name   string
-		nodeID string
-		// initial objects to add to the fake client
-		initObjects []client.Object
-		objects     map[string]string
-	}{
-		{
-			name:        "create",
-			nodeID:      "test-node",
-			initObjects: []client.Object{},
-			objects: map[string]string{
-				"b": "v1",
-				"a": "v2",
-			},
-		},
-		{
-			name:   "update",
-			nodeID: "test-node",
-			initObjects: []client.Object{
-				newSecretProviderClassPodStatus(fmt.Sprintf("%s-%s-%s", testPodName, testNamespace, testSPCName), testNamespace, "old-node"),
-			},
-			objects: map[string]string{
-				"b": "v1",
-				"a": "v2",
-			},
-		},
-	}
+	name := fmt.Sprintf("%s-%s-%s", testPodName, testNamespace, testSPCName)
 
 	want := &secretsstorev1.SecretProviderClassPodStatus{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s-%s", testPodName, testNamespace, testSPCName),
+			Name:      name,
 			Namespace: testNamespace,
 			Labels:    map[string]string{secretsstorev1.InternalNodeLabel: "test-node"},
 			OwnerReferences: []metav1.OwnerReference{
@@ -198,44 +175,170 @@ func TestCreateOrUpdateSecretProviderClassPodStatus(t *testing.T) {
 			SecretProviderClassName: testSPCName,
 			Mounted:                 true,
 			Objects: []secretsstorev1.SecretProviderClassObject{
-				{
-					ID:      "a",
-					Version: "v2",
-				},
-				{
-					ID:      "b",
-					Version: "v1",
-				},
+				{ID: "a", Version: "v2"},
+				{ID: "b", Version: "v1"},
 			},
+		},
+	}
+
+	emptyLabels := newSecretProviderClassPodStatus(name, testNamespace, "")
+	emptyLabels.Labels = nil
+
+	tests := []struct {
+		name          string
+		cachedObjects []client.Object
+		liveObjects   []client.Object
+		objects       map[string]string
+		getFunc       func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error
+		createFunc    func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error
+		updateFunc    func(ctx context.Context, c client.WithWatch, obj client.Object, callNum int, opts ...client.UpdateOption) error
+		wantWritten   *secretsstorev1.SecretProviderClassPodStatus
+		wantCreates   int
+		wantUpdates   int
+	}{
+		{
+			name:        "create",
+			objects:     map[string]string{"b": "v1", "a": "v2"},
+			wantWritten: want,
+			wantCreates: 1,
+		},
+		{
+			name: "update",
+			cachedObjects: []client.Object{
+				newSecretProviderClassPodStatus(name, testNamespace, "old-node"),
+			},
+			objects:     map[string]string{"b": "v1", "a": "v2"},
+			wantWritten: want,
+			wantUpdates: 1,
+		},
+		{
+			name:          "skips unchanged cached object",
+			cachedObjects: []client.Object{want.DeepCopy()},
+			objects:       map[string]string{"b": "v1", "a": "v2"},
+		},
+		{
+			name:        "skips unchanged live object",
+			liveObjects: []client.Object{want.DeepCopy()},
+			createFunc: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+				return apierrors.NewAlreadyExists(schema.GroupResource{
+					Group:    secretsstorev1.GroupVersion.Group,
+					Resource: "secretproviderclasspodstatuses",
+				}, obj.GetName())
+			},
+			objects:     map[string]string{"b": "v1", "a": "v2"},
+			wantCreates: 1,
+		},
+		{
+			name: "updates changed live object",
+			cachedObjects: []client.Object{
+				// The fake controller-runtime client needs this object here as it
+				// is this very object that it will try to update.
+				// Otherwise it fails with NotFound.
+				// We simulate the cache miss with the getFunc interceptor instead.
+				newSecretProviderClassPodStatus(name, testNamespace, "old-node")},
+			liveObjects: []client.Object{
+				newSecretProviderClassPodStatus(name, testNamespace, "old-node"),
+			},
+			getFunc: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				return apierrors.NewNotFound(schema.GroupResource{
+					Group:    secretsstorev1.GroupVersion.Group,
+					Resource: "secretproviderclasspodstatuses",
+				}, key.Name)
+			},
+			createFunc: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+				return apierrors.NewAlreadyExists(schema.GroupResource{
+					Group:    secretsstorev1.GroupVersion.Group,
+					Resource: "secretproviderclasspodstatuses",
+				}, obj.GetName())
+			},
+			objects:     map[string]string{"b": "v1", "a": "v2"},
+			wantWritten: want,
+			wantCreates: 1,
+			wantUpdates: 1,
+		},
+		{
+			name:          "retries update on conflict",
+			cachedObjects: []client.Object{emptyLabels},
+			liveObjects:   []client.Object{emptyLabels},
+			updateFunc: func(ctx context.Context, c client.WithWatch, obj client.Object, callNum int, opts ...client.UpdateOption) error {
+				if callNum < 3 {
+					return apierrors.NewConflict(schema.GroupResource{
+						Group:    secretsstorev1.GroupVersion.Group,
+						Resource: "secretproviderclasspodstatuses",
+					}, obj.GetName(), errors.New("conflict"))
+				}
+				return c.Update(ctx, obj, opts...)
+			},
+			objects:     map[string]string{"b": "v1", "a": "v2"},
+			wantWritten: want,
+			wantUpdates: 3,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			scheme, _ := setupScheme()
-			cb := fake.NewClientBuilder().WithScheme(scheme).WithObjects(tt.initObjects...)
-			client := cb.Build()
-
-			err := createOrUpdateSecretProviderClassPodStatus(context.TODO(), client, client, testPodName, testNamespace, testPodUID, testSPCName, testTargetPath, tt.nodeID, true, tt.objects)
+			scheme, err := setupScheme()
 			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
+				t.Fatalf("setup scheme: %v", err)
 			}
-			got := &secretsstorev1.SecretProviderClassPodStatus{}
-			if err := client.Get(context.TODO(), types.NamespacedName{
-				Name:      want.Name,
-				Namespace: want.Namespace,
-			}, got); err != nil {
+
+			var createCount, updateCount int
+
+			var gotWritten *secretsstorev1.SecretProviderClassPodStatus
+			funcs := interceptor.Funcs{
+				Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+					createCount++
+					gotWritten = obj.(*secretsstorev1.SecretProviderClassPodStatus)
+					if tt.createFunc != nil {
+						return tt.createFunc(ctx, c, obj, opts...)
+					}
+					return c.Create(ctx, obj, opts...)
+				},
+				Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+					updateCount++
+					gotWritten = obj.(*secretsstorev1.SecretProviderClassPodStatus)
+					if tt.updateFunc != nil {
+						return tt.updateFunc(ctx, c, obj, updateCount, opts...)
+					}
+					return c.Update(ctx, obj, opts...)
+				},
+			}
+			if tt.getFunc != nil {
+				funcs.Get = tt.getFunc
+			}
+
+			cl := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(tt.cachedObjects...).
+				WithInterceptorFuncs(funcs).
+				Build()
+
+			var reader client.Reader = fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(tt.liveObjects...).
+				Build()
+
+			if err := createOrUpdateSecretProviderClassPodStatus(context.TODO(), cl, reader, testPodName, testNamespace, testPodUID, testSPCName, testTargetPath, "test-node", true, tt.objects); err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
 
-			if !reflect.DeepEqual(got.GetLabels(), want.GetLabels()) {
-				t.Errorf("ObjectMeta.GetLabels() got: %v, want: %v", got.GetLabels(), want.GetLabels())
+			if tt.wantWritten != nil {
+				if !reflect.DeepEqual(gotWritten.GetLabels(), tt.wantWritten.GetLabels()) {
+					t.Errorf("ObjectMeta.GetLabels() got: %v, want: %v", gotWritten.GetLabels(), tt.wantWritten.GetLabels())
+				}
+				if !reflect.DeepEqual(gotWritten.GetOwnerReferences(), tt.wantWritten.GetOwnerReferences()) {
+					t.Errorf("ObjectMeta.GetOwnerReferences() got: %v, want: %v", gotWritten.GetOwnerReferences(), tt.wantWritten.GetOwnerReferences())
+				}
+				if !reflect.DeepEqual(gotWritten.Status, tt.wantWritten.Status) {
+					t.Errorf("Status got: %v, want: %v", gotWritten.Status, tt.wantWritten.Status)
+				}
 			}
-			if !reflect.DeepEqual(got.GetOwnerReferences(), want.GetOwnerReferences()) {
-				t.Errorf("ObjectMeta.GetOwnerReferences() got: %v, want: %v", got.GetOwnerReferences(), want.GetOwnerReferences())
+
+			if createCount != tt.wantCreates {
+				t.Errorf("Create calls = %d, want %d", createCount, tt.wantCreates)
 			}
-			if !reflect.DeepEqual(got.Status, want.Status) {
-				t.Errorf("Status got: %v, want: %v", got.Status, want.Status)
+			if updateCount != tt.wantUpdates {
+				t.Errorf("Update calls = %d, want %d", updateCount, tt.wantUpdates)
 			}
 		})
 	}
