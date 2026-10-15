@@ -343,6 +343,46 @@ func TestGetSecretData(t *testing.T) {
 			expectedDataMap: map[string][]byte{"file1": []byte("test")},
 			expectedError:   false,
 		},
+		{
+			// Regression test: a secretObjects entry with multiple data items
+			// must not silently drop the resolvable ones just because an
+			// unrelated sibling item (listed before it) can't be resolved.
+			name: "unresolved entry listed first does not block a later entry from being resolved",
+			secretObjData: []*secretsstorev1.SecretObjectData{
+				{
+					ObjectName: "objMissing",
+					Key:        "keyMissing",
+				},
+				{
+					ObjectName: "obj1",
+					Key:        "file1",
+				},
+			},
+			secretType:      corev1.SecretTypeOpaque,
+			currentFiles:    map[string]string{"obj1": ""},
+			expectedDataMap: map[string][]byte{"file1": []byte("test")},
+			expectedError:   true,
+		},
+		{
+			// Same as above with the entries reordered, proving the outcome
+			// for the resolvable entry does not depend on its position
+			// relative to the unresolved one.
+			name: "unresolved entry listed last does not block an earlier entry from being resolved",
+			secretObjData: []*secretsstorev1.SecretObjectData{
+				{
+					ObjectName: "obj1",
+					Key:        "file1",
+				},
+				{
+					ObjectName: "objMissing",
+					Key:        "keyMissing",
+				},
+			},
+			secretType:      corev1.SecretTypeOpaque,
+			currentFiles:    map[string]string{"obj1": ""},
+			expectedDataMap: map[string][]byte{"file1": []byte("test")},
+			expectedError:   true,
+		},
 	}
 
 	for _, test := range tests {
@@ -363,6 +403,48 @@ func TestGetSecretData(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestGetSecretDataContinuesThroughList is a focused regression test for
+// https://github.com/kubernetes-sigs/secrets-store-csi-driver/issues/2018:
+// GetSecretData used to return on the first unresolved data entry, which both
+// discarded any entries already resolved and skipped validating the rest of
+// the list. It should instead keep processing every entry, resolving what it
+// can and reporting every failure, not just the first one encountered.
+func TestGetSecretDataContinuesThroughList(t *testing.T) {
+	tmpDir := t.TempDir()
+	obj1Path, err := createTestFile(tmpDir, "obj1")
+	if err != nil {
+		t.Fatalf("expected err to be nil, got: %+v", err)
+	}
+	obj3Path, err := createTestFile(tmpDir, "obj3")
+	if err != nil {
+		t.Fatalf("expected err to be nil, got: %+v", err)
+	}
+	files := map[string]string{"obj1": obj1Path, "obj3": obj3Path}
+
+	secretObjData := []*secretsstorev1.SecretObjectData{
+		{ObjectName: "obj1", Key: "key1"},        // resolvable
+		{ObjectName: "objMissingA", Key: "key2"}, // unresolvable
+		{ObjectName: "obj3", Key: "key3"},        // resolvable, listed after both unresolvable entries
+		{ObjectName: "objMissingB", Key: "key4"}, // unresolvable
+	}
+
+	datamap, err := GetSecretData(secretObjData, corev1.SecretTypeOpaque, files)
+
+	expectedDataMap := map[string][]byte{
+		"key1": []byte("test"),
+		"key3": []byte("test"),
+	}
+	if !reflect.DeepEqual(datamap, expectedDataMap) {
+		t.Fatalf("expected all resolvable entries to be present regardless of position, got: %+v", datamap)
+	}
+
+	if err == nil {
+		t.Fatal("expected a non-nil error describing the unresolved entries")
+	}
+	assert.ErrorContains(t, err, "objMissingA")
+	assert.ErrorContains(t, err, "objMissingB")
 }
 
 func createTestFile(tmpDir, fileName string) (string, error) {
