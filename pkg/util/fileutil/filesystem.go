@@ -18,9 +18,11 @@ limitations under the License.
 package fileutil
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -126,4 +128,21 @@ func GetVolumeNameFromTargetPath(targetPath string) string {
 		return ""
 	}
 	return match[2]
+}
+
+// ParseFSGroup parses the FSGroup string and returns the GID.
+// If fsGroupStr is empty, returns (nil, nil) to indicate no FSGroup / skip chown.
+// Invalid or negative values return (nil, err); callers must not proceed.
+func ParseFSGroup(fsGroupStr string) (*int, error) {
+	if len(fsGroupStr) == 0 {
+		return nil, nil
+	}
+	gid, err := strconv.Atoi(fsGroupStr)
+	if err != nil {
+		return nil, err
+	}
+	if gid < 0 {
+		return nil, fmt.Errorf("invalid FSGroup: %d must be non-negative", gid)
+	}
+	return &gid, nil
 }
