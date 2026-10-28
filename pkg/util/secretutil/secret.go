@@ -22,6 +22,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -183,37 +184,50 @@ func ValidateSecretObject(secretObj secretsstorev1.SecretObject) error {
 }
 
 // GetSecretData gets the object contents from the pods target path and returns a
-// map that will be populated in the Kubernetes secret data field
+// map that will be populated in the Kubernetes secret data field.
+//
+// A secretObjects entry can reference multiple objects via its data list. If one
+// entry can't be resolved (e.g. its objectName isn't mounted), processing
+// continues through the rest of the list instead of stopping immediately, so a
+// single unresolved entry doesn't prevent the caller from ever seeing the
+// otherwise-resolvable keys. All errors encountered are joined and returned
+// alongside the partial map.
 func GetSecretData(secretObjData []*secretsstorev1.SecretObjectData, secretType corev1.SecretType, files map[string]string) (map[string][]byte, error) {
 	datamap := make(map[string][]byte)
+	var errs []error
 	for _, data := range secretObjData {
 		objectName := strings.TrimSpace(data.ObjectName)
 		dataKey := strings.TrimSpace(data.Key)
 
 		if len(objectName) == 0 {
-			return datamap, fmt.Errorf("object name in secretObjects.data")
+			errs = append(errs, fmt.Errorf("object name in secretObjects.data"))
+			continue
 		}
 		if len(dataKey) == 0 {
-			return datamap, fmt.Errorf("key in secretObjects.data is empty")
+			errs = append(errs, fmt.Errorf("key in secretObjects.data is empty"))
+			continue
 		}
 		file, ok := files[objectName]
 		if !ok {
-			return datamap, fmt.Errorf("file matching objectName %s not found in the pod", objectName)
+			errs = append(errs, fmt.Errorf("file matching objectName %s not found in the pod", objectName))
+			continue
 		}
 		content, err := os.ReadFile(file)
 		if err != nil {
-			return datamap, fmt.Errorf("failed to read file %s, err: %w", objectName, err)
+			errs = append(errs, fmt.Errorf("failed to read file %s, err: %w", objectName, err))
+			continue
 		}
 		datamap[dataKey] = content
 		if secretType == corev1.SecretTypeTLS {
 			c, err := GetCertPart(content, dataKey)
 			if err != nil {
-				return datamap, fmt.Errorf("failed to get cert data from file %s, err: %w", file, err)
+				errs = append(errs, fmt.Errorf("failed to get cert data from file %s, err: %w", file, err))
+				continue
 			}
 			datamap[dataKey] = c
 		}
 	}
-	return datamap, nil
+	return datamap, errors.Join(errs...)
 }
 
 // GetSHAFromSecret gets SHA for the secret data
