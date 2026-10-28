@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"slices"
@@ -124,6 +125,10 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 	}
 
 	spcPodStatuses := spcPodStatusList.Items
+	// Errors are collected rather than returned so that one SPCPS that cannot be
+	// resolved, e.g. one that references a deleted SPC, does not prevent owner
+	// references from being patched for every other synced secret on the node.
+	var errs []error
 	for i := range spcPodStatuses {
 		spcName := spcPodStatuses[i].Status.SecretProviderClassName
 		spc := &secretsstorev1.SecretProviderClass{}
@@ -133,19 +138,23 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 			spc = &val
 		} else {
 			if err := r.reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: spcName}, spc); err != nil {
-				return fmt.Errorf("failed to get spc %s, err: %w", spcName, err)
+				errs = append(errs, fmt.Errorf("failed to get spc %s/%s for spcps %s, err: %w", namespace, spcName, spcPodStatuses[i].Name, err))
+				continue
 			}
 			spcMap[namespace+"/"+spcName] = *spc
 		}
 		// get the pod and check if the pod has a owner reference
 		pod := &corev1.Pod{}
-		err = r.reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: spcPodStatuses[i].Status.PodName}, pod)
+		podName := spcPodStatuses[i].Status.PodName
+		err = r.reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: podName}, pod)
 		if err != nil {
-			return fmt.Errorf("failed to fetch pod during patching, err: %w", err)
+			errs = append(errs, fmt.Errorf("failed to fetch pod %s/%s during patching, err: %w", namespace, podName, err))
+			continue
 		}
 		ownerRefs, err := r.secretOwnerRefs(pod, &spcPodStatuses[i])
 		if err != nil {
-			return err
+			errs = append(errs, fmt.Errorf("failed to get secret owner refs for spcps %s/%s, err: %w", namespace, spcPodStatuses[i].Name, err))
+			continue
 		}
 
 		for _, secret := range spc.Spec.SecretObjects {
@@ -180,12 +189,12 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 			Factor:   1.0,
 			Jitter:   0.1,
 		}, patchFn); err != nil {
-			return err
+			errs = append(errs, fmt.Errorf("failed to patch owner refs for secret %s, err: %w", secret, err))
 		}
 	}
 
 	klog.V(10).Info("patcher completed")
-	return nil
+	return errors.Join(errs...)
 }
 
 // ListOptionsLabelSelector returns a ListOptions with a label selector for node name.
