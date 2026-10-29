@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 	"slices"
@@ -125,36 +124,41 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 	}
 
 	spcPodStatuses := spcPodStatusList.Items
-	// Errors are collected rather than returned so that one SPCPS that cannot be
-	// resolved, e.g. one that references a deleted SPC, does not prevent owner
-	// references from being patched for every other synced secret on the node.
-	var errs []error
+	// Patcher only adds owner references. An SPCPS whose SPC or pod no longer exists
+	// cannot contribute an owner, so skipping it gives the same result as if that
+	// SPCPS did not exist, instead of blocking every other secret on the node.
+	// Any other error still fails the pass before anything is patched.
 	for i := range spcPodStatuses {
 		spcName := spcPodStatuses[i].Status.SecretProviderClassName
 		spc := &secretsstorev1.SecretProviderClass{}
 		namespace := spcPodStatuses[i].Namespace
+		podName := spcPodStatuses[i].Status.PodName
 
 		if val, exists := spcMap[namespace+"/"+spcName]; exists {
 			spc = &val
 		} else {
 			if err := r.reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: spcName}, spc); err != nil {
-				errs = append(errs, fmt.Errorf("failed to get spc %s/%s for spcps %s, err: %w", namespace, spcName, spcPodStatuses[i].Name, err))
-				continue
+				if apierrors.IsNotFound(err) {
+					klog.ErrorS(err, "skipping secret provider class pod status, secret provider class not found", "spcps", klog.KObj(&spcPodStatuses[i]), "spc", klog.ObjectRef{Namespace: namespace, Name: spcName}, "pod", klog.ObjectRef{Namespace: namespace, Name: podName})
+					continue
+				}
+				return fmt.Errorf("failed to get spc %s, err: %w", spcName, err)
 			}
 			spcMap[namespace+"/"+spcName] = *spc
 		}
 		// get the pod and check if the pod has a owner reference
 		pod := &corev1.Pod{}
-		podName := spcPodStatuses[i].Status.PodName
 		err = r.reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: podName}, pod)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to fetch pod %s/%s during patching, err: %w", namespace, podName, err))
-			continue
+			if apierrors.IsNotFound(err) {
+				klog.ErrorS(err, "skipping secret provider class pod status, pod not found", "spcps", klog.KObj(&spcPodStatuses[i]), "spc", klog.ObjectRef{Namespace: namespace, Name: spcName}, "pod", klog.ObjectRef{Namespace: namespace, Name: podName})
+				continue
+			}
+			return fmt.Errorf("failed to fetch pod during patching, err: %w", err)
 		}
 		ownerRefs, err := r.secretOwnerRefs(pod, &spcPodStatuses[i])
 		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to get secret owner refs for spcps %s/%s, err: %w", namespace, spcPodStatuses[i].Name, err))
-			continue
+			return err
 		}
 
 		for _, secret := range spc.Spec.SecretObjects {
@@ -189,12 +193,12 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 			Factor:   1.0,
 			Jitter:   0.1,
 		}, patchFn); err != nil {
-			errs = append(errs, fmt.Errorf("failed to patch owner refs for secret %s, err: %w", secret, err))
+			return err
 		}
 	}
 
 	klog.V(10).Info("patcher completed")
-	return errors.Join(errs...)
+	return nil
 }
 
 // ListOptionsLabelSelector returns a ListOptions with a label selector for node name.
