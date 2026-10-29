@@ -18,9 +18,9 @@ package controllers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -36,18 +36,20 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
@@ -60,32 +62,34 @@ const (
 
 // SecretProviderClassPodStatusReconciler reconciles a SecretProviderClassPodStatus object
 type SecretProviderClassPodStatusReconciler struct {
-	client.Client
 	mutex         *sync.Mutex
 	scheme        *apiruntime.Scheme
 	nodeID        string
 	reader        client.Reader
+	secretReader  client.Reader
 	writer        client.Writer
 	eventRecorder record.EventRecorder
 	driverName    string
+	informers     *InformerRegistry
 }
 
 // New creates a new SecretProviderClassPodStatusReconciler
-func New(driverName string, mgr manager.Manager, nodeID string) (*SecretProviderClassPodStatusReconciler, error) {
+func New(driverName string, mgr manager.Manager, nodeID string, informers *InformerRegistry) (*SecretProviderClassPodStatusReconciler, error) {
 	eventBroadcaster := record.NewBroadcaster()
 	kubeClient := kubernetes.NewForConfigOrDie(mgr.GetConfig())
 	eventBroadcaster.StartRecordingToSink(&clientcorev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "csi-secrets-store-controller"})
 
 	return &SecretProviderClassPodStatusReconciler{
-		Client:        mgr.GetClient(),
 		mutex:         &sync.Mutex{},
 		scheme:        mgr.GetScheme(),
 		nodeID:        nodeID,
 		reader:        mgr.GetCache(),
+		secretReader:  secretsConfirmingReader{Reader: mgr.GetCache(), api: mgr.GetAPIReader()},
 		writer:        mgr.GetClient(),
 		eventRecorder: recorder,
 		driverName:    driverName,
+		informers:     informers,
 	}, nil
 }
 
@@ -139,31 +143,9 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 		if err != nil {
 			return fmt.Errorf("failed to fetch pod during patching, err: %w", err)
 		}
-		var ownerRefs []metav1.OwnerReference
-		for _, ownerRef := range pod.GetOwnerReferences() {
-			ownerRefs = append(ownerRefs, metav1.OwnerReference{
-				APIVersion: ownerRef.APIVersion,
-				Kind:       ownerRef.Kind,
-				UID:        ownerRef.UID,
-				Name:       ownerRef.Name,
-			})
-		}
-		// If a pod has no owner references, then it's a static pod and
-		// doesn't belong to a replicaset. In this case, use the spcps as
-		// owner reference just like we do it today
-		if len(ownerRefs) == 0 {
-			// Create a new owner ref.
-			gvk, err := apiutil.GVKForObject(&spcPodStatuses[i], r.scheme)
-			if err != nil {
-				return err
-			}
-			ref := metav1.OwnerReference{
-				APIVersion: gvk.GroupVersion().String(),
-				Kind:       gvk.Kind,
-				UID:        spcPodStatuses[i].GetUID(),
-				Name:       spcPodStatuses[i].GetName(),
-			}
-			ownerRefs = append(ownerRefs, ref)
+		ownerRefs, err := r.secretOwnerRefs(pod, &spcPodStatuses[i])
+		if err != nil {
+			return err
 		}
 
 		for _, secret := range spc.Spec.SecretObjects {
@@ -180,7 +162,7 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 	for secret, owners := range secretOwnerMap {
 		patchFn := func() (bool, error) {
 			if err := r.patchSecretWithOwnerRef(ctx, secret.Name, secret.Namespace, owners...); err != nil {
-				if !apierrors.IsConflict(err) || !apierrors.IsTimeout(err) {
+				if !apierrors.IsConflict(err) && !apierrors.IsTimeout(err) {
 					klog.ErrorS(err, "failed to set owner ref for secret", "secret", klog.ObjectRef{Namespace: secret.Namespace, Name: secret.Name})
 				}
 				// syncSecret.enabled is set to false by default in the helm chart for installing the driver in v0.0.23+
@@ -211,6 +193,32 @@ func (r *SecretProviderClassPodStatusReconciler) ListOptionsLabelSelector() clie
 	return client.MatchingLabels(map[string]string{
 		secretsstorev1.InternalNodeLabel: r.nodeID,
 	})
+}
+
+func (r *SecretProviderClassPodStatusReconciler) secretOwnerRefs(pod *corev1.Pod, spcPodStatus *secretsstorev1.SecretProviderClassPodStatus) ([]metav1.OwnerReference, error) {
+	if ownerRefs := pod.GetOwnerReferences(); len(ownerRefs) > 0 {
+		ownerRefs = slices.Clone(ownerRefs)
+		for i := range ownerRefs {
+			// A Secret can be shared by multiple workloads, but only one owner may be
+			// a controller. BlockOwnerDeletion would also require delete permission
+			// on the workload owner, which the driver intentionally does not have.
+			ownerRefs[i].Controller = nil
+			ownerRefs[i].BlockOwnerDeletion = nil
+		}
+		return ownerRefs, nil
+	}
+
+	// Static pods have no owner references, so use the SPCPS as the owner.
+	gvk, err := apiutil.GVKForObject(spcPodStatus, r.scheme)
+	if err != nil {
+		return nil, err
+	}
+	return []metav1.OwnerReference{{
+		APIVersion: gvk.GroupVersion().String(),
+		Kind:       gvk.Kind,
+		UID:        spcPodStatus.GetUID(),
+		Name:       spcPodStatus.GetName(),
+	}}, nil
 }
 
 // +kubebuilder:rbac:groups=secrets-store.csi.x-k8s.io,resources=secretproviderclasspodstatuses,verbs=get;list;watch;create;update;patch;delete
@@ -283,6 +291,11 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 		return ctrl.Result{}, fmt.Errorf("secret provider class pod status volume name did not match pod Volume for pod %s/%s", req.Namespace, spcPodStatus.Status.PodName)
 	}
 
+	ownerRefs, err := r.secretOwnerRefs(pod, spcPodStatus)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	files, err := fileutil.GetMountedFiles(spcPodStatus.Status.TargetPath)
 	if err != nil {
 		r.generateEvent(pod, corev1.EventTypeWarning, secretCreationFailedReason, fmt.Sprintf("failed to get mounted files, err: %+v", err))
@@ -328,7 +341,7 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 			Factor:   1.0,
 			Jitter:   0.1,
 		}, func() (done bool, err error) {
-			if err := r.createOrUpdateK8sSecret(ctx, secretName, req.Namespace, datamap, labelsMap, annotationsMap, secretType); err != nil {
+			if err := r.createOrUpdateK8sSecret(ctx, secretName, req.Namespace, datamap, labelsMap, annotationsMap, secretType, ownerRefs...); err != nil {
 				klog.ErrorS(err, "failed to create Kubernetes secret", "spc", klog.KObj(spc), "pod", klog.KObj(pod), "secret", klog.ObjectRef{Namespace: req.Namespace, Name: secretName}, "spcps", klog.KObj(spcPodStatus))
 				// error out here to break out of the backoff and retry the full Reconcile() early
 				if apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err) {
@@ -364,8 +377,9 @@ func (r *SecretProviderClassPodStatusReconciler) Reconcile(ctx context.Context, 
 
 func (r *SecretProviderClassPodStatusReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&secretsstorev1.SecretProviderClassPodStatus{}).
-		WithEventFilter(r.belongsToNodePredicate()).
+		For(&secretsstorev1.SecretProviderClassPodStatus{},
+			builder.WithPredicates(r.belongsToNodePredicate())).
+		WatchesRawSource(source.Func(r.startSecretRecovery)).
 		Complete(r)
 }
 
@@ -400,20 +414,23 @@ func (r *SecretProviderClassPodStatusReconciler) processIfBelongsToNode(objMeta 
 	return true
 }
 
-// createOrUpdateK8sSecret creates K8s secret with data from mounted files
-// If a secret with the same name already exists in the namespace of the pod, it will update that existing secret.
-func (r *SecretProviderClassPodStatusReconciler) createOrUpdateK8sSecret(ctx context.Context, name, namespace string, datamap map[string][]byte, labelsmap map[string]string, annotationsmap map[string]string, secretType corev1.SecretType) error {
+// createOrUpdateK8sSecret creates K8s secret with data from mounted files.
+// If a secret with the same name already exists in the namespace of the pod, it updates that existing secret.
+func (r *SecretProviderClassPodStatusReconciler) createOrUpdateK8sSecret(ctx context.Context, name, namespace string, datamap map[string][]byte, labelsmap map[string]string, annotationsmap map[string]string, secretType corev1.SecretType, ownerRefs ...metav1.OwnerReference) error {
 	secret := &corev1.Secret{}
+	// This cached read is what makes the manager create the Secret informer, so
+	// installations that never sync Secrets start no Secret LIST/WATCH.
 	getErr := r.reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, secret)
 
 	// Secret does not exist, create it
 	if apierrors.IsNotFound(getErr) {
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace:   namespace,
-				Name:        name,
-				Labels:      labelsmap,
-				Annotations: annotationsmap,
+				Namespace:       namespace,
+				Name:            name,
+				Labels:          labelsmap,
+				Annotations:     annotationsmap,
+				OwnerReferences: ownerRefs,
 			},
 			Type: secretType,
 			Data: datamap,
@@ -431,32 +448,21 @@ func (r *SecretProviderClassPodStatusReconciler) createOrUpdateK8sSecret(ctx con
 		return getErr
 	}
 
-	// Secret exists, update it
 	klog.V(5).InfoS("Kubernetes secret is already created", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
 
-	if reflect.DeepEqual(secret.Data, datamap) {
+	mergedOwnerRefs, addedOwnerRefs := mergeOwnerRefs(secret.GetOwnerReferences(), ownerRefs)
+	if len(addedOwnerRefs) == 0 && reflect.DeepEqual(secret.Data, datamap) {
 		return nil
 	}
 
-	oldData, err := json.Marshal(secret)
-	if err != nil {
-		return fmt.Errorf("failed to marshal old secret, err: %w", err)
-	}
+	patch := client.MergeFromWithOptions(secret.DeepCopy(), client.MergeFromWithOptimisticLock{})
 
 	secret.Data = datamap
-
-	newData, err := json.Marshal(secret)
-	if err != nil {
-		return fmt.Errorf("failed to marshal new secret, err: %w", err)
+	if len(addedOwnerRefs) > 0 {
+		secret.SetOwnerReferences(mergedOwnerRefs)
 	}
 
-	// Patching data clobbers existing data
-	patch, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, secret)
-	if err != nil {
-		return fmt.Errorf("failed to create patch, err: %w", err)
-	}
-
-	if err = r.writer.Patch(ctx, secret, client.RawPatch(types.MergePatchType, patch)); err != nil {
+	if err := r.writer.Patch(ctx, secret, patch); err != nil {
 		return err
 	}
 
@@ -464,14 +470,33 @@ func (r *SecretProviderClassPodStatusReconciler) createOrUpdateK8sSecret(ctx con
 	return nil
 }
 
-// patchSecretWithOwnerRef patches the secret owner reference with the spc pod status
+func mergeOwnerRefs(existing, additions []metav1.OwnerReference) ([]metav1.OwnerReference, []metav1.OwnerReference) {
+	merged := slices.Clone(existing)
+	ownerUIDs := sets.New[types.UID]()
+	for _, ref := range existing {
+		ownerUIDs.Insert(ref.UID)
+	}
+
+	var added []metav1.OwnerReference
+	for _, ref := range additions {
+		if ownerUIDs.Has(ref.UID) {
+			continue
+		}
+		ownerUIDs.Insert(ref.UID)
+		merged = append(merged, ref)
+		added = append(added, ref)
+	}
+	return merged, added
+}
+
+// patchSecretWithOwnerRef patches the secret owner reference with the spc pod status.
 func (r *SecretProviderClassPodStatusReconciler) patchSecretWithOwnerRef(ctx context.Context, name, namespace string, ownerRefs ...metav1.OwnerReference) error {
 	secret := &corev1.Secret{}
 	secretKey := types.NamespacedName{
 		Namespace: namespace,
 		Name:      name,
 	}
-	if err := r.Get(ctx, secretKey, secret); err != nil {
+	if err := r.reader.Get(ctx, secretKey, secret); err != nil {
 		if apierrors.IsNotFound(err) {
 			klog.V(5).InfoS("secret not found for patching", "secret", klog.ObjectRef{Namespace: namespace, Name: name})
 			return nil
@@ -479,31 +504,18 @@ func (r *SecretProviderClassPodStatusReconciler) patchSecretWithOwnerRef(ctx con
 		return err
 	}
 
+	mergedOwnerRefs, addedOwnerRefs := mergeOwnerRefs(secret.GetOwnerReferences(), ownerRefs)
+	if len(addedOwnerRefs) == 0 {
+		return nil
+	}
+
+	for _, ref := range addedOwnerRefs {
+		klog.V(5).InfoS("Adding owner ref for secret", "ownerRefAPIVersion", ref.APIVersion, "ownerRefName", ref.Name, "secret", klog.ObjectRef{Namespace: namespace, Name: name})
+	}
+
 	patch := client.MergeFromWithOptions(secret.DeepCopy(), client.MergeFromWithOptimisticLock{})
-	needsPatch := false
-
-	secretOwnerRefs := secret.GetOwnerReferences()
-	secretOwnerMap := make(map[string]types.UID)
-	for _, or := range secretOwnerRefs {
-		secretOwnerMap[or.Name] = or.UID
-	}
-
-	for i := range ownerRefs {
-		if _, exists := secretOwnerMap[ownerRefs[i].Name]; exists {
-			continue
-		}
-		// add to map for tracking
-		secretOwnerMap[ownerRefs[i].Name] = ownerRefs[i].UID
-		needsPatch = true
-		klog.V(5).InfoS("Adding owner ref for secret", "ownerRefAPIVersion", ownerRefs[i].APIVersion, "ownerRefName", ownerRefs[i].Name, "secret", klog.ObjectRef{Namespace: namespace, Name: name})
-		secretOwnerRefs = append(secretOwnerRefs, ownerRefs[i])
-	}
-
-	if needsPatch {
-		secret.SetOwnerReferences(secretOwnerRefs)
-		return r.writer.Patch(ctx, secret, patch)
-	}
-	return nil
+	secret.SetOwnerReferences(mergedOwnerRefs)
+	return r.writer.Patch(ctx, secret, patch)
 }
 
 // generateEvent generates an event

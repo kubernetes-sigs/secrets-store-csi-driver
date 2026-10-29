@@ -111,7 +111,6 @@ func newPod(name, namespace string, owners []metav1.OwnerReference) *corev1.Pod 
 
 func newReconciler(client client.Client, scheme *runtime.Scheme, nodeID string) *SecretProviderClassPodStatusReconciler {
 	return &SecretProviderClassPodStatusReconciler{
-		Client:        client,
 		reader:        client,
 		writer:        client,
 		scheme:        scheme,
@@ -166,6 +165,39 @@ func TestPatchSecretWithOwnerRef(t *testing.T) {
 	g.Expect(secret.GetOwnerReferences()).To(HaveLen(1))
 }
 
+func TestPatchSecretWithOwnerRefSameNameNewUID(t *testing.T) {
+	g := NewWithT(t)
+
+	scheme, err := setupScheme()
+	g.Expect(err).NotTo(HaveOccurred())
+
+	// A workload recreated under the same name gets a new UID. Deduplicating by
+	// name would drop the live owner and leave the secret owned only by the dead
+	// one, which is all garbage collection needs to take it.
+	dead := metav1.OwnerReference{
+		APIVersion: "apps/v1",
+		Kind:       "ReplicaSet",
+		Name:       "pod-6886c65f8f",
+		UID:        "f39da13d-7246-4ef5-aed4-a6905f82cbcd",
+	}
+	live := dead
+	live.UID = "8a2b1c4d-0e5f-4a6b-9c8d-7e6f5a4b3c2d"
+
+	secret := newSecret("my-secret", "default", nil, nil)
+	secret.SetOwnerReferences([]metav1.OwnerReference{dead})
+
+	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build()
+	reconciler := newReconciler(client, scheme, "node1")
+
+	err = reconciler.patchSecretWithOwnerRef(context.TODO(), "my-secret", "default", live)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	got := &corev1.Secret{}
+	err = client.Get(context.TODO(), types.NamespacedName{Name: "my-secret", Namespace: "default"}, got)
+	g.Expect(err).NotTo(HaveOccurred())
+	expectOwnerRefs(g, got, dead, live)
+}
+
 func TestCreateOrUpdateK8sSecret(t *testing.T) {
 	g := NewWithT(t)
 
@@ -180,12 +212,18 @@ func TestCreateOrUpdateK8sSecret(t *testing.T) {
 	}
 	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
 	reconciler := newReconciler(client, scheme, "node1")
+	ownerRef := metav1.OwnerReference{
+		APIVersion: "apps/v1",
+		Kind:       "ReplicaSet",
+		Name:       "pod-6886c65f8f",
+		UID:        "f39da13d-7246-4ef5-aed4-a6905f82cbcd",
+	}
 
 	// secret already exists, just update it.
 	err = reconciler.createOrUpdateK8sSecret(context.TODO(), "my-secret", "default", nil, labels, annotations, corev1.SecretTypeOpaque)
 	g.Expect(err).NotTo(HaveOccurred())
 
-	err = reconciler.createOrUpdateK8sSecret(context.TODO(), "my-secret2", "default", nil, labels, annotations, corev1.SecretTypeOpaque)
+	err = reconciler.createOrUpdateK8sSecret(context.TODO(), "my-secret2", "default", nil, labels, annotations, corev1.SecretTypeOpaque, ownerRef)
 	g.Expect(err).NotTo(HaveOccurred())
 	secret := &corev1.Secret{}
 	err = client.Get(context.TODO(), types.NamespacedName{Name: "my-secret2", Namespace: "default"}, secret)
@@ -194,6 +232,7 @@ func TestCreateOrUpdateK8sSecret(t *testing.T) {
 	g.Expect(secret.Labels).To(Equal(labels))
 
 	g.Expect(secret.Name).To(Equal("my-secret2"))
+	expectOwnerRefs(g, secret, ownerRef)
 }
 
 func TestCreateOrUpdateHotloop(t *testing.T) {
@@ -252,6 +291,19 @@ func TestCreateOrUpdateHotloop(t *testing.T) {
 		Name:       "pod-6886c65f8f",
 		UID:        "f39da13d-7246-4ef5-aed4-a6905f82cbcd",
 	}
+	secondRef := metav1.OwnerReference{
+		APIVersion: "apps/v1",
+		Kind:       "ReplicaSet",
+		Name:       "pod-7c4c69bc9d",
+		UID:        "c8dd7576-693d-45bb-91b9-3580d33a7a32",
+	}
+	// A recreated controller with the same name has a distinct owner identity.
+	thirdRef := metav1.OwnerReference{
+		APIVersion: "apps/v1",
+		Kind:       "ReplicaSet",
+		Name:       secondRef.Name,
+		UID:        "0bc07568-ea78-4085-99d1-bd13ef64742d",
+	}
 
 	secretKey := types.NamespacedName{Name: "secret1", Namespace: "default"}
 	getSecret := func() *corev1.Secret {
@@ -260,7 +312,7 @@ func TestCreateOrUpdateHotloop(t *testing.T) {
 		return s
 	}
 
-	err = reconciler.createOrUpdateK8sSecret(context.TODO(), "secret1", "default", map[string][]byte{"foo": []byte("bar")}, labels, annotations, corev1.SecretTypeOpaque)
+	err = reconciler.createOrUpdateK8sSecret(context.TODO(), "secret1", "default", map[string][]byte{"foo": []byte("bar"), "stale": []byte("remove")}, labels, annotations, corev1.SecretTypeOpaque)
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(createCount).To(Equal(1))
 	g.Expect(updateCount).To(Equal(0))
@@ -276,38 +328,41 @@ func TestCreateOrUpdateHotloop(t *testing.T) {
 	expectOwnerRefs(g, s1, wantRef)
 
 	updateDataMap := map[string][]byte{"foo": []byte("baz")}
-	// update the secret with new content
-	err = reconciler.createOrUpdateK8sSecret(context.TODO(), "secret1", "default", updateDataMap, labels, annotations, corev1.SecretTypeOpaque)
+	// Data and missing owner references are applied in one patch.
+	err = reconciler.createOrUpdateK8sSecret(context.TODO(), "secret1", "default", updateDataMap, labels, annotations, corev1.SecretTypeTLS, secondRef, secondRef)
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(createCount).To(Equal(1))
 	g.Expect(updateCount).To(Equal(0))
 	g.Expect(patchCount).To(Equal(2))
 
-	// owner refs should be preserved
 	s2 := getSecret()
-	expectOwnerRefs(g, s2, wantRef)
+	expectOwnerRefs(g, s2, wantRef, secondRef)
+	g.Expect(s2.Data).To(Equal(updateDataMap))
 
-	// patching should be a no-op
+	// The periodic patcher sees that its owner is already present.
 	err = reconciler.Patcher(context.TODO())
 	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(createCount).To(Equal(1))
-	g.Expect(updateCount).To(Equal(0))
 	g.Expect(patchCount).To(Equal(2))
 
-	// attempt to update with unchanged data results in no-op (early return,
-	// i.e. no patch/update)
-	err = reconciler.createOrUpdateK8sSecret(context.TODO(), "secret1", "default", updateDataMap, labels, annotations, corev1.SecretTypeOpaque)
+	// Unchanged data still adds a newly observed live owner immediately.
+	err = reconciler.createOrUpdateK8sSecret(context.TODO(), "secret1", "default", updateDataMap, labels, annotations, corev1.SecretTypeTLS, thirdRef)
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(createCount).To(Equal(1))
 	g.Expect(updateCount).To(Equal(0))
-	g.Expect(patchCount).To(Equal(2))
+	g.Expect(patchCount).To(Equal(3))
+
+	// Repeating the same desired data and owner is a no-op.
+	err = reconciler.createOrUpdateK8sSecret(context.TODO(), "secret1", "default", updateDataMap, labels, annotations, corev1.SecretTypeTLS, thirdRef)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(patchCount).To(Equal(3))
 
 	s3 := getSecret()
-	expectOwnerRefs(g, s3, wantRef)
+	expectOwnerRefs(g, s3, wantRef, secondRef, thirdRef)
 	g.Expect(s3.Name).To(Equal("secret1"))
 	g.Expect(s3.Labels).To(Equal(labels))
 	g.Expect(s3.Annotations).To(Equal(annotations))
-	g.Expect(s3.Data).To(Equal(map[string][]byte{"foo": []byte("baz")}))
+	g.Expect(s3.Type).To(Equal(corev1.SecretTypeOpaque))
+	g.Expect(s3.Data).To(Equal(updateDataMap))
 }
 
 func TestDataPatch(t *testing.T) {
