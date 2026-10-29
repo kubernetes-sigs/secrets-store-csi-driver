@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 
@@ -25,6 +26,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -595,4 +597,189 @@ func TestPatcherForPodWithOwner(t *testing.T) {
 		Name:       "pod-6886c65f8f",
 		UID:        "f39da13d-7246-4ef5-aed4-a6905f82cbcd",
 	})
+}
+
+func newPatcherTestOwnerRef() metav1.OwnerReference {
+	return metav1.OwnerReference{
+		APIVersion: "apps/v1",
+		Kind:       "ReplicaSet",
+		Name:       "pod-6886c65f8f",
+		UID:        "f39da13d-7246-4ef5-aed4-a6905f82cbcd",
+	}
+}
+
+func newPatcherTestSPCPodStatus(name, namespace, podName, spcName string) *secretsstorev1.SecretProviderClassPodStatus {
+	spcps := newSecretProviderClassPodStatus(name, namespace, "node1")
+	spcps.UID = "5b0f8c2e-7d4a-4e1b-9c3d-2a6f8e1b4c7d"
+	spcps.Status.PodName = podName
+	spcps.Status.SecretProviderClassName = spcName
+	return spcps
+}
+
+func TestPatcherSkipsSPCPodStatusWithMissingSPCOrPod(t *testing.T) {
+	ownerRef := newPatcherTestOwnerRef()
+	jobOwnerRefs := []metav1.OwnerReference{{
+		APIVersion: "batch/v1",
+		Kind:       "Job",
+		Name:       "job-29000000",
+		UID:        "0f5e3c1a-4d2b-4c55-9a1e-6c3f2b7d8e90",
+	}}
+
+	// The fake client lists objects ordered by namespace and name, so each
+	// stale SPCPS is processed before the valid one in "default".
+	tests := []struct {
+		name    string
+		objects []client.Object
+	}{
+		{
+			name: "secret provider class not found",
+			objects: []client.Object{
+				newPatcherTestSPCPodStatus("job-pod-default-removed-spc", "default", "job-pod", "removed-spc"),
+				newPod("job-pod", "default", jobOwnerRefs),
+			},
+		},
+		{
+			name: "secret provider class not found in another namespace",
+			objects: []client.Object{
+				newPatcherTestSPCPodStatus("job-pod-batch-removed-spc", "batch", "job-pod", "removed-spc"),
+				newPod("job-pod", "batch", jobOwnerRefs),
+			},
+		},
+		{
+			name: "pod not found",
+			objects: []client.Object{
+				newPatcherTestSPCPodStatus("deleted-pod-default-spc1", "default", "deleted-pod", "spc1"),
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			g := NewWithT(t)
+
+			scheme, err := setupScheme()
+			g.Expect(err).NotTo(HaveOccurred())
+
+			initObjects := append([]client.Object{
+				newSecretProviderClassPodStatus("pod1-default-spc1", "default", "node1"),
+				newSecretProviderClass("spc1", "default"),
+				newPod("pod1", "default", []metav1.OwnerReference{ownerRef}),
+				newSecret("secret1", "default", nil, nil),
+			}, tc.objects...)
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+			reconciler := newReconciler(client, scheme, "node1")
+
+			g.Expect(reconciler.Patcher(context.TODO())).To(Succeed())
+
+			secret := &corev1.Secret{}
+			g.Expect(client.Get(context.TODO(), types.NamespacedName{Name: "secret1", Namespace: "default"}, secret)).To(Succeed())
+			expectOwnerRefs(g, secret, ownerRef)
+		})
+	}
+}
+
+func TestPatcherFailsWithoutPatchingOnLookupError(t *testing.T) {
+	ownerRef := newPatcherTestOwnerRef()
+	unavailable := apierrors.NewServiceUnavailable("unavailable")
+
+	tests := []struct {
+		name      string
+		failGet   func(obj client.Object, key client.ObjectKey) bool
+		wantError string
+	}{
+		{
+			name: "secret provider class",
+			failGet: func(obj client.Object, key client.ObjectKey) bool {
+				_, ok := obj.(*secretsstorev1.SecretProviderClass)
+				return ok && key.Name == "spc2"
+			},
+			wantError: "failed to get spc spc2",
+		},
+		{
+			name: "pod",
+			failGet: func(obj client.Object, key client.ObjectKey) bool {
+				_, ok := obj.(*corev1.Pod)
+				return ok && key.Name == "pod2"
+			},
+			wantError: "failed to fetch pod during patching",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			g := NewWithT(t)
+
+			scheme, err := setupScheme()
+			g.Expect(err).NotTo(HaveOccurred())
+
+			// The failing SPCPS is listed after the valid one, so the valid owner
+			// has already been collected when the lookup error occurs.
+			initObjects := []client.Object{
+				newSecretProviderClassPodStatus("pod1-default-spc1", "default", "node1"),
+				newSecretProviderClass("spc1", "default"),
+				newPod("pod1", "default", []metav1.OwnerReference{ownerRef}),
+				newSecret("secret1", "default", nil, nil),
+				newPatcherTestSPCPodStatus("pod2-default-spc2", "default", "pod2", "spc2"),
+				newSecretProviderClass("spc2", "default"),
+				newPod("pod2", "default", []metav1.OwnerReference{ownerRef}),
+			}
+			var patchCount int
+			client := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(initObjects...).
+				WithInterceptorFuncs(interceptor.Funcs{
+					Get: func(ctx context.Context, client client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+						if tc.failGet(obj, key) {
+							return unavailable
+						}
+						return client.Get(ctx, key, obj, opts...)
+					},
+					Patch: func(ctx context.Context, client client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+						patchCount++
+						return client.Patch(ctx, obj, patch, opts...)
+					},
+				}).
+				Build()
+			reconciler := newReconciler(client, scheme, "node1")
+
+			err = reconciler.Patcher(context.TODO())
+			g.Expect(err).To(MatchError(ContainSubstring(tc.wantError)))
+			g.Expect(apierrors.IsServiceUnavailable(err)).To(BeTrue())
+			g.Expect(patchCount).To(BeZero())
+
+			secret := &corev1.Secret{}
+			g.Expect(client.Get(context.TODO(), types.NamespacedName{Name: "secret1", Namespace: "default"}, secret)).To(Succeed())
+			g.Expect(secret.OwnerReferences).To(BeEmpty())
+		})
+	}
+}
+
+func TestPatcherReturnsErrorWhenSecretPatchFails(t *testing.T) {
+	g := NewWithT(t)
+
+	scheme, err := setupScheme()
+	g.Expect(err).NotTo(HaveOccurred())
+
+	initObjects := []client.Object{
+		newSecretProviderClassPodStatus("pod1-default-spc1", "default", "node1"),
+		newSecretProviderClass("spc1", "default"),
+		newPod("pod1", "default", []metav1.OwnerReference{newPatcherTestOwnerRef()}),
+		newSecret("secret1", "default", nil, nil),
+	}
+	client := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(initObjects...).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Patch: func(ctx context.Context, client client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+				return apierrors.NewForbidden(corev1.Resource("secrets"), obj.GetName(), errors.New("denied"))
+			},
+		}).
+		Build()
+	reconciler := newReconciler(client, scheme, "node1")
+
+	g.Expect(reconciler.Patcher(context.TODO())).NotTo(Succeed())
+
+	secret := &corev1.Secret{}
+	g.Expect(client.Get(context.TODO(), types.NamespacedName{Name: "secret1", Namespace: "default"}, secret)).To(Succeed())
+	g.Expect(secret.OwnerReferences).To(BeEmpty())
 }
