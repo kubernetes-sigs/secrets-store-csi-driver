@@ -24,6 +24,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	internalerrors "sigs.k8s.io/secrets-store-csi-driver/pkg/errors"
@@ -47,6 +48,10 @@ type nodeServer struct {
 	reader          client.Reader
 	providerClients *PluginClientBuilder
 	rotationConfig  *rotationConfig
+	// spcGenerations holds, per target path, the generation of the SecretProviderClass
+	// used for the last successful mount. A newer generation makes the next
+	// NodePublishVolume call refresh the content before the rotation poll interval.
+	spcGenerations sync.Map
 }
 
 const (
@@ -134,8 +139,10 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			if !os.IsNotExist(err) {
 				klog.InfoS("could not find last modification time for targetpath", "targetPath", targetPath, "err", err)
 			}
-		} else if startTime.Before(lastModificationTime.Add(ns.rotationConfig.rotationCacheDuration)) {
-			// if next rotation is not yet due, then skip the mount operation
+		} else if startTime.Before(lastModificationTime.Add(ns.rotationConfig.rotationCacheDuration)) &&
+			!ns.secretProviderClassChanged(ctx, targetPath, secretProviderClass, podNamespace) {
+			// if next rotation is not yet due and the SecretProviderClass has not changed
+			// since the last mount, then skip the mount operation
 			skipped = true
 			return &csi.NodePublishVolumeResponse{}, nil
 		}
@@ -269,8 +276,27 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		return nil, fmt.Errorf("failed to create secret provider class pod status for pod %s/%s, err: %w", podNamespace, podName, err)
 	}
 
+	ns.spcGenerations.Store(targetPath, spc.GetGeneration())
+
 	klog.InfoS("node publish volume complete", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName}, "time", time.Since(startTime))
 	return &csi.NodePublishVolumeResponse{}, nil
+}
+
+// secretProviderClassChanged reports whether the SecretProviderClass of the volume at
+// targetPath has a different generation than when its content was last mounted, so a
+// change to the SecretProviderClass spec is picked up without waiting for the rotation
+// poll interval. It returns false when the generation of the last mount is unknown or
+// the SecretProviderClass cannot be read.
+func (ns *nodeServer) secretProviderClassChanged(ctx context.Context, targetPath, secretProviderClass, namespace string) bool {
+	mounted, ok := ns.spcGenerations.Load(targetPath)
+	if !ok || secretProviderClass == "" {
+		return false
+	}
+	spc, err := getSecretProviderItem(ctx, ns.client, secretProviderClass, namespace)
+	if err != nil {
+		return false
+	}
+	return spc.GetGeneration() != mounted.(int64)
 }
 
 func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (nuvr *csi.NodeUnpublishVolumeResponse, err error) {
@@ -314,6 +340,8 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 		klog.ErrorS(err, "failed to clean and unmount target path", "targetPath", targetPath, "time", time.Since(startTime))
 		return nil, status.Error(codes.Internal, err.Error())
 	}
+
+	ns.spcGenerations.Delete(targetPath)
 
 	klog.InfoS("node unpublish volume complete", "targetPath", targetPath, "time", time.Since(startTime))
 	return &csi.NodeUnpublishVolumeResponse{}, nil

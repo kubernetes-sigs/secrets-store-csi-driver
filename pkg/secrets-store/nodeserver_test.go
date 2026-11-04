@@ -542,3 +542,37 @@ func targetPath(t *testing.T) string {
 	}
 	return path
 }
+
+func TestSecretProviderClassChanged(t *testing.T) {
+	spc := &secretsstorev1.SecretProviderClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "provider1",
+			Namespace:  "default",
+			Generation: 2,
+		},
+		Spec: secretsstorev1.SecretProviderClassSpec{Provider: "provider1"},
+	}
+	c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(spc).Build()
+	ns := &nodeServer{client: c}
+	ctx := context.Background()
+
+	// Unknown target path: the generation of the last mount is not known.
+	if ns.secretProviderClassChanged(ctx, "/path/a", "provider1", "default") {
+		t.Error("expected no change for an unknown target path")
+	}
+
+	ns.spcGenerations.Store("/path/a", int64(2))
+	if ns.secretProviderClassChanged(ctx, "/path/a", "provider1", "default") {
+		t.Error("expected no change when the generation is the same")
+	}
+
+	ns.spcGenerations.Store("/path/a", int64(1))
+	if !ns.secretProviderClassChanged(ctx, "/path/a", "provider1", "default") {
+		t.Error("expected a change when the generation is newer")
+	}
+
+	// A SecretProviderClass that cannot be read does not force a refresh.
+	if ns.secretProviderClassChanged(ctx, "/path/a", "missing", "default") {
+		t.Error("expected no change when the SecretProviderClass is missing")
+	}
+}

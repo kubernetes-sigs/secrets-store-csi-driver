@@ -31,6 +31,10 @@ To enable auto rotation, set the `--enable-secret-rotation` flag to `true` for t
   - Adding/deleting objects and updating keys in existing `secretObjects` - the pod mount and Kubernetes secret will be updated with the new objects added to the `SecretProviderClass`.
   - Adding new `secretObject` to the existing `secretObjects` - the Kubernetes secret will be created by the controller.
 
+### Refresh before the poll interval
+
+To refresh the mounted contents without waiting for `--rotation-poll-interval`, change the `SecretProviderClass` spec, for example by adding or updating an unused key under `spec.parameters`. Any spec change increases the `SecretProviderClass` `metadata.generation`, and the next republish call from kubelet for a pod that uses it fetches the secrets again, even if the poll interval has not elapsed since the last update. The next republish call still depends on kubelet's republish cadence.
+
 ## How to view the current secret versions loaded in pod mount
 
 The Secrets Store CSI Driver creates a custom resource `SecretProviderClassPodStatus` to track the binding between a pod and `SecretProviderClass`. This `SecretProviderClassPodStatus` status also contains the details about the secrets and versions currently loaded in the pod mount.
