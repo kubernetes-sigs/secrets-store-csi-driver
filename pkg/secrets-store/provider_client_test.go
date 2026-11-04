@@ -34,8 +34,29 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/status"
 )
+
+type failingProviderClient struct {
+	err error
+}
+
+func (f *failingProviderClient) Version(
+	context.Context,
+	*v1alpha1.VersionRequest,
+	...grpc.CallOption,
+) (*v1alpha1.VersionResponse, error) {
+	return nil, f.err
+}
+
+func (f *failingProviderClient) Mount(
+	context.Context,
+	*v1alpha1.MountRequest,
+	...grpc.CallOption,
+) (*v1alpha1.MountResponse, error) {
+	return nil, f.err
+}
 
 func fakeServer(t *testing.T, path, provider string) (*fake.MockCSIProviderServer, func()) {
 	t.Helper()
@@ -527,13 +548,15 @@ func TestVersion(t *testing.T) {
 }
 
 func TestPluginClientBuilder_HealthCheck(t *testing.T) {
-	// this test asserts the read lock and unlock semantics in the
-	// HealthCheck() method work as expected
+	// This test verifies that concurrent Get() calls remain safe while
+	// HealthCheck() runs in the background.
 	path := t.TempDir()
 
 	cb := NewPluginClientBuilder([]string{path})
-	ctx := context.Background()
-	healthCheckInterval := 1 * time.Millisecond
+	defer cb.Cleanup()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	healthCheckInterval := time.Millisecond
 
 	provider := "server"
 	server, cleanup := fakeServer(t, path, provider)
@@ -542,11 +565,29 @@ func TestPluginClientBuilder_HealthCheck(t *testing.T) {
 		t.Fatalf("expected err to be nil, got: %+v", err)
 	}
 
-	// run the provider healthcheck
-	go cb.HealthCheck(ctx, healthCheckInterval)
-	var wg sync.WaitGroup
+	if _, err := cb.Get(ctx, provider); err != nil {
+		t.Fatalf("Get(%q) = %v, want nil", provider, err)
+	}
 
-	// try a concurrent get with the healthcheck running in the background
+	// Run one deterministic check and verify that a healthy client remains.
+	cb.healthCheck(ctx)
+
+	cb.lock.RLock()
+	_, clientExists := cb.clients[provider]
+	_, connExists := cb.conns[provider]
+	cb.lock.RUnlock()
+
+	if !clientExists || !connExists {
+		t.Fatalf("expected healthy provider to remain cached")
+	}
+
+	healthCheckDone := make(chan struct{})
+	go func() {
+		defer close(healthCheckDone)
+		cb.HealthCheck(ctx, healthCheckInterval)
+	}()
+
+	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func() {
@@ -558,6 +599,80 @@ func TestPluginClientBuilder_HealthCheck(t *testing.T) {
 	}
 
 	wg.Wait()
+	cancel()
+	<-healthCheckDone
+}
+
+func TestPluginClientBuilder_HealthCheckEvictsFailedClient(t *testing.T) {
+	oldPath := t.TempDir()
+	newPath := t.TempDir()
+
+	cb := NewPluginClientBuilder([]string{oldPath, newPath})
+	defer cb.Cleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	provider := "server"
+	server, cleanup := fakeServer(t, newPath, provider)
+	defer cleanup()
+	if err := server.Start(); err != nil {
+		t.Fatalf("expected err to be nil, got: %+v", err)
+	}
+
+	staleConn, err := grpc.NewClient(
+		"passthrough:///unhealthy-provider",
+		cb.opts...,
+	)
+	if err != nil {
+		t.Fatalf("expected err to be nil, got: %+v", err)
+	}
+
+	cb.lock.Lock()
+	cb.clients[provider] = &failingProviderClient{
+		err: errors.New("provider healthcheck failed"),
+	}
+	cb.conns[provider] = staleConn
+	cb.lock.Unlock()
+
+	cb.healthCheck(ctx)
+
+	cb.lock.RLock()
+	_, clientExists := cb.clients[provider]
+	_, connExists := cb.conns[provider]
+	cb.lock.RUnlock()
+
+	if clientExists {
+		t.Errorf("expected failed provider client to be removed")
+	}
+	if connExists {
+		t.Errorf("expected failed provider connection to be removed")
+	}
+	if state := staleConn.GetState(); state != connectivity.Shutdown {
+		t.Errorf(
+			"expected connection state %s, got %s",
+			connectivity.Shutdown,
+			state,
+		)
+	}
+
+	// The only current socket is in newPath. Get must rescan the paths
+	// instead of returning the failed cached client.
+	client, err := cb.Get(ctx, provider)
+	if err != nil {
+		t.Fatalf("expected client to be recreated, got: %+v", err)
+	}
+
+	runtimeVersion, err := Version(ctx, client)
+	if err != nil {
+		t.Fatalf("expected recreated client to be healthy, got: %+v", err)
+	}
+	if runtimeVersion != "0.0.10" {
+		t.Errorf(
+			"expected runtime version 0.0.10, got %s",
+			runtimeVersion,
+		)
+	}
 }
 
 func TestIsMaxRecvMsgSizeError(t *testing.T) {
