@@ -17,6 +17,7 @@ limitations under the License.
 package secretutil
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"os"
@@ -435,6 +436,21 @@ func TestGenerateSHAFromSecret(t *testing.T) {
 			assert.Equal(t, test.expectedSHAMatch, sha1 == sha2)
 		})
 	}
+}
+
+func TestGenerateSHAFromSecretLargeValue(t *testing.T) {
+	// Kubernetes Secret values can be up to ~1MiB. A value larger than 64KiB
+	// used to overflow the uint16 length prefix and return an error instead of
+	// a hash, so make sure large values hash without error.
+	large := bytes.Repeat([]byte("a"), 70000)
+	sha, err := GetSHAFromSecret(map[string][]byte{"key": large})
+	assert.NoError(t, err)
+	assert.NotEmpty(t, sha)
+
+	// Values that differ only in length must still produce different hashes.
+	sha2, err := GetSHAFromSecret(map[string][]byte{"key": bytes.Repeat([]byte("a"), 70001)})
+	assert.NoError(t, err)
+	assert.NotEqual(t, sha, sha2)
 }
 
 func TestGetPrivateKey(t *testing.T) {

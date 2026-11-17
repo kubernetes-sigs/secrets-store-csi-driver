@@ -233,10 +233,15 @@ func GetSHAFromSecret(data map[string][]byte) (string, error) {
 	keys := sets.StringKeySet(data).List()
 
 	for _, k := range keys {
+		// Keys are Secret data keys, which Kubernetes limits to 253 characters,
+		// so a uint16 length prefix is always sufficient. Values, however, can be
+		// up to ~1MiB (the Secret size limit), which overflows a uint16 length
+		// prefix and makes cryptobyte fail. Use a uint32 length prefix for values
+		// so large Secret values can be hashed.
 		b.AddUint16LengthPrefixed(func(b *cryptobyte.Builder) {
 			b.AddBytes([]byte(k))
 		})
-		b.AddUint16LengthPrefixed(func(b *cryptobyte.Builder) {
+		b.AddUint32LengthPrefixed(func(b *cryptobyte.Builder) {
 			b.AddBytes(data[k])
 		})
 	}
