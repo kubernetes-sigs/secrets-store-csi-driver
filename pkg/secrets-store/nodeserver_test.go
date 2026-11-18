@@ -26,6 +26,7 @@ import (
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	"sigs.k8s.io/secrets-store-csi-driver/pkg/secrets-store/mocks"
 	providerfake "sigs.k8s.io/secrets-store-csi-driver/provider/fake"
+	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
@@ -541,4 +542,79 @@ func targetPath(t *testing.T) string {
 		t.Fatalf("expected err to be nil, got: %+v", err)
 	}
 	return path
+}
+
+func TestNodePublishVolume_RotationCacheAfterUnchangedContent(t *testing.T) {
+	s := scheme.Scheme
+	s.AddKnownTypes(schema.GroupVersion{Group: secretsstorev1.GroupVersion.Group, Version: secretsstorev1.GroupVersion.Version},
+		&secretsstorev1.SecretProviderClass{},
+		&secretsstorev1.SecretProviderClassList{},
+		&secretsstorev1.SecretProviderClassPodStatus{},
+	)
+	c := fake.NewClientBuilder().WithScheme(s).WithObjects(&secretsstorev1.SecretProviderClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "provider1", Namespace: "default"},
+		Spec:       secretsstorev1.SecretProviderClassSpec{Provider: "provider1", Parameters: map[string]string{"parameter1": "value1"}},
+	}).Build()
+
+	socketPath := t.TempDir()
+	server, err := providerfake.NewMocKCSIProviderServer(filepath.Join(socketPath, "provider1.sock"))
+	if err != nil {
+		t.Fatalf("unexpected mock provider failure: %v", err)
+	}
+	server.SetObjects(map[string]string{"secret/object1": "v1"})
+	server.SetFiles([]*v1alpha1.File{{Path: "object1", Mode: 0644, Contents: []byte("v1")}})
+	if err := server.Start(); err != nil {
+		t.Fatalf("unexpected mock provider start failure: %v", err)
+	}
+	t.Cleanup(server.Stop)
+
+	ns, err := newNodeServer("testnode", mount.NewFakeMounter([]mount.MountPoint{}), NewPluginClientBuilder([]string{socketPath}), c, c, mocks.NewFakeReporter(),
+		&rotationConfig{enabled: true, rotationCacheDuration: time.Minute})
+	if err != nil {
+		t.Fatalf("expected error to be nil, got: %+v", err)
+	}
+
+	target := targetPath(t)
+	req := &csi.NodePublishVolumeRequest{
+		VolumeCapability: &csi.VolumeCapability{},
+		VolumeId:         "testvolid1",
+		TargetPath:       target,
+		VolumeContext: map[string]string{
+			"secretProviderClass": "provider1",
+			"providerName":        "provider1",
+			csiPodName:            "pod1",
+			csiPodNamespace:       "default",
+			csiPodUID:             "poduid1",
+		},
+		Readonly: true,
+	}
+	publish := func() {
+		t.Helper()
+		if _, err := ns.NodePublishVolume(context.TODO(), req); err != nil {
+			t.Fatalf("NodePublishVolume: %v", err)
+		}
+	}
+	age := func() {
+		t.Helper()
+		past := time.Now().Add(-2 * time.Minute)
+		if err := os.Chtimes(target, past, past); err != nil {
+			t.Fatalf("Chtimes: %v", err)
+		}
+	}
+
+	age()
+	publish() // first mount writes v1
+	age()
+	publish() // cache expired: fetches v1 again, nothing to write
+
+	server.SetFiles([]*v1alpha1.File{{Path: "object1", Mode: 0644, Contents: []byte("v2")}})
+	publish() // within the cache duration of the previous fetch: must be skipped
+
+	got, err := os.ReadFile(filepath.Join(target, "object1"))
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if string(got) != "v1" {
+		t.Errorf("republish within the cache duration of an unchanged fetch called the provider: got %q, want %q", got, "v1")
+	}
 }
