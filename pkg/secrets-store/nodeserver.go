@@ -255,6 +255,17 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		return nil, fmt.Errorf("failed to mount secrets store objects for pod %s/%s, err: %w", podNamespace, podName, err)
 	}
 
+	if rotationEnabled {
+		// The rotation cache above is keyed on targetPath's modification time, and the
+		// atomic writer leaves the directory untouched when the provider returns the
+		// content already mounted. Without this, every republish after the first cache
+		// duration calls the provider again.
+		now := time.Now()
+		if err := os.Chtimes(targetPath, now, now); err != nil {
+			klog.ErrorS(err, "failed to update modification time of target path", "targetPath", targetPath, "pod", klog.ObjectRef{Namespace: podNamespace, Name: podName})
+		}
+	}
+
 	// create or update the secret provider class pod status object
 	// SPCPS is created the first time after the pod mount is complete. Update is required in scenarios where
 	// the pod with same name (pods created by statefulsets) is moved to a different node and the old SPCPS
