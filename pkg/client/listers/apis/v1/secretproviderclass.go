@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Kubernetes Authors.
+Copyright 2022 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@ limitations under the License.
 package v1
 
 import (
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
-	v1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
+	apisv1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 )
 
 // SecretProviderClassLister helps list SecretProviderClasses.
@@ -30,7 +30,7 @@ import (
 type SecretProviderClassLister interface {
 	// List lists all SecretProviderClasses in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.SecretProviderClass, err error)
+	List(selector labels.Selector) (ret []*apisv1.SecretProviderClass, err error)
 	// SecretProviderClasses returns an object that can list and get SecretProviderClasses.
 	SecretProviderClasses(namespace string) SecretProviderClassNamespaceLister
 	SecretProviderClassListerExpansion
@@ -38,25 +38,17 @@ type SecretProviderClassLister interface {
 
 // secretProviderClassLister implements the SecretProviderClassLister interface.
 type secretProviderClassLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*apisv1.SecretProviderClass]
 }
 
 // NewSecretProviderClassLister returns a new SecretProviderClassLister.
 func NewSecretProviderClassLister(indexer cache.Indexer) SecretProviderClassLister {
-	return &secretProviderClassLister{indexer: indexer}
-}
-
-// List lists all SecretProviderClasses in the indexer.
-func (s *secretProviderClassLister) List(selector labels.Selector) (ret []*v1.SecretProviderClass, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.SecretProviderClass))
-	})
-	return ret, err
+	return &secretProviderClassLister{listers.New[*apisv1.SecretProviderClass](indexer, apisv1.Resource("secretproviderclass"))}
 }
 
 // SecretProviderClasses returns an object that can list and get SecretProviderClasses.
 func (s *secretProviderClassLister) SecretProviderClasses(namespace string) SecretProviderClassNamespaceLister {
-	return secretProviderClassNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return secretProviderClassNamespaceLister{listers.NewNamespaced[*apisv1.SecretProviderClass](s.ResourceIndexer, namespace)}
 }
 
 // SecretProviderClassNamespaceLister helps list and get SecretProviderClasses.
@@ -64,36 +56,15 @@ func (s *secretProviderClassLister) SecretProviderClasses(namespace string) Secr
 type SecretProviderClassNamespaceLister interface {
 	// List lists all SecretProviderClasses in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.SecretProviderClass, err error)
+	List(selector labels.Selector) (ret []*apisv1.SecretProviderClass, err error)
 	// Get retrieves the SecretProviderClass from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1.SecretProviderClass, error)
+	Get(name string) (*apisv1.SecretProviderClass, error)
 	SecretProviderClassNamespaceListerExpansion
 }
 
 // secretProviderClassNamespaceLister implements the SecretProviderClassNamespaceLister
 // interface.
 type secretProviderClassNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all SecretProviderClasses in the indexer for a given namespace.
-func (s secretProviderClassNamespaceLister) List(selector labels.Selector) (ret []*v1.SecretProviderClass, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.SecretProviderClass))
-	})
-	return ret, err
-}
-
-// Get retrieves the SecretProviderClass from the indexer for a given namespace and name.
-func (s secretProviderClassNamespaceLister) Get(name string) (*v1.SecretProviderClass, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1.Resource("secretproviderclass"), name)
-	}
-	return obj.(*v1.SecretProviderClass), nil
+	listers.ResourceIndexer[*apisv1.SecretProviderClass]
 }

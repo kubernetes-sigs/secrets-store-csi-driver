@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Kubernetes Authors.
+Copyright 2022 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@ limitations under the License.
 package v1
 
 import (
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
-	v1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
+	apisv1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 )
 
 // SecretProviderClassPodStatusLister helps list SecretProviderClassPodStatuses.
@@ -30,7 +30,7 @@ import (
 type SecretProviderClassPodStatusLister interface {
 	// List lists all SecretProviderClassPodStatuses in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.SecretProviderClassPodStatus, err error)
+	List(selector labels.Selector) (ret []*apisv1.SecretProviderClassPodStatus, err error)
 	// SecretProviderClassPodStatuses returns an object that can list and get SecretProviderClassPodStatuses.
 	SecretProviderClassPodStatuses(namespace string) SecretProviderClassPodStatusNamespaceLister
 	SecretProviderClassPodStatusListerExpansion
@@ -38,25 +38,17 @@ type SecretProviderClassPodStatusLister interface {
 
 // secretProviderClassPodStatusLister implements the SecretProviderClassPodStatusLister interface.
 type secretProviderClassPodStatusLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*apisv1.SecretProviderClassPodStatus]
 }
 
 // NewSecretProviderClassPodStatusLister returns a new SecretProviderClassPodStatusLister.
 func NewSecretProviderClassPodStatusLister(indexer cache.Indexer) SecretProviderClassPodStatusLister {
-	return &secretProviderClassPodStatusLister{indexer: indexer}
-}
-
-// List lists all SecretProviderClassPodStatuses in the indexer.
-func (s *secretProviderClassPodStatusLister) List(selector labels.Selector) (ret []*v1.SecretProviderClassPodStatus, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.SecretProviderClassPodStatus))
-	})
-	return ret, err
+	return &secretProviderClassPodStatusLister{listers.New[*apisv1.SecretProviderClassPodStatus](indexer, apisv1.Resource("secretproviderclasspodstatus"))}
 }
 
 // SecretProviderClassPodStatuses returns an object that can list and get SecretProviderClassPodStatuses.
 func (s *secretProviderClassPodStatusLister) SecretProviderClassPodStatuses(namespace string) SecretProviderClassPodStatusNamespaceLister {
-	return secretProviderClassPodStatusNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return secretProviderClassPodStatusNamespaceLister{listers.NewNamespaced[*apisv1.SecretProviderClassPodStatus](s.ResourceIndexer, namespace)}
 }
 
 // SecretProviderClassPodStatusNamespaceLister helps list and get SecretProviderClassPodStatuses.
@@ -64,36 +56,15 @@ func (s *secretProviderClassPodStatusLister) SecretProviderClassPodStatuses(name
 type SecretProviderClassPodStatusNamespaceLister interface {
 	// List lists all SecretProviderClassPodStatuses in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.SecretProviderClassPodStatus, err error)
+	List(selector labels.Selector) (ret []*apisv1.SecretProviderClassPodStatus, err error)
 	// Get retrieves the SecretProviderClassPodStatus from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1.SecretProviderClassPodStatus, error)
+	Get(name string) (*apisv1.SecretProviderClassPodStatus, error)
 	SecretProviderClassPodStatusNamespaceListerExpansion
 }
 
 // secretProviderClassPodStatusNamespaceLister implements the SecretProviderClassPodStatusNamespaceLister
 // interface.
 type secretProviderClassPodStatusNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all SecretProviderClassPodStatuses in the indexer for a given namespace.
-func (s secretProviderClassPodStatusNamespaceLister) List(selector labels.Selector) (ret []*v1.SecretProviderClassPodStatus, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.SecretProviderClassPodStatus))
-	})
-	return ret, err
-}
-
-// Get retrieves the SecretProviderClassPodStatus from the indexer for a given namespace and name.
-func (s secretProviderClassPodStatusNamespaceLister) Get(name string) (*v1.SecretProviderClassPodStatus, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1.Resource("secretproviderclasspodstatus"), name)
-	}
-	return obj.(*v1.SecretProviderClassPodStatus), nil
+	listers.ResourceIndexer[*apisv1.SecretProviderClassPodStatus]
 }
