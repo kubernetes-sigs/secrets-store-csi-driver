@@ -528,7 +528,7 @@ func readPayloads(path string, payloads []*v1alpha1.File) error {
 			return err
 		}
 		if !bytes.Equal(contents, p.Contents) {
-			return errors.New("missmatched file contents")
+			return errors.New("mismatched file contents")
 		}
 	}
 	return nil

@@ -250,7 +250,7 @@ func TestNodePublishVolume_Errors(t *testing.T) {
 					t.Fatalf("expected 'total_node_publish' counter to be incremented, but it was not")
 				}
 
-				// if theres not an error we should check the mount w
+				// if there's not an error we should check the mount w
 				mnts, err := ns.mounter.List()
 				if err != nil {
 					t.Fatalf("expected err to be nil, got: %v", err)
@@ -401,7 +401,7 @@ func TestNodePublishVolume(t *testing.T) {
 					t.Fatalf("expected 'total_node_publish' counter to be incremented, but it was not")
 				}
 
-				// if theres not an error we should check the mount w
+				// if there's not an error we should check the mount w
 				mnts, err := ns.mounter.List()
 				if err != nil {
 					t.Fatalf("expected err to be nil, got: %v", err)
