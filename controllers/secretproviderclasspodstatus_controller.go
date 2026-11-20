@@ -124,23 +124,36 @@ func (r *SecretProviderClassPodStatusReconciler) Patcher(ctx context.Context) er
 	}
 
 	spcPodStatuses := spcPodStatusList.Items
+	// Patcher only adds owner references. An SPCPS whose SPC or pod no longer exists
+	// cannot contribute an owner, so skipping it gives the same result as if that
+	// SPCPS did not exist, instead of blocking every other secret on the node.
+	// Any other error still fails the pass before anything is patched.
 	for i := range spcPodStatuses {
 		spcName := spcPodStatuses[i].Status.SecretProviderClassName
 		spc := &secretsstorev1.SecretProviderClass{}
 		namespace := spcPodStatuses[i].Namespace
+		podName := spcPodStatuses[i].Status.PodName
 
 		if val, exists := spcMap[namespace+"/"+spcName]; exists {
 			spc = &val
 		} else {
 			if err := r.reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: spcName}, spc); err != nil {
+				if apierrors.IsNotFound(err) {
+					klog.ErrorS(err, "skipping secret provider class pod status, secret provider class not found", "spcps", klog.KObj(&spcPodStatuses[i]), "spc", klog.ObjectRef{Namespace: namespace, Name: spcName}, "pod", klog.ObjectRef{Namespace: namespace, Name: podName})
+					continue
+				}
 				return fmt.Errorf("failed to get spc %s, err: %w", spcName, err)
 			}
 			spcMap[namespace+"/"+spcName] = *spc
 		}
 		// get the pod and check if the pod has a owner reference
 		pod := &corev1.Pod{}
-		err = r.reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: spcPodStatuses[i].Status.PodName}, pod)
+		err = r.reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: podName}, pod)
 		if err != nil {
+			if apierrors.IsNotFound(err) {
+				klog.ErrorS(err, "skipping secret provider class pod status, pod not found", "spcps", klog.KObj(&spcPodStatuses[i]), "spc", klog.ObjectRef{Namespace: namespace, Name: spcName}, "pod", klog.ObjectRef{Namespace: namespace, Name: podName})
+				continue
+			}
 			return fmt.Errorf("failed to fetch pod during patching, err: %w", err)
 		}
 		ownerRefs, err := r.secretOwnerRefs(pod, &spcPodStatuses[i])
