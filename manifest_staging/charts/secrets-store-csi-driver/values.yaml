@@ -224,7 +224,8 @@ enableSecretRotation: false
 ## Secret rotation poll interval duration
 rotationPollInterval:
 
-## Provider HealthCheck
+## Enable provider health checks. Failed cached clients are evicted so
+## subsequent requests can recreate connections.
 providerHealthCheck: false
 
 ## Provider HealthCheck interval
