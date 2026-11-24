@@ -91,6 +91,7 @@ linux:
   metricsAddr: ":8095"
   env: []
   priorityClassName: ""
+  hostNetwork: false
   daemonsetAnnotations: {}
   podAnnotations: {}
   podLabels: {}
